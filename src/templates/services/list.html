@@ -57,7 +57,9 @@
                         <th>Name</th>
                         <th>Type</th>
                         <th>Supplier</th>
+                        <th>Periodicity</th>
                         <th>Next Renewal</th>
+                        <th>Autorenew</th>
                         <th>Cost (EUR)</th>
                         <th>Tags</th>
                         <th>Actions</th>
@@ -69,7 +71,13 @@
                         <td><a href="{{ url_for('main.service_detail', id=service.id) }}">{{ service.name }}</a></td>
                         <td><span class="badge bg-secondary">{{ service.service_type }}</span></td>
                         <td><a href="{{ url_for('main.supplier_detail', id=service.supplier.id) }}">{{ service.supplier.name }}</a></td>
+                        <td>{{ service.renewal_period_value }} {{ service.renewal_period_type.title() }}</td>
                         <td>{{ service.next_renewal_date.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <span class="badge {{ 'bg-success' if service.auto_renew else 'bg-warning' }}">
+                                {{ 'Yes' if service.auto_renew else 'No' }}
+                            </span>
+                        </td>
                         <td class="currency-display">€{{ "%.2f"|format(service.cost_eur) }}</td>
                         <td>
                             {% for tag in service.tags %}
@@ -95,6 +103,14 @@
                 </tbody>
             </table>
         </div>
+    </div>
+</div>
+<div class="card mt-4">
+    <div class="card-body text-end">
+        <h5 class="card-title mb-0">
+            Total Cost of Listed Services:
+            <span class="text-primary fw-bold">€{{ "%.2f"|format(total_cost) }}</span>
+        </h5>
     </div>
 </div>
 {% endblock %}

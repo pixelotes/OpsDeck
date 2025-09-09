@@ -51,63 +51,77 @@ def logout():
 @main_bp.route('/')
 @login_required
 def dashboard():
-    """
-    Handles the main dashboard view, showing upcoming renewals and a forecast.
-    """
-    # --- Period Filter Logic ---
+    # --- Upcoming Renewals & Filter Logic (This part is correct and remains the same) ---
     period = request.args.get('period', '30', type=str)
     today = date.today()
     
     if period == '7':
-        end_date = today + timedelta(days=7)
+        start_date, end_date = today, today + timedelta(days=7)
     elif period == '90':
-        end_date = today + timedelta(days=90)
+        start_date, end_date = today, today + timedelta(days=90)
+    elif period == 'current_month':
+        start_date = today.replace(day=1)
+        end_date = start_date + relativedelta(months=+1, days=-1)
+    elif period == 'next_month':
+        start_date = (today.replace(day=1) + relativedelta(months=+1))
+        end_date = start_date + relativedelta(months=+1, days=-1)
     else:
         period = '30'
-        end_date = today + timedelta(days=30)
+        start_date, end_date = today, today + timedelta(days=30)
 
-    # --- CORRECTED: Upcoming Renewals Logic ---
     all_active_services = Service.query.filter_by(is_archived=False).all()
-    upcoming_renewals = [] # This will now store tuples of (renewal_date, service)
-    total_cost = 0
+    upcoming_renewals, total_cost = [], 0
 
     for service in all_active_services:
         next_renewal = service.next_renewal_date
-        
-        # Loop through all future renewals of this service
         while next_renewal <= end_date:
-            # If the renewal falls within our window (today -> end_date), add it
-            if next_renewal >= today:
+            if next_renewal >= start_date:
                 upcoming_renewals.append((next_renewal, service))
                 total_cost += service.cost_eur
-
-            # CORRECTED: Use the centralized method to get the next date
-            next_renewal = service.get_renewal_date_after(next_renewal)
-
-    # Sort the list of renewals by their specific date
+            if service.renewal_period_type == 'monthly':
+                next_renewal += relativedelta(months=+service.renewal_period_value)
+            elif service.renewal_period_type == 'yearly':
+                next_renewal += relativedelta(years=+service.renewal_period_value)
+            else:
+                next_renewal += timedelta(days=service.renewal_period_value)
     upcoming_renewals.sort(key=lambda x: x[0])
 
 
-    # --- Forecast Chart Logic ---
-    end_of_forecast_period = today + relativedelta(months=+13)
-    forecast_labels, forecast_keys, forecast_costs = [], [], {}
+    # --- CORRECTED: Forecast Chart Logic ---
+    forecast_start_date = today.replace(day=1)
+    end_of_forecast_period = forecast_start_date + relativedelta(months=+13)
     
+    forecast_labels, forecast_keys, forecast_costs = [], [], {}
     for i in range(13):
-        month_date = today + relativedelta(months=+i)
+        month_date = forecast_start_date + relativedelta(months=+i)
         year_month_key = month_date.strftime('%Y-%m')
         forecast_labels.append(month_date.strftime('%b %Y'))
         forecast_keys.append(year_month_key)
         forecast_costs[year_month_key] = 0
 
     for service in all_active_services:
-        next_renewal = service.next_renewal_date
-        while next_renewal < end_of_forecast_period:
-            year_month_key = next_renewal.strftime('%Y-%m')
+        # Start from the original renewal date to find the first relevant occurrence
+        renewal = service.renewal_date
+        while renewal < forecast_start_date:
+            if service.renewal_period_type == 'monthly':
+                renewal += relativedelta(months=+service.renewal_period_value)
+            elif service.renewal_period_type == 'yearly':
+                renewal += relativedelta(years=+service.renewal_period_value)
+            else:
+                renewal += timedelta(days=service.renewal_period_value)
+
+        # Now, loop through all renewals that fall within our 13-month window
+        while renewal < end_of_forecast_period:
+            year_month_key = renewal.strftime('%Y-%m')
             if year_month_key in forecast_costs:
                 forecast_costs[year_month_key] += service.cost_eur
             
-            # CORRECTED: Use the centralized method here as well
-            next_renewal = service.get_renewal_date_after(next_renewal)
+            if service.renewal_period_type == 'monthly':
+                renewal += relativedelta(months=+service.renewal_period_value)
+            elif service.renewal_period_type == 'yearly':
+                renewal += relativedelta(years=+service.renewal_period_value)
+            else:
+                renewal += timedelta(days=service.renewal_period_value)
     
     forecast_data = [round(cost, 2) for cost in forecast_costs.values()]
 
@@ -287,6 +301,8 @@ def services():
         except ValueError:
             flash("Invalid month format in filter.", "error")
 
+    # Calculate combined costs of listed items
+    total_cost_of_listed_services = sum(service.cost_eur for service in all_services)
 
     # --- Prepare data for the filter dropdowns in the template ---
     service_types_query = db.session.query(Service.service_type).distinct().all()
@@ -299,7 +315,8 @@ def services():
                             selected_filter=service_type_filter,
                             tags=all_tags, 
                             selected_tag_id=tag_filter,
-                            month_filter=month_filter)
+                            month_filter=month_filter,
+                            total_cost=total_cost_of_listed_services)
 
 @main_bp.route('/services/<int:id>')
 @login_required
@@ -869,73 +886,139 @@ def delete_tag(id):
 @main_bp.route('/reports')
 @login_required
 def reports():
-    # --- Chart 1 & 2: Spending by Supplier & Type (Existing Logic) ---
-    cost_in_eur = case(
-        (Service.currency == 'USD', Service.cost * 0.92),
-        (Service.currency == 'GBP', Service.cost * 1.18),
-        else_=Service.cost
-    ).label('cost_in_eur')
+    today = date.today()
+    selected_year = request.args.get('year', default=today.year, type=int)
+
+    supplier_spending = {}
+
+    year_start = date(selected_year, 1, 1)
+    year_end = date(selected_year, 12, 31)
+
+    all_active_services = Service.query.filter_by(is_archived=False).all()
+
+    # --- Chart 1: Spending by Supplier) ---
+    supplier_spending = {} # Use a dictionary to aggregate costs
     
-    spending_by_supplier = db.session.query(Supplier.name, func.sum(cost_in_eur)).join(Service).filter(Service.is_archived == False).group_by(Supplier.name).order_by(func.sum(cost_in_eur).desc()).all()
-    supplier_labels = [item[0] for item in spending_by_supplier]
-    supplier_data = [round(item[1], 2) for item in spending_by_supplier]
+    # Define the start and end of the selected year
+    year_start = date(selected_year, 1, 1)
+    year_end = date(selected_year, 12, 31)
+
+    for service in all_active_services:
+        renewal = service.renewal_date
+        # Fast-forward to the start of the selected year
+        while renewal < year_start:
+            if service.renewal_period_type == 'monthly':
+                renewal += relativedelta(months=+service.renewal_period_value)
+            elif service.renewal_period_type == 'yearly':
+                renewal += relativedelta(years=+service.renewal_period_value)
+            else:
+                renewal += timedelta(days=service.renewal_period_value)
+        
+        # Now, log every renewal that falls within the selected year
+        while renewal <= year_end:
+            supplier_name = service.supplier.name
+            if supplier_name not in supplier_spending:
+                supplier_spending[supplier_name] = 0
+            supplier_spending[supplier_name] += service.cost_eur
+            
+            if service.renewal_period_type == 'monthly':
+                renewal += relativedelta(months=+service.renewal_period_value)
+            elif service.renewal_period_type == 'yearly':
+                renewal += relativedelta(years=+service.renewal_period_value)
+            else:
+                renewal += timedelta(days=service.renewal_period_value)
+    
+    # Sort suppliers by total spending
+    sorted_supplier_spending = sorted(supplier_spending.items(), key=lambda item: item[1], reverse=True)
+    
+    supplier_labels = [item[0] for item in sorted_supplier_spending]
+    supplier_data = [round(item[1], 2) for item in sorted_supplier_spending]
+
+    # --- Get available years for the dropdown ---
+    available_years_query = db.session.query(func.strftime('%Y', Service.renewal_date)).distinct().order_by(func.strftime('%Y', Service.renewal_date).desc()).all()
+    available_years = [int(y[0]) for y in available_years_query]
+
+    # --- Chart 2 (Services by type) ---
 
     services_by_type = db.session.query(Service.service_type, func.count(Service.id)).filter(Service.is_archived == False).group_by(Service.service_type).order_by(func.count(Service.id).desc()).all()
     type_labels = [item[0].title() for item in services_by_type]
     type_data = [item[1] for item in services_by_type]
     
-    # --- Chart 3 & 4: Historical Spending (Existing Logic) ---
-    twelve_months_ago = datetime.now() - timedelta(days=365)
-    monthly_spending_data = db.session.query(
-        func.strftime('%Y-%m', Service.renewal_date),
-        func.sum(cost_in_eur)
-    ).filter(Service.is_archived == False, Service.renewal_date >= twelve_months_ago).group_by(func.strftime('%Y-%m', Service.renewal_date)).all()
-    monthly_spending = {year_month: total for year_month, total in monthly_spending_data}
-    monthly_labels = []
-    monthly_data = []
-    for i in range(12, -1, -1):
-        month_date = datetime.now() - relativedelta(months=i)
-        year_month_key = month_date.strftime('%Y-%m')
-        label = f"{month_abbr[month_date.month]} {month_date.year}"
-        monthly_labels.append(label)
-        monthly_data.append(round(monthly_spending.get(year_month_key, 0), 2))
-
-    five_years_ago = datetime.now() - timedelta(days=365*5)
-    yearly_spending_data = db.session.query(
-        func.strftime('%Y', Service.renewal_date),
-        func.sum(cost_in_eur)
-    ).filter(Service.is_archived == False, Service.renewal_date >= five_years_ago).group_by(func.strftime('%Y', Service.renewal_date)).all()
-    yearly_spending = {year: total for year, total in yearly_spending_data}
-    yearly_labels = []
-    yearly_data = []
-    current_year = datetime.now().year
-    for year in range(current_year - 4, current_year + 1):
-        yearly_labels.append(str(year))
-        yearly_data.append(round(yearly_spending.get(str(year), 0), 2))
-        
-    # --- Chart 5: Upcoming Renewal Costs Forecast ---
+    all_active_services = Service.query.filter_by(is_archived=False).all()
     today = date.today()
-    end_of_forecast_period = today + relativedelta(months=+13)
-    forecast_labels = []
-    forecast_costs = {}
+
+    # --- CORRECTED: Chart 3 & 4: Historical Spending ---
+    # Monthly Spending (Last 12 full months + current month)
+    monthly_start_date = (today.replace(day=1) - relativedelta(months=12))
+    monthly_labels, monthly_costs = [], {}
+    for i in range(13):
+        month_date = monthly_start_date + relativedelta(months=i)
+        year_month_key = month_date.strftime('%Y-%m')
+        monthly_labels.append(month_date.strftime('%b %Y'))
+        monthly_costs[year_month_key] = 0
+
+    # Yearly Spending (Last 4 full years + current year)
+    yearly_start_date = today.replace(year=today.year - 4, month=1, day=1)
+    yearly_labels, yearly_costs = [], {}
+    for i in range(5):
+        year_date = yearly_start_date + relativedelta(years=i)
+        yearly_labels.append(year_date.strftime('%Y'))
+        yearly_costs[year_date.strftime('%Y')] = 0
+        
+    for service in all_active_services:
+        # Start from the service's very first renewal date for historical accuracy
+        renewal = service.renewal_date
+        # Fast-forward to the start of our historical window
+        while renewal < yearly_start_date:
+            if service.renewal_period_type == 'monthly':
+                renewal += relativedelta(months=+service.renewal_period_value)
+            elif service.renewal_period_type == 'yearly':
+                renewal += relativedelta(years=+service.renewal_period_value)
+            else:
+                renewal += timedelta(days=service.renewal_period_value)
+        
+        # Now, log every renewal event that occurred up until today
+        while renewal <= today:
+            year_key = renewal.strftime('%Y')
+            if year_key in yearly_costs:
+                yearly_costs[year_key] += service.cost_eur
+            
+            month_key = renewal.strftime('%Y-%m')
+            if month_key in monthly_costs:
+                monthly_costs[month_key] += service.cost_eur
+
+            if service.renewal_period_type == 'monthly':
+                renewal += relativedelta(months=+service.renewal_period_value)
+            elif service.renewal_period_type == 'yearly':
+                renewal += relativedelta(years=+service.renewal_period_value)
+            else:
+                renewal += timedelta(days=service.renewal_period_value)
+
+    monthly_data = [round(cost, 2) for cost in monthly_costs.values()]
+    yearly_data = [round(cost, 2) for cost in yearly_costs.values()]
     
+    # --- Forecast Chart Logic (This is also corrected to match the dashboard) ---
+    end_of_forecast_period = today + relativedelta(months=+13)
+    forecast_labels, forecast_keys, forecast_costs = [], [], {}
     for i in range(13):
         month_date = today + relativedelta(months=+i)
         year_month_key = month_date.strftime('%Y-%m')
         forecast_labels.append(month_date.strftime('%b %Y'))
+        forecast_keys.append(year_month_key)
         forecast_costs[year_month_key] = 0
 
-    active_services = Service.query.filter_by(is_archived=False).all()
-
-    for service in active_services:
-        next_renewal = service.next_renewal_date
-        while next_renewal < end_of_forecast_period:
-            year_month_key = next_renewal.strftime('%Y-%m')
+    for service in all_active_services:
+        renewal = service.next_renewal_date
+        while renewal < end_of_forecast_period:
+            year_month_key = renewal.strftime('%Y-%m')
             if year_month_key in forecast_costs:
                 forecast_costs[year_month_key] += service.cost_eur
-            
-            # CORRECTED: Use the centralized method for accurate forecasting
-            next_renewal = service.get_renewal_date_after(next_renewal)
+            if service.renewal_period_type == 'monthly':
+                renewal += relativedelta(months=+service.renewal_period_value)
+            elif service.renewal_period_type == 'yearly':
+                renewal += relativedelta(years=+service.renewal_period_value)
+            else:
+                renewal += timedelta(days=service.renewal_period_value)
     
     forecast_data = [round(cost, 2) for cost in forecast_costs.values()]
 
@@ -945,6 +1028,6 @@ def reports():
         type_labels=type_labels, type_data=type_data,
         monthly_labels=monthly_labels, monthly_data=monthly_data,
         yearly_labels=yearly_labels, yearly_data=yearly_data,
-        forecast_labels=forecast_labels,
-        forecast_data=forecast_data
+        forecast_labels=forecast_labels, forecast_data=forecast_data,
+        available_years=available_years, selected_year=selected_year
     )

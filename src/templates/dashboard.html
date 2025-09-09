@@ -14,7 +14,13 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h5>Upcoming Renewals Total (Next {{ selected_period }} Days)</h5>
+                        {% if selected_period == 'current_month' %}
+                            <h5>Upcoming Renewals Total (Current Month)</h5>
+                        {% elif selected_period == 'next_month' %}
+                            <h5>Upcoming Renewals Total (Next Month)</h5>
+                        {% else %}
+                            <h5>Upcoming Renewals Total (Next {{ selected_period }} Days)</h5>
+                        {% endif %}
                         <h3>€{{ "%.2f"|format(total_cost) }}</h3>
                     </div>
                     <i class="fas fa-euro-sign fa-2x opacity-50"></i>
@@ -29,6 +35,8 @@
                 <option value="7" {% if selected_period == '7' %}selected{% endif %}>Next 7 Days</option>
                 <option value="30" {% if selected_period == '30' %}selected{% endif %}>Next 30 Days</option>
                 <option value="90" {% if selected_period == '90' %}selected{% endif %}>Next 90 Days</option>
+                <option value="current_month" {% if selected_period == 'current_month' %}selected{% endif %}>Current Month</option>
+                <option value="next_month" {% if selected_period == 'next_month' %}selected{% endif %}>Next Month</option>
             </select>
         </form>
     </div>
