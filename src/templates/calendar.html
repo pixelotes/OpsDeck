@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+{% block title %}Renewal Calendar - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.8/index.min.css" rel="stylesheet">
+<style>
+    .fc-event-main-frame {
+        font-size: 12px;
+        line-height: 1.4;
+    }
+    .fc-event-title, .fc-event-cost {
+        /* This is the key change: forces each element to a new line */
+        display: block;
+    }
+    .fc-event-title {
+        font-weight: bold;
+    }
+    .fc-event-cost {
+        font-weight: normal;
+        opacity: 0.8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-calendar"></i> Renewal Calendar</h2>
+    <div>
+        <span class="badge bg-primary me-2"><i class="fas fa-sync"></i> Auto Renew</span>
+        <span class="badge bg-warning text-dark"><i class="fas fa-hand-paper"></i> Manual Renew</span>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div id="calendar"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='js/fullcalendar.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,listWeek'
+        },
+        events: "{{ url_for('main.calendar_events') }}",
+        eventClick: function(info) {
+            info.jsEvent.preventDefault(); 
+            if (info.event.url) {
+                window.location.href = info.event.url;
+            }
+        },
+        eventContent: function(arg) {
+            let props = arg.event.extendedProps;
+            let innerHtml = `
+                <div class="fc-event-main-frame">
+                    <div class="fc-event-title-container">
+                        <div class="fc-event-title fc-sticky">${props.service_name}</div>
+                    </div><br/>
+                    <div class="fc-event-cost">${props.cost_eur}</div>
+                </div>`;
+
+            return { html: innerHtml };
+        }
+    });
+    calendar.render();
+});
+</script>
+{% endblock %}

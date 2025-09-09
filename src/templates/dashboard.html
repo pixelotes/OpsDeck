@@ -1,0 +1,103 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
+    <span class="badge bg-secondary">{{ today.strftime('%B %d, %Y') }}</span>
+</div>
+
+<div class="row mb-4 align-items-center">
+    <div class="col-md-8">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5>Upcoming Renewals Total (Next {{ selected_period }} Days)</h5>
+                        <h3>€{{ "%.2f"|format(total_cost) }}</h3>
+                    </div>
+                    <i class="fas fa-euro-sign fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-flex align-items-center">
+            <label for="period" class="form-label me-2 mb-0">Show:</label>
+            <select name="period" id="period" class="form-select" onchange="this.form.submit()">
+                <option value="7" {% if selected_period == '7' %}selected{% endif %}>Next 7 Days</option>
+                <option value="30" {% if selected_period == '30' %}selected{% endif %}>Next 30 Days</option>
+                <option value="90" {% if selected_period == '90' %}selected{% endif %}>Next 90 Days</option>
+            </select>
+        </form>
+    </div>
+</div>
+
+
+<div class="card">
+    <div class="card-header">
+        <h5><i class="fas fa-clock"></i> Upcoming Renewals</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% if upcoming_renewals %}
+                {% for renewal_date, service in upcoming_renewals %}
+                <div class="col-md-6 mb-3">
+                    {% set days_left = (renewal_date - today).days %}
+                    <div class="card renewal-card {% if days_left <= 7 %}urgent{% elif days_left <= 14 %}warning{% endif %}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title">
+                                        <a href="{{ url_for('main.service_detail', id=service.id) }}" class="text-decoration-none">{{ service.name }}</a>
+                                        <small class="text-muted fw-normal">on {{ renewal_date.strftime('%b %d') }}</small>
+                                    </h6>
+                                    
+                                    <p class="card-text text-muted mb-1">{{ service.service_type }} • <a href="{{ url_for('main.supplier_detail', id=service.supplier.id) }}" class="text-decoration-none text-muted">{{ service.supplier.name }}</a></p>
+                                    
+                                    <div class="mb-2">
+                                    {% for tag in service.tags %}
+                                        <a href="{{ url_for('main.services', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none fw-normal">{{ tag.name }}</a>
+                                    {% endfor %}
+                                    </div>
+
+                                    <p class="card-text">
+                                        <small class="text-muted">Renews in {{ days_left }} day{{ 's' if days_left != 1 else '' }}</small>
+                                    </p>
+                                </div>
+                                <div class="text-end">
+                                    <span class="currency-display">€{{ "%.2f"|format(service.cost_eur) }}</span><br>
+                                    <span class="badge {{ 'bg-success' if service.auto_renew else 'bg-warning' }}">
+                                        {{ 'Auto' if service.auto_renew else 'Manual' }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12"><p class="text-muted">No upcoming renewals in this period.</p></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h5><i class="fas fa-chart-line"></i> Upcoming Renewal Costs Forecast (€)</h5>
+    </div>
+    <div class="card-body">
+        <canvas id="forecastChart" 
+                data-labels='{{ forecast_labels|tojson|safe }}' 
+                data-values='{{ forecast_data|tojson|safe }}'
+                data-keys='{{ forecast_keys|tojson|safe }}'></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+{% endblock %}

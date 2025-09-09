@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ contact.name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-user"></i> {{ contact.name }}</h2>
+    <a href="{{ url_for('main.edit_contact', id=contact.id) }}" class="btn btn-outline-primary">
+        <i class="fas fa-edit"></i> Edit Contact
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Contact Details</div>
+    <div class="card-body">
+        <p><strong>Email:</strong> {{ contact.email or 'N/A' }}</p>
+        <p><strong>Phone:</strong> {{ contact.phone or 'N/A' }}</p>
+        <p><strong>Role:</strong> {{ contact.role or 'N/A' }}</p>
+        <p class="mb-0"><strong>Supplier:</strong> <a href="{{ url_for('main.supplier_detail', id=contact.supplier.id) }}">{{ contact.supplier.name }}</a></p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-cogs"></i> Associated Services ({{ contact.services|length }})
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for service in contact.services %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('main.edit_service', id=service.id) }}">{{ service.name }}</a>
+                <span class="badge bg-secondary">{{ service.service_type }}</span>
+            </li>
+        {% else %}
+            <li class="list-group-item text-muted">This contact is not associated with any services.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

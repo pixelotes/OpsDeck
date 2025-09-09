@@ -1,0 +1,7 @@
+Flask
+Flask-SQLAlchemy
+Flask-Migrate
+requests
+APScheduler
+python-dateutil
+gunicorn

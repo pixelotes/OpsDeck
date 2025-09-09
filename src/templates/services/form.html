@@ -1,0 +1,211 @@
+{% extends "layout.html" %}
+
+{% set title = "Edit Service" if service else "New Service" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-cogs"></i> {{ title }}</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="name" class="form-label">Name *</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ service.name if service else '' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="service_type" class="form-label">Type *</label>
+                    <select class="form-select" id="service_type" name="service_type" required>
+                        {% set types = ['service', 'contract', 'license', 'domain', 'certificate'] %}
+                        {% for type in types %}
+                        <option value="{{ type }}" {% if service and service.service_type == type %}selected{% endif %}>{{ type.title() }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="3">{{ service.description if service else '' }}</textarea>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="supplier_id" class="form-label">Supplier *</label>
+                    <select class="form-select" id="supplier_id" name="supplier_id" required>
+                        <option value="">Select a supplier...</option>
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if service and service.supplier_id == supplier.id %}selected{% endif %}>
+                            {{ supplier.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="contact_ids" class="form-label">Associated Contacts</label>
+                    <select class="form-select" id="contact_ids" name="contact_ids" multiple size="3">
+                        {% set selected_contacts = service.contacts|map(attribute='id')|list if service else [] %}
+                        {% for contact in contacts %}
+                        <option value="{{ contact.id }}" {% if contact.id in selected_contacts %}selected{% endif %}>
+                            {{ contact.name }} ({{ contact.supplier.name }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="form-text text-muted">Hold Ctrl or Command to select multiple.</small>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label for="payment_method_ids" class="form-label">Payment Methods</label>
+                    <select class="form-select" id="payment_method_ids" name="payment_method_ids" multiple size="3">
+                        {% set selected_pms = service.payment_methods|map(attribute='id')|list if service else [] %}
+                        {% for pm in payment_methods %}
+                        <option value="{{ pm.id }}" {% if pm.id in selected_pms %}selected{% endif %}>
+                            {{ pm.name }} ({{ pm.details or pm.method_type }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="form-text text-muted">Hold Ctrl or Command to select multiple methods.</small>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="renewal_date" class="form-label">Initial Renewal Date *</label>
+                    <input type="date" class="form-control" id="renewal_date" name="renewal_date" value="{{ service.renewal_date.strftime('%Y-%m-%d') if service else '' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="renewal_period_type" class="form-label">Period Type *</label>
+                    <select class="form-select" id="renewal_period_type" name="renewal_period_type" required>
+                        {% set period_types = ['monthly', 'yearly', 'custom'] %}
+                        {% for ptype in period_types %}
+                        <option value="{{ ptype }}" {% if service and service.renewal_period_type == ptype %}selected{% endif %}>{{ ptype.title() }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="renewal_period_value" class="form-label">Period Value</label>
+                    <input type="number" class="form-control" id="renewal_period_value" name="renewal_period_value" min="1" value="{{ service.renewal_period_value if service else '1' }}">
+                    <small class="form-text text-muted">e.g., 1 for yearly, 90 for 90 days</small>
+                </div>
+            </div>
+
+            <div id="monthly-options" class="row mb-3 p-3 bg-light rounded" style="display: none;">
+                <label class="form-label fw-bold">Advanced Monthly Renewal Day</label>
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="monthly_renewal_day_selector" id="day_default" value="default" {% if not service or not service.monthly_renewal_day %}checked{% endif %}>
+                        <label class="form-check-label" for="day_default">Same day as initial renewal (e.g., the 15th)</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="monthly_renewal_day_selector" id="day_first" value="first" {% if service and service.monthly_renewal_day == 'first' %}checked{% endif %}>
+                        <label class="form-check-label" for="day_first">First day of the month</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="monthly_renewal_day_selector" id="day_last" value="last" {% if service and service.monthly_renewal_day == 'last' %}checked{% endif %}>
+                        <label class="form-check-label" for="day_last">Last day of the month</label>
+                    </div>
+                    <div class="form-check d-flex align-items-center mt-2">
+                        <input class="form-check-input" type="radio" name="monthly_renewal_day_selector" id="day_specific_selector" value="specific" {% if service and service.monthly_renewal_day and service.monthly_renewal_day not in ['first', 'last'] %}checked{% endif %}>
+                        <label class="form-check-label me-2" for="day_specific_selector">Specific day:</label>
+                        <input type="number" class="form-control form-control-sm" style="width: 80px;" name="monthly_renewal_day" id="day_specific_value" min="1" max="31" value="{{ service.monthly_renewal_day if service and service.monthly_renewal_day not in ['first', 'last'] else '' }}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="cost" class="form-label">Cost *</label>
+                    <input type="number" class="form-control" id="cost" name="cost" step="0.01" value="{{ service.cost if service else '' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="currency" class="form-label">Currency</label>
+                    <select class="form-select" id="currency" name="currency">
+                        {% set currencies = ['EUR', 'USD', 'GBP'] %}
+                        {% for curr in currencies %}
+                        <option value="{{ curr }}" {% if service and service.currency == curr %}selected{% endif %}>{{ curr }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="auto_renew" name="auto_renew" value="True" {% if service and service.auto_renew %}checked{% endif %}>
+                        <label class="form-check-label" for="auto_renew">Auto Renew</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label for="tag_ids" class="form-label">Tags</label>
+                    <select class="form-select" id="tag_ids" name="tag_ids" multiple size="3">
+                        {% set selected_tags = service.tags|map(attribute='id')|list if service else [] %}
+                        {% for tag in tags %}
+                        <option value="{{ tag.id }}" {% if tag.id in selected_tags %}selected{% endif %}>{{ tag.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <hr>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('main.services') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save Service</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const periodTypeSelect = document.getElementById('renewal_period_type');
+    const monthlyOptionsDiv = document.getElementById('monthly-options');
+    const specificDayRadio = document.getElementById('day_specific_selector');
+    const specificDayValue = document.getElementById('day_specific_value');
+    
+    // Get all radio buttons in the group
+    const radioButtons = document.querySelectorAll('input[name="monthly_renewal_day_selector"]');
+
+    function toggleMonthlyOptions() {
+        if (periodTypeSelect.value === 'monthly') {
+            monthlyOptionsDiv.style.display = 'flex';
+        } else {
+            monthlyOptionsDiv.style.display = 'none';
+        }
+    }
+
+    // When the specific day input is focused or changed, select its corresponding radio button
+    specificDayValue.addEventListener('input', function() {
+        specificDayRadio.checked = true;
+    });
+    
+    // When a radio button is selected...
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', () => {
+            // ...if it's not the 'specific day' radio, clear the number input.
+            if (radio.id !== 'day_specific_selector') {
+                specificDayValue.value = '';
+            }
+            // ...if it IS the 'specific day' radio, focus the input.
+            else {
+                specificDayValue.focus();
+            }
+        });
+    });
+
+    // Listen for changes on the main dropdown
+    periodTypeSelect.addEventListener('change', toggleMonthlyOptions);
+
+    // Run the check once on page load to set the initial state
+    toggleMonthlyOptions();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends "layout.html" %}
+
+{% block title %}Services - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-cogs"></i> Services</h2>
+    <div>
+        <a href="{{ url_for('main.archived_services') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-archive"></i> View Archived
+        </a>
+        <a href="{{ url_for('main.new_service') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Service
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('main.services') }}" class="row g-3 align-items-center">
+            <div class="col-md-5">
+                <label for="service_type" class="form-label visually-hidden">Type</label>
+                <div class="input-group">
+                    <span class="input-group-text">Type</span>
+                    <select name="service_type" class="form-select" onchange="this.form.submit()">
+                        <option value="all">All Types</option>
+                        {% for type in service_types %}
+                        <option value="{{ type }}" {% if selected_filter == type %}selected{% endif %}>{{ type.title() }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <label for="tag_id" class="form-label visually-hidden">Tag</label>
+                <div class="input-group">
+                    <span class="input-group-text">Tag</span>
+                    <select name="tag_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Tags</option>
+                        {% for tag in tags %}
+                        <option value="{{ tag.id }}" {% if selected_tag_id == tag.id %}selected{% endif %}>{{ tag.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <a href="{{ url_for('main.services') }}" class="btn btn-outline-secondary w-100">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Supplier</th>
+                        <th>Next Renewal</th>
+                        <th>Cost (EUR)</th>
+                        <th>Tags</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for service in services %}
+                    <tr>
+                        <td><a href="{{ url_for('main.service_detail', id=service.id) }}">{{ service.name }}</a></td>
+                        <td><span class="badge bg-secondary">{{ service.service_type }}</span></td>
+                        <td><a href="{{ url_for('main.supplier_detail', id=service.supplier.id) }}">{{ service.supplier.name }}</a></td>
+                        <td>{{ service.next_renewal_date.strftime('%Y-%m-%d') }}</td>
+                        <td class="currency-display">€{{ "%.2f"|format(service.cost_eur) }}</td>
+                        <td>
+                            {% for tag in service.tags %}
+                                <a href="{{ url_for('main.services', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none">{{ tag.name }}</a>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('main.edit_service', id=service.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <form action="{{ url_for('main.archive_service', id=service.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this service?');">
+                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
+                                    <i class="fas fa-archive"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center">No services found for the selected filter.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

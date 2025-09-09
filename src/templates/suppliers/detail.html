@@ -1,0 +1,84 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ supplier.name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-building"></i> {{ supplier.name }}</h2>
+    <a href="{{ url_for('main.edit_supplier', id=supplier.id) }}" class="btn btn-outline-primary">
+        <i class="fas fa-edit"></i> Edit Supplier
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Supplier Details</div>
+    <div class="card-body">
+        <p><strong>Email:</strong> {{ supplier.email or 'N/A' }}</p>
+        <p><strong>Phone:</strong> {{ supplier.phone or 'N/A' }}</p>
+        <p class="mb-0"><strong>Address:</strong> {{ supplier.address or 'N/A' }}</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-cogs"></i> Associated Services ({{ supplier.services|length }})
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for service in supplier.services %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('main.edit_service', id=service.id) }}">{{ service.name }}</a>
+                        <span class="badge bg-secondary">{{ service.service_type }}</span>
+                    </li>
+                {% else %}
+                    <li class="list-group-item text-muted">No services associated with this supplier.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-users"></i> Associated Contacts ({{ supplier.contacts|length }})
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for contact in supplier.contacts %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                         <a href="{{ url_for('main.edit_contact', id=contact.id) }}">{{ contact.name }}</a>
+                        <span class="text-muted small">{{ contact.role or 'No role' }}</span>
+                    </li>
+                {% else %}
+                    <li class="list-group-item text-muted">No contacts associated with this supplier.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header"><i class="fas fa-paperclip"></i> Attachments</div>
+        <ul class="list-group list-group-flush">
+            {% for att in supplier.attachments %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('main.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+                <form action="{{ url_for('main.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                </form>
+            </li>
+            {% else %}
+            <li class="list-group-item text-muted">No files attached.</li>
+            {% endfor %}
+        </ul>
+        <div class="card-body">
+            <form action="{{ url_for('main.upload_file') }}" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="supplier_id" value="{{ supplier.id }}">
+                <div class="input-group">
+                    <input type="file" class="form-control" name="file" required>
+                    <button class="btn btn-outline-primary" type="submit">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

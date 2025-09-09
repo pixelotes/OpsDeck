@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Service Renewal Manager{% endblock %}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    {% block head_extra %}{% endblock %}
+    <style>
+        .sidebar { position: fixed; top: 0; left: 0; height: 100vh; width: 250px; background: #343a40; padding-top: 1rem; z-index: 1000; }
+        .sidebar .nav-link { color: #ffffff; border-radius: 0.5rem; margin: 0.25rem 0; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background: #495057; color: #ffffff; }
+        .main-content { margin-left: 250px; padding: 2rem; min-height: 100vh; }
+        .renewal-card { border-left: 4px solid #007bff; }
+        .renewal-card.urgent { border-left-color: #dc3545; }
+        .renewal-card.warning { border-left-color: #ffc107; }
+        .currency-display { font-weight: bold; color: #28a745; }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+            <div class="container-fluid">
+                <a class="navbar-brand text-white mb-3 d-block text-center" href="{{ url_for('main.dashboard') }}">
+                    <i class="fas fa-sync-alt"></i> Renewals
+                </a>
+                <ul class="nav flex-column">
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.services' %}active{% endif %}" href="{{ url_for('main.services') }}"><i class="fas fa-cogs"></i> Services</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.suppliers' %}active{% endif %}" href="{{ url_for('main.suppliers') }}"><i class="fas fa-building"></i> Suppliers</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.contacts' %}active{% endif %}" href="{{ url_for('main.contacts') }}"><i class="fas fa-users"></i> Contacts</a></li>
+                    <li class="nav-item"><a class="nav-link {% if 'payment_method' in request.endpoint %}active{% endif %}" href="{{ url_for('main.payment_methods') }}"><i class="fas fa-credit-card"></i> Payment</a></li>
+                    <li class="nav-item"><a class="nav-link {% if 'tag' in request.endpoint %}active{% endif %}" href="{{ url_for('main.tags') }}"><i class="fas fa-tags"></i> Tags</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.calendar' %}active{% endif %}" href="{{ url_for('main.calendar') }}"><i class="fas fa-calendar"></i> Calendar</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.notification_settings' %}active{% endif %}" href="{{ url_for('main.notification_settings') }}"><i class="fas fa-bell"></i> Notifications</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.reports' %}active{% endif %}" href="{{ url_for('main.reports') }}"><i class="fas fa-chart-pie"></i> Reports</a></li>
+                    <li class="nav-item mt-auto"><a class="nav-link" href="{{ url_for('main.logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                </ul>
+            </div>
+        </nav>
+
+    <main class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    {% block scripts_extra %}{% endblock %}
+</body>
+</html>

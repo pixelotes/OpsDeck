@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+
+{% set title = "Edit Contact" if contact else "New Contact" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-users"></i> {{ title }}</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="name" class="form-label">Name *</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ contact.name if contact else '' }}" required>
+            </div>
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" name="email" value="{{ contact.email if contact else '' }}">
+            </div>
+            <div class="mb-3">
+                <label for="phone" class="form-label">Phone</label>
+                <input type="tel" class="form-control" id="phone" name="phone" value="{{ contact.phone if contact else '' }}">
+            </div>
+            <div class="mb-3">
+                <label for="role" class="form-label">Role</label>
+                <input type="text" class="form-control" id="role" name="role" value="{{ contact.role if contact else '' }}">
+            </div>
+            <div class="mb-3">
+                <label for="supplier_id" class="form-label">Supplier *</label>
+                <select class="form-select" id="supplier_id" name="supplier_id" required>
+                    <option value="">Select a supplier...</option>
+                    {% for supplier in suppliers %}
+                    <option value="{{ supplier.id }}" {% if contact and contact.supplier_id == supplier.id %}selected{% endif %}>
+                        {{ supplier.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <a href="{{ url_for('main.contacts') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Contact</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

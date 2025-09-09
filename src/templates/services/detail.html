@@ -1,0 +1,123 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ service.name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-cogs"></i> {{ service.name }}</h2>
+    <a href="{{ url_for('main.edit_service', id=service.id) }}" class="btn btn-outline-primary">
+        <i class="fas fa-edit"></i> Edit Service
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Service Details</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Type:</strong> {{ service.service_type.title() }}</p>
+                <p><strong>Supplier:</strong> <a href="{{ url_for('main.supplier_detail', id=service.supplier.id) }}">{{ service.supplier.name }}</a></p>
+                <p><strong>Description:</strong> {{ service.description or 'N/A' }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Next Renewal:</strong> {{ service.next_renewal_date.strftime('%B %d, %Y') }}</p>
+                <p><strong>Cost:</strong> €{{ "%.2f"|format(service.cost_eur) }} ({{ service.cost }} {{ service.currency }})</p>
+                <p><strong>Auto Renew:</strong> 
+                    <span class="badge {{ 'bg-success' if service.auto_renew else 'bg-warning' }}">
+                        {{ 'Yes' if service.auto_renew else 'No' }}
+                    </span>
+                </p>
+            </div>
+        </div>
+        <hr>
+        <p class="mb-0"><strong>Tags:</strong>
+            {% for tag in service.tags %}
+                <a href="{{ url_for('main.services', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none">{{ tag.name }}</a>
+            {% else %}
+                <span class="text-muted">No tags assigned.</span>
+            {% endfor %}
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-users"></i> Associated Contacts ({{ service.contacts|length }})
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for contact in service.contacts %}
+                    <li class="list-group-item">
+                        <a href="{{ url_for('main.contact_detail', id=contact.id) }}">{{ contact.name }}</a>
+                        <span class="text-muted small float-end">{{ contact.role or 'No role' }}</span>
+                    </li>
+                {% else %}
+                    <li class="list-group-item text-muted">No contacts associated.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-credit-card"></i> Payment Methods ({{ service.payment_methods|length }})
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for method in service.payment_methods %}
+                    <li class="list-group-item">
+                        <a href="{{ url_for('main.payment_method_detail', id=method.id) }}">{{ method.name }}</a>
+                        <span class="text-muted small float-end">{{ method.details or method.method_type }}</span>
+                    </li>
+                {% else %}
+                    <li class="list-group-item text-muted">No payment methods associated.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-chart-line"></i> Cost History (€)</div>
+    <div class="card-body">
+        {% if service.cost_history|length > 1 %}
+            <canvas id="costHistoryChart"
+                    data-labels='{{ cost_history_labels|tojson|safe }}'
+                    data-values='{{ cost_history_data|tojson|safe }}'></canvas>
+        {% else %}
+            <p class="text-muted">No cost changes have been recorded for this service yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-paperclip"></i> Attachments</div>
+    <ul class="list-group list-group-flush">
+        {% for att in service.attachments %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('main.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+            <form action="{{ url_for('main.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+            </form>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No files attached.</li>
+        {% endfor %}
+    </ul>
+    <div class="card-body">
+        <form action="{{ url_for('main.upload_file') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="service_id" value="{{ service.id }}">
+            <div class="input-group">
+                <input type="file" class="form-control" name="file" required>
+                <button class="btn btn-outline-primary" type="submit">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block title %}Notification Settings - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-bell"></i> Notification Settings</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <h5 class="card-title">Email Notifications</h5>
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" role="switch" id="email_enabled" name="email_enabled" {% if settings.email_enabled %}checked{% endif %}>
+                <label class="form-check-label" for="email_enabled">Enable Email Alerts</label>
+            </div>
+            <div class="mb-4">
+                <label for="email_recipient" class="form-label">Recipient Email</label>
+                <input type="email" class="form-control" id="email_recipient" name="email_recipient" value="{{ settings.email_recipient or '' }}" placeholder="name@example.com">
+            </div>
+
+            <h5 class="card-title">Webhook Notifications</h5>
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" role="switch" id="webhook_enabled" name="webhook_enabled" {% if settings.webhook_enabled %}checked{% endif %}>
+                <label class="form-check-label" for="webhook_enabled">Enable Webhook Alerts</label>
+            </div>
+            <div class="mb-4">
+                <label for="webhook_url" class="form-label">Webhook URL</label>
+                <input type="url" class="form-control" id="webhook_url" name="webhook_url" value="{{ settings.webhook_url or '' }}" placeholder="https://your-webhook-url.com">
+            </div>
+
+            <h5 class="card-title">Timing Rules</h5>
+            <p class="text-muted">Select when you want to receive notifications before a renewal is due.</p>
+            <div class="d-flex flex-wrap">
+                {% for day in [30, 14, 7, 3, 1] %}
+                <div class="form-check me-4 mb-2">
+                    <input class="form-check-input" type="checkbox" name="days_before" value="{{ day }}" id="day_{{ day }}" {% if day in notify_days_list %}checked{% endif %}>
+                    <label class="form-check-label" for="day_{{ day }}">{{ day }} day{{ 's' if day > 1 else '' }} before</label>
+                </div>
+                {% endfor %}
+            </div>
+
+            <hr>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

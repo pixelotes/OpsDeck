@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+{% set title = "Edit Payment Method" if method else "New Payment Method" %}
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+{% block content %}
+<h2><i class="fas fa-credit-card"></i> {{ title }}</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="name" class="form-label">Nickname *</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ method.name if method else '' }}" required placeholder="e.g., Company Visa Card">
+            </div>
+            <div class="mb-3">
+                <label for="method_type" class="form-label">Type *</label>
+                <select class="form-select" id="method_type" name="method_type" required>
+                    <option value="Credit Card" {% if method and method.method_type == 'Credit Card' %}selected{% endif %}>Credit Card</option>
+                    <option value="Bank Transfer" {% if method and method.method_type == 'Bank Transfer' %}selected{% endif %}>Bank Transfer</option>
+                    <option value="PayPal" {% if method and method.method_type == 'PayPal' %}selected{% endif %}>PayPal</option>
+                    <option value="Other" {% if method and method.method_type == 'Other' %}selected{% endif %}>Other</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="details" class="form-label">Details</label>
+                <input type="text" class="form-control" id="details" name="details" value="{{ method.details if method else '' }}" placeholder="e.g., Visa ending in 1234">
+            </div>
+            <div class="mb-3">
+                <label for="expiry_date" class="form-label">Expiry Date</label>
+                <input type="text" class="form-control" id="expiry_date" name="expiry_date" 
+                    placeholder="MM/YY" 
+                    value="{{ method.expiry_date.strftime('%m/%y') if method and method.expiry_date else '' }}">
+            </div>
+            <a href="{{ url_for('main.payment_methods') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Method</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
