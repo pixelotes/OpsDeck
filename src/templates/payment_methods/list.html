@@ -3,12 +3,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-credit-card"></i> Payment Methods</h2>
-    <div>
-        <a href="{{ url_for('payment_methods.archived_payment_methods') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-archive"></i> View Archived
-        </a>
-        <a href="{{ url_for('payment_methods.new_payment_method') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Method</a>
-    </div>
+    <a href="{{ url_for('payment_methods.new_payment_method') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Method</a>
 </div>
 <div class="card">
     <div class="card-body">
@@ -21,6 +16,7 @@
                         <th>Details</th>
                         <th>Expiry Date</th>
                         <th>Services Linked</th>
+                        <th>Purchases Linked</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -28,24 +24,23 @@
                     {% for method in payment_methods %}
                     <tr>
                         <td><a href="{{ url_for('payment_methods.payment_method_detail', id=method.id) }}">{{ method.name }}</a></td>
-
+                        
                         <td><span class="badge bg-secondary">{{ method.method_type }}</span></td>
                         <td>{{ method.details or '-' }}</td>
                         <td>{{ method.expiry_date.strftime('%Y-%m') if method.expiry_date else '-' }}</td>
                         <td><span class="badge bg-info">{{ method.services|length }}</span></td>
+                        <td><span class="badge bg-success">{{ method.purchases|length }}</span></td>
                         <td>
                             <a href="{{ url_for('payment_methods.edit_payment_method', id=method.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit"><i class="fas fa-edit"></i></a>
-                            <form action="{{ url_for('payment_methods.archive_payment_method', id=method.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this payment method?');">
-                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
-                                    <i class="fas fa-archive"></i>
-                                </button>
-                            </form>
                             <form action="{{ url_for('payment_methods.delete_payment_method', id=method.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?');">
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="fas fa-trash"></i></button>
                             </form>
                         </td>
                     </tr>
                     {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center">No payment methods found.</td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>

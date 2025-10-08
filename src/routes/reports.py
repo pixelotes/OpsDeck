@@ -17,6 +17,7 @@ def subscription_reports():
 
     all_active_services = Service.query.filter_by(is_archived=False).all()
 
+    # ... (rest of subscription_reports function is unchanged)
     # Chart 1: Spending by Supplier
     supplier_spending = {}
     year_start = date(selected_year, 1, 1)
@@ -125,9 +126,15 @@ def asset_reports():
     status_labels = [item[0] for item in assets_by_status]
     status_data = [item[1] for item in assets_by_status]
 
+    # --- CORRECTED WARRANTY LOGIC ---
     today = date.today()
-    warranty_active = Asset.query.filter(Asset.purchase_date + func.cast(Asset.warranty_length, db.Interval) > today).count()
-    warranty_expired = Asset.query.count() - warranty_active
+    all_assets = Asset.query.filter(Asset.purchase_date.isnot(None), Asset.warranty_length.isnot(None)).all()
+    warranty_active = 0
+    for asset in all_assets:
+        if asset.warranty_end_date and asset.warranty_end_date > today:
+            warranty_active += 1
+    
+    warranty_expired = len(all_assets) - warranty_active
     warranty_labels = ['Active', 'Expired']
     warranty_data = [warranty_active, warranty_expired]
 

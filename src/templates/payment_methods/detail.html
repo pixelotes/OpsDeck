@@ -19,20 +19,38 @@
     </div>
 </div>
 
-<div class="card">
+<div class="card mb-4">
     <div class="card-header">
         <i class="fas fa-cogs"></i> Associated Services ({{ method.services|length }})
     </div>
     <ul class="list-group list-group-flush">
         {% for service in method.services %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
-                <a href="{{ url_for('services.edit_service', id=service.id) }}">{{ service.name }}</a>
+                <a href="{{ url_for('services.service_detail', id=service.id) }}">{{ service.name }}</a>
                 <span>
                     Renews on {{ service.next_renewal_date.strftime('%Y-%m-%d') }} for €{{ "%.2f"|format(service.cost_eur) }}
                 </span>
             </li>
         {% else %}
             <li class="list-group-item text-muted">No services are currently using this payment method.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-shopping-cart"></i> Associated Purchases ({{ method.purchases|length }})
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for purchase in method.purchases %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('purchases.purchase_detail', id=purchase.id) }}">{{ purchase.description }}</a>
+                <span>
+                    Purchased on {{ purchase.purchase_date.strftime('%Y-%m-%d') }} for €{{ "%.2f"|format(purchase.cost) }}
+                </span>
+            </li>
+        {% else %}
+            <li class="list-group-item text-muted">No purchases are currently using this payment method.</li>
         {% endfor %}
     </ul>
 </div>
