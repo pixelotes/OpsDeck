@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,listWeek'
         },
-        events: "{{ url_for('main.calendar_events') }}",
+        events: "{{ url_for('services.calendar_events') }}",
         eventClick: function(info) {
             info.jsEvent.preventDefault(); 
             if (info.event.url) {

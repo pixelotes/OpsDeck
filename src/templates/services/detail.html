@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-cogs"></i> {{ service.name }}</h2>
-    <a href="{{ url_for('main.edit_service', id=service.id) }}" class="btn btn-outline-primary">
+    <a href="{{ url_for('services.edit_service', id=service.id) }}" class="btn btn-outline-primary">
         <i class="fas fa-edit"></i> Edit Service
     </a>
 </div>
@@ -16,7 +16,7 @@
         <div class="row">
             <div class="col-md-6">
                 <p><strong>Type:</strong> {{ service.service_type.title() }}</p>
-                <p><strong>Supplier:</strong> <a href="{{ url_for('main.supplier_detail', id=service.supplier.id) }}">{{ service.supplier.name }}</a></p>
+                <p><strong>Supplier:</strong> <a href="{{ url_for('suppliers.supplier_detail', id=service.supplier.id) }}">{{ service.supplier.name }}</a></p>
                 <p><strong>Description:</strong> {{ service.description or 'N/A' }}</p>
             </div>
             <div class="col-md-6">
@@ -32,7 +32,7 @@
         <hr>
         <p class="mb-0"><strong>Tags:</strong>
             {% for tag in service.tags %}
-                <a href="{{ url_for('main.services', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none">{{ tag.name }}</a>
+                <a href="{{ url_for('services.services', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none">{{ tag.name }}</a>
             {% else %}
                 <span class="text-muted">No tags assigned.</span>
             {% endfor %}
@@ -49,7 +49,7 @@
             <ul class="list-group list-group-flush">
                 {% for contact in service.contacts %}
                     <li class="list-group-item">
-                        <a href="{{ url_for('main.contact_detail', id=contact.id) }}">{{ contact.name }}</a>
+                        <a href="{{ url_for('contacts.contact_detail', id=contact.id) }}">{{ contact.name }}</a>
                         <span class="text-muted small float-end">{{ contact.role or 'No role' }}</span>
                     </li>
                 {% else %}
@@ -67,7 +67,7 @@
             <ul class="list-group list-group-flush">
                 {% for method in service.payment_methods %}
                     <li class="list-group-item">
-                        <a href="{{ url_for('main.payment_method_detail', id=method.id) }}">{{ method.name }}</a>
+                        <a href="{{ url_for('payments.payment_method_detail', id=method.id) }}">{{ method.name }}</a>
                         <span class="text-muted small float-end">{{ method.details or method.method_type }}</span>
                     </li>
                 {% else %}
@@ -96,8 +96,8 @@
     <ul class="list-group list-group-flush">
         {% for att in service.attachments %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
-            <a href="{{ url_for('main.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
-            <form action="{{ url_for('main.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+            <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
                 <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
             </form>
         </li>
@@ -106,7 +106,7 @@
         {% endfor %}
     </ul>
     <div class="card-body">
-        <form action="{{ url_for('main.upload_file') }}" method="POST" enctype="multipart/form-data">
+        <form action="{{ url_for('attachments.upload_file') }}" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="service_id" value="{{ service.id }}">
             <div class="input-group">
                 <input type="file" class="form-control" name="file" required>

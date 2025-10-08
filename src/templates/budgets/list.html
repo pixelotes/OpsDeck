@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-wallet"></i> Budgets</h2>
-    <a href="{{ url_for('main.new_budget') }}" class="btn btn-primary">
+    <a href="{{ url_for('budgets.new_budget') }}" class="btn btn-primary">
         <i class="fas fa-plus"></i> Add Budget
     </a>
 </div>
@@ -27,13 +27,13 @@
                 <tbody>
                     {% for budget in budgets %}
                     <tr>
-                        <td><a href="{{ url_for('main.budget_detail', id=budget.id) }}">{{ budget.name }}</a></td>
+                        <td><a href="{{ url_for('budgets.budget_detail', id=budget.id) }}">{{ budget.name }}</a></td>
                         <td>{{ budget.category or '-' }}</td>
                         <td>{{ budget.currency }}{{ "%.2f"|format(budget.amount) }}</td>
                         <td>{{ budget.period.title() }}</td>
                         <td>{{ budget.currency }}{{ "%.2f"|format(budget.remaining) }}</td>
                         <td>
-                            <a href="{{ url_for('main.edit_budget', id=budget.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                            <a href="{{ url_for('budgets.edit_budget', id=budget.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </a>
                         </td>

@@ -6,10 +6,10 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-users"></i> Contacts</h2>
     <div>
-        <a href="{{ url_for('main.archived_contacts') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('contacts.archived_contacts') }}" class="btn btn-outline-secondary">
             <i class="fas fa-archive"></i> View Archived
         </a>
-        <a href="{{ url_for('main.new_contact') }}" class="btn btn-primary">
+        <a href="{{ url_for('contacts.new_contact') }}" class="btn btn-primary">
             <i class="fas fa-plus"></i> Add Contact
         </a>
     </div>
@@ -32,22 +32,22 @@
                     <tbody>
                         {% for contact in contacts %}
                         <tr>
-                            <td><a href="{{ url_for('main.contact_detail', id=contact.id) }}">{{ contact.name }}</a></td>
+                            <td><a href="{{ url_for('contacts.contact_detail', id=contact.id) }}">{{ contact.name }}</a></td>
 
                             <td>{{ contact.email or '-' }}</td>
                             <td>{{ contact.phone or '-' }}</td>
                             <td>{{ contact.role or '-' }}</td>
-                            <td><a href="{{ url_for('main.supplier_detail', id=contact.supplier.id) }}">{{ contact.supplier.name }}</a></td>
+                            <td><a href="{{ url_for('suppliers.supplier_detail', id=contact.supplier.id) }}">{{ contact.supplier.name }}</a></td>
                             <td>
-                                <a href="{{ url_for('main.edit_contact', id=contact.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                                <a href="{{ url_for('contacts.edit_contact', id=contact.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <form action="{{ url_for('main.archive_contact', id=contact.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this contact?');">
+                                <form action="{{ url_for('contacts.archive_contact', id=contact.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this contact?');">
                                     <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
                                         <i class="fas fa-archive"></i>
                                     </button>
                                 </form>
-                                <form action="{{ url_for('main.delete_contact', id=contact.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?');">
+                                <form action="{{ url_for('contacts.delete_contact', id=contact.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?');">
                                     <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
                                         <i class="fas fa-trash"></i>
                                     </button>

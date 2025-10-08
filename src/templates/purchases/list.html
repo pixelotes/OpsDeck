@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-shopping-cart"></i> Purchases</h2>
-    <a href="{{ url_for('main.new_purchase') }}" class="btn btn-primary">
+    <a href="{{ url_for('purchases.new_purchase') }}" class="btn btn-primary">
         <i class="fas fa-plus"></i> Add Purchase
     </a>
 </div>
@@ -28,12 +28,12 @@
                     {% for purchase in purchases %}
                     <tr>
                         <td>{{ purchase.internal_id or '-' }}</td>
-                        <td><a href="{{ url_for('main.purchase_detail', id=purchase.id) }}">{{ purchase.description }}</a></td>
+                        <td><a href="{{ url_for('purchases.purchase_detail', id=purchase.id) }}">{{ purchase.description }}</a></td>
                         <td>{{ purchase.supplier.name if purchase.supplier else '-' }}</td>
                         <td>{{ purchase.purchase_date.strftime('%Y-%m-%d') }}</td>
                         <td>€{{ "%.2f"|format(purchase.cost) }}</td>
                         <td>
-                            <a href="{{ url_for('main.edit_purchase', id=purchase.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                            <a href="{{ url_for('purchases.edit_purchase', id=purchase.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </a>
                         </td>

@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-archive"></i> Archived Peripherals</h2>
-    <a href="{{ url_for('main.peripherals') }}" class="btn btn-outline-secondary">
+    <a href="{{ url_for('peripherals.peripherals') }}" class="btn btn-outline-secondary">
         <i class="fas fa-arrow-left"></i> Back to Active Peripherals
     </a>
 </div>
@@ -29,7 +29,7 @@
                         <td>{{ peripheral.type or '-' }}</td>
                         <td>{{ peripheral.serial_number or '-' }}</td>
                         <td>
-                            <form action="{{ url_for('main.unarchive_peripheral', id=peripheral.id) }}" method="POST" class="d-inline">
+                            <form action="{{ url_for('peripherals.unarchive_peripheral', id=peripheral.id) }}" method="POST" class="d-inline">
                                 <button type="submit" class="btn btn-sm btn-outline-success" title="Restore">
                                     <i class="fas fa-undo"></i> Restore
                                 </button>

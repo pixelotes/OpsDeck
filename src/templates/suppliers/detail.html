@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-building"></i> {{ supplier.name }}</h2>
-    <a href="{{ url_for('main.edit_supplier', id=supplier.id) }}" class="btn btn-outline-primary">
+    <a href="{{ url_for('suppliers.edit_supplier', id=supplier.id) }}" class="btn btn-outline-primary">
         <i class="fas fa-edit"></i> Edit Supplier
     </a>
 </div>
@@ -28,7 +28,7 @@
             <ul class="list-group list-group-flush">
                 {% for service in supplier.services %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <a href="{{ url_for('main.edit_service', id=service.id) }}">{{ service.name }}</a>
+                        <a href="{{ url_for('services.edit_service', id=service.id) }}">{{ service.name }}</a>
                         <span class="badge bg-secondary">{{ service.service_type }}</span>
                     </li>
                 {% else %}
@@ -46,7 +46,7 @@
             <ul class="list-group list-group-flush">
                 {% for contact in supplier.contacts %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
-                         <a href="{{ url_for('main.edit_contact', id=contact.id) }}">{{ contact.name }}</a>
+                         <a href="{{ url_for('contacts.edit_contact', id=contact.id) }}">{{ contact.name }}</a>
                         <span class="text-muted small">{{ contact.role or 'No role' }}</span>
                     </li>
                 {% else %}
@@ -61,8 +61,8 @@
         <ul class="list-group list-group-flush">
             {% for att in supplier.attachments %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
-                <a href="{{ url_for('main.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
-                <form action="{{ url_for('main.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+                <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
                     <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
                 </form>
             </li>
@@ -71,7 +71,7 @@
             {% endfor %}
         </ul>
         <div class="card-body">
-            <form action="{{ url_for('main.upload_file') }}" method="POST" enctype="multipart/form-data">
+            <form action="{{ url_for('attachments.upload_file') }}" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="supplier_id" value="{{ supplier.id }}">
                 <div class="input-group">
                     <input type="file" class="form-control" name="file" required>

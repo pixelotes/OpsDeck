@@ -30,7 +30,7 @@
                     placeholder="MM/YY" 
                     value="{{ method.expiry_date.strftime('%m/%y') if method and method.expiry_date else '' }}">
             </div>
-            <a href="{{ url_for('main.payment_methods') }}" class="btn btn-secondary">Cancel</a>
+            <a href="{{ url_for('payment_methods.payment_methods') }}" class="btn btn-secondary">Cancel</a>
             <button type="submit" class="btn btn-primary">Save Method</button>
         </form>
     </div>

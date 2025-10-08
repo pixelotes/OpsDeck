@@ -6,10 +6,10 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-user-friends"></i> Users</h2>
     <div>
-        <a href="{{ url_for('main.archived_users') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('users.archived_users') }}" class="btn btn-outline-secondary">
             <i class="fas fa-archive"></i> View Archived
         </a>
-        <a href="{{ url_for('main.new_user') }}" class="btn btn-primary">
+        <a href="{{ url_for('users.new_user') }}" class="btn btn-primary">
             <i class="fas fa-plus"></i> Add User
         </a>
     </div>
@@ -31,15 +31,15 @@
                 <tbody>
                     {% for user in users %}
                     <tr>
-                        <td><a href="{{ url_for('main.user_detail', id=user.id) }}">{{ user.name }}</a></td>
+                        <td><a href="{{ url_for('users.user_detail', id=user.id) }}">{{ user.name }}</a></td>
                         <td>{{ user.email or '-' }}</td>
                         <td>{{ user.department or '-' }}</td>
                         <td>{{ user.job_title or '-' }}</td>
                         <td>
-                            <a href="{{ url_for('main.edit_user', id=user.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                            <a href="{{ url_for('users.edit_user', id=user.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <form action="{{ url_for('main.archive_user', id=user.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this user?');">
+                            <form action="{{ url_for('users.archive_user', id=user.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this user?');">
                                 <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
                                     <i class="fas fa-archive"></i>
                                 </button>

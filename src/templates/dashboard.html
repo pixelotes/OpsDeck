@@ -58,15 +58,15 @@
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
                                     <h6 class="card-title">
-                                        <a href="{{ url_for('main.service_detail', id=service.id) }}" class="text-decoration-none">{{ service.name }}</a>
+                                        <a href="{{ url_for('services.service_detail', id=service.id) }}" class="text-decoration-none">{{ service.name }}</a>
                                         <small class="text-muted fw-normal">on {{ renewal_date.strftime('%b %d') }}</small>
                                     </h6>
                                     
-                                    <p class="card-text text-muted mb-1">{{ service.service_type }} • <a href="{{ url_for('main.supplier_detail', id=service.supplier.id) }}" class="text-decoration-none text-muted">{{ service.supplier.name }}</a></p>
+                                    <p class="card-text text-muted mb-1">{{ service.service_type }} • <a href="{{ url_for('suppliers.supplier_detail', id=service.supplier.id) }}" class="text-decoration-none text-muted">{{ service.supplier.name }}</a></p>
                                     
                                     <div class="mb-2">
                                     {% for tag in service.tags %}
-                                        <a href="{{ url_for('main.services', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none fw-normal">{{ tag.name }}</a>
+                                        <a href="{{ url_for('services.services', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none fw-normal">{{ tag.name }}</a>
                                     {% endfor %}
                                     </div>
 

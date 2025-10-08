@@ -16,7 +16,7 @@
                 <input type="text" class="form-control" id="name" name="name" value="{{ location.name if location else '' }}" required>
             </div>
             
-            <a href="{{ url_for('main.locations') }}" class="btn btn-secondary">Cancel</a>
+            <a href="{{ url_for('locations.locations') }}" class="btn btn-secondary">Cancel</a>
             <button type="submit" class="btn btn-primary">Save Location</button>
         </form>
     </div>

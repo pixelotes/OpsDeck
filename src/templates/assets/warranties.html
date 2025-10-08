@@ -21,7 +21,7 @@
                 <tbody>
                     {% for asset in assets|sort(attribute='warranty_end_date', reverse=True) %}
                     <tr>
-                        <td><a href="{{ url_for('main.asset_detail', id=asset.id) }}">{{ asset.name }}</a></td>
+                        <td><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a></td>
                         <td>{{ asset.purchase_date.strftime('%Y-%m-%d') if asset.purchase_date else '-' }}</td>
                         <td>{{ asset.warranty_end_date.strftime('%Y-%m-%d') if asset.warranty_end_date else '-' }}</td>
                     </tr>
