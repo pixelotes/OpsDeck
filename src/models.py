@@ -1,3 +1,5 @@
+# src/models.py
+
 import calendar
 from .extensions import db
 from datetime import datetime, timedelta, date
@@ -13,7 +15,7 @@ CURRENCY_RATES = {
 
 
 # --- Models ---
-class User(db.Model):
+class AppUser(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
@@ -23,6 +25,15 @@ class User(db.Model):
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), unique=True)
+    department = db.Column(db.String(100))
+    job_title = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    assets = db.relationship('Asset', backref='user', lazy=True)
 
 class Supplier(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -36,6 +47,9 @@ class Supplier(db.Model):
     # Relationships
     contacts = db.relationship('Contact', backref='supplier', lazy=True, cascade='all, delete-orphan')
     services = db.relationship('Service', backref='supplier', lazy=True)
+    purchases = db.relationship('Purchase', backref='supplier', lazy=True)
+    assets = db.relationship('Asset', backref='supplier', lazy=True)
+    peripherals = db.relationship('Peripheral', backref='supplier', lazy=True)
 
 class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -65,6 +79,9 @@ class Attachment(db.Model):
     # Foreign keys - one of these will be set
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'))
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
+    purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
+    peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'))
 
 # Association table for many-to-many relationship between services and payments
 service_payment_methods = db.Table('service_payment_methods',
@@ -96,6 +113,7 @@ class PaymentMethod(db.Model):
 
     # Relationship back to Service (optional, but useful)
     services = db.relationship('Service', secondary=service_payment_methods, back_populates='payment_methods')
+    purchases = db.relationship('Purchase', backref='payment_method', lazy=True)
 
 class Service(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -215,3 +233,112 @@ class NotificationSetting(db.Model):
     webhook_url = db.Column(db.String(255))
     # We'll store the days as a comma-separated string, e.g., "30,14,7"
     notify_days_before = db.Column(db.String(100), default="30,14,7")
+
+# --- New Models ---
+purchase_users = db.Table('purchase_users',
+    db.Column('purchase_id', db.Integer, db.ForeignKey('purchase.id'), primary_key=True),
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+)
+
+purchase_tags = db.Table('purchase_tags',
+    db.Column('purchase_id', db.Integer, db.ForeignKey('purchase.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+)
+
+class Purchase(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    internal_id = db.Column(db.String(100), unique=True)
+    description = db.Column(db.String(255), nullable=False)
+    invoice_number = db.Column(db.String(100))
+    purchase_date = db.Column(db.Date, nullable=False)
+    cost = db.Column(db.Float, nullable=False)
+    currency = db.Column(db.String(3), default='EUR')
+    comments = db.Column(db.Text)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'))
+    budget_id = db.Column(db.Integer, db.ForeignKey('budget.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    users = db.relationship('User', secondary=purchase_users, backref='purchases')
+    tags = db.relationship('Tag', secondary=purchase_tags, backref='purchases')
+    attachments = db.relationship('Attachment', backref='purchase', lazy=True, cascade='all, delete-orphan')
+    assets = db.relationship('Asset', backref='purchase', lazy=True)
+    peripherals = db.relationship('Peripheral', backref='purchase', lazy=True)
+
+class Location(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    assets = db.relationship('Asset', backref='location', lazy=True)
+
+class Asset(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    model = db.Column(db.String(100))
+    brand = db.Column(db.String(100))
+    serial_number = db.Column(db.String(100), unique=True)
+    status = db.Column(db.String(50), nullable=False, default='In Use')
+    internal_id = db.Column(db.String(100), unique=True)
+    comments = db.Column(db.Text)
+    purchase_date = db.Column(db.Date)
+    price = db.Column(db.Float)
+    currency = db.Column(db.String(3), default='EUR')
+    warranty_length = db.Column(db.Integer) # in months
+    
+    # Relationships
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    location_id = db.Column(db.Integer, db.ForeignKey('location.id'))
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
+    purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
+    attachments = db.relationship('Attachment', backref='asset', lazy=True, cascade='all, delete-orphan')
+    history = db.relationship('AssetHistory', backref='asset', lazy=True, cascade='all, delete-orphan')
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def warranty_end_date(self):
+        if self.purchase_date and self.warranty_length:
+            return self.purchase_date + relativedelta(months=+self.warranty_length)
+        return None
+
+class AssetHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=False)
+    field_changed = db.Column(db.String(100), nullable=False)
+    old_value = db.Column(db.String(255))
+    new_value = db.Column(db.String(255))
+    changed_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Peripheral(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(50)) # e.g., Keyboard, Mouse, Monitor
+    serial_number = db.Column(db.String(100), unique=True)
+    status = db.Column(db.String(50), nullable=False, default='In Use')
+    
+    # Relationships
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
+    purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __init__(self, **kwargs):
+        super(Peripheral, self).__init__(**kwargs)
+        if self.serial_number == '':
+            self.serial_number = None
+
+class Budget(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(100))
+    amount = db.Column(db.Float, nullable=False)
+    currency = db.Column(db.String(3), default='EUR')
+    period = db.Column(db.String(50), nullable=False, default='One-time') # e.g., 'monthly', 'yearly'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    purchases = db.relationship('Purchase', backref='budget', lazy=True)
+
+    @property
+    def remaining(self):
+        spent = sum(purchase.cost for purchase in self.purchases)
+        return self.amount - spent

@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+
+{% block title %}Subscription Reports - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-chart-pie"></i> Subscription Reports & Analytics</h2>
+</div>
+
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Spending by Supplier (€)</h5>
+                <form method="GET" action="{{ url_for('main.subscription_reports') }}" class="d-flex align-items-center">
+                    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+                        {% for year in available_years %}
+                        <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+            <div class="card-body">
+                <canvas id="spendingBySupplierChart" 
+                        data-labels='{{ supplier_labels|tojson|safe }}' 
+                        data-values='{{ supplier_data|tojson|safe }}'></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header"><h5>Services by Type</h5></div>
+            <div class="card-body">
+                <canvas id="servicesByTypeChart" 
+                        data-labels='{{ type_labels|tojson|safe }}' 
+                        data-values='{{ type_data|tojson|safe }}'></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header"><h5>Spending per Month (€, Last 12 Months)</h5></div>
+            <div class="card-body">
+                <canvas id="monthlySpendingChart" 
+                        data-labels='{{ monthly_labels|tojson|safe }}' 
+                        data-values='{{ monthly_data|tojson|safe }}'></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header"><h5>Spending per Year (€, Last 5 Years)</h5></div>
+            <div class="card-body">
+                <canvas id="yearlySpendingChart" 
+                        data-labels='{{ yearly_labels|tojson|safe }}' 
+                        data-values='{{ yearly_data|tojson|safe }}'></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card h-100">
+            <div class="card-header"><h5>Upcoming Renewal Costs Forecast (€)</h5></div>
+            <div class="card-body">
+                <canvas id="forecastChart" 
+                        data-labels='{{ forecast_labels|tojson|safe }}' 
+                        data-values='{{ forecast_data|tojson|safe }}'></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+{% endblock %}

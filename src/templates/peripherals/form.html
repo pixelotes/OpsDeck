@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+
+{% set title = "Edit Peripheral" if peripheral else "New Peripheral" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-keyboard"></i> {{ title }}</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="name" class="form-label">Name *</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ peripheral.name if peripheral else '' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="type" class="form-label">Type</label>
+                    <input type="text" class="form-control" id="type" name="type" value="{{ peripheral.type if peripheral else '' }}">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="serial_number" class="form-label">Serial Number</label>
+                    <input type="text" class="form-control" id="serial_number" name="serial_number" value="{{ peripheral.serial_number if peripheral else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="status" class="form-label">Status *</label>
+                    <select class="form-select" id="status" name="status" required>
+                        {% set statuses = ['In Use', 'Stored', 'Unavailable', 'Disposed'] %}
+                        {% for status in statuses %}
+                        <option value="{{ status }}" {% if peripheral and peripheral.status == status %}selected{% endif %}>{{ status }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="asset_id" class="form-label">Asset</label>
+                    <select class="form-select" id="asset_id" name="asset_id">
+                        <option value="">Select an asset...</option>
+                        {% for asset in assets %}
+                        <option value="{{ asset.id }}" {% if peripheral and peripheral.asset_id == asset.id %}selected{% endif %}>
+                            {{ asset.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="purchase_id" class="form-label">Purchase</label>
+                    <select class="form-select" id="purchase_id" name="purchase_id">
+                        <option value="">Select a purchase...</option>
+                        {% for purchase in purchases %}
+                        <option value="{{ purchase.id }}" {% if peripheral and peripheral.purchase_id == purchase.id %}selected{% endif %}>
+                            {{ purchase.description }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="supplier_id" class="form-label">Supplier</label>
+                    <select class="form-select" id="supplier_id" name="supplier_id">
+                        <option value="">Select a supplier...</option>
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if peripheral and peripheral.supplier_id == supplier.id %}selected{% endif %}>
+                            {{ supplier.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <hr>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('main.peripherals') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save Peripheral</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

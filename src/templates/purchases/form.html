@@ -1,0 +1,126 @@
+{% extends "layout.html" %}
+
+{% set title = "Edit Purchase" if purchase else "New Purchase" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-shopping-cart"></i> {{ title }}</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="description" class="form-label">Description *</label>
+                    <input type="text" class="form-control" id="description" name="description" value="{{ purchase.description if purchase else '' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="internal_id" class="form-label">Internal ID</label>
+                    <input type="text" class="form-control" id="internal_id" name="internal_id" value="{{ purchase.internal_id if purchase else '' }}">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="purchase_date" class="form-label">Purchase Date *</label>
+                    <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="{{ purchase.purchase_date.strftime('%Y-%m-%d') if purchase else '' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="invoice_number" class="form-label">Invoice Number</label>
+                    <input type="text" class="form-control" id="invoice_number" name="invoice_number" value="{{ purchase.invoice_number if purchase else '' }}">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="cost" class="form-label">Cost *</label>
+                    <input type="number" class="form-control" id="cost" name="cost" step="0.01" value="{{ purchase.cost if purchase else '' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="currency" class="form-label">Currency</label>
+                    <select class="form-select" id="currency" name="currency">
+                        {% set currencies = ['EUR', 'USD', 'GBP'] %}
+                        {% for curr in currencies %}
+                        <option value="{{ curr }}" {% if purchase and purchase.currency == curr %}selected{% endif %}>{{ curr }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="supplier_id" class="form-label">Supplier</label>
+                    <select class="form-select" id="supplier_id" name="supplier_id">
+                        <option value="">Select a supplier...</option>
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if purchase and purchase.supplier_id == supplier.id %}selected{% endif %}>
+                            {{ supplier.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="payment_method_id" class="form-label">Payment Method</label>
+                    <select class="form-select" id="payment_method_id" name="payment_method_id">
+                        <option value="">Select a payment method...</option>
+                        {% for pm in payment_methods %}
+                        <option value="{{ pm.id }}" {% if purchase and purchase.payment_method_id == pm.id %}selected{% endif %}>
+                            {{ pm.name }} ({{ pm.details or pm.method_type }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="budget_id" class="form-label">Budget</label>
+                <select class="form-select" id="budget_id" name="budget_id">
+                    <option value="">Select a budget...</option>
+                    {% for budget in budgets %}
+                    <option value="{{ budget.id }}" {% if purchase and purchase.budget_id == budget.id %}selected{% endif %}>
+                        {{ budget.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="user_ids" class="form-label">Associated Users</label>
+                <select class="form-select" id="user_ids" name="user_ids" multiple size="3">
+                    {% set selected_users = purchase.users|map(attribute='id')|list if purchase else [] %}
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if user.id in selected_users %}selected{% endif %}>
+                        {{ user.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">Hold Ctrl or Command to select multiple.</small>
+            </div>
+
+            <div class="mb-3">
+                <label for="tag_ids" class="form-label">Tags</label>
+                <select class="form-select" id="tag_ids" name="tag_ids" multiple size="3">
+                    {% set selected_tags = purchase.tags|map(attribute='id')|list if purchase else [] %}
+                    {% for tag in tags %}
+                    <option value="{{ tag.id }}" {% if tag.id in selected_tags %}selected{% endif %}>{{ tag.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="comments" class="form-label">Comments</label>
+                <textarea class="form-control" id="comments" name="comments" rows="3">{{ purchase.comments if purchase else '' }}</textarea>
+            </div>
+
+            <hr>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('main.purchases') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save Purchase</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

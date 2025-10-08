@@ -1,3 +1,5 @@
+# src/routes.py
+
 import uuid, os, calendar
 from werkzeug.utils import secure_filename
 from flask import (
@@ -8,8 +10,9 @@ from sqlalchemy import func, case
 from functools import wraps
 from datetime import datetime, timedelta, date
 from .models import (
-    db, User, Supplier, Contact, Service, PaymentMethod,
-    NotificationSetting, Attachment, Tag, CostHistory, CURRENCY_RATES
+    db, AppUser, User, Supplier, Contact, Service, PaymentMethod,
+    NotificationSetting, Attachment, Tag, CostHistory, CURRENCY_RATES, Purchase,
+    Asset, Location, AssetHistory, Peripheral, Budget
 )
 from calendar import month_abbr
 from dateutil.relativedelta import relativedelta
@@ -32,7 +35,7 @@ def login():  # <-- Ensure this function is named 'login'
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        user = User.query.filter_by(username=username).first()
+        user = AppUser.query.filter_by(username=username).first()
         
         if user and user.check_password(password):
             session['user_id'] = user.id
@@ -136,6 +139,423 @@ def dashboard():
         forecast_keys=forecast_keys,
         forecast_data=forecast_data
     )
+
+# User routes
+@main_bp.route('/users')
+@login_required
+def users():
+    users = User.query.all()
+    return render_template('users/list.html', users=users)
+
+@main_bp.route('/users/<int:id>')
+@login_required
+def user_detail(id):
+    user = User.query.get_or_404(id)
+    return render_template('users/detail.html', user=user)
+
+@main_bp.route('/users/new', methods=['GET', 'POST'])
+@login_required
+def new_user():
+    if request.method == 'POST':
+        user = User(
+            name=request.form['name'],
+            email=request.form.get('email'),
+            department=request.form.get('department'),
+            job_title=request.form.get('job_title')
+        )
+        db.session.add(user)
+        db.session.commit()
+        flash('User created successfully!')
+        return redirect(url_for('main.users'))
+    
+    return render_template('users/form.html')
+
+@main_bp.route('/users/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_user(id):
+    user = User.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        user.name = request.form['name']
+        user.email = request.form.get('email')
+        user.department = request.form.get('department')
+        user.job_title = request.form.get('job_title')
+        db.session.commit()
+        flash('User updated successfully!')
+        return redirect(url_for('main.users'))
+    
+    return render_template('users/form.html', user=user)
+
+# Purchase routes
+@main_bp.route('/purchases')
+@login_required
+def purchases():
+    purchases = Purchase.query.all()
+    return render_template('purchases/list.html', purchases=purchases)
+
+@main_bp.route('/purchases/<int:id>')
+@login_required
+def purchase_detail(id):
+    purchase = Purchase.query.get_or_404(id)
+    return render_template('purchases/detail.html', purchase=purchase)
+
+@main_bp.route('/purchases/new', methods=['GET', 'POST'])
+@login_required
+def new_purchase():
+    if request.method == 'POST':
+        purchase = Purchase(
+            internal_id=request.form.get('internal_id'),
+            description=request.form['description'],
+            invoice_number=request.form.get('invoice_number'),
+            purchase_date=datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date(),
+            cost=float(request.form['cost']),
+            currency=request.form['currency'],
+            comments=request.form.get('comments'),
+            supplier_id=request.form.get('supplier_id'),
+            payment_method_id=request.form.get('payment_method_id'),
+            budget_id=request.form.get('budget_id')
+        )
+
+        for user_id in request.form.getlist('user_ids'):
+            user = User.query.get(user_id)
+            if user:
+                purchase.users.append(user)
+        
+        for tag_id in request.form.getlist('tag_ids'):
+            tag = Tag.query.get(tag_id)
+            if tag:
+                purchase.tags.append(tag)
+
+        db.session.add(purchase)
+        db.session.commit()
+        flash('Purchase created successfully!')
+        return redirect(url_for('main.purchases'))
+    
+    return render_template('purchases/form.html',
+                            suppliers=Supplier.query.order_by(Supplier.name).all(),
+                            users=User.query.order_by(User.name).all(),
+                            payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
+                            tags=Tag.query.order_by(Tag.name).all(),
+                            budgets=Budget.query.order_by(Budget.name).all())
+
+@main_bp.route('/purchases/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_purchase(id):
+    purchase = Purchase.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        purchase.internal_id = request.form.get('internal_id')
+        purchase.description = request.form['description']
+        purchase.invoice_number = request.form.get('invoice_number')
+        purchase.purchase_date = datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date()
+        purchase.cost = float(request.form['cost'])
+        purchase.currency = request.form['currency']
+        purchase.comments = request.form.get('comments')
+        purchase.supplier_id = request.form.get('supplier_id')
+        purchase.payment_method_id = request.form.get('payment_method_id')
+        purchase.budget_id = request.form.get('budget_id')
+
+        purchase.users.clear()
+        for user_id in request.form.getlist('user_ids'):
+            user = User.query.get(user_id)
+            if user:
+                purchase.users.append(user)
+        
+        purchase.tags.clear()
+        for tag_id in request.form.getlist('tag_ids'):
+            tag = Tag.query.get(tag_id)
+            if tag:
+                purchase.tags.append(tag)
+        
+        db.session.commit()
+        flash('Purchase updated successfully!')
+        return redirect(url_for('main.purchases'))
+
+    return render_template('purchases/form.html',
+                            purchase=purchase,
+                            suppliers=Supplier.query.order_by(Supplier.name).all(),
+                            users=User.query.order_by(User.name).all(),
+                            payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
+                            tags=Tag.query.order_by(Tag.name).all(),
+                            budgets=Budget.query.order_by(Budget.name).all())
+
+# Asset routes
+@main_bp.route('/assets')
+@login_required
+def assets():
+    assets = Asset.query.all()
+    return render_template('assets/list.html', assets=assets)
+
+@main_bp.route('/assets/new', methods=['GET', 'POST'])
+@login_required
+def new_asset():
+    if request.method == 'POST':
+        asset = Asset(
+            name=request.form['name'],
+            model=request.form.get('model'),
+            brand=request.form.get('brand'),
+            serial_number=request.form.get('serial_number'),
+            status=request.form['status'],
+            internal_id=request.form.get('internal_id'),
+            comments=request.form.get('comments'),
+            purchase_date=datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date() if request.form['purchase_date'] else None,
+            price=float(request.form.get('price')) if request.form.get('price') else None,
+            currency=request.form.get('currency'),
+            warranty_length=int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None,
+            user_id=request.form.get('user_id'),
+            location_id=request.form.get('location_id'),
+            supplier_id=request.form.get('supplier_id'),
+            purchase_id=request.form.get('purchase_id')
+        )
+        db.session.add(asset)
+        db.session.commit()
+        flash('Asset created successfully!')
+        return redirect(url_for('main.assets'))
+
+    return render_template('assets/form.html',
+                            users=User.query.order_by(User.name).all(),
+                            locations=Location.query.order_by(Location.name).all(),
+                            suppliers=Supplier.query.order_by(Supplier.name).all(),
+                            purchases=Purchase.query.order_by(Purchase.description).all())
+
+@main_bp.route('/assets/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_asset(id):
+    asset = Asset.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        # Track changes
+        changes = []
+        if asset.name != request.form['name']:
+            changes.append(('name', asset.name, request.form['name']))
+        if asset.internal_id != request.form.get('internal_id'):
+            changes.append(('internal_id', asset.internal_id, request.form.get('internal_id')))
+        if asset.brand != request.form.get('brand'):
+            changes.append(('brand', asset.brand, request.form.get('brand')))
+        if asset.model != request.form.get('model'):
+            changes.append(('model', asset.model, request.form.get('model')))
+        if asset.serial_number != request.form.get('serial_number'):
+            changes.append(('serial_number', asset.serial_number, request.form.get('serial_number')))
+        if asset.status != request.form.get('status'):
+            changes.append(('status', asset.status, request.form.get('status')))
+        
+        purchase_date_form = request.form.get('purchase_date')
+        purchase_date = datetime.strptime(purchase_date_form, '%Y-%m-%d').date() if purchase_date_form else None
+        if asset.purchase_date != purchase_date:
+            changes.append(('purchase_date', asset.purchase_date, purchase_date))
+
+        price_form = request.form.get('price')
+        price = float(price_form) if price_form else None
+        if asset.price != price:
+            changes.append(('price', asset.price, price))
+        
+        if asset.currency != request.form.get('currency'):
+            changes.append(('currency', asset.currency, request.form.get('currency')))
+
+        warranty_length_form = request.form.get('warranty_length')
+        warranty_length = int(warranty_length_form) if warranty_length_form else None
+        if asset.warranty_length != warranty_length:
+            changes.append(('warranty_length', asset.warranty_length, warranty_length))
+
+        supplier_id_form = request.form.get('supplier_id')
+        supplier_id = int(supplier_id_form) if supplier_id_form else None
+        if asset.supplier_id != supplier_id:
+            changes.append(('supplier_id', asset.supplier_id, supplier_id))
+
+        purchase_id_form = request.form.get('purchase_id')
+        purchase_id = int(purchase_id_form) if purchase_id_form else None
+        if asset.purchase_id != purchase_id:
+            changes.append(('purchase_id', asset.purchase_id, purchase_id))
+
+        user_id_form = request.form.get('user_id')
+        user_id = int(user_id_form) if user_id_form else None
+        if asset.user_id != user_id:
+            changes.append(('user_id', asset.user_id, user_id))
+
+        location_id_form = request.form.get('location_id')
+        location_id = int(location_id_form) if location_id_form else None
+        if asset.location_id != location_id:
+            changes.append(('location_id', asset.location_id, location_id))
+
+        if asset.comments != request.form.get('comments'):
+            changes.append(('comments', asset.comments, request.form.get('comments')))
+
+
+        for field, old_value, new_value in changes:
+            history_entry = AssetHistory(asset_id=asset.id, field_changed=field, old_value=str(old_value), new_value=str(new_value))
+            db.session.add(history_entry)
+
+        asset.name = request.form['name']
+        asset.model = request.form.get('model')
+        asset.brand = request.form.get('brand')
+        asset.serial_number = request.form.get('serial_number')
+        asset.status = request.form['status']
+        asset.internal_id = request.form.get('internal_id')
+        asset.comments = request.form.get('comments')
+        asset.purchase_date = purchase_date
+        asset.price = price
+        asset.currency = request.form.get('currency')
+        asset.warranty_length = warranty_length
+        asset.user_id = user_id
+        asset.location_id = location_id
+        asset.supplier_id = supplier_id
+        asset.purchase_id = purchase_id
+        
+        db.session.commit()
+        flash('Asset updated successfully!')
+        return redirect(url_for('main.assets'))
+
+    return render_template('assets/form.html',
+                            asset=asset,
+                            users=User.query.order_by(User.name).all(),
+                            locations=Location.query.order_by(Location.name).all(),
+                            suppliers=Supplier.query.order_by(Supplier.name).all(),
+                            purchases=Purchase.query.order_by(Purchase.description).all())
+@main_bp.route('/assets/<int:id>')
+@login_required
+def asset_detail(id):
+    asset = Asset.query.get_or_404(id)
+    return render_template('assets/detail.html', asset=asset)
+
+# Peripheral routes
+@main_bp.route('/peripherals')
+@login_required
+def peripherals():
+    peripherals = Peripheral.query.all()
+    return render_template('peripherals/list.html', peripherals=peripherals)
+
+@main_bp.route('/peripherals/new', methods=['GET', 'POST'])
+@login_required
+def new_peripheral():
+    if request.method == 'POST':
+        peripheral = Peripheral(
+            name=request.form['name'],
+            type=request.form.get('type'),
+            serial_number=request.form.get('serial_number'),
+            status=request.form['status'],
+            asset_id=request.form.get('asset_id'),
+            purchase_id=request.form.get('purchase_id'),
+            supplier_id=request.form.get('supplier_id')
+        )
+        db.session.add(peripheral)
+        db.session.commit()
+        flash('Peripheral created successfully!')
+        return redirect(url_for('main.peripherals'))
+
+    return render_template('peripherals/form.html',
+                            assets=Asset.query.order_by(Asset.name).all(),
+                            purchases=Purchase.query.order_by(Purchase.description).all(),
+                            suppliers=Supplier.query.order_by(Supplier.name).all())
+
+@main_bp.route('/peripherals/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_peripheral(id):
+    peripheral = Peripheral.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        peripheral.name = request.form['name']
+        peripheral.type = request.form.get('type')
+        peripheral.serial_number = request.form.get('serial_number')
+        peripheral.status = request.form['status']
+        peripheral.asset_id = request.form.get('asset_id')
+        peripheral.purchase_id = request.form.get('purchase_id')
+        peripheral.supplier_id = request.form.get('supplier_id')
+        
+        db.session.commit()
+        flash('Peripheral updated successfully!')
+        return redirect(url_for('main.peripherals'))
+
+    return render_template('peripherals/form.html',
+                            peripheral=peripheral,
+                            assets=Asset.query.order_by(Asset.name).all(),
+                            purchases=Purchase.query.order_by(Purchase.description).all(),
+                            suppliers=Supplier.query.order_by(Supplier.name).all())
+
+# Location routes
+@main_bp.route('/locations')
+@login_required
+def locations():
+    locations = Location.query.all()
+    return render_template('locations/list.html', locations=locations)
+
+@main_bp.route('/locations/new', methods=['GET', 'POST'])
+@login_required
+def new_location():
+    if request.method == 'POST':
+        location = Location(name=request.form['name'])
+        db.session.add(location)
+        db.session.commit()
+        flash('Location created successfully!')
+        return redirect(url_for('main.locations'))
+    
+    return render_template('locations/form.html')
+
+@main_bp.route('/locations/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_location(id):
+    location = Location.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        location.name = request.form['name']
+        db.session.commit()
+        flash('Location updated successfully!')
+        return redirect(url_for('main.locations'))
+    
+    return render_template('locations/form.html', location=location)
+
+@main_bp.route('/locations/<int:id>')
+@login_required
+def location_detail(id):
+    location = Location.query.get_or_404(id)
+    return render_template('locations/detail.html', location=location)
+
+# Budget routes
+@main_bp.route('/budgets')
+@login_required
+def budgets():
+    budgets = Budget.query.all()
+    return render_template('budgets/list.html', budgets=budgets)
+
+@main_bp.route('/budgets/<int:id>')
+@login_required
+def budget_detail(id):
+    budget = Budget.query.get_or_404(id)
+    return render_template('budgets/detail.html', budget=budget)
+
+@main_bp.route('/budgets/new', methods=['GET', 'POST'])
+@login_required
+def new_budget():
+    if request.method == 'POST':
+        budget = Budget(
+            name=request.form['name'],
+            category=request.form.get('category'),
+            amount=float(request.form['amount']),
+            currency=request.form['currency'],
+            period=request.form['period']
+        )
+        db.session.add(budget)
+        db.session.commit()
+        flash('Budget created successfully!')
+        return redirect(url_for('main.budgets'))
+    
+    return render_template('budgets/form.html')
+
+@main_bp.route('/budgets/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_budget(id):
+    budget = Budget.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        budget.name = request.form['name']
+        budget.category = request.form.get('category')
+        budget.amount = float(request.form['amount'])
+        budget.currency = request.form['currency']
+        budget.period = request.form['period']
+        db.session.commit()
+        flash('Budget updated successfully!')
+        return redirect(url_for('main.budgets'))
+    
+    return render_template('budgets/form.html', budget=budget)
 
 # Supplier routes
 @main_bp.route('/suppliers')
@@ -564,7 +984,6 @@ def edit_service(id):
             if contact:
                 service.contacts.append(contact)
             
-        service.payment_methods.clear()
         for pm_id in request.form.getlist('payment_method_ids'):
             pm = PaymentMethod.query.get(pm_id)
             if pm:
@@ -782,6 +1201,9 @@ def unarchive_service(id):
 def upload_file():
     service_id = request.form.get('service_id')
     supplier_id = request.form.get('supplier_id')
+    purchase_id = request.form.get('purchase_id')
+    asset_id = request.form.get('asset_id')
+    peripheral_id = request.form.get('peripheral_id')
     
     if 'file' not in request.files:
         flash('No file part')
@@ -804,7 +1226,10 @@ def upload_file():
             filename=original_filename,
             secure_filename=unique_filename,
             service_id=service_id if service_id else None,
-            supplier_id=supplier_id if supplier_id else None
+            supplier_id=supplier_id if supplier_id else None,
+            purchase_id=purchase_id if purchase_id else None,
+            asset_id=asset_id if asset_id else None,
+            peripheral_id=peripheral_id if peripheral_id else None
         )
         db.session.add(new_attachment)
         db.session.commit()
@@ -883,9 +1308,9 @@ def delete_tag(id):
     return redirect(url_for('main.tags'))
 
 # Reports Route
-@main_bp.route('/reports')
+@main_bp.route('/subscription-reports')
 @login_required
-def reports():
+def subscription_reports():
     today = date.today()
     selected_year = request.args.get('year', default=today.year, type=int)
 
@@ -1023,7 +1448,7 @@ def reports():
     forecast_data = [round(cost, 2) for cost in forecast_costs.values()]
 
     return render_template(
-        'reports/dashboard.html',
+        'reports/subscription_reports.html',
         supplier_labels=supplier_labels, supplier_data=supplier_data,
         type_labels=type_labels, type_data=type_data,
         monthly_labels=monthly_labels, monthly_data=monthly_data,
@@ -1031,3 +1456,42 @@ def reports():
         forecast_labels=forecast_labels, forecast_data=forecast_data,
         available_years=available_years, selected_year=selected_year
     )
+
+@main_bp.route('/asset-reports')
+@login_required
+def asset_reports():
+    assets_by_brand = db.session.query(Asset.brand, func.count(Asset.id)).group_by(Asset.brand).all()
+    brand_labels = [item[0] for item in assets_by_brand]
+    brand_data = [item[1] for item in assets_by_brand]
+
+    assets_by_supplier = db.session.query(Supplier.name, func.count(Asset.id)).join(Asset).group_by(Supplier.name).all()
+    supplier_labels = [item[0] for item in assets_by_supplier]
+    supplier_data = [item[1] for item in assets_by_supplier]
+
+    assets_by_status = db.session.query(Asset.status, func.count(Asset.id)).group_by(Asset.status).all()
+    status_labels = [item[0] for item in assets_by_status]
+    status_data = [item[1] for item in assets_by_status]
+
+    today = date.today()
+    warranty_active = Asset.query.filter(Asset.purchase_date + func.cast(Asset.warranty_length, db.Interval) > today).count()
+    warranty_expired = Asset.query.count() - warranty_active
+    warranty_labels = ['Active', 'Expired']
+    warranty_data = [warranty_active, warranty_expired]
+
+    return render_template(
+        'reports/asset_reports.html',
+        brand_labels=brand_labels,
+        brand_data=brand_data,
+        supplier_labels=supplier_labels,
+        supplier_data=supplier_data,
+        status_labels=status_labels,
+        status_data=status_data,
+        warranty_labels=warranty_labels,
+        warranty_data=warranty_data,
+    )
+
+@main_bp.route('/warranties')
+@login_required
+def warranties():
+    assets = Asset.query.all()
+    return render_template('assets/warranties.html', assets=assets)

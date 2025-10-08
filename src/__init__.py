@@ -1,3 +1,5 @@
+# src/__init__.py
+
 import os
 import atexit
 from flask import Flask
@@ -5,7 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from .extensions import db, migrate
 from .routes import main_bp
-from .models import User
+from .models import AppUser
 from . import notifications
 
 def create_app():
@@ -59,8 +61,8 @@ def create_app():
         """Creates the database tables and a default admin user."""
         with app.app_context():
             db.create_all()
-            if not User.query.first():
-                admin_user = User(username='admin')
+            if not AppUser.query.first():
+                admin_user = AppUser(username='admin')
                 admin_user.set_password('admin123')
                 db.session.add(admin_user)
                 db.session.commit()

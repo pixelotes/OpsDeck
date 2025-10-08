@@ -1,0 +1,147 @@
+{% extends "layout.html" %}
+
+{% set title = "Edit Asset" if asset else "New Asset" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-laptop"></i> {{ title }}</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="name" class="form-label">Name *</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ asset.name if asset else '' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="internal_id" class="form-label">Internal ID</label>
+                    <input type="text" class="form-control" id="internal_id" name="internal_id" value="{{ asset.internal_id if asset else '' }}">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="brand" class="form-label">Brand</label>
+                    <input type="text" class="form-control" id="brand" name="brand" value="{{ asset.brand if asset else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="model" class="form-label">Model</label>
+                    <input type="text" class="form-control" id="model" name="model" value="{{ asset.model if asset else '' }}">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="serial_number" class="form-label">Serial Number</label>
+                    <input type="text" class="form-control" id="serial_number" name="serial_number" value="{{ asset.serial_number if asset else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="status" class="form-label">Status *</label>
+                    <select class="form-select" id="status" name="status" required>
+                        {% set statuses = ['In Use', 'Stored', 'Unavailable', 'Disposed'] %}
+                        {% for status in statuses %}
+                        <option value="{{ status }}" {% if asset and asset.status == status %}selected{% endif %}>{{ status }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="purchase_date" class="form-label">Purchase Date</label>
+                    <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="{{ asset.purchase_date.strftime('%Y-%m-%d') if asset else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="price" class="form-label">Price</label>
+                    <input type="number" class="form-control" id="price" name="price" step="0.01" value="{{ asset.price if asset else '' }}">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="currency" class="form-label">Currency</label>
+                    <select class="form-select" id="currency" name="currency">
+                        {% set currencies = ['EUR', 'USD', 'GBP'] %}
+                        {% for curr in currencies %}
+                        <option value="{{ curr }}" {% if asset and asset.currency == curr %}selected{% endif %}>{{ curr }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="warranty_length" class="form-label">Warranty Length (months)</label>
+                    <input type="number" class="form-control" id="warranty_length" name="warranty_length" min="0" value="{{ asset.warranty_length if asset else '' }}">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="supplier_id" class="form-label">Supplier</label>
+                    <select class="form-select" id="supplier_id" name="supplier_id">
+                        <option value="">Select a supplier...</option>
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if asset and asset.supplier_id == supplier.id %}selected{% endif %}>
+                            {{ supplier.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="purchase_id" class="form-label">Purchase</label>
+                    <select class="form-select" id="purchase_id" name="purchase_id">
+                        <option value="">Select a purchase...</option>
+                        {% for purchase in purchases %}
+                        <option value="{{ purchase.id }}" {% if asset and asset.purchase_id == purchase.id %}selected{% endif %}>
+                            {{ purchase.description }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="user_id" class="form-label">User</label>
+                    <select class="form-select" id="user_id" name="user_id">
+                        <option value="">Select a user...</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if asset and asset.user_id == user.id %}selected{% endif %}>
+                            {{ user.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="location_id" class="form-label">Location</label>
+                    <select class="form-select" id="location_id" name="location_id">
+                        <option value="">Select a location...</option>
+                        {% for location in locations %}
+                        <option value="{{ location.id }}" {% if asset and asset.location_id == location.id %}selected{% endif %}>
+                            {{ location.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="comments" class="form-label">Comments</label>
+                <textarea class="form-control" id="comments" name="comments" rows="3">{{ asset.comments if asset else '' }}</textarea>
+            </div>
+
+            <hr>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('main.assets') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save Asset</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
