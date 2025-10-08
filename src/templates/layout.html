@@ -30,16 +30,16 @@
                 <i class="fas fa-sync-alt"></i> Renewals
             </a>
         </div>
-        <div class="sidebar-body">
+        <div class="sidebar-body" id="sidebar-accordion">
             <ul class="nav flex-column">
-                <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('main.') and 'dashboard' in request.endpoint %}active{% endif %}" href="{{ url_for('main.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                
                 <hr class="text-white">
                 <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#subscriptions-menu" aria-expanded="true">
                     Subscriptions <i class="fas fa-chevron-down float-end"></i>
                 </h6>
-                <div class="collapse show" id="subscriptions-menu">
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('services.') %}active{% endif %}" href="{{ url_for('services.services') }}"><i class="fas fa-cogs"></i> Services</a></li>
+                <div class="collapse show" id="subscriptions-menu" data-bs-parent="#sidebar-accordion">
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('services.') and 'calendar' not in request.endpoint %}active{% endif %}" href="{{ url_for('services.services') }}"><i class="fas fa-cogs"></i> Services</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'services.calendar' %}active{% endif %}" href="{{ url_for('services.calendar') }}"><i class="fas fa-calendar"></i> Calendar</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'reports.subscription_reports' %}active{% endif %}" href="{{ url_for('reports.subscription_reports') }}"><i class="fas fa-chart-pie"></i> Reports</a></li>
                 </div>
@@ -48,8 +48,8 @@
                 <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#assets-menu" aria-expanded="false">
                     Assets <i class="fas fa-chevron-down float-end"></i>
                 </h6>
-                <div class="collapse" id="assets-menu">
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('assets.') %}active{% endif %}" href="{{ url_for('assets.assets') }}"><i class="fas fa-laptop"></i> Assets</a></li>
+                <div class="collapse" id="assets-menu" data-bs-parent="#sidebar-accordion">
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('assets.') and 'warranties' not in request.endpoint %}active{% endif %}" href="{{ url_for('assets.assets') }}"><i class="fas fa-laptop"></i> Assets</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('peripherals.') %}active{% endif %}" href="{{ url_for('peripherals.peripherals') }}"><i class="fas fa-keyboard"></i> Peripherals</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'assets.warranties' %}active{% endif %}" href="{{ url_for('assets.warranties') }}"><i class="fas fa-shield-alt"></i> Warranties</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'reports.asset_reports' %}active{% endif %}" href="{{ url_for('reports.asset_reports') }}"><i class="fas fa-chart-bar"></i> Reports</a></li>
@@ -58,17 +58,17 @@
                 <hr class="text-white">
                 <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#purchases-menu" aria-expanded="false">
                     Purchases <i class="fas fa-chevron-down float-end"></i>
-                </h6>
-                <div class="collapse" id="purchases-menu">
+                </h6>      
+                <div class="collapse" id="purchases-menu" data-bs-parent="#sidebar-accordion">
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('purchases.') %}active{% endif %}" href="{{ url_for('purchases.purchases') }}"><i class="fas fa-shopping-cart"></i> Purchases</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('budgets.') %}active{% endif %}" href="{{ url_for('budgets.budgets') }}"><i class="fas fa-wallet"></i> Budgets</a></li>
-                </div>
+                </div>          
 
                 <hr class="text-white">
                 <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#management-menu" aria-expanded="false">
                     Management <i class="fas fa-chevron-down float-end"></i>
                 </h6>
-                <div class="collapse" id="management-menu">
+                <div class="collapse" id="management-menu" data-bs-parent="#sidebar-accordion">
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('locations.') %}active{% endif %}" href="{{ url_for('locations.locations') }}"><i class="fas fa-map-marker-alt"></i> Locations</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('suppliers.') %}active{% endif %}" href="{{ url_for('suppliers.suppliers') }}"><i class="fas fa-building"></i> Suppliers</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('contacts.') %}active{% endif %}" href="{{ url_for('contacts.contacts') }}"><i class="fas fa-users"></i> Contacts</a></li>
@@ -81,7 +81,7 @@
                 <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#settings-menu" aria-expanded="false">
                     Settings <i class="fas fa-chevron-down float-end"></i>
                 </h6>
-                <div class="collapse" id="settings-menu">
+                <div class="collapse" id="settings-menu" data-bs-parent="#sidebar-accordion">
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.notification_settings' %}active{% endif %}" href="{{ url_for('main.notification_settings') }}"><i class="fas fa-bell"></i> Notifications</a></li>
                 <li class="nav-item mt-auto"><a class="nav-link" href="{{ url_for('main.logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
                 </div>
@@ -109,38 +109,28 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const sidebarBody = document.querySelector('.sidebar-body');
-            const collapseElements = document.querySelectorAll('.sidebar .collapse');
-
-            // Save scroll position
+            
+            // --- Scroll Position Logic ---
             sidebarBody.addEventListener('scroll', () => {
                 localStorage.setItem('sidebarScroll', sidebarBody.scrollTop);
             });
-
-            // Save collapse state
-            collapseElements.forEach(el => {
-                el.addEventListener('shown.bs.collapse', () => {
-                    localStorage.setItem('collapse-' + el.id, 'true');
-                });
-                el.addEventListener('hidden.bs.collapse', () => {
-                    localStorage.setItem('collapse-' + el.id, 'false');
-                });
-            });
-
-            // Restore states on page load
             const scrollPos = localStorage.getItem('sidebarScroll');
             if (scrollPos) {
                 sidebarBody.scrollTop = parseInt(scrollPos, 10);
             }
 
-            collapseElements.forEach(el => {
-                const isShown = localStorage.getItem('collapse-' + el.id) === 'true';
-                const collapseInstance = new bootstrap.Collapse(el, { toggle: false });
-                if (isShown) {
-                    collapseInstance.show();
-                } else {
-                    collapseInstance.hide();
+            // --- Accordion Logic ---
+            const activeLink = document.querySelector('.sidebar .nav-link.active');
+            if (activeLink) {
+                const activeCollapse = activeLink.closest('.collapse');
+                if (activeCollapse) {
+                    // If the active link is inside a collapse, open it
+                    const bsCollapse = new bootstrap.Collapse(activeCollapse, {
+                        toggle: false
+                    });
+                    bsCollapse.show();
                 }
-            });
+            }
         });
     </script>
     <script src="{{ url_for('static', filename='js/export.js') }}"></script>
