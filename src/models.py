@@ -302,6 +302,8 @@ class Asset(db.Model):
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
     attachments = db.relationship('Attachment', backref='asset', lazy=True, cascade='all, delete-orphan')
     history = db.relationship('AssetHistory', backref='asset', lazy=True, cascade='all, delete-orphan')
+    peripherals = db.relationship('Peripheral', backref='asset', lazy=True)
+
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

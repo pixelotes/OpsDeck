@@ -55,6 +55,7 @@ def create_app():
     from .routes.budgets import budgets_bp
     from .routes.reports import reports_bp
     from .routes.attachments import attachments_bp
+    from .routes.treeview import treeview_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(assets_bp, url_prefix='/assets')
@@ -70,6 +71,7 @@ def create_app():
     app.register_blueprint(budgets_bp, url_prefix='/budgets')
     app.register_blueprint(reports_bp, url_prefix='/reports')
     app.register_blueprint(attachments_bp, url_prefix='/attachments')
+    app.register_blueprint(treeview_bp, url_prefix='/tree-view')
 
 
     # --- Scheduler and Notifications ---

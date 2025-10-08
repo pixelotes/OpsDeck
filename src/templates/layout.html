@@ -89,6 +89,7 @@
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('users.') %}active{% endif %}" href="{{ url_for('users.users') }}"><i class="fas fa-user-friends"></i> Users</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('payment_methods.') %}active{% endif %}" href="{{ url_for('payment_methods.payment_methods') }}"><i class="fas fa-credit-card"></i> Payment</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('tags.') %}active{% endif %}" href="{{ url_for('tags.tags') }}"><i class="fas fa-tags"></i> Tags</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('treeview.') %}active{% endif %}" href="{{ url_for('treeview.tree_view') }}"><i class="fas fa-sitemap"></i> Tree View</a></li>
                 </div>
 
                 <hr class="text-white">

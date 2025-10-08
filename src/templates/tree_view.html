@@ -1,0 +1,92 @@
+{% extends "layout.html" %}
+
+{% block title %}Tree View - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    .tree-view ul {
+        padding-left: 20px;
+        list-style-type: none;
+    }
+    .tree-view li {
+        position: relative;
+    }
+    .tree-view li::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -20px;
+        border-left: 1px solid #ccc;
+        height: 100%;
+    }
+    .tree-view li:last-child::before {
+        height: 1em; /* Adjust to align with the text */
+    }
+    .tree-view li::after {
+        content: '';
+        position: absolute;
+        top: 1em; /* Vertically center with the text */
+        left: -20px;
+        border-top: 1px solid #ccc;
+        width: 15px;
+    }
+    .tree-view a {
+        text-decoration: none;
+        color: inherit;
+    }
+    .tree-view a:hover {
+        text-decoration: underline;
+    }
+    .tree-view .icon {
+        margin-right: 8px;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-sitemap"></i> Tree View</h2>
+    <div class="col-md-3">
+        <form method="GET" action="{{ url_for('treeview.tree_view') }}">
+            <div class="input-group">
+                <span class="input-group-text">Root</span>
+                <select name="root" class="form-select" onchange="this.form.submit()">
+                    {% for option in root_options %}
+                    <option value="{{ option.lower() }}" {% if selected_root == option.lower() %}selected{% endif %}>
+                        {{ option }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% macro render_tree(nodes) %}
+            <ul>
+            {% for node in nodes %}
+                <li>
+                    <i class="fas {{ node.icon }} icon"></i>
+                    {% if node.url %}
+                        <a href="{{ node.url }}">{{ node.name }}</a>
+                    {% else %}
+                        <span>{{ node.name }}</span>
+                    {% endif %}
+                    
+                    {% if node.children %}
+                        {{ render_tree(node.children) }}
+                    {% endif %}
+                </li>
+            {% endfor %}
+            </ul>
+        {% endmacro %}
+
+        <div class="tree-view">
+            {{ render_tree(tree_data) }}
+        </div>
+    </div>
+</div>
+{% endblock %}
