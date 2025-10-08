@@ -34,6 +34,7 @@ class User(db.Model):
     job_title = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     assets = db.relationship('Asset', backref='user', lazy=True)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
 class Supplier(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -50,6 +51,7 @@ class Supplier(db.Model):
     purchases = db.relationship('Purchase', backref='supplier', lazy=True)
     assets = db.relationship('Asset', backref='supplier', lazy=True)
     peripherals = db.relationship('Peripheral', backref='supplier', lazy=True)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
 class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -59,10 +61,13 @@ class Contact(db.Model):
     role = db.Column(db.String(50))
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+
 
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
 # Association table for Services and Tags
 service_tags = db.Table('service_tags',
@@ -92,7 +97,7 @@ service_payment_methods = db.Table('service_payment_methods',
 # Association table for many-to-many relationship between services and contacts
 service_contacts = db.Table('service_contacts',
     db.Column('service_id', db.Integer, db.ForeignKey('service.id'), primary_key=True),
-    db.Column('contact_id', db.Integer, db.ForeignKey('contact.id'), primary_key=True)
+    db.Column('contact_id', db.Integer, db.ForeignKey('contact.id'), primary_key=True),
 )
 
 class CostHistory(db.Model):
@@ -110,6 +115,8 @@ class PaymentMethod(db.Model):
     details = db.Column(db.String(100))  # e.g., "Visa ending in 1234"
     expiry_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+
 
     # Relationship back to Service (optional, but useful)
     services = db.relationship('Service', secondary=service_payment_methods, back_populates='payment_methods')
@@ -258,6 +265,7 @@ class Purchase(db.Model):
     payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'))
     budget_id = db.Column(db.Integer, db.ForeignKey('budget.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
     
     users = db.relationship('User', secondary=purchase_users, backref='purchases')
     tags = db.relationship('Tag', secondary=purchase_tags, backref='purchases')
@@ -270,6 +278,7 @@ class Location(db.Model):
     name = db.Column(db.String(100), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     assets = db.relationship('Asset', backref='location', lazy=True)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
 class Asset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -284,6 +293,7 @@ class Asset(db.Model):
     price = db.Column(db.Float)
     currency = db.Column(db.String(3), default='EUR')
     warranty_length = db.Column(db.Integer) # in months
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
     
     # Relationships
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -315,6 +325,7 @@ class Peripheral(db.Model):
     type = db.Column(db.String(50)) # e.g., Keyboard, Mouse, Monitor
     serial_number = db.Column(db.String(100), unique=True)
     status = db.Column(db.String(50), nullable=False, default='In Use')
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
     
     # Relationships
     asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
@@ -337,6 +348,7 @@ class Budget(db.Model):
     period = db.Column(db.String(50), nullable=False, default='One-time') # e.g., 'monthly', 'yearly'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     purchases = db.relationship('Purchase', backref='budget', lazy=True)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
     @property
     def remaining(self):

@@ -3,7 +3,7 @@
 import uuid, os, calendar
 from werkzeug.utils import secure_filename
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, jsonify, 
+    Blueprint, render_template, request, redirect, url_for, flash, jsonify,
     session, current_app, send_from_directory
 )
 from sqlalchemy import func, case
@@ -36,13 +36,13 @@ def login():  # <-- Ensure this function is named 'login'
         username = request.form['username']
         password = request.form['password']
         user = AppUser.query.filter_by(username=username).first()
-        
+
         if user and user.check_password(password):
             session['user_id'] = user.id
             return redirect(url_for('main.dashboard'))
         else:
             flash('Invalid username or password')
-    
+
     return render_template('login.html')
 
 @main_bp.route('/logout')
@@ -57,7 +57,7 @@ def dashboard():
     # --- Upcoming Renewals & Filter Logic (This part is correct and remains the same) ---
     period = request.args.get('period', '30', type=str)
     today = date.today()
-    
+
     if period == '7':
         start_date, end_date = today, today + timedelta(days=7)
     elif period == '90':
@@ -93,7 +93,7 @@ def dashboard():
     # --- CORRECTED: Forecast Chart Logic ---
     forecast_start_date = today.replace(day=1)
     end_of_forecast_period = forecast_start_date + relativedelta(months=+13)
-    
+
     forecast_labels, forecast_keys, forecast_costs = [], [], {}
     for i in range(13):
         month_date = forecast_start_date + relativedelta(months=+i)
@@ -118,19 +118,19 @@ def dashboard():
             year_month_key = renewal.strftime('%Y-%m')
             if year_month_key in forecast_costs:
                 forecast_costs[year_month_key] += service.cost_eur
-            
+
             if service.renewal_period_type == 'monthly':
                 renewal += relativedelta(months=+service.renewal_period_value)
             elif service.renewal_period_type == 'yearly':
                 renewal += relativedelta(years=+service.renewal_period_value)
             else:
                 renewal += timedelta(days=service.renewal_period_value)
-    
+
     forecast_data = [round(cost, 2) for cost in forecast_costs.values()]
 
 
     return render_template(
-        'dashboard.html', 
+        'dashboard.html',
         upcoming_renewals=upcoming_renewals,
         total_cost=total_cost,
         selected_period=period,
@@ -144,8 +144,34 @@ def dashboard():
 @main_bp.route('/users')
 @login_required
 def users():
-    users = User.query.all()
+    users = User.query.filter_by(is_archived=False).all()
     return render_template('users/list.html', users=users)
+
+@main_bp.route('/users/archived')
+@login_required
+def archived_users():
+    users = User.query.filter_by(is_archived=True).all()
+    return render_template('users/archived.html', users=users)
+
+
+@main_bp.route('/users/<int:id>/archive', methods=['POST'])
+@login_required
+def archive_user(id):
+    user = User.query.get_or_404(id)
+    user.is_archived = True
+    db.session.commit()
+    flash(f'User "{user.name}" has been archived.')
+    return redirect(url_for('main.users'))
+
+
+@main_bp.route('/users/<int:id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_user(id):
+    user = User.query.get_or_404(id)
+    user.is_archived = False
+    db.session.commit()
+    flash(f'User "{user.name}" has been restored.')
+    return redirect(url_for('main.archived_users'))
 
 @main_bp.route('/users/<int:id>')
 @login_required
@@ -167,14 +193,14 @@ def new_user():
         db.session.commit()
         flash('User created successfully!')
         return redirect(url_for('main.users'))
-    
+
     return render_template('users/form.html')
 
 @main_bp.route('/users/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_user(id):
     user = User.query.get_or_404(id)
-    
+
     if request.method == 'POST':
         user.name = request.form['name']
         user.email = request.form.get('email')
@@ -183,7 +209,7 @@ def edit_user(id):
         db.session.commit()
         flash('User updated successfully!')
         return redirect(url_for('main.users'))
-    
+
     return render_template('users/form.html', user=user)
 
 # Purchase routes
@@ -220,7 +246,7 @@ def new_purchase():
             user = User.query.get(user_id)
             if user:
                 purchase.users.append(user)
-        
+
         for tag_id in request.form.getlist('tag_ids'):
             tag = Tag.query.get(tag_id)
             if tag:
@@ -230,7 +256,7 @@ def new_purchase():
         db.session.commit()
         flash('Purchase created successfully!')
         return redirect(url_for('main.purchases'))
-    
+
     return render_template('purchases/form.html',
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             users=User.query.order_by(User.name).all(),
@@ -242,7 +268,7 @@ def new_purchase():
 @login_required
 def edit_purchase(id):
     purchase = Purchase.query.get_or_404(id)
-    
+
     if request.method == 'POST':
         purchase.internal_id = request.form.get('internal_id')
         purchase.description = request.form['description']
@@ -260,13 +286,13 @@ def edit_purchase(id):
             user = User.query.get(user_id)
             if user:
                 purchase.users.append(user)
-        
+
         purchase.tags.clear()
         for tag_id in request.form.getlist('tag_ids'):
             tag = Tag.query.get(tag_id)
             if tag:
                 purchase.tags.append(tag)
-        
+
         db.session.commit()
         flash('Purchase updated successfully!')
         return redirect(url_for('main.purchases'))
@@ -283,8 +309,37 @@ def edit_purchase(id):
 @main_bp.route('/assets')
 @login_required
 def assets():
-    assets = Asset.query.all()
+    assets = Asset.query.filter_by(is_archived=False).all()
     return render_template('assets/list.html', assets=assets)
+
+@main_bp.route('/assets/archived')
+@login_required
+def archived_assets():
+    """Displays a list of all archived assets."""
+    archived = Asset.query.filter_by(is_archived=True).order_by(Asset.name).all()
+    return render_template('assets/archived.html', assets=archived)
+
+
+@main_bp.route('/assets/<int:id>/archive', methods=['POST'])
+@login_required
+def archive_asset(id):
+    """Sets an asset's status to archived."""
+    asset = Asset.query.get_or_404(id)
+    asset.is_archived = True
+    db.session.commit()
+    flash(f'Asset "{asset.name}" has been archived.')
+    return redirect(url_for('main.assets'))
+
+
+@main_bp.route('/assets/<int:id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_asset(id):
+    """Restores an archived asset to active."""
+    asset = Asset.query.get_or_404(id)
+    asset.is_archived = False
+    db.session.commit()
+    flash(f'Asset "{asset.name}" has been restored.')
+    return redirect(url_for('main.archived_assets'))
 
 @main_bp.route('/assets/new', methods=['GET', 'POST'])
 @login_required
@@ -322,7 +377,7 @@ def new_asset():
 @login_required
 def edit_asset(id):
     asset = Asset.query.get_or_404(id)
-    
+
     if request.method == 'POST':
         # Track changes
         changes = []
@@ -338,7 +393,7 @@ def edit_asset(id):
             changes.append(('serial_number', asset.serial_number, request.form.get('serial_number')))
         if asset.status != request.form.get('status'):
             changes.append(('status', asset.status, request.form.get('status')))
-        
+
         purchase_date_form = request.form.get('purchase_date')
         purchase_date = datetime.strptime(purchase_date_form, '%Y-%m-%d').date() if purchase_date_form else None
         if asset.purchase_date != purchase_date:
@@ -348,7 +403,7 @@ def edit_asset(id):
         price = float(price_form) if price_form else None
         if asset.price != price:
             changes.append(('price', asset.price, price))
-        
+
         if asset.currency != request.form.get('currency'):
             changes.append(('currency', asset.currency, request.form.get('currency')))
 
@@ -400,7 +455,7 @@ def edit_asset(id):
         asset.location_id = location_id
         asset.supplier_id = supplier_id
         asset.purchase_id = purchase_id
-        
+
         db.session.commit()
         flash('Asset updated successfully!')
         return redirect(url_for('main.assets'))
@@ -421,8 +476,38 @@ def asset_detail(id):
 @main_bp.route('/peripherals')
 @login_required
 def peripherals():
-    peripherals = Peripheral.query.all()
+    peripherals = Peripheral.query.filter_by(is_archived=False).all()
     return render_template('peripherals/list.html', peripherals=peripherals)
+
+
+@main_bp.route('/peripherals/archived')
+@login_required
+def archived_peripherals():
+    """Displays a list of all archived peripherals."""
+    archived = Peripheral.query.filter_by(is_archived=True).order_by(Peripheral.name).all()
+    return render_template('peripherals/archived.html', peripherals=archived)
+
+
+@main_bp.route('/peripherals/<int:id>/archive', methods=['POST'])
+@login_required
+def archive_peripheral(id):
+    """Sets a peripheral's status to archived."""
+    peripheral = Peripheral.query.get_or_404(id)
+    peripheral.is_archived = True
+    db.session.commit()
+    flash(f'Peripheral "{peripheral.name}" has been archived.')
+    return redirect(url_for('main.peripherals'))
+
+
+@main_bp.route('/peripherals/<int:id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_peripheral(id):
+    """Restores an archived peripheral to active."""
+    peripheral = Peripheral.query.get_or_404(id)
+    peripheral.is_archived = False
+    db.session.commit()
+    flash(f'Peripheral "{peripheral.name}" has been restored.')
+    return redirect(url_for('main.archived_peripherals'))
 
 @main_bp.route('/peripherals/new', methods=['GET', 'POST'])
 @login_required
@@ -451,7 +536,7 @@ def new_peripheral():
 @login_required
 def edit_peripheral(id):
     peripheral = Peripheral.query.get_or_404(id)
-    
+
     if request.method == 'POST':
         peripheral.name = request.form['name']
         peripheral.type = request.form.get('type')
@@ -460,7 +545,7 @@ def edit_peripheral(id):
         peripheral.asset_id = request.form.get('asset_id')
         peripheral.purchase_id = request.form.get('purchase_id')
         peripheral.supplier_id = request.form.get('supplier_id')
-        
+
         db.session.commit()
         flash('Peripheral updated successfully!')
         return redirect(url_for('main.peripherals'))
@@ -475,8 +560,35 @@ def edit_peripheral(id):
 @main_bp.route('/locations')
 @login_required
 def locations():
-    locations = Location.query.all()
+    locations = Location.query.filter_by(is_archived=False).all()
     return render_template('locations/list.html', locations=locations)
+
+@main_bp.route('/locations/archived')
+@login_required
+def archived_locations():
+    locations = Location.query.filter_by(is_archived=True).all()
+    return render_template('locations/archived.html', locations=locations)
+
+
+@main_bp.route('/locations/<int:id>/archive', methods=['POST'])
+@login_required
+def archive_location(id):
+    location = Location.query.get_or_404(id)
+    location.is_archived = True
+    db.session.commit()
+    flash(f'Location "{location.name}" has been archived.')
+    return redirect(url_for('main.locations'))
+
+
+@main_bp.route('/locations/<int:id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_location(id):
+    location = Location.query.get_or_404(id)
+    location.is_archived = False
+    db.session.commit()
+    flash(f'Location "{location.name}" has been restored.')
+    return redirect(url_for('main.archived_locations'))
+
 
 @main_bp.route('/locations/new', methods=['GET', 'POST'])
 @login_required
@@ -487,20 +599,20 @@ def new_location():
         db.session.commit()
         flash('Location created successfully!')
         return redirect(url_for('main.locations'))
-    
+
     return render_template('locations/form.html')
 
 @main_bp.route('/locations/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_location(id):
     location = Location.query.get_or_404(id)
-    
+
     if request.method == 'POST':
         location.name = request.form['name']
         db.session.commit()
         flash('Location updated successfully!')
         return redirect(url_for('main.locations'))
-    
+
     return render_template('locations/form.html', location=location)
 
 @main_bp.route('/locations/<int:id>')
@@ -537,14 +649,14 @@ def new_budget():
         db.session.commit()
         flash('Budget created successfully!')
         return redirect(url_for('main.budgets'))
-    
+
     return render_template('budgets/form.html')
 
 @main_bp.route('/budgets/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_budget(id):
     budget = Budget.query.get_or_404(id)
-    
+
     if request.method == 'POST':
         budget.name = request.form['name']
         budget.category = request.form.get('category')
@@ -554,15 +666,40 @@ def edit_budget(id):
         db.session.commit()
         flash('Budget updated successfully!')
         return redirect(url_for('main.budgets'))
-    
+
     return render_template('budgets/form.html', budget=budget)
 
 # Supplier routes
 @main_bp.route('/suppliers')
 @login_required
 def suppliers():
-    suppliers = Supplier.query.all()
+    suppliers = Supplier.query.filter_by(is_archived=False).all()
     return render_template('suppliers/list.html', suppliers=suppliers)
+
+@main_bp.route('/suppliers/archived')
+@login_required
+def archived_suppliers():
+    suppliers = Supplier.query.filter_by(is_archived=True).all()
+    return render_template('suppliers/archived.html', suppliers=suppliers)
+
+@main_bp.route('/suppliers/<int:id>/archive', methods=['POST'])
+@login_required
+def archive_supplier(id):
+    supplier = Supplier.query.get_or_404(id)
+    supplier.is_archived = True
+    db.session.commit()
+    flash(f'Supplier "{supplier.name}" has been archived.')
+    return redirect(url_for('main.suppliers'))
+
+
+@main_bp.route('/suppliers/<int:id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_supplier(id):
+    supplier = Supplier.query.get_or_404(id)
+    supplier.is_archived = False
+    db.session.commit()
+    flash(f'Supplier "{supplier.name}" has been restored.')
+    return redirect(url_for('main.archived_suppliers'))
 
 @main_bp.route('/suppliers/new', methods=['GET', 'POST'])
 @login_required
@@ -578,7 +715,7 @@ def new_supplier():
         db.session.commit()
         flash('Supplier created successfully!')
         return redirect(url_for('main.suppliers'))
-    
+
     return render_template('suppliers/form.html')
 
 @main_bp.route('/suppliers/<int:id>')
@@ -591,7 +728,7 @@ def supplier_detail(id):
 @login_required
 def edit_supplier(id):
     supplier = Supplier.query.get_or_404(id)
-    
+
     if request.method == 'POST':
         supplier.name = request.form['name']
         supplier.email = request.form.get('email')
@@ -600,7 +737,7 @@ def edit_supplier(id):
         db.session.commit()
         flash('Supplier updated successfully!')
         return redirect(url_for('main.suppliers'))
-    
+
     return render_template('suppliers/form.html', supplier=supplier)
 
 @main_bp.route('/suppliers/<int:id>/delete', methods=['POST'])
@@ -616,8 +753,32 @@ def delete_supplier(id):
 @main_bp.route('/contacts')
 @login_required
 def contacts():
-    contacts = Contact.query.join(Supplier).all()
+    contacts = Contact.query.filter_by(is_archived=False).join(Supplier).all()
     return render_template('contacts/list.html', contacts=contacts)
+
+@main_bp.route('/contacts/archived')
+@login_required
+def archived_contacts():
+    contacts = Contact.query.filter_by(is_archived=True).join(Supplier).all()
+    return render_template('contacts/archived.html', contacts=contacts)
+
+@main_bp.route('/contacts/<int:id>/archive', methods=['POST'])
+@login_required
+def archive_contact(id):
+    contact = Contact.query.get_or_404(id)
+    contact.is_archived = True
+    db.session.commit()
+    flash(f'Contact "{contact.name}" has been archived.')
+    return redirect(url_for('main.contacts'))
+
+@main_bp.route('/contacts/<int:id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_contact(id):
+    contact = Contact.query.get_or_404(id)
+    contact.is_archived = False
+    db.session.commit()
+    flash(f'Contact "{contact.name}" has been restored.')
+    return redirect(url_for('main.archived_contacts'))
 
 @main_bp.route('/contacts/<int:id>')
 @login_required
@@ -640,7 +801,7 @@ def new_contact():
         db.session.commit()
         flash('Contact created successfully!')
         return redirect(url_for('main.contacts'))
-    
+
     suppliers = Supplier.query.all()
     return render_template('contacts/form.html', suppliers=suppliers)
 
@@ -648,7 +809,7 @@ def new_contact():
 @login_required
 def edit_contact(id):
     contact = Contact.query.get_or_404(id)
-    
+
     if request.method == 'POST':
         contact.name = request.form['name']
         contact.email = request.form.get('email')
@@ -658,7 +819,7 @@ def edit_contact(id):
         db.session.commit()
         flash('Contact updated successfully!')
         return redirect(url_for('main.contacts'))
-    
+
     suppliers = Supplier.query.all()
     return render_template('contacts/form.html', contact=contact, suppliers=suppliers)
 
@@ -685,7 +846,7 @@ def services():
 
     # --- Build the base database query ---
     query = Service.query.join(Supplier).filter(Service.is_archived == False)
-    
+
     # Apply filters to the database query if they exist
     if service_type_filter and service_type_filter != 'all':
         query = query.filter(Service.service_type == service_type_filter)
@@ -693,7 +854,7 @@ def services():
     if tag_filter:
         tag = Tag.query.get_or_404(tag_filter)
         query = query.filter(Service.tags.contains(tag))
-    
+
     all_services = query.order_by(Service.name).all()
 
     # --- CORRECTED: Apply the month filter with the new centralized logic ---
@@ -706,17 +867,17 @@ def services():
             filtered_services = []
             for service in all_services:
                 next_renewal = service.next_renewal_date
-                
+
                 # Loop through the future renewals of this service
                 while next_renewal <= filter_month_end:
                     # If a renewal falls within the target month, add it and stop checking this service
                     if next_renewal >= filter_month_start:
                         filtered_services.append(service)
                         break # Move to the next service
-                    
+
                     # Use the centralized method to get the next date
                     next_renewal = service.get_renewal_date_after(next_renewal)
-            
+
             all_services = filtered_services # Overwrite the list with the filtered results
         except ValueError:
             flash("Invalid month format in filter.", "error")
@@ -729,11 +890,11 @@ def services():
     service_types = [st[0] for st in service_types_query]
     all_tags = Tag.query.order_by(Tag.name).all()
 
-    return render_template('services/list.html', 
+    return render_template('services/list.html',
                             services=all_services,
-                            service_types=service_types, 
+                            service_types=service_types,
                             selected_filter=service_type_filter,
-                            tags=all_tags, 
+                            tags=all_tags,
                             selected_tag_id=tag_filter,
                             month_filter=month_filter,
                             total_cost=total_cost_of_listed_services)
@@ -742,7 +903,7 @@ def services():
 @login_required
 def service_detail(id):
     service = Service.query.get_or_404(id)
-    
+
     # --- NEW: Prepare data for the cost history chart ---
     cost_history_labels = [entry.changed_date.strftime('%Y-%m-%d') for entry in service.cost_history]
     # We'll use the cost in EUR for consistency in the chart
@@ -753,7 +914,7 @@ def service_detail(id):
     ]
 
     return render_template(
-        'services/detail.html', 
+        'services/detail.html',
         service=service,
         cost_history_labels=cost_history_labels,
         cost_history_data=cost_history_data
@@ -776,7 +937,7 @@ def new_service():
             currency=request.form['currency'],
             supplier_id=request.form['supplier_id']
         )
-        
+
         # Handle the advanced monthly renewal day logic
         if service.renewal_period_type == 'monthly':
             selector = request.form.get('monthly_renewal_day_selector')
@@ -784,7 +945,7 @@ def new_service():
                 service.monthly_renewal_day = selector
             elif selector == 'specific':
                 service.monthly_renewal_day = request.form.get('monthly_renewal_day')
-        
+
         # Create the initial cost history entry
         initial_cost = CostHistory(
             service=service, cost=service.cost, currency=service.currency, changed_date=date.today()
@@ -795,7 +956,7 @@ def new_service():
         for contact_id in request.form.getlist('contact_ids'):
             contact = Contact.query.get(contact_id)
             if contact: service.contacts.append(contact)
-            
+
         for pm_id in request.form.getlist('payment_method_ids'):
             pm = PaymentMethod.query.get(pm_id)
             if pm: service.payment_methods.append(pm)
@@ -803,16 +964,16 @@ def new_service():
         for tag_id in request.form.getlist('tag_ids'):
             tag = Tag.query.get(tag_id)
             if tag: service.tags.append(tag)
-        
+
         db.session.add(service)
         db.session.commit()
         flash('Service created successfully!')
         return redirect(url_for('main.services'))
-    
+
     # For a GET request, fetch all data for the form's dropdowns
-    return render_template('services/form.html', 
-                            suppliers=Supplier.query.order_by(Supplier.name).all(), 
-                            contacts=Contact.query.order_by(Contact.name).all(), 
+    return render_template('services/form.html',
+                            suppliers=Supplier.query.order_by(Supplier.name).all(),
+                            contacts=Contact.query.order_by(Contact.name).all(),
                             payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
                             tags=Tag.query.order_by(Tag.name).all())
     if request.method == 'POST':
@@ -838,7 +999,7 @@ def new_service():
             elif selector == 'specific':
                 service.monthly_renewal_day = request.form.get('monthly_renewal_day')
             # If 'default', we do nothing, leaving it Non
-        
+
         # Create the initial cost history entry for this new service
         initial_cost = CostHistory(
             service=service,
@@ -853,7 +1014,7 @@ def new_service():
             contact = Contact.query.get(contact_id)
             if contact:
                 service.contacts.append(contact)
-            
+
         for pm_id in request.form.getlist('payment_method_ids'):
             pm = PaymentMethod.query.get(pm_id)
             if pm:
@@ -863,16 +1024,16 @@ def new_service():
             tag = Tag.query.get(tag_id)
             if tag:
                 service.tags.append(tag)
-        
+
         db.session.add(service)
         db.session.commit()
         flash('Service created successfully!')
         return redirect(url_for('main.services'))
-    
+
     # For a GET request, fetch all necessary data for the form's dropdowns
-    return render_template('services/form.html', 
-                            suppliers=Supplier.query.order_by(Supplier.name).all(), 
-                            contacts=Contact.query.order_by(Contact.name).all(), 
+    return render_template('services/form.html',
+                            suppliers=Supplier.query.order_by(Supplier.name).all(),
+                            contacts=Contact.query.order_by(Contact.name).all(),
                             payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
                             tags=Tag.query.order_by(Tag.name).all())
 
@@ -880,7 +1041,7 @@ def new_service():
 @login_required
 def edit_service(id):
     service = Service.query.get_or_404(id)
-    
+
     if request.method == 'POST':
         new_cost = float(request.form['cost'])
         new_currency = request.form['currency']
@@ -903,7 +1064,7 @@ def edit_service(id):
         service.cost = new_cost
         service.currency = new_currency
         service.supplier_id = request.form['supplier_id']
-        
+
         # Handle the advanced monthly renewal day logic
         service.monthly_renewal_day = None # Reset first
         if service.renewal_period_type == 'monthly':
@@ -918,7 +1079,7 @@ def edit_service(id):
         for contact_id in request.form.getlist('contact_ids'):
             contact = Contact.query.get(contact_id)
             if contact: service.contacts.append(contact)
-            
+
         service.payment_methods.clear()
         for pm_id in request.form.getlist('payment_method_ids'):
             pm = PaymentMethod.query.get(pm_id)
@@ -928,20 +1089,20 @@ def edit_service(id):
         for tag_id in request.form.getlist('tag_ids'):
             tag = Tag.query.get(tag_id)
             if tag: service.tags.append(tag)
-        
+
         db.session.commit()
         flash('Service updated successfully!')
         return redirect(url_for('main.service_detail', id=service.id))
-    
+
     # For a GET request, fetch all data needed to populate the edit form
-    return render_template('services/form.html', 
+    return render_template('services/form.html',
                             service=service,
-                            suppliers=Supplier.query.order_by(Supplier.name).all(), 
-                            contacts=Contact.query.order_by(Contact.name).all(), 
+                            suppliers=Supplier.query.order_by(Supplier.name).all(),
+                            contacts=Contact.query.order_by(Contact.name).all(),
                             payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
                             tags=Tag.query.order_by(Tag.name).all())
     service = Service.query.get_or_404(id)
-    
+
     if request.method == 'POST':
         new_cost = float(request.form['cost'])
         new_currency = request.form['currency']
@@ -967,7 +1128,7 @@ def edit_service(id):
         service.cost = new_cost
         service.currency = new_currency
         service.supplier_id = request.form['supplier_id']
-        
+
         # Logic to handle advanced monthly renewal day ---
         service.monthly_renewal_day = None # Reset first
         if service.renewal_period_type == 'monthly':
@@ -983,7 +1144,7 @@ def edit_service(id):
             contact = Contact.query.get(contact_id)
             if contact:
                 service.contacts.append(contact)
-            
+
         for pm_id in request.form.getlist('payment_method_ids'):
             pm = PaymentMethod.query.get(pm_id)
             if pm:
@@ -994,16 +1155,16 @@ def edit_service(id):
             tag = Tag.query.get(tag_id)
             if tag:
                 service.tags.append(tag)
-        
+
         db.session.commit()
         flash('Service updated successfully!')
         return redirect(url_for('main.service_detail', id=service.id))
-    
+
     # For a GET request, fetch all data needed to populate the edit form
-    return render_template('services/form.html', 
+    return render_template('services/form.html',
                             service=service,
-                            suppliers=Supplier.query.order_by(Supplier.name).all(), 
-                            contacts=Contact.query.order_by(Contact.name).all(), 
+                            suppliers=Supplier.query.order_by(Supplier.name).all(),
+                            contacts=Contact.query.order_by(Contact.name).all(),
                             payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
                             tags=Tag.query.order_by(Tag.name).all())
 
@@ -1031,7 +1192,7 @@ def calendar_events():
     # Get the start and end dates from the calendar's request
     start_str = request.args.get('start')
     end_str = request.args.get('end')
-    
+
     try:
         # Convert the string dates from the request into date objects
         start_date = datetime.fromisoformat(start_str).date()
@@ -1045,7 +1206,7 @@ def calendar_events():
 
     for service in all_active_services:
         next_renewal = service.next_renewal_date
-        
+
         # Loop through all future renewals of this service
         while next_renewal < end_date:
             # If a renewal falls within the calendar's visible window, create an event
@@ -1065,15 +1226,40 @@ def calendar_events():
 
             # CORRECTED: Use the centralized method to calculate the next occurrence
             next_renewal = service.get_renewal_date_after(next_renewal)
-                
+
     return jsonify(events)
 
 # Payment routes
 @main_bp.route('/payment-methods')
 @login_required
 def payment_methods():
-    methods = PaymentMethod.query.all()
+    methods = PaymentMethod.query.filter_by(is_archived=False).all()
     return render_template('payment_methods/list.html', payment_methods=methods)
+
+@main_bp.route('/payment-methods/archived')
+@login_required
+def archived_payment_methods():
+    methods = PaymentMethod.query.filter_by(is_archived=True).all()
+    return render_template('payment_methods/archived.html', payment_methods=methods)
+
+@main_bp.route('/payment-methods/<int:id>/archive', methods=['POST'])
+@login_required
+def archive_payment_method(id):
+    method = PaymentMethod.query.get_or_404(id)
+    method.is_archived = True
+    db.session.commit()
+    flash(f'Payment method "{method.name}" has been archived.')
+    return redirect(url_for('main.payment_methods'))
+
+@main_bp.route('/payment-methods/<int:id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_payment_method(id):
+    method = PaymentMethod.query.get_or_404(id)
+    method.is_archived = False
+    db.session.commit()
+    flash(f'Payment method "{method.name}" has been restored.')
+    return redirect(url_for('main.archived_payment_methods'))
+
 
 @main_bp.route('/payment-methods/<int:id>')
 @login_required
@@ -1100,7 +1286,7 @@ def new_payment_method():
         db.session.commit()
         flash('Payment method created successfully!')
         return redirect(url_for('main.payment_methods'))
-    
+
     return render_template('payment_methods/form.html')
 
 @main_bp.route('/payment-methods/<int:id>/edit', methods=['GET', 'POST'])
@@ -1120,7 +1306,7 @@ def edit_payment_method(id):
         db.session.commit()
         flash('Payment method updated successfully!')
         return redirect(url_for('main.payment_methods'))
-    
+
     return render_template('payment_methods/form.html', method=method)
 
 @main_bp.route('/payment-methods/<int:id>/delete', methods=['POST'])
@@ -1148,21 +1334,21 @@ def notification_settings():
         settings.email_recipient = request.form.get('email_recipient')
         settings.webhook_enabled = 'webhook_enabled' in request.form
         settings.webhook_url = request.form.get('webhook_url')
-        
+
         # Collect checked days and join them into a string
         days_before = request.form.getlist('days_before')
         settings.notify_days_before = ','.join(days_before)
-        
+
         db.session.commit()
         flash('Notification settings updated successfully!')
         return redirect(url_for('main.notification_settings'))
 
     # For the template, create a list of integers from the string
     notify_days_list = [int(day) for day in settings.notify_days_before.split(',') if day]
-    
+
     return render_template(
-        'notifications/settings.html', 
-        settings=settings, 
+        'notifications/settings.html',
+        settings=settings,
         notify_days_list=notify_days_list
     )
 
@@ -1204,11 +1390,11 @@ def upload_file():
     purchase_id = request.form.get('purchase_id')
     asset_id = request.form.get('asset_id')
     peripheral_id = request.form.get('peripheral_id')
-    
+
     if 'file' not in request.files:
         flash('No file part')
         return redirect(request.referrer)
-        
+
     file = request.files['file']
     if file.filename == '':
         flash('No selected file')
@@ -1219,9 +1405,9 @@ def upload_file():
         # Create a unique filename to prevent conflicts
         file_ext = os.path.splitext(original_filename)[1]
         unique_filename = f"{uuid.uuid4().hex}{file_ext}"
-        
+
         file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
-        
+
         new_attachment = Attachment(
             filename=original_filename,
             secure_filename=unique_filename,
@@ -1243,9 +1429,9 @@ def upload_file():
 def download_file(attachment_id):
     attachment = Attachment.query.get_or_404(attachment_id)
     return send_from_directory(
-        current_app.config['UPLOAD_FOLDER'], 
-        attachment.secure_filename, 
-        as_attachment=True, 
+        current_app.config['UPLOAD_FOLDER'],
+        attachment.secure_filename,
+        as_attachment=True,
         download_name=attachment.filename
     )
 
@@ -1253,10 +1439,10 @@ def download_file(attachment_id):
 @login_required
 def delete_attachment(attachment_id):
     attachment = Attachment.query.get_or_404(attachment_id)
-    
+
     # Delete file from filesystem
     os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], attachment.secure_filename))
-    
+
     # Delete record from database
     db.session.delete(attachment)
     db.session.commit()
@@ -1267,8 +1453,34 @@ def delete_attachment(attachment_id):
 @main_bp.route('/tags')
 @login_required
 def tags():
-    all_tags = Tag.query.order_by(Tag.name).all()
+    all_tags = Tag.query.filter_by(is_archived=False).order_by(Tag.name).all()
     return render_template('tags/list.html', tags=all_tags)
+
+@main_bp.route('/tags/archived')
+@login_required
+def archived_tags():
+    all_tags = Tag.query.filter_by(is_archived=True).order_by(Tag.name).all()
+    return render_template('tags/archived.html', tags=all_tags)
+
+
+@main_bp.route('/tags/<int:id>/archive', methods=['POST'])
+@login_required
+def archive_tag(id):
+    tag = Tag.query.get_or_404(id)
+    tag.is_archived = True
+    db.session.commit()
+    flash(f'Tag "{tag.name}" has been archived.')
+    return redirect(url_for('main.tags'))
+
+
+@main_bp.route('/tags/<int:id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_tag(id):
+    tag = Tag.query.get_or_404(id)
+    tag.is_archived = False
+    db.session.commit()
+    flash(f'Tag "{tag.name}" has been restored.')
+    return redirect(url_for('main.archived_tags'))
 
 @main_bp.route('/tags/new', methods=['GET', 'POST'])
 @login_required
@@ -1323,7 +1535,7 @@ def subscription_reports():
 
     # --- Chart 1: Spending by Supplier) ---
     supplier_spending = {} # Use a dictionary to aggregate costs
-    
+
     # Define the start and end of the selected year
     year_start = date(selected_year, 1, 1)
     year_end = date(selected_year, 12, 31)
@@ -1338,24 +1550,24 @@ def subscription_reports():
                 renewal += relativedelta(years=+service.renewal_period_value)
             else:
                 renewal += timedelta(days=service.renewal_period_value)
-        
+
         # Now, log every renewal that falls within the selected year
         while renewal <= year_end:
             supplier_name = service.supplier.name
             if supplier_name not in supplier_spending:
                 supplier_spending[supplier_name] = 0
             supplier_spending[supplier_name] += service.cost_eur
-            
+
             if service.renewal_period_type == 'monthly':
                 renewal += relativedelta(months=+service.renewal_period_value)
             elif service.renewal_period_type == 'yearly':
                 renewal += relativedelta(years=+service.renewal_period_value)
             else:
                 renewal += timedelta(days=service.renewal_period_value)
-    
+
     # Sort suppliers by total spending
     sorted_supplier_spending = sorted(supplier_spending.items(), key=lambda item: item[1], reverse=True)
-    
+
     supplier_labels = [item[0] for item in sorted_supplier_spending]
     supplier_data = [round(item[1], 2) for item in sorted_supplier_spending]
 
@@ -1368,7 +1580,7 @@ def subscription_reports():
     services_by_type = db.session.query(Service.service_type, func.count(Service.id)).filter(Service.is_archived == False).group_by(Service.service_type).order_by(func.count(Service.id).desc()).all()
     type_labels = [item[0].title() for item in services_by_type]
     type_data = [item[1] for item in services_by_type]
-    
+
     all_active_services = Service.query.filter_by(is_archived=False).all()
     today = date.today()
 
@@ -1377,7 +1589,7 @@ def subscription_reports():
     monthly_start_date = (today.replace(day=1) - relativedelta(months=12))
     monthly_labels, monthly_costs = [], {}
     for i in range(13):
-        month_date = monthly_start_date + relativedelta(months=i)
+        month_date = monthly_start_date + relativedelta(months=+i)
         year_month_key = month_date.strftime('%Y-%m')
         monthly_labels.append(month_date.strftime('%b %Y'))
         monthly_costs[year_month_key] = 0
@@ -1389,7 +1601,7 @@ def subscription_reports():
         year_date = yearly_start_date + relativedelta(years=i)
         yearly_labels.append(year_date.strftime('%Y'))
         yearly_costs[year_date.strftime('%Y')] = 0
-        
+
     for service in all_active_services:
         # Start from the service's very first renewal date for historical accuracy
         renewal = service.renewal_date
@@ -1401,13 +1613,13 @@ def subscription_reports():
                 renewal += relativedelta(years=+service.renewal_period_value)
             else:
                 renewal += timedelta(days=service.renewal_period_value)
-        
+
         # Now, log every renewal event that occurred up until today
         while renewal <= today:
             year_key = renewal.strftime('%Y')
             if year_key in yearly_costs:
                 yearly_costs[year_key] += service.cost_eur
-            
+
             month_key = renewal.strftime('%Y-%m')
             if month_key in monthly_costs:
                 monthly_costs[month_key] += service.cost_eur
@@ -1421,7 +1633,7 @@ def subscription_reports():
 
     monthly_data = [round(cost, 2) for cost in monthly_costs.values()]
     yearly_data = [round(cost, 2) for cost in yearly_costs.values()]
-    
+
     # --- Forecast Chart Logic (This is also corrected to match the dashboard) ---
     end_of_forecast_period = today + relativedelta(months=+13)
     forecast_labels, forecast_keys, forecast_costs = [], [], {}
@@ -1444,7 +1656,7 @@ def subscription_reports():
                 renewal += relativedelta(years=+service.renewal_period_value)
             else:
                 renewal += timedelta(days=service.renewal_period_value)
-    
+
     forecast_data = [round(cost, 2) for cost in forecast_costs.values()]
 
     return render_template(
