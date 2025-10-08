@@ -1,10 +1,11 @@
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, session
+    Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 )
+from sqlalchemy import or_
 from functools import wraps
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
-from ..models import db, AppUser, Service, NotificationSetting
+from ..models import db, AppUser, Service, NotificationSetting, Asset, Supplier, Contact, Purchase, Peripheral
 
 main_bp = Blueprint('main', __name__)
 
@@ -40,7 +41,6 @@ def logout():
 @main_bp.route('/')
 @login_required
 def dashboard():
-    # ... (dashboard logic remains the same)
     period = request.args.get('period', '30', type=str)
     today = date.today()
 
@@ -67,19 +67,11 @@ def dashboard():
             if next_renewal >= start_date:
                 upcoming_renewals.append((next_renewal, service))
                 total_cost += service.cost_eur
-            if service.renewal_period_type == 'monthly':
-                next_renewal += relativedelta(months=+service.renewal_period_value)
-            elif service.renewal_period_type == 'yearly':
-                next_renewal += relativedelta(years=+service.renewal_period_value)
-            else:
-                next_renewal += timedelta(days=service.renewal_period_value)
+            next_renewal = service.get_renewal_date_after(next_renewal)
     upcoming_renewals.sort(key=lambda x: x[0])
 
-
-    # --- CORRECTED: Forecast Chart Logic ---
     forecast_start_date = today.replace(day=1)
     end_of_forecast_period = forecast_start_date + relativedelta(months=+13)
-
     forecast_labels, forecast_keys, forecast_costs = [], [], {}
     for i in range(13):
         month_date = forecast_start_date + relativedelta(months=+i)
@@ -89,31 +81,14 @@ def dashboard():
         forecast_costs[year_month_key] = 0
 
     for service in all_active_services:
-        # Start from the original renewal date to find the first relevant occurrence
         renewal = service.renewal_date
-        while renewal < forecast_start_date:
-            if service.renewal_period_type == 'monthly':
-                renewal += relativedelta(months=+service.renewal_period_value)
-            elif service.renewal_period_type == 'yearly':
-                renewal += relativedelta(years=+service.renewal_period_value)
-            else:
-                renewal += timedelta(days=service.renewal_period_value)
-
-        # Now, loop through all renewals that fall within our 13-month window
         while renewal < end_of_forecast_period:
             year_month_key = renewal.strftime('%Y-%m')
             if year_month_key in forecast_costs:
                 forecast_costs[year_month_key] += service.cost_eur
-
-            if service.renewal_period_type == 'monthly':
-                renewal += relativedelta(months=+service.renewal_period_value)
-            elif service.renewal_period_type == 'yearly':
-                renewal += relativedelta(years=+service.renewal_period_value)
-            else:
-                renewal += timedelta(days=service.renewal_period_value)
+            renewal = service.get_renewal_date_after(renewal)
 
     forecast_data = [round(cost, 2) for cost in forecast_costs.values()]
-
 
     return render_template(
         'dashboard.html',
@@ -125,7 +100,6 @@ def dashboard():
         forecast_keys=forecast_keys,
         forecast_data=forecast_data
     )
-
 
 @main_bp.route('/notifications', methods=['GET', 'POST'])
 @login_required
@@ -156,3 +130,81 @@ def notification_settings():
         settings=settings,
         notify_days_list=notify_days_list
     )
+
+@main_bp.route('/api/search')
+@login_required
+def search():
+    query = request.args.get('q', '').strip()
+    results = []
+
+    if len(query) < 2:
+        return jsonify([])
+
+    search_term = f'%{query}%'
+    limit = 5
+
+    # Search Services
+    services = Service.query.filter(Service.name.ilike(search_term), Service.is_archived == False).limit(limit).all()
+    for item in services:
+        results.append({
+            'name': item.name,
+            'type': 'Service',
+            'url': url_for('services.service_detail', id=item.id)
+        })
+
+    # Search Assets
+    assets = Asset.query.filter(
+        or_(
+            Asset.name.ilike(search_term),
+            Asset.serial_number.ilike(search_term)
+        ), Asset.is_archived == False
+    ).limit(limit).all()
+    for item in assets:
+        results.append({
+            'name': item.name,
+            'type': 'Asset',
+            'url': url_for('assets.asset_detail', id=item.id)
+        })
+
+    # Search Suppliers
+    suppliers = Supplier.query.filter(Supplier.name.ilike(search_term), Supplier.is_archived == False).limit(limit).all()
+    for item in suppliers:
+        results.append({
+            'name': item.name,
+            'type': 'Supplier',
+            'url': url_for('suppliers.supplier_detail', id=item.id)
+        })
+
+    # Search Contacts
+    contacts = Contact.query.filter(Contact.name.ilike(search_term), Contact.is_archived == False).limit(limit).all()
+    for item in contacts:
+        results.append({
+            'name': f"{item.name} ({item.supplier.name})",
+            'type': 'Contact',
+            'url': url_for('contacts.contact_detail', id=item.id)
+        })
+    
+    # Search Purchases
+    purchases = Purchase.query.filter(Purchase.description.ilike(search_term)).limit(limit).all()
+    for item in purchases:
+        results.append({
+            'name': item.description,
+            'type': 'Purchase',
+            'url': url_for('purchases.purchase_detail', id=item.id)
+        })
+
+    # Search Peripherals
+    peripherals = Peripheral.query.filter(
+        or_(
+            Peripheral.name.ilike(search_term),
+            Peripheral.serial_number.ilike(search_term)
+        ), Peripheral.is_archived == False
+    ).limit(limit).all()
+    for item in peripherals:
+        results.append({
+            'name': item.name,
+            'type': 'Peripheral',
+            'url': url_for('peripherals.edit_peripheral', id=item.id)
+        })
+
+    return jsonify(results)
