@@ -301,8 +301,9 @@ class Asset(db.Model):
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
     attachments = db.relationship('Attachment', backref='asset', lazy=True, cascade='all, delete-orphan')
-    history = db.relationship('AssetHistory', backref='asset', lazy=True, cascade='all, delete-orphan')
+    history = db.relationship('AssetHistory', backref='asset', lazy=True, cascade='all, delete-orphan', order_by='AssetHistory.changed_at.desc()')
     peripherals = db.relationship('Peripheral', backref='asset', lazy=True)
+    assignments = db.relationship('AssetAssignment', backref='asset', lazy=True, cascade='all, delete-orphan', order_by='AssetAssignment.checked_out_date.desc()')
 
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -312,6 +313,15 @@ class Asset(db.Model):
         if self.purchase_date and self.warranty_length:
             return self.purchase_date + relativedelta(months=+self.warranty_length)
         return None
+
+class AssetAssignment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Can be unassigned
+    checked_out_date = db.Column(db.DateTime, default=datetime.utcnow)
+    checked_in_date = db.Column(db.DateTime, nullable=True)
+    notes = db.Column(db.Text)
+    user = db.relationship('User', backref='assignments')
 
 class AssetHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)

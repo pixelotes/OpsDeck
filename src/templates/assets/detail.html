@@ -5,9 +5,20 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-laptop"></i> {{ asset.name }}</h2>
-    <a href="{{ url_for('assets.edit_asset', id=asset.id) }}" class="btn btn-outline-primary">
-        <i class="fas fa-edit"></i> Edit Asset
-    </a>
+    <div>
+        {% if asset.user_id %}
+        <form action="{{ url_for('assets.checkin_asset', id=asset.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to check in this asset?');">
+            <button type="submit" class="btn btn-warning"><i class="fas fa-sign-in-alt"></i> Check In</button>
+        </form>
+        {% else %}
+        <a href="{{ url_for('assets.checkout_asset', id=asset.id) }}" class="btn btn-success">
+            <i class="fas fa-sign-out-alt"></i> Check Out
+        </a>
+        {% endif %}
+        <a href="{{ url_for('assets.edit_asset', id=asset.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-edit"></i> Edit Asset
+        </a>
+    </div>
 </div>
 
 <div class="card mb-4">
@@ -21,7 +32,13 @@
                 <p><strong>Status:</strong> <span class="badge bg-info">{{ asset.status }}</span></p>
             </div>
             <div class="col-md-6">
-                <p><strong>User:</strong> {{ asset.user.name if asset.user else 'N/A' }}</p>
+                <p><strong>Assigned To:</strong> 
+                    {% if asset.user %}
+                        <a href="{{ url_for('users.user_detail', id=asset.user.id) }}">{{ asset.user.name }}</a>
+                    {% else %}
+                        <span class="text-muted">Not Assigned</span>
+                    {% endif %}
+                </p>
                 <p><strong>Location:</strong> {{ asset.location.name if asset.location else 'N/A' }}</p>
                 <p><strong>Supplier:</strong> {{ asset.supplier.name if asset.supplier else 'N/A' }}</p>
                 <p><strong>Associated Purchase:</strong> 
@@ -42,32 +59,40 @@
 </div>
 
 <div class="card mt-4">
-    <div class="card-header"><i class="fas fa-history"></i> Asset History</div>
+    <div class="card-header"><i class="fas fa-retweet"></i> Assignment History</div>
     <div class="card-body">
         <table class="table table-striped">
             <thead>
                 <tr>
-                    <th>Field</th>
-                    <th>Old Value</th>
-                    <th>New Value</th>
-                    <th>Changed At</th>
+                    <th>User</th>
+                    <th>Checked Out</th>
+                    <th>Checked In</th>
                 </tr>
             </thead>
             <tbody>
-                {% for entry in asset.history %}
+                {% for entry in asset.assignments %}
                 <tr>
-                    <td>{{ entry.field_changed }}</td>
-                    <td>{{ entry.old_value }}</td>
-                    <td>{{ entry.new_value }}</td>
-                    <td>{{ entry.changed_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>{{ entry.user.name if entry.user else 'N/A' }}</td>
+                    <td>{{ entry.checked_out_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ entry.checked_in_date.strftime('%Y-%m-%d %H:%M') if entry.checked_in_date else 'Currently Checked Out' }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="text-center">No history found.</td>
+                    <td colspan="3" class="text-center">No assignment history found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-history"></i> Asset History</span>
+        <a href="{{ url_for('assets.asset_history', id=asset.id) }}" class="btn btn-sm btn-outline-primary">
+            View Full History <i class="fas fa-external-link-alt"></i>
+        </a>
     </div>
 </div>
 
@@ -95,4 +120,4 @@
         </form>
     </div>
 </div>
-{% endblock %}
+{% endblock %} 

@@ -2,7 +2,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
 from datetime import datetime
-from ..models import db, Asset, AssetHistory, User, Location, Supplier, Purchase
+from ..models import db, Asset, AssetHistory, User, Location, Supplier, Purchase, AssetAssignment
 from .main import login_required
 
 assets_bp = Blueprint('assets', __name__)
@@ -80,8 +80,6 @@ def edit_asset(id):
     asset = Asset.query.get_or_404(id)
 
     if request.method == 'POST':
-        # ... (code for editing asset)
-        # This part is long, so it's omitted for brevity, but it should be here.
         changes = []
         if asset.name != request.form['name']:
             changes.append(('name', asset.name, request.form['name']))
@@ -168,15 +166,82 @@ def edit_asset(id):
                             locations=Location.query.order_by(Location.name).all(),
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             purchases=Purchase.query.order_by(Purchase.description).all())
+
 @assets_bp.route('/<int:id>')
 @login_required
 def asset_detail(id):
     asset = Asset.query.get_or_404(id)
     return render_template('assets/detail.html', asset=asset)
 
+@assets_bp.route('/<int:id>/checkout', methods=['GET', 'POST'])
+@login_required
+def checkout_asset(id):
+    asset = Asset.query.get_or_404(id)
+    if asset.user:
+        flash('This asset is already checked out.', 'warning')
+        return redirect(url_for('assets.asset_detail', id=id))
+
+    if request.method == 'POST':
+        user_id = request.form.get('user_id')
+        notes = request.form.get('notes')
+        
+        if not user_id:
+            flash('You must select a user.', 'danger')
+            return redirect(url_for('assets.checkout_asset', id=id))
+        
+        user = User.query.get(user_id)
+        if not user:
+            flash('Selected user not found.', 'danger')
+            return redirect(url_for('assets.checkout_asset', id=id))
+        
+        asset.user = user
+        
+        assignment = AssetAssignment(asset_id=id, user_id=user_id, notes=notes)
+        db.session.add(assignment)
+        
+        history_entry = AssetHistory(asset_id=id, field_changed='Status', old_value=asset.status, new_value=f'Checked out to {user.name}')
+        db.session.add(history_entry)
+
+        db.session.commit()
+        flash(f'Asset "{asset.name}" has been checked out to {user.name}.')
+        return redirect(url_for('assets.asset_detail', id=id))
+        
+    users = User.query.order_by(User.name).filter_by(is_archived=False).all()
+    return render_template('assets/checkout.html', asset=asset, users=users)
+
+
+@assets_bp.route('/<int:id>/checkin', methods=['POST'])
+@login_required
+def checkin_asset(id):
+    asset = Asset.query.get_or_404(id)
+    if not asset.user:
+        flash('This asset is already checked in.', 'warning')
+        return redirect(url_for('assets.asset_detail', id=id))
+
+    assignment = AssetAssignment.query.filter_by(asset_id=id, checked_in_date=None).order_by(AssetAssignment.checked_out_date.desc()).first()
+    
+    if assignment:
+        assignment.checked_in_date = datetime.utcnow()
+
+    history_entry = AssetHistory(asset_id=id, field_changed='Status', old_value=f'Checked out to {asset.user.name}', new_value='Checked In')
+    db.session.add(history_entry)
+    
+    asset.user = None
+    
+    db.session.commit()
+    flash(f'Asset "{asset.name}" has been checked in.')
+    return redirect(url_for('assets.asset_detail', id=id))
 
 @assets_bp.route('/warranties')
 @login_required
 def warranties():
     assets = Asset.query.all()
     return render_template('assets/warranties.html', assets=assets)
+
+@assets_bp.route('/<int:id>/history')
+@login_required
+def asset_history(id):
+    """Displays the full history for a single asset."""
+    asset = Asset.query.get_or_404(id)
+    # The history is ordered by date in the model, so no need to sort here
+    return render_template('assets/history.html', asset=asset)
