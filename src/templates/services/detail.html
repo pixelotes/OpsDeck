@@ -67,7 +67,7 @@
             <ul class="list-group list-group-flush">
                 {% for method in service.payment_methods %}
                     <li class="list-group-item">
-                        <a href="{{ url_for('payments.payment_method_detail', id=method.id) }}">{{ method.name }}</a>
+                        <a href="{{ url_for('payment_methods.payment_method_detail', id=method.id) }}">{{ method.name }}</a>
                         <span class="text-muted small float-end">{{ method.details or method.method_type }}</span>
                     </li>
                 {% else %}
