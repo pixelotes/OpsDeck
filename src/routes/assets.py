@@ -235,8 +235,15 @@ def checkin_asset(id):
 @assets_bp.route('/warranties')
 @login_required
 def warranties():
-    assets = Asset.query.all()
-    return render_template('assets/warranties.html', assets=assets)
+    all_assets = Asset.query.all()
+    
+    # Filter out assets that don't have a warranty end date
+    assets_with_warranties = [asset for asset in all_assets if asset.warranty_end_date]
+    
+    # Sort the filtered list in Python by the end date, descending
+    sorted_assets = sorted(assets_with_warranties, key=lambda x: x.warranty_end_date, reverse=True)
+    
+    return render_template('assets/warranties.html', assets=sorted_assets)
 
 @assets_bp.route('/<int:id>/history')
 @login_required

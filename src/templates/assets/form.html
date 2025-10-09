@@ -54,7 +54,7 @@
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label for="purchase_date" class="form-label">Purchase Date</label>
-                    <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="{{ asset.purchase_date.strftime('%Y-%m-%d') if asset else '' }}">
+                    <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="{{ asset.purchase_date.strftime('%Y-%m-%d') if asset and asset.purchase_date else '' }}">
                 </div>
                 <div class="col-md-6">
                     <label for="price" class="form-label">Price</label>
