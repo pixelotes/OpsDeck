@@ -47,6 +47,7 @@
                     {% endif %}
                 </p>
                 <p><strong>Supplier:</strong> {{ peripheral.supplier.name if peripheral.supplier else 'N/A' }}</p>
+                <p><strong>Cost:</strong> {{ peripheral.currency }} {{ "%.2f"|format(peripheral.cost) if peripheral.cost is not none else 'N/A' }}</p>
                 <p><strong>Warranty End:</strong> {{ peripheral.warranty_end_date.strftime('%Y-%m-%d') if peripheral.warranty_end_date else 'N/A' }}</p>
             </div>
         </div>

@@ -48,17 +48,30 @@
             <hr>
 
             <div class="row mb-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label for="purchase_date" class="form-label">Purchase Date</label>
                     <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="{{ peripheral.purchase_date.strftime('%Y-%m-%d') if peripheral and peripheral.purchase_date else '' }}">
                 </div>
-                <div class="col-md-6">
-                    <label for="warranty_length" class="form-label">Warranty Length (months)</label>
-                    <input type="number" class="form-control" id="warranty_length" name="warranty_length" min="0" value="{{ peripheral.warranty_length if peripheral else '' }}">
+                <div class="col-md-4">
+                    <label for="cost" class="form-label">Cost</label>
+                    <input type="number" class="form-control" id="cost" name="cost" step="0.01" value="{{ peripheral.cost if peripheral and peripheral.cost is not none else '' }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="currency" class="form-label">Currency</label>
+                    <select class="form-select" id="currency" name="currency">
+                        {% set currencies = ['EUR', 'USD', 'GBP', 'ZAR'] %}
+                        {% for curr in currencies %}
+                        <option value="{{ curr }}" {% if peripheral and peripheral.currency == curr %}selected{% endif %}>{{ curr }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
             </div>
-            
+
             <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="warranty_length" class="form-label">Warranty Length (months)</label>
+                    <input type="number" class="form-control" id="warranty_length" name="warranty_length" min="0" value="{{ peripheral.warranty_length if peripheral and peripheral.warranty_length is not none else '' }}">
+                </div>
                 <div class="col-md-6">
                     <label for="supplier_id" class="form-label">Supplier</label>
                     <select class="form-select" id="supplier_id" name="supplier_id">
@@ -70,6 +83,9 @@
                         {% endfor %}
                     </select>
                 </div>
+            </div>
+            
+            <div class="row mb-3">
                 <div class="col-md-6">
                     <label for="purchase_id" class="form-label">Purchase</label>
                     <select class="form-select" id="purchase_id" name="purchase_id">

@@ -394,9 +394,15 @@ class Peripheral(db.Model):
     status = db.Column(db.String(50), nullable=False, default='In Use')
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     
+    # --- ADDED/UPDATED FIELDS ---
     brand = db.Column(db.String(100))
     purchase_date = db.Column(db.Date)
     warranty_length = db.Column(db.Integer) # in months
+    
+    # --- NEW FIELDS ---
+    cost = db.Column(db.Float)
+    currency = db.Column(db.String(3), default='EUR')
+
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     
     # Relationships
@@ -404,7 +410,6 @@ class Peripheral(db.Model):
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
     
-    # --- NEW RELATIONSHIP ---
     assignments = db.relationship('PeripheralAssignment', backref='peripheral', lazy=True, cascade='all, delete-orphan', order_by='PeripheralAssignment.checked_out_date.desc()')
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

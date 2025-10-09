@@ -31,6 +31,8 @@ def new_peripheral():
             status=request.form['status'],
             purchase_date=datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date() if request.form['purchase_date'] else None,
             warranty_length=int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None,
+            cost=float(request.form.get('cost')) if request.form.get('cost') else None,
+            currency=request.form.get('currency'),
             asset_id=request.form.get('asset_id') or None,
             purchase_id=request.form.get('purchase_id') or None,
             supplier_id=request.form.get('supplier_id') or None,
@@ -60,6 +62,8 @@ def edit_peripheral(id):
         peripheral.status = request.form['status']
         peripheral.purchase_date = datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date() if request.form['purchase_date'] else None
         peripheral.warranty_length = int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None
+        peripheral.cost = float(request.form.get('cost')) if request.form.get('cost') else None
+        peripheral.currency = request.form.get('currency')
         peripheral.asset_id = request.form.get('asset_id') or None
         peripheral.purchase_id = request.form.get('purchase_id') or None
         peripheral.supplier_id = request.form.get('supplier_id') or None
