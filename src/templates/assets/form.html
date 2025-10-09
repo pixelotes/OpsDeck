@@ -66,7 +66,7 @@
                 <div class="col-md-6">
                     <label for="currency" class="form-label">Currency</label>
                     <select class="form-select" id="currency" name="currency">
-                        {% set currencies = ['EUR', 'USD', 'GBP'] %}
+                        {% set currencies = ['EUR', 'USD', 'GBP', 'ZAR'] %}
                         {% for curr in currencies %}
                         <option value="{{ curr }}" {% if asset and asset.currency == curr %}selected{% endif %}>{{ curr }}</option>
                         {% endfor %}

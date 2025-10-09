@@ -2,11 +2,139 @@
 
 {% block title %}Dashboard - {{ super() }}{% endblock %}
 
+{% block head_extra %}
+<style>
+    .stat-card {
+        color: white;
+        border-radius: .5rem;
+        transition: transform .2s ease-in-out;
+        display: block;
+        text-decoration: none;
+        height: 100%; /* Ensure cards in the same row have the same height */
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        color: white;
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+    }
+    .stat-card-body {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .stat-card-content h3 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    .stat-card-content p {
+        margin: 0;
+        font-size: 1rem;
+    }
+    .stat-card-icon {
+        font-size: 3rem;
+        opacity: 0.3;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
     <span class="badge bg-secondary">{{ today.strftime('%B %d, %Y') }}</span>
 </div>
+
+<div class="row mb-4">
+    <div class="col-md-3 mb-4">
+        <a href="{{ url_for('services.services') }}" class="stat-card bg-primary">
+            <div class="card-body stat-card-body">
+                <div class="stat-card-content">
+                    <h3>{{ stats.services }}</h3>
+                    <p>Services</p>
+                </div>
+                <i class="fas fa-cogs stat-card-icon"></i>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-4">
+        <a href="{{ url_for('assets.assets') }}" class="stat-card bg-success">
+            <div class="card-body stat-card-body">
+                <div class="stat-card-content">
+                    <h3>{{ stats.assets }}</h3>
+                    <p>Assets</p>
+                </div>
+                <i class="fas fa-laptop stat-card-icon"></i>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-4">
+        <a href="{{ url_for('peripherals.peripherals') }}" class="stat-card bg-info">
+            <div class="card-body stat-card-body">
+                <div class="stat-card-content">
+                    <h3>{{ stats.peripherals }}</h3>
+                    <p>Peripherals</p>
+                </div>
+                <i class="fas fa-keyboard stat-card-icon"></i>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-4">
+        <a href="{{ url_for('suppliers.suppliers') }}" class="stat-card bg-warning">
+            <div class="card-body stat-card-body">
+                <div class="stat-card-content">
+                    <h3>{{ stats.suppliers }}</h3>
+                    <p>Suppliers</p>
+                </div>
+                <i class="fas fa-building stat-card-icon"></i>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-4">
+        <a href="{{ url_for('users.users') }}" class="stat-card bg-danger">
+            <div class="card-body stat-card-body">
+                <div class="stat-card-content">
+                    <h3>{{ stats.users }}</h3>
+                    <p>Users</p>
+                </div>
+                <i class="fas fa-user-friends stat-card-icon"></i>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-4">
+        <a href="{{ url_for('locations.locations') }}" class="stat-card bg-secondary">
+            <div class="card-body stat-card-body">
+                <div class="stat-card-content">
+                    <h3>{{ stats.locations }}</h3>
+                    <p>Locations</p>
+                </div>
+                <i class="fas fa-map-marker-alt stat-card-icon"></i>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-4">
+        <a href="{{ url_for('contacts.contacts') }}" class="stat-card bg-dark">
+            <div class="card-body stat-card-body">
+                <div class="stat-card-content">
+                    <h3>{{ stats.contacts }}</h3>
+                    <p>Contacts</p>
+                </div>
+                <i class="fas fa-address-book stat-card-icon"></i>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-4">
+        <a href="{{ url_for('payment_methods.payment_methods') }}" class="stat-card" style="background-color: #6f42c1;">
+            <div class="card-body stat-card-body">
+                <div class="stat-card-content">
+                    <h3>{{ stats.payment_methods }}</h3>
+                    <p>Payment</p>
+                </div>
+                <i class="fas fa-credit-card stat-card-icon"></i>
+            </div>
+        </a>
+    </div>
+</div>
+
 
 <div class="row mb-4 align-items-center">
     <div class="col-md-8">

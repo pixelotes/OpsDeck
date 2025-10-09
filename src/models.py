@@ -10,7 +10,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 CURRENCY_RATES = {
     'EUR': 1.0,
     'USD': 0.92,
-    'GBP': 1.18
+    'GBP': 1.18,
+    'ZAR': 0.05
 }
 
 

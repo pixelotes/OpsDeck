@@ -6,7 +6,7 @@ from markupsafe import Markup
 from functools import wraps
 from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
-from ..models import db, AppUser, Service, NotificationSetting, Asset, Supplier, Contact, Purchase, Peripheral
+from ..models import db, AppUser, Service, NotificationSetting, Asset, Supplier, Contact, Purchase, Peripheral, User, Location, PaymentMethod
 
 main_bp = Blueprint('main', __name__)
 
@@ -59,6 +59,19 @@ def password_change_required(f):
 @main_bp.route('/')
 @login_required
 def dashboard():
+    # --- NEW: STAT CARD COUNTS ---
+    stats = {
+        'services': Service.query.filter_by(is_archived=False).count(),
+        'assets': Asset.query.filter_by(is_archived=False).count(),
+        'peripherals': Peripheral.query.filter_by(is_archived=False).count(),
+        'suppliers': Supplier.query.filter_by(is_archived=False).count(),
+        'users': User.query.filter_by(is_archived=False).count(),
+        'locations': Location.query.filter_by(is_archived=False).count(),
+        'contacts': Contact.query.filter_by(is_archived=False).count(),
+        'payment_methods': PaymentMethod.query.filter_by(is_archived=False).count(),
+    }
+
+    # --- Upcoming Renewals & Filter Logic ---
     period = request.args.get('period', '30', type=str)
     today = date.today()
 
@@ -86,10 +99,13 @@ def dashboard():
                 upcoming_renewals.append((next_renewal, service))
                 total_cost += service.cost_eur
             next_renewal = service.get_renewal_date_after(next_renewal)
+            
     upcoming_renewals.sort(key=lambda x: x[0])
 
+    # --- Forecast Chart Logic ---
     forecast_start_date = today.replace(day=1)
     end_of_forecast_period = forecast_start_date + relativedelta(months=+13)
+
     forecast_labels, forecast_keys, forecast_costs = [], [], {}
     for i in range(13):
         month_date = forecast_start_date + relativedelta(months=+i)
@@ -110,6 +126,7 @@ def dashboard():
 
     return render_template(
         'dashboard.html',
+        stats=stats,
         upcoming_renewals=upcoming_renewals,
         total_cost=total_cost,
         selected_period=period,
