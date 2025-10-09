@@ -38,7 +38,8 @@ def upload_file():
             peripheral_id=request.form.get('peripheral_id'),
             policy_id=request.form.get('policy_id'),
             policy_version_id=request.form.get('policy_version_id'),
-            security_assessment_id=request.form.get('security_assessment_id')
+            security_assessment_id=request.form.get('security_assessment_id'),
+            risk_id=request.form.get('risk_id')
         )
         db.session.add(new_attachment)
         db.session.commit()

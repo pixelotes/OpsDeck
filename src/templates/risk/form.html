@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+{% set title = "Edit Risk" if risk else "New Risk" %}
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+{% block content %}
+<h2><i class="fas fa-exclamation-triangle"></i> {{ title }}</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="risk_description" class="form-label">Risk Description *</label>
+                <textarea class="form-control" id="risk_description" name="risk_description" rows="3" required>{{ risk.risk_description if risk else '' }}</textarea>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="risk_owner" class="form-label">Risk Owner</label>
+                    <input type="text" class="form-control" id="risk_owner" name="risk_owner" value="{{ risk.risk_owner if risk else '' }}" placeholder="e.g., IT Department, John Doe">
+                </div>
+                <div class="col-md-6">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status">
+                        {% set statuses = ['Identified', 'Assessed', 'In Treatment', 'Mitigated', 'Accepted'] %}
+                        {% for s in statuses %}
+                        <option value="{{ s }}" {% if risk and risk.status == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="likelihood" class="form-label">Likelihood</label>
+                    <select class="form-select" id="likelihood" name="likelihood">
+                        {% set levels = ['Low', 'Medium', 'High'] %}
+                        {% for l in levels %}
+                        <option value="{{ l }}" {% if risk and risk.likelihood == l %}selected{% endif %}>{{ l }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="impact" class="form-label">Impact</label>
+                    <select class="form-select" id="impact" name="impact">
+                        {% for i in levels %}
+                        <option value="{{ i }}" {% if risk and risk.impact == i %}selected{% endif %}>{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="mitigation_plan" class="form-label">Mitigation Plan</label>
+                <textarea class="form-control" id="mitigation_plan" name="mitigation_plan" rows="3">{{ risk.mitigation_plan if risk else '' }}</textarea>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="iso_27001_control" class="form-label">Related ISO 27001 Control</label>
+                    <input type="text" class="form-control" id="iso_27001_control" name="iso_27001_control" value="{{ risk.iso_27001_control if risk else '' }}" placeholder="e.g., A.12.1.2">
+                </div>
+                <div class="col-md-6">
+                    <label for="link" class="form-label">Reference Link</label>
+                    <input type="url" class="form-control" id="link" name="link" value="{{ risk.link if risk else '' }}" placeholder="https://...">
+                </div>
+            </div>
+            <hr>
+            <a href="{{ url_for('risk.list_risks') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Risk</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

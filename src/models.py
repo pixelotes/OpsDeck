@@ -88,10 +88,15 @@ class Attachment(db.Model):
     secure_filename = db.Column(db.String(255), nullable=False, unique=True) # Stored filename
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Policies
     policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'))
     policy_version_id = db.Column(db.Integer, db.ForeignKey('policy_version.id'))
 
+    # Policy assessments
     security_assessment_id = db.Column(db.Integer, db.ForeignKey('security_assessment.id'))
+
+    # Risks
+    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'))
     
     # Foreign keys - one of these will be set
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'))
@@ -455,3 +460,16 @@ class SecurityAssessment(db.Model):
     # Relationships
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
     attachments = db.relationship('Attachment', backref='security_assessment', lazy=True, cascade='all, delete-orphan')
+
+class Risk(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    risk_description = db.Column(db.Text, nullable=False)
+    risk_owner = db.Column(db.String(100))
+    status = db.Column(db.String(50), default='Identified') # Identified, Assessed, In Treatment, Mitigated, Accepted
+    likelihood = db.Column(db.String(50), default='Low') # Low, Medium, High
+    impact = db.Column(db.String(50), default='Low') # Low, Medium, High
+    mitigation_plan = db.Column(db.Text)
+    iso_27001_control = db.Column(db.String(100)) # e.g., 'A.12.1.2 Protection against malware'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    link = db.Column(db.String(512))
+    attachments = db.relationship('Attachment', backref='risk', lazy=True, cascade='all, delete-orphan')

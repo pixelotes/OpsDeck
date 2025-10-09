@@ -90,6 +90,7 @@
                 </h6>    
                 <div class="collapse" id="compliance-menu" data-bs-parent="#sidebar-accordion">
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('policies.') %}active{% endif %}" href="{{ url_for('policies.list_policies') }}"><i class="fas fa-file-contract"></i> Policies</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('risk.') %}active{% endif %}" href="{{ url_for('risk.list_risks') }}"><i class="fas fa-exclamation-triangle"></i> Risk Register</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('compliance.') %}active{% endif %}" href="{{ url_for('compliance.vendor_compliance') }}"><i class="fas fa-tasks"></i> Vendor Compliance</a></li>
                 </div>
 
