@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% block title %}Policy: {{ version.policy.title }} v{{ version.version_number }} - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fas fa-file-alt"></i> {{ version.policy.title }}</h2>
+        <h5 class="text-muted">Version {{ version.version_number }}</h5>
+    </div>
+    <a href="{{ url_for('policies.detail', id=version.policy.id) }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Version History
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p><strong>Status:</strong> 
+            {% if version.status == 'Active' %}
+                <span class="badge bg-success">Active</span>
+            {% elif version.status == 'Archived' %}
+                <span class="badge bg-secondary">Archived</span>
+            {% else %}
+                <span class="badge bg-warning">Draft</span>
+            {% endif %}
+        </p>
+        <p><strong>Effective Date:</strong> {{ version.effective_date.strftime('%Y-%m-%d') }}</p>
+        <hr>
+        <div class="policy-content">
+            {{ version.content | markdown | safe }}
+        </div>
+    </div>
+</div>
+{% endblock %}

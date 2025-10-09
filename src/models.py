@@ -36,6 +36,7 @@ class User(db.Model):
     job_title = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     assets = db.relationship('Asset', backref='user', lazy=True)
+    peripherals = db.relationship('Peripheral', backref='user', lazy=True)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
 class Supplier(db.Model):
@@ -82,6 +83,9 @@ class Attachment(db.Model):
     filename = db.Column(db.String(255), nullable=False) # Original filename
     secure_filename = db.Column(db.String(255), nullable=False, unique=True) # Stored filename
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'))
+    policy_version_id = db.Column(db.Integer, db.ForeignKey('policy_version.id'))
     
     # Foreign keys - one of these will be set
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'))
@@ -341,13 +345,13 @@ class Peripheral(db.Model):
     status = db.Column(db.String(50), nullable=False, default='In Use')
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     
-    # --- NEW FIELDS ---
     brand = db.Column(db.String(100))
     purchase_date = db.Column(db.Date)
     warranty_length = db.Column(db.Integer) # in months
+    
+    # This foreign key already exists, but the relationship was missing
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    # --- END NEW FIELDS ---
-
+    
     # Relationships
     asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
@@ -360,7 +364,6 @@ class Peripheral(db.Model):
         if self.serial_number == '':
             self.serial_number = None
 
-    # --- NEW PROPERTY ---
     @property
     def warranty_end_date(self):
         if self.purchase_date and self.warranty_length:
@@ -415,10 +418,12 @@ class Policy(db.Model):
     title = db.Column(db.String(255), nullable=False)
     category = db.Column(db.String(100)) # e.g., 'IT Security', 'HR', 'General'
     description = db.Column(db.Text)
+    link = db.Column(db.String(512))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationship to its versions
     versions = db.relationship('PolicyVersion', backref='policy', lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment', primaryjoin="and_(Attachment.policy_id==Policy.id)", lazy=True, cascade='all, delete-orphan')
 
 class PolicyVersion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -430,6 +435,7 @@ class PolicyVersion(db.Model):
 
     # Relationship back to the main policy document
     policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'), nullable=False)
+    attachments = db.relationship('Attachment', primaryjoin="and_(Attachment.policy_version_id==PolicyVersion.id)", lazy=True, cascade='all, delete-orphan')
 
 class PolicyAcknowledgement(db.Model):
     id = db.Column(db.Integer, primary_key=True)

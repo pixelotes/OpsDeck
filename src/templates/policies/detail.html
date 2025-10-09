@@ -1,0 +1,105 @@
+{% extends "layout.html" %}
+{% block title %}{{ policy.title }} - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-file-contract"></i> {{ policy.title }}</h2>
+    <div>
+        {% if current_user_role == 'admin' %}
+        <a href="{{ url_for('policies.new_version', id=policy.id) }}" class="btn btn-primary me-2">
+            <i class="fas fa-plus"></i> New Version
+        </a>
+        <a href="{{ url_for('policies.edit_policy', id=policy.id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-edit"></i> Edit Policy
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Policy Details</div>
+    <div class="card-body">
+        <p><strong>Category:</strong> {{ policy.category or 'N/A' }}</p>
+        <p><strong>Description:</strong> {{ policy.description or 'N/A' }}</p>
+        {% if policy.link %}
+        <p><strong>Reference Link:</strong> <a href="{{ policy.link }}" target="_blank">{{ policy.link }}</a></p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="fas fa-history"></i> Version History
+    </div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Effective Date</th>
+                    <th>End Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for version in policy.versions|sort(attribute='effective_date', reverse=True) %}
+                <tr>
+                    <td>{{ version.version_number }}</td>
+                    <td>
+                        {% if version.status == 'Active' %}<span class="badge bg-success">Active</span>
+                        {% elif version.status == 'Archived' %}<span class="badge bg-secondary">Archived</span>
+                        {% else %}<span class="badge bg-warning">Draft</span>{% endif %}
+                    </td>
+                    <td>{{ version.effective_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ version.end_date.strftime('%Y-%m-%d') if version.end_date else 'N/A' }}</td>
+                    <td>
+                        <a href="{{ url_for('policies.view_version', id=version.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                        {% if current_user_role == 'admin' %}
+                        <a href="{{ url_for('policies.edit_version', id=version.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                        {% if version.status == 'Draft' %}
+                        <form action="{{ url_for('policies.activate_version', id=version.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure? This will archive any other active version.');">
+                            <button type="submit" class="btn btn-sm btn-outline-success">Activate</button>
+                        </form>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">No versions found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-paperclip"></i> General Attachments</div>
+    <ul class="list-group list-group-flush">
+        {% for att in policy.attachments %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+            {% if current_user_role == 'admin' %}
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+            </form>
+            {% endif %}
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No files attached to this policy.</li>
+        {% endfor %}
+    </ul>
+    {% if current_user_role == 'admin' %}
+    <div class="card-body">
+        <form action="{{ url_for('attachments.upload_file') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="policy_id" value="{{ policy.id }}">
+            <div class="input-group">
+                <input type="file" class="form-control" name="file" required>
+                <button class="btn btn-outline-primary" type="submit">Upload</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

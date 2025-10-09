@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Service Renewal Manager{% endblock %}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     {% block head_extra %}{% endblock %}
     <style>
@@ -28,6 +29,10 @@
             z-index: 1050;
             display: none;
         }
+        .editor-toolbar { background-color: #f8f9fa; border-color: #dee2e6; }
+        .editor-toolbar a { color: #495057 !important; }
+        .editor-toolbar a:hover { background-color: #e2e6ea; }
+        .CodeMirror { border-color: #dee2e6 !important; }
     </style>
 </head>
 <body>
@@ -84,6 +89,7 @@
                     Management <i class="fas fa-chevron-down float-end"></i>
                 </h6>
                 <div class="collapse" id="management-menu" data-bs-parent="#sidebar-accordion">
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('policies.') %}active{% endif %}" href="{{ url_for('policies.list_policies') }}"><i class="fas fa-file-contract"></i> Policies</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('locations.') %}active{% endif %}" href="{{ url_for('locations.locations') }}"><i class="fas fa-map-marker-alt"></i> Locations</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('suppliers.') %}active{% endif %}" href="{{ url_for('suppliers.suppliers') }}"><i class="fas fa-building"></i> Suppliers</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('contacts.') %}active{% endif %}" href="{{ url_for('contacts.contacts') }}"><i class="fas fa-users"></i> Contacts</a></li>
@@ -155,6 +161,7 @@
     </script>
     <script src="{{ url_for('static', filename='js/export.js') }}"></script>
     <script src="{{ url_for('static', filename='js/search.js') }}"></script>
+    <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
     {% block scripts_extra %}{% endblock %}
 </body>
 </html>

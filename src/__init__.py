@@ -8,6 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from .extensions import db, migrate
 from .models import AppUser
 from . import notifications
+import markdown
 
 def create_app():
     """
@@ -39,6 +40,11 @@ def create_app():
     # --- Initialize Extensions ---
     db.init_app(app)
     migrate.init_app(app, db)
+    
+    # --- REGISTER THE CUSTOM MARKDOWN FILTER ---
+    @app.template_filter('markdown')
+    def markdown_filter(s):
+        return markdown.markdown(s)
 
     # --- Register Blueprints ---
     from .routes.main import main_bp
@@ -58,6 +64,7 @@ def create_app():
     from .routes.treeview import treeview_bp
     from .routes.admin import admin_bp
     from .routes.opportunities import opportunities_bp
+    from .routes.policies import policies_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(assets_bp, url_prefix='/assets')
@@ -76,6 +83,7 @@ def create_app():
     app.register_blueprint(treeview_bp, url_prefix='/tree-view')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(opportunities_bp, url_prefix='/opportunities')
+    app.register_blueprint(policies_bp, url_prefix='/policies')
 
     # --- Make user role avaiable in all templates ---
     from .models import AppUser
