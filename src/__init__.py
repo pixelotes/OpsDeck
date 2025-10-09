@@ -2,7 +2,7 @@
 
 import os
 import atexit
-from flask import Flask
+from flask import Flask, session
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from .extensions import db, migrate
@@ -56,6 +56,7 @@ def create_app():
     from .routes.reports import reports_bp
     from .routes.attachments import attachments_bp
     from .routes.treeview import treeview_bp
+    from .routes.admin import admin_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(assets_bp, url_prefix='/assets')
@@ -72,6 +73,18 @@ def create_app():
     app.register_blueprint(reports_bp, url_prefix='/reports')
     app.register_blueprint(attachments_bp, url_prefix='/attachments')
     app.register_blueprint(treeview_bp, url_prefix='/tree-view')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+
+    # --- Make user role avaiable in all templates ---
+    from .models import AppUser
+    @app.context_processor
+    def inject_user_role():
+        user_id = session.get('user_id')
+        if user_id:
+            user = AppUser.query.get(user_id)
+            if user:
+                return dict(current_user_role=user.role)
+        return dict(current_user_role=None)
 
     # --- Force admin to change the default password ---
     from .routes.main import password_change_required
@@ -97,7 +110,7 @@ def create_app():
         with app.app_context():
             db.create_all()
             if not AppUser.query.first():
-                admin_user = AppUser(username='admin')
+                admin_user = AppUser(username='admin', role='admin')
                 admin_user.set_password('admin123')
                 db.session.add(admin_user)
                 db.session.commit()

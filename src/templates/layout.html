@@ -97,8 +97,15 @@
                     Settings <i class="fas fa-chevron-down float-end"></i>
                 </h6>
                 <div class="collapse" id="settings-menu" data-bs-parent="#sidebar-accordion">
+                    {% if current_user_role == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint.startswith('admin.') %}active{% endif %}" href="{{ url_for('admin.list_users') }}">
+                            <i class="fas fa-users-cog"></i> Admin Panel
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.notification_settings' %}active{% endif %}" href="{{ url_for('main.notification_settings') }}"><i class="fas fa-bell"></i> Notifications</a></li>
-                <li class="nav-item mt-auto"><a class="nav-link" href="{{ url_for('main.logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                    <li class="nav-item mt-auto"><a class="nav-link" href="{{ url_for('main.logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
                 </div>
             </ul>
         </div>
