@@ -115,5 +115,12 @@ def create_app():
                 db.session.add(admin_user)
                 db.session.commit()
                 print("Database initialized and admin user created.")
+    
+    # --- Seed the db with fake demo data ---
+    @app.cli.command("seed-db")
+    def seed_db_command():
+        """Seeds the database with demo data."""
+        from .seeder import seed_data
+        seed_data()
 
     return app

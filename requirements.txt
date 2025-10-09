@@ -7,3 +7,4 @@ python-dateutil
 python-dotenv
 gunicorn
 markupsafe
+Faker==19.13.0
