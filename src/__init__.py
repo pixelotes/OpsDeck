@@ -73,6 +73,11 @@ def create_app():
     app.register_blueprint(attachments_bp, url_prefix='/attachments')
     app.register_blueprint(treeview_bp, url_prefix='/tree-view')
 
+    # --- Force admin to change the default password ---
+    from .routes.main import password_change_required
+    @app.before_request
+    def before_request_hook():
+        password_change_required(lambda: None)()
 
     # --- Scheduler and Notifications ---
     scheduler = BackgroundScheduler()

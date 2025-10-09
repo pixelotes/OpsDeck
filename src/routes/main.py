@@ -1,7 +1,8 @@
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+    Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 )
 from sqlalchemy import or_
+from markupsafe import Markup
 from functools import wraps
 from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
@@ -37,6 +38,23 @@ def login():
 def logout():
     session.pop('user_id', None)
     return redirect(url_for('main.login'))
+
+def password_change_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user_id = session.get('user_id')
+        if user_id:
+            user = AppUser.query.get(user_id)
+            if user and user.username == 'admin' and user.check_password('admin123'):
+                if request.endpoint not in ['main.change_password', 'main.logout', 'static']:
+                    # Create a link to the change password page
+                    link = url_for('main.change_password')
+                    # Use Markup to safely render HTML in the flash message
+                    message = Markup(f'For security, you must change the default admin password. <a href="{link}" class="alert-link">Click here to change it now.</a>')
+                    flash(message, 'warning')
+                    return redirect(url_for('main.change_password'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 @main_bp.route('/')
 @login_required
@@ -208,3 +226,27 @@ def search():
         })
 
     return jsonify(results)
+
+@main_bp.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        user = AppUser.query.get(session['user_id'])
+
+        if not user.check_password(current_password):
+            flash('Your current password was incorrect.', 'danger')
+        elif new_password != confirm_password:
+            flash('The new passwords do not match.', 'danger')
+        elif len(new_password) < 8:
+            flash('The new password must be at least 8 characters long.', 'danger')
+        else:
+            user.set_password(new_password)
+            db.session.commit()
+            flash('Your password has been updated successfully!', 'success')
+            return redirect(url_for('main.dashboard'))
+
+    return render_template('change_password.html')

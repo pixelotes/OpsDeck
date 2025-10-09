@@ -6,3 +6,4 @@ APScheduler
 python-dateutil
 python-dotenv
 gunicorn
+markupsafe
