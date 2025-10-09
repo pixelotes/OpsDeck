@@ -535,3 +535,28 @@ class CourseCompletion(db.Model):
     attachment_id = db.Column(db.Integer, db.ForeignKey('attachment.id'))
     
     attachment = db.relationship('Attachment', foreign_keys=[attachment_id])
+
+class Audit(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    conducted_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    is_completed = db.Column(db.Boolean, default=False)
+
+    # Relationship to all events in this audit
+    events = db.relationship('AuditEvent', backref='audit', lazy='dynamic', cascade='all, delete-orphan')
+    conducted_by = db.relationship('User')
+
+class AuditEvent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    audit_id = db.Column(db.Integer, db.ForeignKey('audit.id'), nullable=False)
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # The user assigned at time of audit
+    status = db.Column(db.String(50), nullable=False) # e.g., 'Verified', 'Flagged'
+    notes = db.Column(db.Text)
+    event_time = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships to get details in templates
+    asset = db.relationship('Asset')
+    user = db.relationship('User')

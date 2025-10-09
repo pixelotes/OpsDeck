@@ -1,0 +1,112 @@
+{% extends "layout.html" %}
+{% block title %}{{ audit.name }} - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fas fa-clipboard-check"></i> {{ audit.name }}</h2>
+        <p class="text-muted mb-0">Conducted by: {{ audit.conducted_by.name if audit.conducted_by else 'N/A' }} on {{ audit.created_at.strftime('%Y-%m-%d') }}</p>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>Assets Pending Audit ({{ assets_to_audit|length }})</h5>
+    </div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Asset Name</th>
+                    <th>Assigned User</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for asset in assets_to_audit %}
+                <tr>
+                    <td><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a></td>
+                    <td>{{ asset.user.name if asset.user else 'Unassigned' }}</td>
+                    <td>
+                        <form action="{{ url_for('compliance.record_audit_event', id=audit.id) }}" method="POST" class="d-inline">
+                            <input type="hidden" name="asset_id" value="{{ asset.id }}">
+                            <input type="hidden" name="status" value="Verified">
+                            <button type="submit" class="btn btn-sm btn-outline-success">Verify</button>
+                        </form>
+                        <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#flagModal-{{ asset.id }}">
+                            Flag Issue
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="text-center">All assets have been audited.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if not audit.is_completed and not assets_to_audit %}
+            <form action="{{ url_for('compliance.complete_audit', id=audit.id) }}" method="POST" class="text-center mt-3">
+                <button type="submit" class="btn btn-primary">Mark Audit as Complete</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5>Audit Log ({{ audit_events|length }})</h5>
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for event in audit_events %}
+        <li class="list-group-item">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <strong>{{ event.asset.name }}</strong>
+                    {% if event.status == 'Verified' %}
+                        <span class="badge bg-success ms-2">Verified</span>
+                    {% else %}
+                        <span class="badge bg-danger ms-2">Flagged</span>
+                    {% endif %}
+                    <small class="text-muted d-block">
+                        Assigned to: {{ event.user.name if event.user else 'Unassigned' }}
+                    </small>
+                </div>
+                <small class="text-muted">{{ event.event_time.strftime('%Y-%m-%d %H:%M') }}</small>
+            </div>
+            {% if event.notes %}
+                <p class="mb-0 mt-2 text-muted fst-italic">"{{ event.notes }}"</p>
+            {% endif %}
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No audit events have been recorded yet.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+{% for asset in assets_to_audit %}
+<div class="modal fade" id="flagModal-{{ asset.id }}" tabindex="-1" aria-labelledby="flagModalLabel-{{ asset.id }}" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="flagModalLabel-{{ asset.id }}">Flag Issue for {{ asset.name }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{{ url_for('compliance.record_audit_event', id=audit.id) }}" method="POST">
+        <div class="modal-body">
+            <input type="hidden" name="asset_id" value="{{ asset.id }}">
+            <input type="hidden" name="status" value="Flagged">
+            <div class="mb-3">
+                <label for="notes-{{ asset.id }}" class="form-label">Notes *</label>
+                <textarea class="form-control" id="notes-{{ asset.id }}" name="notes" rows="3" required placeholder="e.g., Asset is missing, assigned user has a different device, etc."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning">Flag Issue</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

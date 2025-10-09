@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+{% block title %}Asset Audits - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-clipboard-check"></i> Asset Audits</h2>
+    <a href="{{ url_for('compliance.new_audit') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Audit
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Audit Name</th>
+                    <th>Created On</th>
+                    <th>Conducted By</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for audit in audits %}
+                <tr>
+                    <td><a href="{{ url_for('compliance.audit_detail', id=audit.id) }}">{{ audit.name }}</a></td>
+                    <td>{{ audit.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ audit.conducted_by.name if audit.conducted_by else 'N/A' }}</td>
+                    <td>
+                        {% if audit.is_completed %}
+                            <span class="badge bg-success">Completed</span>
+                        {% else %}
+                            <span class="badge bg-warning">In Progress</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('compliance.audit_detail', id=audit.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">No audits found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

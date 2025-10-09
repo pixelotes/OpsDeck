@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from datetime import datetime
-from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User
+from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset
 from .main import login_required
 from .admin import admin_required
 
@@ -119,3 +119,94 @@ def policy_report():
             })
             
     return render_template('compliance/policy_report.html', report_data=report_data)
+
+@compliance_bp.route('/audits')
+@login_required
+@admin_required
+def list_audits():
+    """Displays a list of all asset audits."""
+    audits = Audit.query.order_by(Audit.created_at.desc()).all()
+    return render_template('compliance/audit_list.html', audits=audits)
+
+@compliance_bp.route('/audits/new', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def new_audit():
+    """Creates a new audit."""
+    if request.method == 'POST':
+        user_id = session.get('user_id')
+        audit = Audit(
+            name=request.form['name'],
+            description=request.form.get('description'),
+            conducted_by_user_id=user_id
+        )
+        db.session.add(audit)
+        db.session.commit()
+        flash('New audit has been created successfully.', 'success')
+        return redirect(url_for('compliance.audit_detail', id=audit.id))
+    
+    return render_template('compliance/audit_form.html')
+
+@compliance_bp.route('/audits/<int:id>')
+@login_required
+@admin_required
+def audit_detail(id):
+    """Shows the details of an audit and allows for asset verification."""
+    audit = Audit.query.get_or_404(id)
+    
+    # Get all active assets that haven't been audited yet in this session
+    audited_asset_ids = [event.asset_id for event in audit.events]
+    assets_to_audit = Asset.query.filter(
+        Asset.is_archived == False,
+        Asset.id.notin_(audited_asset_ids)
+    ).order_by(Asset.name).all()
+
+    # Query and sort the audit events here
+    audit_events = audit.events.order_by(AuditEvent.event_time.desc()).all()
+
+    return render_template(
+        'compliance/audit_detail.html', 
+        audit=audit, 
+        assets_to_audit=assets_to_audit,
+        audit_events=audit_events
+    )
+
+@compliance_bp.route('/audits/<int:id>/record_event', methods=['POST'])
+@login_required
+@admin_required
+def record_audit_event(id):
+    """Records a verification or flagged issue for an asset in an audit."""
+    audit = Audit.query.get_or_404(id)
+    asset_id = request.form.get('asset_id')
+    status = request.form.get('status')
+    notes = request.form.get('notes')
+    
+    asset = Asset.query.get_or_404(asset_id)
+    
+    event = AuditEvent(
+        audit_id=audit.id,
+        asset_id=asset.id,
+        user_id=asset.user_id, # Record who the asset is currently assigned to
+        status=status,
+        notes=notes
+    )
+    
+    db.session.add(event)
+    db.session.commit()
+
+    if status == 'Verified':
+        flash(f'Asset "{asset.name}" has been verified.', 'success')
+    else:
+        flash(f'Asset "{asset.name}" has been flagged with an issue.', 'warning')
+        
+    return redirect(url_for('compliance.audit_detail', id=id))
+
+@compliance_bp.route('/audits/<int:id>/complete', methods=['POST'])
+@login_required
+@admin_required
+def complete_audit(id):
+    audit = Audit.query.get_or_404(id)
+    audit.is_completed = True
+    db.session.commit()
+    flash(f'Audit "{audit.name}" has been marked as complete.', 'success')
+    return redirect(url_for('compliance.list_audits'))
