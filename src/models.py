@@ -31,11 +31,22 @@ user_groups = db.Table('user_groups',
     db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True)
 )
 
+policy_version_users = db.Table('policy_version_users',
+    db.Column('policy_version_id', db.Integer, db.ForeignKey('policy_version.id'), primary_key=True),
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+)
+
+policy_version_groups = db.Table('policy_version_groups',
+    db.Column('policy_version_id', db.Integer, db.ForeignKey('policy_version.id'), primary_key=True),
+    db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True)
+)
+
 class Group(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.Text)
     users = db.relationship('User', secondary=user_groups, back_populates='groups')
+    policy_versions_to_acknowledge = db.relationship('PolicyVersion', secondary=policy_version_groups, back_populates='groups_to_acknowledge')
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -49,6 +60,8 @@ class User(db.Model):
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     acknowledgements = db.relationship('PolicyAcknowledgement', backref='user', lazy=True, cascade='all, delete-orphan')
     groups = db.relationship('Group', secondary=user_groups, back_populates='users')
+    policy_versions_to_acknowledge = db.relationship('PolicyVersion', secondary=policy_version_users, back_populates='users_to_acknowledge')
+    course_assignments = db.relationship('CourseAssignment', backref='user', lazy=True, cascade='all, delete-orphan')
 
 class Supplier(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -100,6 +113,9 @@ class Attachment(db.Model):
     filename = db.Column(db.String(255), nullable=False) # Original filename
     secure_filename = db.Column(db.String(255), nullable=False, unique=True) # Stored filename
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Courses
+    course_completion_id = db.Column(db.Integer, db.ForeignKey('course_completion.id'))
 
     # Policies
     policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'))
@@ -454,6 +470,8 @@ class PolicyVersion(db.Model):
     effective_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date) # Optional: when the policy version is no longer valid
     acknowledgements = db.relationship('PolicyAcknowledgement', backref='version', lazy=True, cascade='all, delete-orphan')
+    users_to_acknowledge = db.relationship('User', secondary=policy_version_users, back_populates='policy_versions_to_acknowledge')
+    groups_to_acknowledge = db.relationship('Group', secondary=policy_version_groups, back_populates='policy_versions_to_acknowledge')
 
     # Relationship back to the main policy document
     policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'), nullable=False)
@@ -487,3 +505,33 @@ class Risk(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     link = db.Column(db.String(512))
     attachments = db.relationship('Attachment', backref='risk', lazy=True, cascade='all, delete-orphan')
+
+class Course(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    link = db.Column(db.String(512))
+    completion_days = db.Column(db.Integer, default=30) # Timeframe to complete after assignment
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    assignments = db.relationship('CourseAssignment', backref='course', lazy=True, cascade='all, delete-orphan')
+
+class CourseAssignment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    assigned_date = db.Column(db.Date, nullable=False, default=date.today)
+    due_date = db.Column(db.Date, nullable=False)
+    
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    completion = db.relationship('CourseCompletion', backref='assignment', uselist=False, cascade='all, delete-orphan')
+
+class CourseCompletion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    completion_date = db.Column(db.Date, nullable=False, default=date.today)
+    notes = db.Column(db.Text)
+    
+    assignment_id = db.Column(db.Integer, db.ForeignKey('course_assignment.id'), nullable=False)
+    attachment_id = db.Column(db.Integer, db.ForeignKey('attachment.id'))
+    
+    attachment = db.relationship('Attachment', foreign_keys=[attachment_id])

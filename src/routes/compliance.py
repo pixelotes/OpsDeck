@@ -78,15 +78,38 @@ def edit_assessment(id):
 def policy_report():
     """Shows which users have not acknowledged active policies."""
     active_versions = PolicyVersion.query.filter_by(status='Active').all()
-    all_users = User.query.filter_by(is_archived=False).all()
     
     report_data = []
     for version in active_versions:
+        # Get users who have already acknowledged the policy
         acknowledged_user_ids = {ack.user_id for ack in version.acknowledgements}
         
+        # Get all users who SHOULD acknowledge the policy
+        required_users = set()
+
+        # Add users assigned directly
+        for user in version.users_to_acknowledge:
+            if not user.is_archived:
+                required_users.add(user)
+        
+        # Add users from assigned groups
+        for group in version.groups_to_acknowledge:
+            for user in group.users:
+                if not user.is_archived:
+                    required_users.add(user)
+        
+        # If no users or groups are assigned, the policy applies to everyone
+        if not version.users_to_acknowledge and not version.groups_to_acknowledge:
+            all_active_users = User.query.filter_by(is_archived=False).all()
+            required_users.update(all_active_users)
+
+        # Determine which of the required users have not yet acknowledged
         unacknowledged_users = [
-            user for user in all_users if user.id not in acknowledged_user_ids
+            user for user in required_users if user.id not in acknowledged_user_ids
         ]
+        
+        # Sort users by name for consistent display
+        unacknowledged_users.sort(key=lambda u: u.name)
         
         if unacknowledged_users:
             report_data.append({

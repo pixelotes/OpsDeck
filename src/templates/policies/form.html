@@ -40,6 +40,26 @@
                 <div class="form-text">The status will be set to 'Draft' by default. You can activate it from the policy detail page.</div>
             </div>
 
+                        <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="user_ids" class="form-label">Assign to Specific Users</label>
+                    <select class="form-select" id="user_ids" name="user_ids" multiple size="5">
+                        {% for user in users %}
+                        <option value="{{ user.id }}">{{ user.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="group_ids" class="form-label">Assign to Groups</label>
+                    <select class="form-select" id="group_ids" name="group_ids" multiple size="5">
+                        {% for group in groups %}
+                        <option value="{{ group.id }}">{{ group.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-text">Hold Ctrl (or Command) to select multiple. If no users or groups are selected, the policy will apply to everyone.</div>
+            </div>
+
             <hr>
             <a href="{{ url_for('policies.list_policies') }}" class="btn btn-secondary">Cancel</a>
             <button type="submit" class="btn btn-primary">Create Policy</button>

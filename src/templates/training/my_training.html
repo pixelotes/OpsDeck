@@ -1,0 +1,50 @@
+{% extends "layout.html" %}
+{% block title %}My Training - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-graduation-cap"></i> My Assigned Training</h2>
+</div>
+
+{% for assignment in assignments %}
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">{{ assignment.course.title }}</h5>
+        {% if assignment.completion %}
+            <span class="badge bg-success">Completed on {{ assignment.completion.completion_date.strftime('%Y-%m-%d') }}</span>
+        {% else %}
+            <span class="badge bg-warning">Due by {{ assignment.due_date.strftime('%Y-%m-%d') }}</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <p>{{ assignment.course.description }}</p>
+        {% if assignment.course.link %}
+        <p><a href="{{ assignment.course.link }}" target="_blank" class="btn btn-secondary"><i class="fas fa-external-link-alt"></i> Go to Course Material</a></p>
+        {% endif %}
+        
+        {% if assignment.completion %}
+            <h6>Completion Details</h6>
+            <p class="text-muted">{{ assignment.completion.notes or 'No notes provided.' }}</p>
+            {% if assignment.completion.attachment %}
+            <p><a href="{{ url_for('attachments.download_file', attachment_id=assignment.completion.attachment.id) }}"><i class="fas fa-download"></i> Download Certificate</a></p>
+            {% endif %}
+        {% else %}
+            <hr>
+            <h6>Mark as Complete</h6>
+            <form action="{{ url_for('training.complete_course', assignment_id=assignment.id) }}" method="POST" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="certificate-{{ assignment.id }}" class="form-label">Upload Certificate (Optional)</label>
+                    <input class="form-control" type="file" id="certificate-{{ assignment.id }}" name="certificate">
+                </div>
+                <div class="mb-3">
+                    <label for="notes-{{ assignment.id }}" class="form-label">Notes (Optional)</label>
+                    <textarea class="form-control" name="notes" id="notes-{{ assignment.id }}" rows="2"></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">Mark Complete</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">You have no assigned training courses.</div>
+{% endfor %}
+{% endblock %}

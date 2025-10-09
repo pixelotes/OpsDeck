@@ -93,6 +93,10 @@
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'compliance.policy_report' %}active{% endif %}" href="{{ url_for('compliance.policy_report') }}"><i class="fas fa-user-check"></i> Policy Report</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('risk.') %}active{% endif %}" href="{{ url_for('risk.list_risks') }}"><i class="fas fa-exclamation-triangle"></i> Risk Register</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('compliance.') %}active{% endif %}" href="{{ url_for('compliance.vendor_compliance') }}"><i class="fas fa-tasks"></i> Vendor Compliance</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'training.my_training' %}active{% endif %}" href="{{ url_for('training.my_training') }}"><i class="fas fa-graduation-cap"></i> My Training</a></li>
+                    {% if current_user_role == 'admin' %}
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('training.') and request.endpoint != 'training.my_training' %}active{% endif %}" href="{{ url_for('training.list_courses') }}"><i class="fas fa-chalkboard-teacher"></i> Manage Courses</a></li>
+                    {% endif %}
                 </div>
 
                 <hr class="text-white">

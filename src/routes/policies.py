@@ -1,10 +1,10 @@
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash
+    Blueprint, render_template, request, redirect, url_for, flash, session
 )
 from datetime import date, datetime
-from ..models import db, Policy, PolicyVersion, PolicyAcknowledgement
+from ..models import db, Policy, PolicyVersion, User, Group, PolicyAcknowledgement, AppUser
 from .main import login_required
-from .admin import admin_required 
+from .admin import admin_required
 
 policies_bp = Blueprint('policies', __name__)
 
@@ -19,13 +19,6 @@ def list_policies():
 @admin_required
 def new_policy():
     if request.method == 'POST':
-        content = request.form['content']
-        
-        # ADD THIS VALIDATION
-        if not content or not content.strip():
-            flash('Policy content cannot be empty.', 'danger')
-            return render_template('policies/form.html')
-
         policy = Policy(
             title=request.form['title'],
             category=request.form.get('category'),
@@ -35,41 +28,65 @@ def new_policy():
         db.session.add(policy)
         db.session.commit()
         
+        # Create the initial version
         version = PolicyVersion(
             policy_id=policy.id,
             version_number='1.0',
             status='Draft',
-            content=content, # Use validated content
+            content=request.form['content'],
             effective_date=date.today()
         )
+        
+        # Assign users and groups
+        user_ids = request.form.getlist('user_ids')
+        group_ids = request.form.getlist('group_ids')
+        version.users_to_acknowledge = User.query.filter(User.id.in_(user_ids)).all()
+        version.groups_to_acknowledge = Group.query.filter(Group.id.in_(group_ids)).all()
+
         db.session.add(version)
         db.session.commit()
         flash('Policy and its initial version have been created.', 'success')
         return redirect(url_for('policies.detail', id=policy.id))
 
-    return render_template('policies/form.html')
+    users = User.query.order_by(User.name).all()
+    groups = Group.query.order_by(Group.name).all()
+    return render_template('policies/form.html', users=users, groups=groups)
 
 @policies_bp.route('/<int:id>')
 @login_required
 def detail(id):
     policy = Policy.query.get_or_404(id)
-    return render_template('policies/detail.html', policy=policy)
+    users = User.query.order_by(User.name).all()
+    groups = Group.query.order_by(Group.name).all()
+    return render_template('policies/detail.html', policy=policy, users=users, groups=groups)
 
 @policies_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def edit_policy(id):
     policy = Policy.query.get_or_404(id)
+    latest_version = PolicyVersion.query.filter_by(policy_id=id).order_by(PolicyVersion.effective_date.desc()).first()
+
     if request.method == 'POST':
         policy.title = request.form['title']
         policy.category = request.form.get('category')
         policy.description = request.form.get('description')
         policy.link = request.form.get('link')
+        
+        if latest_version:
+            user_ids = request.form.getlist('user_ids')
+            group_ids = request.form.getlist('group_ids')
+            latest_version.users_to_acknowledge = User.query.filter(User.id.in_(user_ids)).all()
+            latest_version.groups_to_acknowledge = Group.query.filter(Group.id.in_(group_ids)).all()
+
         db.session.commit()
         flash('Policy details have been updated.', 'success')
         return redirect(url_for('policies.detail', id=policy.id))
     
-    return render_template('policies/edit_policy.html', policy=policy)
+    users = User.query.order_by(User.name).all()
+    groups = Group.query.order_by(Group.name).all()
+    return render_template('policies/edit_policy.html', policy=policy, users=users, groups=groups, latest_version=latest_version)
+
 
 @policies_bp.route('/<int:id>/new_version', methods=['GET', 'POST'])
 @login_required
@@ -78,8 +95,7 @@ def new_version(id):
     policy = Policy.query.get_or_404(id)
     if request.method == 'POST':
         content = request.form['content']
-
-        # ADD THIS VALIDATION
+        
         if not content or not content.strip():
             flash('Policy content cannot be empty.', 'danger')
             return render_template('policies/version_form.html', policy=policy)
@@ -96,7 +112,9 @@ def new_version(id):
         flash(f'New version "{version.version_number}" has been created.', 'success')
         return redirect(url_for('policies.detail', id=id))
         
-    return render_template('policies/version_form.html', policy=policy)
+    users = User.query.order_by(User.name).all()
+    groups = Group.query.order_by(Group.name).all()
+    return render_template('policies/version_form.html', policy=policy, users=users, groups=groups)
 
 @policies_bp.route('/version/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -107,19 +125,27 @@ def edit_version(id):
     if request.method == 'POST':
         content = request.form['content']
 
-        # ADD THIS VALIDATION
         if not content or not content.strip():
             flash('Policy content cannot be empty.', 'danger')
             return render_template('policies/version_form.html', policy=policy, version=version)
-
+            
         version.version_number = request.form['version_number']
         version.effective_date = datetime.strptime(request.form['effective_date'], '%Y-%m-%d').date()
         version.content = content
+        
+        # Handle user and group assignments
+        user_ids = request.form.getlist('user_ids')
+        group_ids = request.form.getlist('group_ids')
+        version.users_to_acknowledge = User.query.filter(User.id.in_(user_ids)).all()
+        version.groups_to_acknowledge = Group.query.filter(Group.id.in_(group_ids)).all()
+
         db.session.commit()
         flash(f'Version "{version.version_number}" has been updated.', 'success')
         return redirect(url_for('policies.detail', id=policy.id))
     
-    return render_template('policies/version_form.html', policy=policy, version=version)
+    users = User.query.order_by(User.name).all()
+    groups = Group.query.order_by(Group.name).all()
+    return render_template('policies/version_form.html', policy=policy, version=version, users=users, groups=groups)
 
 @policies_bp.route('/version/<int:id>/activate', methods=['POST'])
 @login_required
@@ -154,17 +180,13 @@ def acknowledge_version(id):
     version = PolicyVersion.query.get_or_404(id)
     user_id = session.get('user_id')
     
-    # Get the business user, not the app user
     app_user = AppUser.query.get(user_id)
-    # This assumes a simple mapping. You might need more complex logic
-    # if app user names don't match business user names.
     user = User.query.filter_by(name=app_user.username).first()
 
     if not user:
         flash('Could not find a matching business user to log acknowledgement.', 'danger')
         return redirect(url_for('policies.view_version', id=id))
 
-    # Check if already acknowledged
     existing = PolicyAcknowledgement.query.filter_by(policy_version_id=id, user_id=user.id).first()
     if not existing:
         ack = PolicyAcknowledgement(policy_version_id=id, user_id=user.id)
@@ -175,3 +197,31 @@ def acknowledge_version(id):
         flash('You have already acknowledged this policy version.', 'info')
         
     return redirect(url_for('policies.view_version', id=id))
+
+@policies_bp.route('/policy/<int:policy_id>/remove_user/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def remove_user_from_policy(policy_id, user_id):
+    policy = Policy.query.get_or_404(policy_id)
+    latest_version = PolicyVersion.query.filter_by(policy_id=policy_id).order_by(PolicyVersion.effective_date.desc()).first()
+    if latest_version:
+        user = User.query.get_or_404(user_id)
+        if user in latest_version.users_to_acknowledge:
+            latest_version.users_to_acknowledge.remove(user)
+            db.session.commit()
+            flash(f'User "{user.name}" removed from policy.', 'success')
+    return redirect(url_for('policies.detail', id=policy_id))
+
+@policies_bp.route('/policy/<int:policy_id>/remove_group/<int:group_id>', methods=['POST'])
+@login_required
+@admin_required
+def remove_group_from_policy(policy_id, group_id):
+    policy = Policy.query.get_or_404(policy_id)
+    latest_version = PolicyVersion.query.filter_by(policy_id=policy_id).order_by(PolicyVersion.effective_date.desc()).first()
+    if latest_version:
+        group = Group.query.get_or_404(group_id)
+        if group in latest_version.groups_to_acknowledge:
+            latest_version.groups_to_acknowledge.remove(group)
+            db.session.commit()
+            flash(f'Group "{group.name}" removed from policy.', 'success')
+    return redirect(url_for('policies.detail', id=policy_id))

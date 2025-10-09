@@ -101,5 +101,57 @@
         </form>
     </div>
     {% endif %}
+    
+</div>
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-users"></i> Policy Assignment</div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Assigned to Specific Users</label>
+                {% if policy.versions %}
+                    {% set latest_version = policy.versions|sort(attribute='effective_date', reverse=True)|first %}
+                    {% if latest_version.users_to_acknowledge %}
+                        <ul class="list-group">
+                        {% for user in latest_version.users_to_acknowledge %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ user.name }}
+                                {% if current_user_role == 'admin' %}
+                                <form action="{{ url_for('policies.remove_user_from_policy', policy_id=policy.id, user_id=user.id) }}" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                                </form>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">No specific users assigned.</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Assigned to Groups</label>
+                {% if policy.versions %}
+                    {% set latest_version = policy.versions|sort(attribute='effective_date', reverse=True)|first %}
+                    {% if latest_version.groups_to_acknowledge %}
+                    <ul class="list-group">
+                    {% for group in latest_version.groups_to_acknowledge %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ group.name }}
+                            {% if current_user_role == 'admin' %}
+                            <form action="{{ url_for('policies.remove_group_from_policy', policy_id=policy.id, group_id=group.id) }}" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                            </form>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                    </ul>
+                    {% else %}
+                        <p class="text-muted">No groups assigned.</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
