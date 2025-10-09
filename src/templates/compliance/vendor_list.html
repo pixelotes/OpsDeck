@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+
+{% block title %}Vendor Compliance - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-tasks"></i> Vendor Compliance</h2>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped" id="compliance-table">
+                <thead>
+                    <tr>
+                        <th>Supplier</th>
+                        <th>Compliance Status</th>
+                        <th>GDPR DPA Signed</th>
+                        <th>Security Assessment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for supplier in suppliers %}
+                    <tr>
+                        <td><a href="{{ url_for('suppliers.supplier_detail', id=supplier.id) }}">{{ supplier.name }}</a></td>
+                        <td>
+                            {% if supplier.compliance_status == 'Compliant' %}
+                                <span class="badge bg-success">{{ supplier.compliance_status }}</span>
+                            {% elif supplier.compliance_status == 'Non-Compliant' %}
+                                <span class="badge bg-danger">{{ supplier.compliance_status }}</span>
+                            {% else %}
+                                <span class="badge bg-warning">{{ supplier.compliance_status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ supplier.gdpr_dpa_signed.strftime('%Y-%m-%d') if supplier.gdpr_dpa_signed else 'N/A' }}</td>
+                        <td>{{ supplier.security_assessment_completed.strftime('%Y-%m-%d') if supplier.security_assessment_completed else 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (document.getElementById('compliance-table')) {
+            new simpleDatatables.DataTable("#compliance-table", {
+                perPage: 15,
+                perPageSelect: [10, 15, 25, 50],
+            });
+        }
+    });
+</script>
+{% endblock %}

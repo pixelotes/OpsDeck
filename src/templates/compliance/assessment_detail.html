@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+{% block title %}Security Assessment - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fas fa-user-shield"></i> Security Assessment</h2>
+        <h5 class="text-muted">For: <a href="{{ url_for('suppliers.supplier_detail', id=assessment.supplier.id) }}">{{ assessment.supplier.name }}</a></h5>
+    </div>
+    <a href="{{ url_for('suppliers.supplier_detail', id=assessment.supplier.id) }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Supplier
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Assessment Details</div>
+    <div class="card-body">
+        <p><strong>Assessment Date:</strong> {{ assessment.assessment_date.strftime('%Y-%m-%d') }}</p>
+        <p><strong>Status:</strong>
+            {% if assessment.status == 'Approved' %}<span class="badge bg-success">{{ assessment.status }}</span>
+            {% elif assessment.status == 'Rejected' %}<span class="badge bg-danger">{{ assessment.status }}</span>
+            {% else %}<span class="badge bg-warning">{{ assessment.status }}</span>{% endif %}
+        </p>
+        {% if assessment.notes %}
+        <hr>
+        <p class="mb-1"><strong>Notes:</strong></p>
+        <p class="mb-0 text-muted">{{ assessment.notes|nl2br }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-paperclip"></i> Attachments</div>
+    <ul class="list-group list-group-flush">
+        {% for att in assessment.attachments %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+            </form>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No files attached to this assessment.</li>
+        {% endfor %}
+    </ul>
+    <div class="card-body">
+        <form action="{{ url_for('attachments.upload_file') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="security_assessment_id" value="{{ assessment.id }}">
+            <div class="input-group">
+                <input type="file" class="form-control" name="file" required>
+                <button class="btn btn-outline-primary" type="submit">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

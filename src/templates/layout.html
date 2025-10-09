@@ -85,11 +85,19 @@
                 </div>          
 
                 <hr class="text-white">
+                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#compliance-menu" aria-expanded="false">
+                    Compliance <i class="fas fa-chevron-down float-end"></i>
+                </h6>    
+                <div class="collapse" id="compliance-menu" data-bs-parent="#sidebar-accordion">
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('policies.') %}active{% endif %}" href="{{ url_for('policies.list_policies') }}"><i class="fas fa-file-contract"></i> Policies</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('compliance.') %}active{% endif %}" href="{{ url_for('compliance.vendor_compliance') }}"><i class="fas fa-tasks"></i> Vendor Compliance</a></li>
+                </div>
+
+                <hr class="text-white">
                 <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#management-menu" aria-expanded="false">
                     Management <i class="fas fa-chevron-down float-end"></i>
                 </h6>
                 <div class="collapse" id="management-menu" data-bs-parent="#sidebar-accordion">
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('policies.') %}active{% endif %}" href="{{ url_for('policies.list_policies') }}"><i class="fas fa-file-contract"></i> Policies</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('locations.') %}active{% endif %}" href="{{ url_for('locations.locations') }}"><i class="fas fa-map-marker-alt"></i> Locations</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('suppliers.') %}active{% endif %}" href="{{ url_for('suppliers.suppliers') }}"><i class="fas fa-building"></i> Suppliers</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('contacts.') %}active{% endif %}" href="{{ url_for('contacts.contacts') }}"><i class="fas fa-users"></i> Contacts</a></li>

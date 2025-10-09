@@ -1,5 +1,3 @@
-# src/models.py
-
 import calendar
 from .extensions import db
 from datetime import datetime, timedelta, date
@@ -46,15 +44,21 @@ class Supplier(db.Model):
     phone = db.Column(db.String(20))
     address = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+    compliance_status = db.Column(db.String(50), default='Pending')
+    gdpr_dpa_signed = db.Column(db.Date, nullable=True)
+    security_assessment_completed = db.Column(db.Date, nullable=True)
+    compliance_notes = db.Column(db.Text, nullable=True)
+    data_storage_region = db.Column(db.String(50), default='EU')
     attachments = db.relationship('Attachment', backref='supplier', lazy=True, cascade='all, delete-orphan')
     
-    # Relationships
     contacts = db.relationship('Contact', backref='supplier', lazy=True, cascade='all, delete-orphan')
     services = db.relationship('Service', backref='supplier', lazy=True)
     purchases = db.relationship('Purchase', backref='supplier', lazy=True)
     assets = db.relationship('Asset', backref='supplier', lazy=True)
     peripherals = db.relationship('Peripheral', backref='supplier', lazy=True)
-    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+    opportunities = db.relationship('Opportunity', backref='supplier', foreign_keys='Opportunity.supplier_id')
+    security_assessments = db.relationship('SecurityAssessment', backref='supplier', lazy=True, cascade='all, delete-orphan')
 
 class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -65,7 +69,7 @@ class Contact(db.Model):
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
-
+    opportunities = db.relationship('Opportunity', backref='primary_contact', foreign_keys='Opportunity.primary_contact_id')
 
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -86,6 +90,8 @@ class Attachment(db.Model):
 
     policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'))
     policy_version_id = db.Column(db.Integer, db.ForeignKey('policy_version.id'))
+
+    security_assessment_id = db.Column(db.Integer, db.ForeignKey('security_assessment.id'))
     
     # Foreign keys - one of these will be set
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'))
@@ -345,13 +351,13 @@ class Peripheral(db.Model):
     status = db.Column(db.String(50), nullable=False, default='In Use')
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     
+    # --- ADDED/UPDATED FIELDS ---
     brand = db.Column(db.String(100))
     purchase_date = db.Column(db.Date)
     warranty_length = db.Column(db.Integer) # in months
-    
-    # This foreign key already exists, but the relationship was missing
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    
+    # --- END UPDATED FIELDS ---
+
     # Relationships
     asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
@@ -395,13 +401,10 @@ class Opportunity(db.Model):
     estimated_close_date = db.Column(db.Date)
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # Relationships
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
     primary_contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'))
-    
-    supplier = db.relationship('Supplier', backref='opportunities')
-    primary_contact = db.relationship('Contact', backref='opportunities')
+
+    # Relationships
     activities = db.relationship('Activity', backref='opportunity', lazy=True, cascade='all, delete-orphan', order_by='Activity.activity_date.desc()')
 
 class Activity(db.Model):
@@ -442,3 +445,13 @@ class PolicyAcknowledgement(db.Model):
     policy_version_id = db.Column(db.Integer, db.ForeignKey('policy_version.id'))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     acknowledged_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class SecurityAssessment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    assessment_date = db.Column(db.Date, nullable=False, default=date.today)
+    status = db.Column(db.String(50), default='Pending Review') # Pending Review, Approved, Rejected
+    notes = db.Column(db.Text)
+    
+    # Relationships
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
+    attachments = db.relationship('Attachment', backref='security_assessment', lazy=True, cascade='all, delete-orphan')

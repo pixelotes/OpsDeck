@@ -1,30 +1,24 @@
 import os
 import uuid
 from flask import (
-    Blueprint, request, redirect, flash, current_app, send_from_directory
+    Blueprint, request, redirect, flash, current_app, send_from_directory, url_for
 )
 from werkzeug.utils import secure_filename
-from ..models import db, Attachment
 from .main import login_required
+from ..models import db, Attachment
 
 attachments_bp = Blueprint('attachments', __name__)
 
 @attachments_bp.route('/upload', methods=['POST'])
 @login_required
 def upload_file():
-    service_id = request.form.get('service_id')
-    supplier_id = request.form.get('supplier_id')
-    purchase_id = request.form.get('purchase_id')
-    asset_id = request.form.get('asset_id')
-    peripheral_id = request.form.get('peripheral_id')
-
     if 'file' not in request.files:
-        flash('No file part')
+        flash('No file part', 'danger')
         return redirect(request.referrer)
 
     file = request.files['file']
     if file.filename == '':
-        flash('No selected file')
+        flash('No selected file', 'warning')
         return redirect(request.referrer)
 
     if file:
@@ -37,15 +31,18 @@ def upload_file():
         new_attachment = Attachment(
             filename=original_filename,
             secure_filename=unique_filename,
-            service_id=service_id if service_id else None,
-            supplier_id=supplier_id if supplier_id else None,
-            purchase_id=purchase_id if purchase_id else None,
-            asset_id=asset_id if asset_id else None,
-            peripheral_id=peripheral_id if peripheral_id else None
+            service_id=request.form.get('service_id'),
+            supplier_id=request.form.get('supplier_id'),
+            purchase_id=request.form.get('purchase_id'),
+            asset_id=request.form.get('asset_id'),
+            peripheral_id=request.form.get('peripheral_id'),
+            policy_id=request.form.get('policy_id'),
+            policy_version_id=request.form.get('policy_version_id'),
+            security_assessment_id=request.form.get('security_assessment_id')
         )
         db.session.add(new_attachment)
         db.session.commit()
-        flash('File uploaded successfully!')
+        flash('File uploaded successfully!', 'success')
 
     return redirect(request.referrer)
 
@@ -66,9 +63,12 @@ def download_file(attachment_id):
 def delete_attachment(attachment_id):
     attachment = Attachment.query.get_or_404(attachment_id)
 
-    os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], attachment.secure_filename))
+    try:
+        os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], attachment.secure_filename))
+    except OSError as e:
+        flash(f'Error deleting file from disk: {e}', 'danger')
 
     db.session.delete(attachment)
     db.session.commit()
-    flash('Attachment deleted successfully.')
+    flash('Attachment deleted successfully.', 'success')
     return redirect(request.referrer)

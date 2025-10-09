@@ -9,6 +9,8 @@ from .extensions import db, migrate
 from .models import AppUser
 from . import notifications
 import markdown
+from markupsafe import Markup
+import re
 
 def create_app():
     """
@@ -45,6 +47,11 @@ def create_app():
     @app.template_filter('markdown')
     def markdown_filter(s):
         return markdown.markdown(s)
+    
+    @app.template_filter('nl2br')
+    def nl2br_filter(s):
+        """Converts newlines in a string to HTML <br> tags."""
+        return Markup(re.sub(r'\n', '<br>\n', s))
 
     # --- Register Blueprints ---
     from .routes.main import main_bp
@@ -65,6 +72,7 @@ def create_app():
     from .routes.admin import admin_bp
     from .routes.opportunities import opportunities_bp
     from .routes.policies import policies_bp
+    from .routes.compliance import compliance_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(assets_bp, url_prefix='/assets')
@@ -84,6 +92,7 @@ def create_app():
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(opportunities_bp, url_prefix='/opportunities')
     app.register_blueprint(policies_bp, url_prefix='/policies')
+    app.register_blueprint(compliance_bp, url_prefix='/compliance')
 
     # --- Make user role avaiable in all templates ---
     from .models import AppUser

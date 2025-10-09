@@ -3,6 +3,7 @@ from flask import (
 )
 from ..models import db, Supplier
 from .main import login_required
+from datetime import datetime
 
 suppliers_bp = Blueprint('suppliers', __name__)
 
@@ -45,7 +46,11 @@ def new_supplier():
             name=request.form['name'],
             email=request.form.get('email'),
             phone=request.form.get('phone'),
-            address=request.form.get('address')
+            address=request.form.get('address'),
+            compliance_status=request.form.get('compliance_status'),
+            gdpr_dpa_signed=datetime.strptime(request.form['gdpr_dpa_signed'], '%Y-%m-%d').date() if request.form.get('gdpr_dpa_signed') else None,
+            security_assessment_completed=datetime.strptime(request.form['security_assessment_completed'], '%Y-%m-%d').date() if request.form.get('security_assessment_completed') else None,
+            compliance_notes=request.form.get('compliance_notes')
         )
         db.session.add(supplier)
         db.session.commit()
@@ -64,16 +69,22 @@ def supplier_detail(id):
 @login_required
 def edit_supplier(id):
     supplier = Supplier.query.get_or_404(id)
-
+    
     if request.method == 'POST':
         supplier.name = request.form['name']
         supplier.email = request.form.get('email')
         supplier.phone = request.form.get('phone')
         supplier.address = request.form.get('address')
+        supplier.compliance_status = request.form.get('compliance_status')
+        supplier.gdpr_dpa_signed = datetime.strptime(request.form['gdpr_dpa_signed'], '%Y-%m-%d').date() if request.form.get('gdpr_dpa_signed') else None
+        # This line was already here, but now it's just part of the updates
+        supplier.security_assessment_completed = datetime.strptime(request.form['security_assessment_completed'], '%Y-%m-%d').date() if request.form.get('security_assessment_completed') else None
+        supplier.compliance_notes = request.form.get('compliance_notes')
+        supplier.data_storage_region = request.form.get('data_storage_region') # <-- ADD THIS LINE
         db.session.commit()
         flash('Supplier updated successfully!')
-        return redirect(url_for('suppliers.suppliers'))
-
+        return redirect(url_for('suppliers.supplier_detail', id=supplier.id)) # Redirect to detail view
+    
     return render_template('suppliers/form.html', supplier=supplier)
 
 @suppliers_bp.route('/<int:id>/delete', methods=['POST'])
