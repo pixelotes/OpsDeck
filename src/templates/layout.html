@@ -76,6 +76,7 @@
                 <div class="collapse" id="purchases-menu" data-bs-parent="#sidebar-accordion">
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('purchases.') %}active{% endif %}" href="{{ url_for('purchases.purchases') }}"><i class="fas fa-shopping-cart"></i> Purchases</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('budgets.') %}active{% endif %}" href="{{ url_for('budgets.budgets') }}"><i class="fas fa-wallet"></i> Budgets</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('opportunities.') %}active{% endif %}" href="{{ url_for('opportunities.list_opportunities') }}"><i class="fas fa-lightbulb"></i> Opportunities</a></li>
                 </div>          
 
                 <hr class="text-white">

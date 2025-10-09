@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+
+{% block title %}Opportunities - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-lightbulb"></i> Opportunities</h2>
+    <a href="{{ url_for('opportunities.new_opportunity') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Opportunity
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Supplier</th>
+                        <th>Potential Value</th>
+                        <th>Est. Close Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for op in opportunities %}
+                    <tr>
+                        <td><a href="{{ url_for('opportunities.detail', id=op.id) }}">{{ op.name }}</a></td>
+                        <td><span class="badge bg-info">{{ op.status }}</span></td>
+                        <td>{{ op.supplier.name if op.supplier else 'N/A' }}</td>
+                        <td>{{ op.currency }} {{ "%.2f"|format(op.potential_value) if op.potential_value else 'N/A' }}</td>
+                        <td>{{ op.estimated_close_date.strftime('%Y-%m-%d') if op.estimated_close_date else 'N/A' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">No opportunities found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

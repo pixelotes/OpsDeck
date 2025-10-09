@@ -382,3 +382,57 @@ class Budget(db.Model):
     def remaining(self):
         spent = sum(purchase.cost for purchase in self.purchases)
         return self.amount - spent
+    
+class Opportunity(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    status = db.Column(db.String(50), default='Evaluating') # e.g., Evaluating, PoC, Negotiating, Won, Lost
+    potential_value = db.Column(db.Float)
+    currency = db.Column(db.String(3), default='EUR')
+    estimated_close_date = db.Column(db.Date)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
+    primary_contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'))
+    
+    supplier = db.relationship('Supplier', backref='opportunities')
+    primary_contact = db.relationship('Contact', backref='opportunities')
+    activities = db.relationship('Activity', backref='opportunity', lazy=True, cascade='all, delete-orphan', order_by='Activity.activity_date.desc()')
+
+class Activity(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(50), nullable=False, default='Meeting') # e.g., Meeting, Call, Email
+    activity_date = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text, nullable=False)
+
+    # Relationship
+    opportunity_id = db.Column(db.Integer, db.ForeignKey('opportunity.id'), nullable=False)
+
+class Policy(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    category = db.Column(db.String(100)) # e.g., 'IT Security', 'HR', 'General'
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationship to its versions
+    versions = db.relationship('PolicyVersion', backref='policy', lazy=True, cascade='all, delete-orphan')
+
+class PolicyVersion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    version_number = db.Column(db.String(50), nullable=False) # e.g., '1.0', '1.1', '2.0'
+    status = db.Column(db.String(50), default='Draft') # 'Draft', 'Active', 'Archived'
+    content = db.Column(db.Text) # The full text of the policy
+    effective_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date) # Optional: when the policy version is no longer valid
+
+    # Relationship back to the main policy document
+    policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'), nullable=False)
+
+class PolicyAcknowledgement(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    policy_version_id = db.Column(db.Integer, db.ForeignKey('policy_version.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    acknowledged_at = db.Column(db.DateTime, default=datetime.utcnow)

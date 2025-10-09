@@ -57,6 +57,7 @@ def create_app():
     from .routes.attachments import attachments_bp
     from .routes.treeview import treeview_bp
     from .routes.admin import admin_bp
+    from .routes.opportunities import opportunities_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(assets_bp, url_prefix='/assets')
@@ -74,6 +75,7 @@ def create_app():
     app.register_blueprint(attachments_bp, url_prefix='/attachments')
     app.register_blueprint(treeview_bp, url_prefix='/tree-view')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(opportunities_bp, url_prefix='/opportunities')
 
     # --- Make user role avaiable in all templates ---
     from .models import AppUser
