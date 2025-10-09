@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+{% set title = "Edit BCDR Plan" if plan else "New BCDR Plan" %}
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+{% block content %}
+<h2><i class="fas {{ 'fa-edit' if plan else 'fa-plus' }}"></i> {{ title }}</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="name" class="form-label">Plan Name *</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ plan.name if plan else '' }}" required placeholder="e.g., Primary Datacenter Outage Plan">
+            </div>
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="3">{{ plan.description if plan else '' }}</textarea>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="service_ids" class="form-label">Covered Services</label>
+                    <select class="form-select" id="service_ids" name="service_ids" multiple size="5">
+                        {% set selected_services = plan.services|map(attribute='id')|list if plan else [] %}
+                        {% for service in services %}
+                        <option value="{{ service.id }}" {% if service.id in selected_services %}selected{% endif %}>{{ service.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="asset_ids" class="form-label">Covered Assets</label>
+                    <select class="form-select" id="asset_ids" name="asset_ids" multiple size="5">
+                        {% set selected_assets = plan.assets|map(attribute='id')|list if plan else [] %}
+                        {% for asset in assets %}
+                        <option value="{{ asset.id }}" {% if asset.id in selected_assets %}selected{% endif %}>{{ asset.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-text">Hold Ctrl (or Command) to select multiple items.</div>
+            </div>
+            <hr>
+            <a href="{{ url_for('compliance.list_bcdr_plans') if not plan else url_for('compliance.bcdr_detail', id=plan.id) }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Plan</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

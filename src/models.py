@@ -113,6 +113,7 @@ class Attachment(db.Model):
     filename = db.Column(db.String(255), nullable=False) # Original filename
     secure_filename = db.Column(db.String(255), nullable=False, unique=True) # Stored filename
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    bcdr_test_log_id = db.Column(db.Integer, db.ForeignKey('bcdr_test_log.id'))
 
     # Courses
     course_completion_id = db.Column(db.Integer, db.ForeignKey('course_completion.id'))
@@ -520,6 +521,40 @@ class Risk(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     link = db.Column(db.String(512))
     attachments = db.relationship('Attachment', backref='risk', lazy=True, cascade='all, delete-orphan')
+
+# --- Association Tables for BCDR ---
+bcdr_plan_services = db.Table('bcdr_plan_services',
+    db.Column('plan_id', db.Integer, db.ForeignKey('bcdr_plan.id'), primary_key=True),
+    db.Column('service_id', db.Integer, db.ForeignKey('service.id'), primary_key=True)
+)
+
+bcdr_plan_assets = db.Table('bcdr_plan_assets',
+    db.Column('plan_id', db.Integer, db.ForeignKey('bcdr_plan.id'), primary_key=True),
+    db.Column('asset_id', db.Integer, db.ForeignKey('asset.id'), primary_key=True)
+)
+
+class BCDRPlan(db.Model):
+    __tablename__ = 'bcdr_plan'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    services = db.relationship('Service', secondary=bcdr_plan_services, backref='bcdr_plans')
+    assets = db.relationship('Asset', secondary=bcdr_plan_assets, backref='bcdr_plans')
+    test_logs = db.relationship('BCDRTestLog', backref='plan', lazy='dynamic', cascade='all, delete-orphan', order_by='BCDRTestLog.test_date.desc()')
+
+class BCDRTestLog(db.Model):
+    __tablename__ = 'bcdr_test_log'
+    id = db.Column(db.Integer, primary_key=True)
+    plan_id = db.Column(db.Integer, db.ForeignKey('bcdr_plan.id'), nullable=False)
+    test_date = db.Column(db.Date, nullable=False, default=date.today)
+    status = db.Column(db.String(50), nullable=False) # In Progress, Passed, Failed
+    notes = db.Column(db.Text)
+    
+    # Relationships
+    attachments = db.relationship('Attachment', backref='bcdr_test_log', lazy=True, cascade='all, delete-orphan')
 
 class Course(db.Model):
     id = db.Column(db.Integer, primary_key=True)

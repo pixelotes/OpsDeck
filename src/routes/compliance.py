@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from datetime import datetime
-from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset
+from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Service
 from .main import login_required
 from .admin import admin_required
 
@@ -210,3 +210,112 @@ def complete_audit(id):
     db.session.commit()
     flash(f'Audit "{audit.name}" has been marked as complete.', 'success')
     return redirect(url_for('compliance.list_audits'))
+
+@compliance_bp.route('/bcdr')
+@login_required
+@admin_required
+def list_bcdr_plans():
+    """Displays a list of all BCDR plans."""
+    plans = BCDRPlan.query.order_by(BCDRPlan.name).all()
+    return render_template('compliance/bcdr_list.html', plans=plans)
+
+@compliance_bp.route('/bcdr/new', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def new_bcdr_plan():
+    if request.method == 'POST':
+        plan = BCDRPlan(
+            name=request.form['name'],
+            description=request.form.get('description')
+        )
+        # Handle service and asset associations
+        service_ids = request.form.getlist('service_ids')
+        asset_ids = request.form.getlist('asset_ids')
+        plan.services = Service.query.filter(Service.id.in_(service_ids)).all()
+        plan.assets = Asset.query.filter(Asset.id.in_(asset_ids)).all()
+        
+        db.session.add(plan)
+        db.session.commit()
+        flash('BCDR Plan created successfully.', 'success')
+        return redirect(url_for('compliance.list_bcdr_plans'))
+
+    services = Service.query.order_by(Service.name).all()
+    assets = Asset.query.order_by(Asset.name).all()
+    return render_template('compliance/bcdr_form.html', services=services, assets=assets)
+
+@compliance_bp.route('/bcdr/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_bcdr_plan(id):
+    plan = BCDRPlan.query.get_or_404(id)
+    if request.method == 'POST':
+        plan.name = request.form['name']
+        plan.description = request.form.get('description')
+        
+        # Handle service and asset associations
+        service_ids = request.form.getlist('service_ids')
+        asset_ids = request.form.getlist('asset_ids')
+        plan.services = Service.query.filter(Service.id.in_(service_ids)).all()
+        plan.assets = Asset.query.filter(Asset.id.in_(asset_ids)).all()
+        
+        db.session.commit()
+        flash('BCDR Plan updated successfully.', 'success')
+        return redirect(url_for('compliance.bcdr_detail', id=plan.id))
+
+    services = Service.query.order_by(Service.name).all()
+    assets = Asset.query.order_by(Asset.name).all()
+    return render_template('compliance/bcdr_form.html', plan=plan, services=services, assets=assets)
+
+@compliance_bp.route('/bcdr/<int:id>')
+@login_required
+@admin_required
+def bcdr_detail(id):
+    plan = BCDRPlan.query.get_or_404(id)
+    return render_template('compliance/bcdr_detail.html', plan=plan)
+
+@compliance_bp.route('/bcdr/<int:plan_id>/log_test', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def log_bcdr_test(plan_id):
+    plan = BCDRPlan.query.get_or_404(plan_id)
+    if request.method == 'POST':
+        test_log = BCDRTestLog(
+            plan_id=plan.id,
+            test_date=datetime.strptime(request.form['test_date'], '%Y-%m-%d').date(),
+            status=request.form['status'],
+            notes=request.form.get('notes')
+        )
+        db.session.add(test_log)
+        db.session.commit()
+        
+        # This logic is simplified; a more robust solution would handle the file directly
+        if 'proof_file' in request.files and request.files['proof_file'].filename != '':
+            # Create a new request to the attachment upload endpoint
+            # This is a workaround. A better approach would be to refactor file uploading into a helper function.
+            return redirect(url_for('attachments.upload_file', bcdr_test_log_id=test_log.id, _method='POST', **request.files))
+
+        flash('BCDR test log has been recorded.', 'success')
+        return redirect(url_for('compliance.bcdr_detail', id=plan_id))
+
+    return render_template('compliance/bcdr_test_log_form.html', plan=plan, today_date=datetime.utcnow().strftime('%Y-%m-%d'))
+
+@compliance_bp.route('/bcdr/test/<int:test_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_bcdr_test(test_id):
+    test_log = BCDRTestLog.query.get_or_404(test_id)
+    plan = test_log.plan
+    if request.method == 'POST':
+        test_log.test_date = datetime.strptime(request.form['test_date'], '%Y-%m-%d').date()
+        test_log.status = request.form['status']
+        test_log.notes = request.form.get('notes')
+        
+        db.session.commit()
+        
+        if 'proof_file' in request.files and request.files['proof_file'].filename != '':
+             return redirect(url_for('attachments.upload_file', bcdr_test_log_id=test_log.id, _method='POST', **request.files))
+
+        flash('BCDR test log has been updated.', 'success')
+        return redirect(url_for('compliance.bcdr_detail', id=plan.id))
+
+    return render_template('compliance/bcdr_test_log_form.html', plan=plan, test_log=test_log, today_date=test_log.test_date.strftime('%Y-%m-%d'))
