@@ -377,6 +377,15 @@ class AssetHistory(db.Model):
     new_value = db.Column(db.String(255))
     changed_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class PeripheralAssignment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Can be unassigned
+    checked_out_date = db.Column(db.DateTime, default=datetime.utcnow)
+    checked_in_date = db.Column(db.DateTime, nullable=True)
+    notes = db.Column(db.Text)
+    user = db.relationship('User', backref='peripheral_assignments')
+
 class Peripheral(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -385,17 +394,18 @@ class Peripheral(db.Model):
     status = db.Column(db.String(50), nullable=False, default='In Use')
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     
-    # --- ADDED/UPDATED FIELDS ---
     brand = db.Column(db.String(100))
     purchase_date = db.Column(db.Date)
     warranty_length = db.Column(db.Integer) # in months
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    # --- END UPDATED FIELDS ---
-
+    
     # Relationships
     asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
+    
+    # --- NEW RELATIONSHIP ---
+    assignments = db.relationship('PeripheralAssignment', backref='peripheral', lazy=True, cascade='all, delete-orphan', order_by='PeripheralAssignment.checked_out_date.desc()')
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     

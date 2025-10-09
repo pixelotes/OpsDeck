@@ -5,9 +5,20 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-keyboard"></i> {{ peripheral.name }}</h2>
-    <a href="{{ url_for('peripherals.edit_peripheral', id=peripheral.id) }}" class="btn btn-outline-primary">
-        <i class="fas fa-edit"></i> Edit Peripheral
-    </a>
+    <div>
+        {% if peripheral.user_id %}
+        <form action="{{ url_for('peripherals.checkin_peripheral', id=peripheral.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to check in this peripheral?');">
+            <button type="submit" class="btn btn-warning"><i class="fas fa-sign-in-alt"></i> Check In</button>
+        </form>
+        {% else %}
+        <a href="{{ url_for('peripherals.checkout_peripheral', id=peripheral.id) }}" class="btn btn-success">
+            <i class="fas fa-sign-out-alt"></i> Check Out
+        </a>
+        {% endif %}
+        <a href="{{ url_for('peripherals.edit_peripheral', id=peripheral.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-edit"></i> Edit Peripheral
+        </a>
+    </div>
 </div>
 
 <div class="card mb-4">
@@ -42,4 +53,33 @@
     </div>
 </div>
 
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-retweet"></i> Assignment History</div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Checked Out</th>
+                    <th>Checked In</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in peripheral.assignments %}
+                <tr>
+                    <td>{{ entry.user.name if entry.user else 'N/A' }}</td>
+                    <td>{{ entry.checked_out_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ entry.checked_in_date.strftime('%Y-%m-%d %H:%M') if entry.checked_in_date else 'Currently Checked Out' }}</td>
+                    <td>{{ entry.notes or '' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center">No assignment history found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}

@@ -2,7 +2,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
 from datetime import datetime
-from ..models import db, Peripheral, Asset, Purchase, Supplier, User
+from ..models import db, Peripheral, Asset, Purchase, Supplier, User, PeripheralAssignment
 from .main import login_required
 
 peripherals_bp = Blueprint('peripherals', __name__)
@@ -76,26 +76,52 @@ def edit_peripheral(id):
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             users=User.query.order_by(User.name).all())
 
-@peripherals_bp.route('/<int:id>/checkout', methods=['POST'])
+@peripherals_bp.route('/<int:id>/checkout', methods=['GET', 'POST'])
 @login_required
 def checkout_peripheral(id):
     peripheral = Peripheral.query.get_or_404(id)
-    user_id = request.form.get('user_id')
-    user = User.query.get(user_id)
-    
-    if not user:
-        flash('User not found.', 'danger')
+    if peripheral.user:
+        flash('This peripheral is already checked out.', 'warning')
         return redirect(url_for('peripherals.peripheral_detail', id=id))
 
-    peripheral.user = user
-    db.session.commit()
-    flash(f'Peripheral "{peripheral.name}" checked out to {user.name}.', 'success')
-    return redirect(url_for('peripherals.peripheral_detail', id=id))
+    if request.method == 'POST':
+        user_id = request.form.get('user_id')
+        notes = request.form.get('notes')
+        
+        if not user_id:
+            flash('You must select a user.', 'danger')
+            return redirect(url_for('peripherals.checkout_peripheral', id=id))
+        
+        user = User.query.get(user_id)
+        if not user:
+            flash('Selected user not found.', 'danger')
+            return redirect(url_for('peripherals.checkout_peripheral', id=id))
+        
+        peripheral.user = user
+        
+        assignment = PeripheralAssignment(peripheral_id=id, user_id=user_id, notes=notes)
+        db.session.add(assignment)
+
+        db.session.commit()
+        flash(f'Peripheral "{peripheral.name}" has been checked out to {user.name}.')
+        return redirect(url_for('peripherals.peripheral_detail', id=id))
+        
+    users = User.query.order_by(User.name).filter_by(is_archived=False).all()
+    return render_template('peripherals/checkout.html', peripheral=peripheral, users=users)
 
 @peripherals_bp.route('/<int:id>/checkin', methods=['POST'])
 @login_required
 def checkin_peripheral(id):
     peripheral = Peripheral.query.get_or_404(id)
+    if not peripheral.user:
+        flash('This peripheral is already checked in.', 'warning')
+        return redirect(url_for('peripherals.peripheral_detail', id=id))
+
+    assignment = PeripheralAssignment.query.filter_by(peripheral_id=id, checked_in_date=None).order_by(PeripheralAssignment.checked_out_date.desc()).first()
+    
+    if assignment:
+        assignment.checked_in_date = datetime.utcnow()
+
     flash(f'Peripheral "{peripheral.name}" has been checked in from {peripheral.user.name}.', 'success')
     peripheral.user = None
     db.session.commit()

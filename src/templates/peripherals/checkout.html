@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+
+{% block title %}Check Out Peripheral - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-sign-out-alt"></i> Check Out: {{ peripheral.name }}</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="user_id" class="form-label">Check Out To *</label>
+                <select class="form-select" id="user_id" name="user_id" required>
+                    <option value="">Select a user...</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="notes" class="form-label">Notes</label>
+                <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+            </div>
+            <hr>
+            <a href="{{ url_for('peripherals.peripheral_detail', id=peripheral.id) }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Check Out</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
