@@ -2,7 +2,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
 from datetime import date, datetime
-from ..models import db, Policy, PolicyVersion
+from ..models import db, Policy, PolicyVersion, PolicyAcknowledgement
 from .main import login_required
 from .admin import admin_required 
 
@@ -147,3 +147,31 @@ def activate_version(id):
 def view_version(id):
     version = PolicyVersion.query.get_or_404(id)
     return render_template('policies/view_version.html', version=version)
+
+@policies_bp.route('/version/<int:id>/acknowledge', methods=['POST'])
+@login_required
+def acknowledge_version(id):
+    version = PolicyVersion.query.get_or_404(id)
+    user_id = session.get('user_id')
+    
+    # Get the business user, not the app user
+    app_user = AppUser.query.get(user_id)
+    # This assumes a simple mapping. You might need more complex logic
+    # if app user names don't match business user names.
+    user = User.query.filter_by(name=app_user.username).first()
+
+    if not user:
+        flash('Could not find a matching business user to log acknowledgement.', 'danger')
+        return redirect(url_for('policies.view_version', id=id))
+
+    # Check if already acknowledged
+    existing = PolicyAcknowledgement.query.filter_by(policy_version_id=id, user_id=user.id).first()
+    if not existing:
+        ack = PolicyAcknowledgement(policy_version_id=id, user_id=user.id)
+        db.session.add(ack)
+        db.session.commit()
+        flash(f'You have successfully acknowledged version {version.version_number} of this policy.', 'success')
+    else:
+        flash('You have already acknowledged this policy version.', 'info')
+        
+    return redirect(url_for('policies.view_version', id=id))

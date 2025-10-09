@@ -13,20 +13,25 @@
 
 <div class="card">
     <div class="card-body">
-        <p><strong>Status:</strong> 
-            {% if version.status == 'Active' %}
-                <span class="badge bg-success">Active</span>
-            {% elif version.status == 'Archived' %}
-                <span class="badge bg-secondary">Archived</span>
-            {% else %}
-                <span class="badge bg-warning">Draft</span>
-            {% endif %}
-        </p>
-        <p><strong>Effective Date:</strong> {{ version.effective_date.strftime('%Y-%m-%d') }}</p>
         <hr>
         <div class="policy-content">
             {{ version.content | markdown | safe }}
         </div>
     </div>
+
+    {% if version.status == 'Active' %}
+    <div class="card-footer text-center">
+        {% set user_ack = version.acknowledgements|selectattr('user.name', 'equalto', current_user.username)|first %}
+        {% if user_ack %}
+            <div class="alert alert-success mb-0">
+                <i class="fas fa-check-circle"></i> You acknowledged this policy on {{ user_ack.acknowledged_at.strftime('%Y-%m-%d') }}.
+            </div>
+        {% else %}
+            <form action="{{ url_for('policies.acknowledge_version', id=version.id) }}" method="POST">
+                <button type="submit" class="btn btn-primary btn-lg">I Have Read and Understood This Policy</button>
+            </form>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

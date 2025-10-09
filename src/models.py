@@ -26,6 +26,17 @@ class AppUser(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+user_groups = db.Table('user_groups',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True)
+)
+
+class Group(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    description = db.Column(db.Text)
+    users = db.relationship('User', secondary=user_groups, back_populates='groups')
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -36,6 +47,8 @@ class User(db.Model):
     assets = db.relationship('Asset', backref='user', lazy=True)
     peripherals = db.relationship('Peripheral', backref='user', lazy=True)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
+    acknowledgements = db.relationship('PolicyAcknowledgement', backref='user', lazy=True, cascade='all, delete-orphan')
+    groups = db.relationship('Group', secondary=user_groups, back_populates='users')
 
 class Supplier(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -440,6 +453,7 @@ class PolicyVersion(db.Model):
     content = db.Column(db.Text) # The full text of the policy
     effective_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date) # Optional: when the policy version is no longer valid
+    acknowledgements = db.relationship('PolicyAcknowledgement', backref='version', lazy=True, cascade='all, delete-orphan')
 
     # Relationship back to the main policy document
     policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'), nullable=False)
@@ -447,8 +461,8 @@ class PolicyVersion(db.Model):
 
 class PolicyAcknowledgement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    policy_version_id = db.Column(db.Integer, db.ForeignKey('policy_version.id'))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    policy_version_id = db.Column(db.Integer, db.ForeignKey('policy_version.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     acknowledged_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class SecurityAssessment(db.Model):

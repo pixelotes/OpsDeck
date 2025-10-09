@@ -61,6 +61,7 @@ def create_app():
     from .routes.suppliers import suppliers_bp
     from .routes.contacts import contacts_bp
     from .routes.users import users_bp
+    from .routes.groups import groups_bp
     from .routes.payment_methods import payment_methods_bp
     from .routes.tags import tags_bp
     from .routes.services import services_bp
@@ -82,6 +83,7 @@ def create_app():
     app.register_blueprint(suppliers_bp, url_prefix='/suppliers')
     app.register_blueprint(contacts_bp, url_prefix='/contacts')
     app.register_blueprint(users_bp, url_prefix='/users')
+    app.register_blueprint(groups_bp, url_prefix='/groups')
     app.register_blueprint(payment_methods_bp, url_prefix='/payment-methods')
     app.register_blueprint(tags_bp, url_prefix='/tags')
     app.register_blueprint(services_bp, url_prefix='/services')

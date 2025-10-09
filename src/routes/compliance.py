@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from datetime import datetime
-from ..models import db, Supplier, SecurityAssessment
+from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User
 from .main import login_required
 from .admin import admin_required
 
@@ -72,3 +72,27 @@ def edit_assessment(id):
         return redirect(url_for('suppliers.supplier_detail', id=supplier.id))
 
     return render_template('compliance/assessment_form.html', supplier=supplier, assessment=assessment)
+
+@compliance_bp.route('/policy-report')
+@login_required
+def policy_report():
+    """Shows which users have not acknowledged active policies."""
+    active_versions = PolicyVersion.query.filter_by(status='Active').all()
+    all_users = User.query.filter_by(is_archived=False).all()
+    
+    report_data = []
+    for version in active_versions:
+        acknowledged_user_ids = {ack.user_id for ack in version.acknowledgements}
+        
+        unacknowledged_users = [
+            user for user in all_users if user.id not in acknowledged_user_ids
+        ]
+        
+        if unacknowledged_users:
+            report_data.append({
+                'policy': version.policy,
+                'version': version,
+                'users': unacknowledged_users
+            })
+            
+    return render_template('compliance/policy_report.html', report_data=report_data)

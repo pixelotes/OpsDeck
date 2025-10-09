@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block title %}Policy Acknowledgement Report - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-user-check"></i> Policy Acknowledgement Report</h2>
+</div>
+
+{% for item in report_data %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>
+            <a href="{{ url_for('policies.view_version', id=item.version.id) }}">{{ item.policy.title }} (v{{ item.version.version_number }})</a>
+        </h5>
+        <small class="text-muted">Users pending acknowledgement:</small>
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for user in item.users %}
+            <li class="list-group-item">
+                <a href="{{ url_for('users.user_detail', id=user.id) }}">{{ user.name }}</a>
+                <small class="text-muted float-end">{{ user.department or 'N/A' }}</small>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+{% else %}
+<div class="alert alert-success">
+    <i class="fas fa-check-circle"></i> All users have acknowledged all active policies.
+</div>
+{% endfor %}
+{% endblock %}
