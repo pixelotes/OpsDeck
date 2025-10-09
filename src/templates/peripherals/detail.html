@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ peripheral.name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-keyboard"></i> {{ peripheral.name }}</h2>
+    <a href="{{ url_for('peripherals.edit_peripheral', id=peripheral.id) }}" class="btn btn-outline-primary">
+        <i class="fas fa-edit"></i> Edit Peripheral
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Peripheral Details</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Type:</strong> {{ peripheral.type or 'N/A' }}</p>
+                <p><strong>Brand:</strong> {{ peripheral.brand or 'N/A' }}</p>
+                <p><strong>Serial Number:</strong> {{ peripheral.serial_number or 'N/A' }}</p>
+                <p><strong>Status:</strong> <span class="badge bg-info">{{ peripheral.status }}</span></p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Assigned To:</strong> 
+                    {% if peripheral.user %}
+                        <a href="{{ url_for('users.user_detail', id=peripheral.user.id) }}">{{ peripheral.user.name }}</a>
+                    {% else %}
+                        <span class="text-muted">Not Assigned</span>
+                    {% endif %}
+                </p>
+                <p><strong>Attached to Asset:</strong> 
+                    {% if peripheral.asset %}
+                        <a href="{{ url_for('assets.asset_detail', id=peripheral.asset.id) }}">{{ peripheral.asset.name }}</a>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </p>
+                <p><strong>Supplier:</strong> {{ peripheral.supplier.name if peripheral.supplier else 'N/A' }}</p>
+                <p><strong>Warranty End:</strong> {{ peripheral.warranty_end_date.strftime('%Y-%m-%d') if peripheral.warranty_end_date else 'N/A' }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

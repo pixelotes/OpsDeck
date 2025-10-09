@@ -13,21 +13,28 @@
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>Asset</th>
+                        <th>Item Name</th>
+                        <th>Type</th>
                         <th>Purchase Date</th>
                         <th>Warranty End Date</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for asset in assets %}
+                    {% for item in items %}
                     <tr>
-                        <td><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a></td>
-                        <td>{{ asset.purchase_date.strftime('%Y-%m-%d') if asset.purchase_date else '-' }}</td>
-                        <td>{{ asset.warranty_end_date.strftime('%Y-%m-%d') if asset.warranty_end_date else '-' }}</td>
+                        {% if item.__class__.__name__ == 'Asset' %}
+                            <td><a href="{{ url_for('assets.asset_detail', id=item.id) }}">{{ item.name }}</a></td>
+                            <td><span class="badge bg-success">Asset</span></td>
+                        {% else %}
+                            <td><a href="{{ url_for('peripherals.peripheral_detail', id=item.id) }}">{{ item.name }}</a></td>
+                            <td><span class="badge bg-info">Peripheral</span></td>
+                        {% endif %}
+                        <td>{{ item.purchase_date.strftime('%Y-%m-%d') if item.purchase_date else '-' }}</td>
+                        <td>{{ item.warranty_end_date.strftime('%Y-%m-%d') if item.warranty_end_date else '-' }}</td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="3" class="text-center">No assets with warranty information found.</td>
+                        <td colspan="4" class="text-center">No items with warranty information found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

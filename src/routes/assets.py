@@ -2,7 +2,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
 from datetime import datetime
-from ..models import db, Asset, AssetHistory, User, Location, Supplier, Purchase, AssetAssignment
+from ..models import db, Asset, AssetHistory, User, Location, Supplier, Purchase, AssetAssignment, Peripheral
 from .main import login_required
 
 assets_bp = Blueprint('assets', __name__)
@@ -235,15 +235,18 @@ def checkin_asset(id):
 @assets_bp.route('/warranties')
 @login_required
 def warranties():
-    all_assets = Asset.query.all()
+    assets = Asset.query.filter(Asset.warranty_length.isnot(None)).all()
+    peripherals = Peripheral.query.filter(Peripheral.warranty_length.isnot(None)).all()
     
-    # Filter out assets that don't have a warranty end date
-    assets_with_warranties = [asset for asset in all_assets if asset.warranty_end_date]
+    # Combine and sort assets and peripherals with warranties
+    all_items = assets + peripherals
     
-    # Sort the filtered list in Python by the end date, descending
-    sorted_assets = sorted(assets_with_warranties, key=lambda x: x.warranty_end_date, reverse=True)
+    # Filter out items where warranty_end_date is None (it shouldn't happen with the query, but it's safe)
+    items_with_warranties = [item for item in all_items if item.warranty_end_date]
     
-    return render_template('assets/warranties.html', assets=sorted_assets)
+    sorted_items = sorted(items_with_warranties, key=lambda x: x.warranty_end_date, reverse=True)
+    
+    return render_template('assets/warranties.html', items=sorted_items)
 
 @assets_bp.route('/<int:id>/history')
 @login_required

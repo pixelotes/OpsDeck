@@ -1,7 +1,8 @@
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
-from ..models import db, Peripheral, Asset, Purchase, Supplier
+from datetime import datetime
+from ..models import db, Peripheral, Asset, Purchase, Supplier, User
 from .main import login_required
 
 peripherals_bp = Blueprint('peripherals', __name__)
@@ -11,6 +12,94 @@ peripherals_bp = Blueprint('peripherals', __name__)
 def peripherals():
     peripherals = Peripheral.query.filter_by(is_archived=False).all()
     return render_template('peripherals/list.html', peripherals=peripherals)
+
+@peripherals_bp.route('/<int:id>')
+@login_required
+def peripheral_detail(id):
+    peripheral = Peripheral.query.get_or_404(id)
+    return render_template('peripherals/detail.html', peripheral=peripheral)
+
+@peripherals_bp.route('/new', methods=['GET', 'POST'])
+@login_required
+def new_peripheral():
+    if request.method == 'POST':
+        peripheral = Peripheral(
+            name=request.form['name'],
+            type=request.form.get('type'),
+            brand=request.form.get('brand'),
+            serial_number=request.form.get('serial_number'),
+            status=request.form['status'],
+            purchase_date=datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date() if request.form['purchase_date'] else None,
+            warranty_length=int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None,
+            asset_id=request.form.get('asset_id') or None,
+            purchase_id=request.form.get('purchase_id') or None,
+            supplier_id=request.form.get('supplier_id') or None,
+            user_id=request.form.get('user_id') or None
+        )
+        db.session.add(peripheral)
+        db.session.commit()
+        flash('Peripheral created successfully!')
+        return redirect(url_for('peripherals.peripherals'))
+
+    return render_template('peripherals/form.html',
+                            assets=Asset.query.order_by(Asset.name).all(),
+                            purchases=Purchase.query.order_by(Purchase.description).all(),
+                            suppliers=Supplier.query.order_by(Supplier.name).all(),
+                            users=User.query.order_by(User.name).all())
+
+@peripherals_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_peripheral(id):
+    peripheral = Peripheral.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        peripheral.name = request.form['name']
+        peripheral.type = request.form.get('type')
+        peripheral.brand = request.form.get('brand')
+        peripheral.serial_number = request.form.get('serial_number')
+        peripheral.status = request.form['status']
+        peripheral.purchase_date = datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date() if request.form['purchase_date'] else None
+        peripheral.warranty_length = int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None
+        peripheral.asset_id = request.form.get('asset_id') or None
+        peripheral.purchase_id = request.form.get('purchase_id') or None
+        peripheral.supplier_id = request.form.get('supplier_id') or None
+        peripheral.user_id = request.form.get('user_id') or None
+        
+        db.session.commit()
+        flash('Peripheral updated successfully!')
+        return redirect(url_for('peripherals.peripherals'))
+
+    return render_template('peripherals/form.html',
+                            peripheral=peripheral,
+                            assets=Asset.query.order_by(Asset.name).all(),
+                            purchases=Purchase.query.order_by(Purchase.description).all(),
+                            suppliers=Supplier.query.order_by(Supplier.name).all(),
+                            users=User.query.order_by(User.name).all())
+
+@peripherals_bp.route('/<int:id>/checkout', methods=['POST'])
+@login_required
+def checkout_peripheral(id):
+    peripheral = Peripheral.query.get_or_404(id)
+    user_id = request.form.get('user_id')
+    user = User.query.get(user_id)
+    
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('peripherals.peripheral_detail', id=id))
+
+    peripheral.user = user
+    db.session.commit()
+    flash(f'Peripheral "{peripheral.name}" checked out to {user.name}.', 'success')
+    return redirect(url_for('peripherals.peripheral_detail', id=id))
+
+@peripherals_bp.route('/<int:id>/checkin', methods=['POST'])
+@login_required
+def checkin_peripheral(id):
+    peripheral = Peripheral.query.get_or_404(id)
+    flash(f'Peripheral "{peripheral.name}" has been checked in from {peripheral.user.name}.', 'success')
+    peripheral.user = None
+    db.session.commit()
+    return redirect(url_for('peripherals.peripheral_detail', id=id))
 
 
 @peripherals_bp.route('/archived')
@@ -41,50 +130,3 @@ def unarchive_peripheral(id):
     db.session.commit()
     flash(f'Peripheral "{peripheral.name}" has been restored.')
     return redirect(url_for('peripherals.archived_peripherals'))
-
-@peripherals_bp.route('/new', methods=['GET', 'POST'])
-@login_required
-def new_peripheral():
-    if request.method == 'POST':
-        peripheral = Peripheral(
-            name=request.form['name'],
-            type=request.form.get('type'),
-            serial_number=request.form.get('serial_number'),
-            status=request.form['status'],
-            asset_id=request.form.get('asset_id'),
-            purchase_id=request.form.get('purchase_id'),
-            supplier_id=request.form.get('supplier_id')
-        )
-        db.session.add(peripheral)
-        db.session.commit()
-        flash('Peripheral created successfully!')
-        return redirect(url_for('peripherals.peripherals'))
-
-    return render_template('peripherals/form.html',
-                            assets=Asset.query.order_by(Asset.name).all(),
-                            purchases=Purchase.query.order_by(Purchase.description).all(),
-                            suppliers=Supplier.query.order_by(Supplier.name).all())
-
-@peripherals_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
-@login_required
-def edit_peripheral(id):
-    peripheral = Peripheral.query.get_or_404(id)
-
-    if request.method == 'POST':
-        peripheral.name = request.form['name']
-        peripheral.type = request.form.get('type')
-        peripheral.serial_number = request.form.get('serial_number')
-        peripheral.status = request.form['status']
-        peripheral.asset_id = request.form.get('asset_id')
-        peripheral.purchase_id = request.form.get('purchase_id')
-        peripheral.supplier_id = request.form.get('supplier_id')
-
-        db.session.commit()
-        flash('Peripheral updated successfully!')
-        return redirect(url_for('peripherals.peripherals'))
-
-    return render_template('peripherals/form.html',
-                            peripheral=peripheral,
-                            assets=Asset.query.order_by(Asset.name).all(),
-                            purchases=Purchase.query.order_by(Purchase.description).all(),
-                            suppliers=Supplier.query.order_by(Supplier.name).all())

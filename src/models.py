@@ -336,11 +336,18 @@ class AssetHistory(db.Model):
 class Peripheral(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    type = db.Column(db.String(50)) # e.g., Keyboard, Mouse, Monitor
+    type = db.Column(db.String(50))
     serial_number = db.Column(db.String(100), unique=True)
     status = db.Column(db.String(50), nullable=False, default='In Use')
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     
+    # --- NEW FIELDS ---
+    brand = db.Column(db.String(100))
+    purchase_date = db.Column(db.Date)
+    warranty_length = db.Column(db.Integer) # in months
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    # --- END NEW FIELDS ---
+
     # Relationships
     asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
@@ -352,6 +359,13 @@ class Peripheral(db.Model):
         super(Peripheral, self).__init__(**kwargs)
         if self.serial_number == '':
             self.serial_number = None
+
+    # --- NEW PROPERTY ---
+    @property
+    def warranty_end_date(self):
+        if self.purchase_date and self.warranty_length:
+            return self.purchase_date + relativedelta(months=+self.warranty_length)
+        return None
 
 class Budget(db.Model):
     id = db.Column(db.Integer, primary_key=True)

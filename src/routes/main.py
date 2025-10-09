@@ -7,6 +7,7 @@ from functools import wraps
 from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from ..models import db, AppUser, Service, NotificationSetting, Asset, Supplier, Contact, Purchase, Peripheral, User, Location, PaymentMethod
+import calendar
 
 main_bp = Blueprint('main', __name__)
 
@@ -59,7 +60,7 @@ def password_change_required(f):
 @main_bp.route('/')
 @login_required
 def dashboard():
-    # --- NEW: STAT CARD COUNTS ---
+    # --- STAT CARD COUNTS ---
     stats = {
         'services': Service.query.filter_by(is_archived=False).count(),
         'assets': Asset.query.filter_by(is_archived=False).count(),
@@ -124,6 +125,41 @@ def dashboard():
 
     forecast_data = [round(cost, 2) for cost in forecast_costs.values()]
 
+    # --- CORRECTED: EXPIRING ITEMS LOGIC ---
+    thirty_days_from_now = today + timedelta(days=30)
+    
+    # Query only non-archived items with warranty info
+    expiring_assets = Asset.query.filter(
+        Asset.is_archived == False,
+        Asset.purchase_date.isnot(None), 
+        Asset.warranty_length.isnot(None)
+    ).all()
+    expiring_peripherals = Peripheral.query.filter(
+        Peripheral.is_archived == False,
+        Peripheral.purchase_date.isnot(None), 
+        Peripheral.warranty_length.isnot(None)
+    ).all()
+    
+    all_expiring_items = [
+        item for item in expiring_assets + expiring_peripherals 
+        if item.warranty_end_date and today <= item.warranty_end_date <= thirty_days_from_now
+    ]
+    all_expiring_items.sort(key=lambda x: x.warranty_end_date)
+
+    # CORRECTED: Payment methods expiring in the next 90 days
+    ninety_days_from_now = today + timedelta(days=90)
+    expiring_payment_methods = []
+    all_payment_methods = PaymentMethod.query.filter(
+        PaymentMethod.is_archived == False,
+        PaymentMethod.expiry_date.isnot(None)
+    ).order_by(PaymentMethod.expiry_date).all()
+
+    for method in all_payment_methods:
+        # Find the last day of the expiry month
+        last_day_of_expiry_month = method.expiry_date.replace(day=calendar.monthrange(method.expiry_date.year, method.expiry_date.month)[1])
+        if today <= last_day_of_expiry_month <= ninety_days_from_now:
+            expiring_payment_methods.append(method)
+
     return render_template(
         'dashboard.html',
         stats=stats,
@@ -133,7 +169,9 @@ def dashboard():
         today=today,
         forecast_labels=forecast_labels,
         forecast_keys=forecast_keys,
-        forecast_data=forecast_data
+        forecast_data=forecast_data,
+        expiring_items=all_expiring_items,
+        expiring_payment_methods=expiring_payment_methods
     )
 
 @main_bp.route('/notifications', methods=['GET', 'POST'])
