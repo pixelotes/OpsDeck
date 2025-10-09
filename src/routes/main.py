@@ -6,7 +6,7 @@ from markupsafe import Markup
 from functools import wraps
 from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
-from ..models import db, AppUser, Service, NotificationSetting, Asset, Supplier, Contact, Purchase, Peripheral, User, Location, PaymentMethod
+from ..models import db, User, Service, NotificationSetting, Asset, Supplier, Contact, Purchase, Peripheral, Location, PaymentMethod
 import calendar
 
 main_bp = Blueprint('main', __name__)
@@ -22,15 +22,15 @@ def login_required(f):
 @main_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
+        email = request.form['email'] # Changed from username
         password = request.form['password']
-        user = AppUser.query.filter_by(username=username).first()
+        user = User.query.filter_by(email=email).first()
 
         if user and user.check_password(password):
             session['user_id'] = user.id
             return redirect(url_for('main.dashboard'))
         else:
-            flash('Invalid username or password')
+            flash('Invalid email or password')
 
     return render_template('login.html')
 
@@ -45,12 +45,10 @@ def password_change_required(f):
     def decorated_function(*args, **kwargs):
         user_id = session.get('user_id')
         if user_id:
-            user = AppUser.query.get(user_id)
-            if user and user.username == 'admin' and user.check_password('admin123'):
+            user = User.query.get(user_id)
+            if user and user.name == 'admin' and user.check_password('admin123'): # Check name for default admin
                 if request.endpoint not in ['main.change_password', 'main.logout', 'static']:
-                    # Create a link to the change password page
                     link = url_for('main.change_password')
-                    # Use Markup to safely render HTML in the flash message
                     message = Markup(f'For security, you must change the default admin password. <a href="{link}" class="alert-link">Click here to change it now.</a>')
                     flash(message, 'warning')
                     return redirect(url_for('main.change_password'))
@@ -72,6 +70,7 @@ def dashboard():
         'payment_methods': PaymentMethod.query.filter_by(is_archived=False).count(),
     }
 
+    # ... (rest of dashboard logic is unchanged)
     # --- Upcoming Renewals & Filter Logic ---
     period = request.args.get('period', '30', type=str)
     today = date.today()
@@ -173,6 +172,7 @@ def dashboard():
         expiring_items=all_expiring_items,
         expiring_payment_methods=expiring_payment_methods
     )
+
 
 @main_bp.route('/notifications', methods=['GET', 'POST'])
 @login_required
@@ -282,6 +282,7 @@ def search():
 
     return jsonify(results)
 
+
 @main_bp.route('/change-password', methods=['GET', 'POST'])
 @login_required
 def change_password():
@@ -290,7 +291,7 @@ def change_password():
         new_password = request.form.get('new_password')
         confirm_password = request.form.get('confirm_password')
 
-        user = AppUser.query.get(session['user_id'])
+        user = User.query.get(session['user_id'])
 
         if not user.check_password(current_password):
             flash('Your current password was incorrect.', 'danger')

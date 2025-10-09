@@ -14,17 +14,6 @@ CURRENCY_RATES = {
 
 
 # --- Models ---
-class AppUser(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(120), nullable=False)
-    role = db.Column(db.String(50), nullable=False, default='viewer') # Roles: viewer, editor, admin
-    
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-    
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
 
 user_groups = db.Table('user_groups',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
@@ -48,10 +37,12 @@ class Group(db.Model):
     users = db.relationship('User', secondary=user_groups, back_populates='groups')
     policy_versions_to_acknowledge = db.relationship('PolicyVersion', secondary=policy_version_groups, back_populates='groups_to_acknowledge')
 
-class User(db.Model):
+class User(db.Model): # Add UserMixin here if using Flask-Login
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(100), unique=True)
+    email = db.Column(db.String(100), unique=True, nullable=False) # Make email unique and required for login
+    password_hash = db.Column(db.String(120)) # Can be nullable for users who don't log in
+    role = db.Column(db.String(50), default='user') # e.g., 'user', 'editor', 'admin'
     department = db.Column(db.String(100))
     job_title = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -62,6 +53,15 @@ class User(db.Model):
     groups = db.relationship('Group', secondary=user_groups, back_populates='users')
     policy_versions_to_acknowledge = db.relationship('PolicyVersion', secondary=policy_version_users, back_populates='users_to_acknowledge')
     course_assignments = db.relationship('CourseAssignment', backref='user', lazy=True, cascade='all, delete-orphan')
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        # Only check password if one is set
+        if self.password_hash:
+            return check_password_hash(self.password_hash, password)
+        return False
 
 class Supplier(db.Model):
     id = db.Column(db.Integer, primary_key=True)

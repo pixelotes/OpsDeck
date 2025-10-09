@@ -6,8 +6,8 @@ from flask import Flask, session
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from .extensions import db, migrate
-from .models import AppUser
-from . import notifications
+from .models import User
+from . import notifications # Added the missing import
 import markdown
 from markupsafe import Markup
 import re
@@ -75,7 +75,7 @@ def create_app():
     from .routes.policies import policies_bp
     from .routes.compliance import compliance_bp
     from .routes.risk import risk_bp
-    from .routes.training import training_bp
+    from .routes.training import training_bp 
 
     app.register_blueprint(main_bp)
     app.register_blueprint(assets_bp, url_prefix='/assets')
@@ -101,12 +101,11 @@ def create_app():
     app.register_blueprint(training_bp, url_prefix='/training')
 
     # --- Make user role avaiable in all templates ---
-    from .models import AppUser
     @app.context_processor
     def inject_user_role():
         user_id = session.get('user_id')
         if user_id:
-            user = AppUser.query.get(user_id)
+            user = User.query.get(user_id) # Changed from AppUser
             if user:
                 return dict(current_user_role=user.role)
         return dict(current_user_role=None)
@@ -115,6 +114,7 @@ def create_app():
     from .routes.main import password_change_required
     @app.before_request
     def before_request_hook():
+        # This now correctly calls the updated password_change_required decorator
         password_change_required(lambda: None)()
 
     # --- Scheduler and Notifications ---
@@ -134,8 +134,8 @@ def create_app():
         """Creates the database tables and a default admin user."""
         with app.app_context():
             db.create_all()
-            if not AppUser.query.first():
-                admin_user = AppUser(username='admin', role='admin')
+            if not User.query.first(): # Changed from AppUser
+                admin_user = User(name='admin', email='admin@example.com', role='admin') # Changed to User
                 admin_user.set_password('admin123')
                 db.session.add(admin_user)
                 db.session.commit()

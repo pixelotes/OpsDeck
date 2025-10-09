@@ -2,7 +2,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, session
 )
 from datetime import date, timedelta
-from ..models import db, Course, User, Group, CourseAssignment, CourseCompletion, AppUser, Attachment
+from ..models import db, Course, User, Group, CourseAssignment, CourseCompletion, Attachment
 from .main import login_required
 from .admin import admin_required
 import uuid
@@ -17,10 +17,8 @@ training_bp = Blueprint('training', __name__)
 @login_required
 def my_training():
     """Shows the logged-in user their assigned courses."""
-    # This assumes a simple mapping between AppUser.username and User.name
-    # In a real-world app, you might have a direct link.
-    app_user = AppUser.query.get(session['user_id'])
-    user = User.query.filter_by(name=app_user.username).first()
+    user_id = session.get('user_id')
+    user = User.query.get(user_id) # Directly get the user from the session
 
     if not user:
         flash("Could not find your user profile to display training.", "warning")

@@ -2,7 +2,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, session
 )
 from datetime import date, datetime
-from ..models import db, Policy, PolicyVersion, User, Group, PolicyAcknowledgement, AppUser
+from ..models import db, Policy, PolicyVersion, User, Group, PolicyAcknowledgement
 from .main import login_required
 from .admin import admin_required
 
@@ -180,8 +180,7 @@ def acknowledge_version(id):
     version = PolicyVersion.query.get_or_404(id)
     user_id = session.get('user_id')
     
-    app_user = AppUser.query.get(user_id)
-    user = User.query.filter_by(name=app_user.username).first()
+    user = User.query.get(user_id)
 
     if not user:
         flash('Could not find a matching business user to log acknowledgement.', 'danger')
