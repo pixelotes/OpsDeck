@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+{% block title %}Edit Disposal Record - {{ super() }}{% endblock %}
+{% block content %}
+<h2><i class="fas fa-edit"></i> Edit Disposal for: {{ item.name }}</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST" enctype="multipart/form-data">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="disposal_date" class="form-label">Date of Disposal *</label>
+                    <input type="date" class="form-control" id="disposal_date" name="disposal_date" value="{{ record.disposal_date.strftime('%Y-%m-%d') }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="disposal_method" class="form-label">Method *</label>
+                    <select class="form-select" id="disposal_method" name="disposal_method">
+                        {% set methods = ['Recycled', 'Destroyed', 'Sold', 'Returned to Lessor'] %}
+                        {% for method in methods %}
+                        <option value="{{ method }}" {% if record.disposal_method == method %}selected{% endif %}>{{ method }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="disposal_partner" class="form-label">Disposal Partner/Vendor</label>
+                <input type="text" class="form-control" id="disposal_partner" name="disposal_partner" value="{{ record.disposal_partner or '' }}">
+            </div>
+            <div class="mb-3">
+                <label for="notes" class="form-label">Notes</label>
+                <textarea class="form-control" id="notes" name="notes" rows="3">{{ record.notes or '' }}</textarea>
+            </div>
+            <div class="mb-3">
+                <label for="certificate" class="form-label">Attach New Certificate (Optional)</label>
+                <input class="form-control" type="file" id="certificate" name="certificate">
+                <div class="form-text">Uploading a file here will add it to the disposal record.</div>
+            </div>
+            <hr class="my-4">
+            <div class="mb-3">
+                <label for="reason" class="form-label">Reason for Change *</label>
+                <input type="text" class="form-control" id="reason" name="reason" required placeholder="e.g., Corrected typo in partner name, updated disposal date.">
+            </div>
+            <hr>
+            <a href="{{ url_for('disposal.disposal_detail', id=record.id) }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

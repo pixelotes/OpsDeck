@@ -1,0 +1,54 @@
+{% extends "layout.html" %}
+{% block title %}Disposal Log - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-archive"></i> Disposal Log</h2>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Item</th>
+                    <th>Method</th>
+                    <th>Partner</th>
+                    <th>Certificate</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr>
+                    <td>{{ record.disposal_date.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        {% if record.asset %}
+                            <a href="{{ url_for('assets.asset_detail', id=record.asset_id) }}">{{ record.asset.name }}</a> (Asset)
+                        {% elif record.peripheral %}
+                            <a href="{{ url_for('peripherals.peripheral_detail', id=record.peripheral_id) }}">{{ record.peripheral.name }}</a> (Peripheral)
+                        {% endif %}
+                    </td>
+                    <td>{{ record.disposal_method }}</td>
+                    <td>{{ record.disposal_partner or 'N/A' }}</td>
+                    <td>
+                        {% if record.attachments %}
+                            <a href="{{ url_for('attachments.download_file', attachment_id=record.attachments[0].id) }}"><i class="fas fa-paperclip"></i> View</a>
+                        {% else %}
+                            No
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('disposal.disposal_detail', id=record.id) }}" class="btn btn-sm btn-outline-primary">Details</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center">No disposal records found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

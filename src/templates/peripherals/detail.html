@@ -42,7 +42,12 @@
                 <p><strong>Type:</strong> {{ peripheral.type or 'N/A' }}</p>
                 <p><strong>Brand:</strong> {{ peripheral.brand or 'N/A' }}</p>
                 <p><strong>Serial Number:</strong> {{ peripheral.serial_number or 'N/A' }}</p>
-                <p><strong>Status:</strong> <span class="badge bg-info">{{ peripheral.status }}</span></p>
+                <p><strong>Status:</strong> 
+                    <span class="badge bg-info">{{ peripheral.status }}</span>
+                    {% if peripheral.disposal_record %}
+                        (<a href="{{ url_for('disposal.disposal_detail', id=peripheral.disposal_record.id) }}">View Disposal Record</a>)
+                    {% endif %}
+                </p>
             </div>
             <div class="col-md-6">
                 <p><strong>Assigned To:</strong> 

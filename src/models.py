@@ -745,6 +745,18 @@ class IncidentTimelineEvent(db.Model):
     description = db.Column(db.Text, nullable=False)
     order = db.Column(db.Integer, nullable=False, default=0)
 
+class DisposalHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    disposal_id = db.Column(db.Integer, db.ForeignKey('disposal_record.id'), nullable=False)
+    field_changed = db.Column(db.String(100), nullable=False)
+    old_value = db.Column(db.Text)
+    new_value = db.Column(db.Text)
+    reason = db.Column(db.Text, nullable=False)
+    changed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    changed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    changed_by = db.relationship('User')
+
 class DisposalRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     disposal_date = db.Column(db.Date, nullable=False, default=date.today)
@@ -757,6 +769,8 @@ class DisposalRecord(db.Model):
     peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'), unique=True)
     
     attachments = db.relationship('Attachment', backref='disposal_record', lazy=True, cascade='all, delete-orphan')
+
+    history = db.relationship('DisposalHistory', backref='disposal_record', lazy=True, cascade='all, delete-orphan', order_by='DisposalHistory.changed_at.desc()')
 
 class Lead(db.Model):
     id = db.Column(db.Integer, primary_key=True)

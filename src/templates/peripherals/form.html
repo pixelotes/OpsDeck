@@ -8,6 +8,12 @@
 <h2><i class="fas fa-keyboard"></i> {{ title }}</h2>
 <hr>
 
+{% if peripheral and peripheral.purchase and peripheral.purchase.validated_cost is not none %}
+<div class="alert alert-warning" role="alert">
+    <i class="fas fa-lock"></i> The associated purchase for this peripheral has a validated cost. Price, currency, purchase date, and other financial details cannot be changed.
+</div>
+{% endif %}
+
 <div class="card">
     <div class="card-body">
         <form method="POST">
@@ -37,9 +43,13 @@
                  <div class="col-md-6">
                     <label for="status" class="form-label">Status *</label>
                     <select class="form-select" id="status" name="status" required>
-                        {% set statuses = ['In Use', 'Stored', 'Unavailable', 'Disposed'] %}
+                        {% set statuses = ['In Use', 'Stored', 'In Repair', 'Awaiting Disposal', 'Disposed', 'Sold'] %}
                         {% for status in statuses %}
-                        <option value="{{ status }}" {% if peripheral and peripheral.status == status %}selected{% endif %}>{{ status }}</option>
+                            {% if status in ['Disposed', 'Sold'] and peripheral and peripheral.status != status %}
+                                <option value="{{ status }}" disabled>{{ status }} (use "Record Disposal" action)</option>
+                            {% else %}
+                                <option value="{{ status }}" {% if peripheral and peripheral.status == status %}selected{% endif %}>{{ status }}</option>
+                            {% endif %}
                         {% endfor %}
                     </select>
                 </div>
@@ -50,15 +60,15 @@
             <div class="row mb-3">
                 <div class="col-md-4">
                     <label for="purchase_date" class="form-label">Purchase Date</label>
-                    <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="{{ peripheral.purchase_date.strftime('%Y-%m-%d') if peripheral and peripheral.purchase_date else '' }}">
+                    <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="{{ peripheral.purchase_date.strftime('%Y-%m-%d') if peripheral and peripheral.purchase_date else '' }}" {% if peripheral and peripheral.purchase and peripheral.purchase.validated_cost is not none %}disabled{% endif %}>
                 </div>
                 <div class="col-md-4">
                     <label for="cost" class="form-label">Cost</label>
-                    <input type="number" class="form-control" id="cost" name="cost" step="0.01" value="{{ peripheral.cost if peripheral and peripheral.cost is not none else '' }}">
+                    <input type="number" class="form-control" id="cost" name="cost" step="0.01" value="{{ peripheral.cost if peripheral and peripheral.cost is not none else '' }}" {% if peripheral and peripheral.purchase and peripheral.purchase.validated_cost is not none %}disabled{% endif %}>
                 </div>
                 <div class="col-md-4">
                     <label for="currency" class="form-label">Currency</label>
-                    <select class="form-select" id="currency" name="currency">
+                    <select class="form-select" id="currency" name="currency" {% if peripheral and peripheral.purchase and peripheral.purchase.validated_cost is not none %}disabled{% endif %}>
                         {% set currencies = ['EUR', 'USD', 'GBP', 'ZAR'] %}
                         {% for curr in currencies %}
                         <option value="{{ curr }}" {% if peripheral and peripheral.currency == curr %}selected{% endif %}>{{ curr }}</option>

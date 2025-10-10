@@ -80,6 +80,12 @@ def edit_asset(id):
     asset = Asset.query.get_or_404(id)
 
     if request.method == 'POST':
+        # --- ENFORCE EOL WORKFLOW ---
+        new_status = request.form.get('status')
+        if new_status in ['Disposed', 'Sold']:
+            flash('To dispose of an asset, please use the "Record Disposal" action from the asset detail page. This ensures a proper audit trail.', 'warning')
+            return redirect(url_for('assets.asset_detail', id=id))
+
         changes = []
         if asset.name != request.form['name']:
             changes.append(('name', asset.name, request.form['name']))

@@ -55,11 +55,30 @@ def edit_peripheral(id):
     peripheral = Peripheral.query.get_or_404(id)
     
     if request.method == 'POST':
+        # Enforce EoL Workflow
+        new_status = request.form.get('status')
+        if new_status in ['Disposed', 'Sold']:
+            flash('To dispose of a peripheral, please use the "Record Disposal" action from its detail page. This ensures a proper audit trail.', 'warning')
+            return redirect(url_for('peripherals.peripheral_detail', id=id))
+
+        # Check for validated purchase
+        if peripheral.purchase and peripheral.purchase.validated_cost is not None:
+            peripheral.name = request.form['name']
+            peripheral.type = request.form.get('type')
+            peripheral.brand = request.form.get('brand')
+            peripheral.serial_number = request.form.get('serial_number')
+            peripheral.status = new_status
+            peripheral.user_id = request.form.get('user_id') or None
+            db.session.commit()
+            flash('Peripheral updated. Cost cannot be changed because the associated purchase has been validated.', 'info')
+            return redirect(url_for('peripherals.peripheral_detail', id=id))
+
+        # Full update
         peripheral.name = request.form['name']
         peripheral.type = request.form.get('type')
         peripheral.brand = request.form.get('brand')
         peripheral.serial_number = request.form.get('serial_number')
-        peripheral.status = request.form['status']
+        peripheral.status = new_status
         peripheral.purchase_date = datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date() if request.form['purchase_date'] else None
         peripheral.warranty_length = int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None
         peripheral.cost = float(request.form.get('cost')) if request.form.get('cost') else None
@@ -71,7 +90,7 @@ def edit_peripheral(id):
         
         db.session.commit()
         flash('Peripheral updated successfully!')
-        return redirect(url_for('peripherals.peripherals'))
+        return redirect(url_for('peripherals.peripheral_detail', id=id))
 
     return render_template('peripherals/form.html',
                             peripheral=peripheral,
@@ -102,7 +121,6 @@ def checkout_peripheral(id):
             return redirect(url_for('peripherals.checkout_peripheral', id=id))
         
         peripheral.user = user
-        
         assignment = PeripheralAssignment(peripheral_id=id, user_id=user_id, notes=notes)
         db.session.add(assignment)
 
