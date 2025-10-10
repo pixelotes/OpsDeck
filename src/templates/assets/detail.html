@@ -54,6 +54,8 @@
                 </p>
                 <p><strong>Location:</strong> {{ asset.location.name if asset.location else 'N/A' }}</p>
                 <p><strong>Supplier:</strong> {{ asset.supplier.name if asset.supplier else 'N/A' }}</p>
+                <p><strong>Cost:</strong> {{ asset.currency }} {{ "%.2f"|format(asset.cost) if asset.cost is not none else 'N/A' }}</p>
+                <p><strong>Warranty End:</strong> {{ asset.warranty_end_date.strftime('%Y-%m-%d') if asset.warranty_end_date else 'N/A' }}</p>
                 <p><strong>Associated Purchase:</strong> 
                     {% if asset.purchase %}
                         <a href="{{ url_for('purchases.purchase_detail', id=asset.purchase.id) }}">{{ asset.purchase.description }}</a>

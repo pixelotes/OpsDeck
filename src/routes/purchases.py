@@ -1,17 +1,17 @@
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash
+    Blueprint, render_template, request, redirect, url_for, flash, session
 )
 from datetime import datetime
-from ..models import db, Purchase, Supplier, User, PaymentMethod, Tag, Budget
+from ..models import db, Purchase, Supplier, User, PaymentMethod, Tag, Budget, PurchaseCostHistory
 from .main import login_required
 
-purchases_bp = Blueprint('purchases', __name__)
+purchases_bp = Blueprint('purchases', __name__, url_prefix='/purchases')
 
 @purchases_bp.route('/')
 @login_required
 def purchases():
-    purchases = Purchase.query.all()
-    return render_template('purchases/list.html', purchases=purchases)
+    all_purchases = Purchase.query.order_by(Purchase.purchase_date.desc()).all()
+    return render_template('purchases/list.html', purchases=all_purchases)
 
 @purchases_bp.route('/<int:id>')
 @login_required
@@ -28,24 +28,11 @@ def new_purchase():
             description=request.form['description'],
             invoice_number=request.form.get('invoice_number'),
             purchase_date=datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date(),
-            cost=float(request.form['cost']),
-            currency=request.form['currency'],
             comments=request.form.get('comments'),
-            supplier_id=request.form.get('supplier_id'),
-            payment_method_id=request.form.get('payment_method_id'),
-            budget_id=request.form.get('budget_id')
+            supplier_id=request.form.get('supplier_id') or None,
+            payment_method_id=request.form.get('payment_method_id') or None,
+            budget_id=request.form.get('budget_id') or None
         )
-
-        for user_id in request.form.getlist('user_ids'):
-            user = User.query.get(user_id)
-            if user:
-                purchase.users.append(user)
-
-        for tag_id in request.form.getlist('tag_ids'):
-            tag = Tag.query.get(tag_id)
-            if tag:
-                purchase.tags.append(tag)
-
         db.session.add(purchase)
         db.session.commit()
         flash('Purchase created successfully!')
@@ -62,31 +49,15 @@ def new_purchase():
 @login_required
 def edit_purchase(id):
     purchase = Purchase.query.get_or_404(id)
-
     if request.method == 'POST':
         purchase.internal_id = request.form.get('internal_id')
         purchase.description = request.form['description']
         purchase.invoice_number = request.form.get('invoice_number')
         purchase.purchase_date = datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date()
-        purchase.cost = float(request.form['cost'])
-        purchase.currency = request.form['currency']
         purchase.comments = request.form.get('comments')
-        purchase.supplier_id = request.form.get('supplier_id')
-        purchase.payment_method_id = request.form.get('payment_method_id')
-        purchase.budget_id = request.form.get('budget_id')
-
-        purchase.users.clear()
-        for user_id in request.form.getlist('user_ids'):
-            user = User.query.get(user_id)
-            if user:
-                purchase.users.append(user)
-
-        purchase.tags.clear()
-        for tag_id in request.form.getlist('tag_ids'):
-            tag = Tag.query.get(tag_id)
-            if tag:
-                purchase.tags.append(tag)
-
+        purchase.supplier_id = request.form.get('supplier_id') or None
+        purchase.payment_method_id = request.form.get('payment_method_id') or None
+        purchase.budget_id = request.form.get('budget_id') or None
         db.session.commit()
         flash('Purchase updated successfully!')
         return redirect(url_for('purchases.purchases'))
@@ -98,3 +69,35 @@ def edit_purchase(id):
                             payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
                             tags=Tag.query.order_by(Tag.name).all(),
                             budgets=Budget.query.order_by(Budget.name).all())
+
+@purchases_bp.route('/<int:id>/validate_cost', methods=['POST'])
+@login_required
+def validate_cost(id):
+    purchase = Purchase.query.get_or_404(id)
+    user_id = session.get('user_id')
+    purchase.validated_cost = purchase.calculated_cost
+    purchase.cost_validated_at = datetime.utcnow()
+    purchase.cost_validated_by_id = user_id
+    history_log = PurchaseCostHistory(
+        purchase_id=id, action='Validated', cost=purchase.validated_cost, user_id=user_id
+    )
+    db.session.add(history_log)
+    db.session.commit()
+    flash(f'The cost for this purchase has been validated at EUR {purchase.validated_cost:.2f}.', 'success')
+    return redirect(url_for('purchases.purchase_detail', id=id))
+
+@purchases_bp.route('/<int:id>/unvalidate_cost', methods=['POST'])
+@login_required
+def unvalidate_cost(id):
+    purchase = Purchase.query.get_or_404(id)
+    user_id = session.get('user_id')
+    history_log = PurchaseCostHistory(
+        purchase_id=id, action='Un-validated', cost=purchase.validated_cost, user_id=user_id
+    )
+    db.session.add(history_log)
+    purchase.validated_cost = None
+    purchase.cost_validated_at = None
+    purchase.cost_validated_by_id = None
+    db.session.commit()
+    flash('The validated cost has been removed. The cost will now be calculated dynamically.', 'info')
+    return redirect(url_for('purchases.purchase_detail', id=id))

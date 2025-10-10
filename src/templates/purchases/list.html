@@ -1,49 +1,41 @@
 {% extends "layout.html" %}
-
 {% block title %}Purchases - {{ super() }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-shopping-cart"></i> Purchases</h2>
-    <button class="btn btn-success" onclick="exportTableToCSV('purchases-table', 'purchases.csv')">
-        <i class="fas fa-file-csv"></i> Export to CSV
-    </button>
     <a href="{{ url_for('purchases.new_purchase') }}" class="btn btn-primary">
-        <i class="fas fa-plus"></i> Add Purchase
+        <i class="fas fa-plus"></i> New Purchase
     </a>
 </div>
 
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped" id="purchases-table">
+            <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>Internal ID</th>
                         <th>Description</th>
-                        <th>Supplier</th>
                         <th>Purchase Date</th>
-                        <th>Cost</th>
+                        <th>Total Cost (EUR)</th>
+                        <th>Supplier</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for purchase in purchases %}
                     <tr>
-                        <td>{{ purchase.internal_id or '-' }}</td>
                         <td><a href="{{ url_for('purchases.purchase_detail', id=purchase.id) }}">{{ purchase.description }}</a></td>
-                        <td>{{ purchase.supplier.name if purchase.supplier else '-' }}</td>
                         <td>{{ purchase.purchase_date.strftime('%Y-%m-%d') }}</td>
-                        <td>€{{ "%.2f"|format(purchase.cost) }}</td>
+                        <td>{{ "%.2f"|format(purchase.total_cost) }}</td>
+                        <td>{{ purchase.supplier.name if purchase.supplier else 'N/A' }}</td>
                         <td>
-                            <a href="{{ url_for('purchases.edit_purchase', id=purchase.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
+                            <a href="{{ url_for('purchases.edit_purchase', id=purchase.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="text-center">No purchases found.</td>
+                        <td colspan="5" class="text-center">No purchases found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -55,7 +55,7 @@ def new_asset():
             internal_id=request.form.get('internal_id'),
             comments=request.form.get('comments'),
             purchase_date=datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date() if request.form['purchase_date'] else None,
-            price=float(request.form.get('price')) if request.form.get('price') else None,
+            cost=float(request.form.get('cost')) if request.form.get('cost') else None,
             currency=request.form.get('currency'),
             warranty_length=int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None,
             user_id=request.form.get('user_id'),
@@ -99,10 +99,10 @@ def edit_asset(id):
         if asset.purchase_date != purchase_date:
             changes.append(('purchase_date', asset.purchase_date, purchase_date))
 
-        price_form = request.form.get('price')
-        price = float(price_form) if price_form else None
-        if asset.price != price:
-            changes.append(('price', asset.price, price))
+        cost_form = request.form.get('cost')
+        cost = float(cost_form) if cost_form else None
+        if asset.cost != cost:
+            changes.append(('cost', asset.cost, cost))
 
         if asset.currency != request.form.get('currency'):
             changes.append(('currency', asset.currency, request.form.get('currency')))
@@ -148,7 +148,7 @@ def edit_asset(id):
         asset.internal_id = request.form.get('internal_id')
         asset.comments = request.form.get('comments')
         asset.purchase_date = purchase_date
-        asset.price = price
+        asset.cost = cost
         asset.currency = request.form.get('currency')
         asset.warranty_length = warranty_length
         asset.user_id = user_id

@@ -304,26 +304,59 @@ purchase_tags = db.Table('purchase_tags',
     db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
 )
 
+class PurchaseCostHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'), nullable=False)
+    action = db.Column(db.String(50), nullable=False)  # 'validated' or 'un-validated'
+    cost = db.Column(db.Float)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user = db.relationship('User')
+
 class Purchase(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     internal_id = db.Column(db.String(100), unique=True)
     description = db.Column(db.String(255), nullable=False)
     invoice_number = db.Column(db.String(100))
     purchase_date = db.Column(db.Date, nullable=False)
-    cost = db.Column(db.Float, nullable=False)
-    currency = db.Column(db.String(3), default='EUR')
     comments = db.Column(db.Text)
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
     payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'))
     budget_id = db.Column(db.Integer, db.ForeignKey('budget.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
+
+    validated_cost = db.Column(db.Float, nullable=True)
+    cost_validated_at = db.Column(db.DateTime, nullable=True)
+    cost_validated_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    cost_validated_by = db.relationship('User', foreign_keys=[cost_validated_by_id])
     
     users = db.relationship('User', secondary=purchase_users, backref='purchases')
     tags = db.relationship('Tag', secondary=purchase_tags, backref='purchases')
     attachments = db.relationship('Attachment', backref='purchase', lazy=True, cascade='all, delete-orphan')
     assets = db.relationship('Asset', backref='purchase', lazy=True)
     peripherals = db.relationship('Peripheral', backref='purchase', lazy=True)
+    
+    cost_history = db.relationship('PurchaseCostHistory', backref='purchase', lazy=True, order_by='PurchaseCostHistory.timestamp.desc()')
+
+    @property
+    def calculated_cost(self):
+        """Always calculates the cost from associated items."""
+        total = 0
+        for asset in self.assets:
+            if asset.cost:
+                total += asset.cost
+        for peripheral in self.peripherals:
+            if peripheral.cost:
+                total += peripheral.cost
+        return total
+    
+    @property
+    def total_cost(self):
+        """Returns the validated cost if it exists, otherwise calculates it."""
+        if self.validated_cost is not None:
+            return self.validated_cost
+        return self.calculated_cost
 
 class Location(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -342,8 +375,11 @@ class Asset(db.Model):
     internal_id = db.Column(db.String(100), unique=True)
     comments = db.Column(db.Text)
     purchase_date = db.Column(db.Date)
-    price = db.Column(db.Float)
+    
+    # --- UPDATED FIELDS ---
+    cost = db.Column(db.Float)
     currency = db.Column(db.String(3), default='EUR')
+    
     warranty_length = db.Column(db.Integer) # in months
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     
@@ -447,7 +483,8 @@ class Budget(db.Model):
 
     @property
     def remaining(self):
-        spent = sum(purchase.cost for purchase in self.purchases)
+        # CORRECTED: Use the total_cost property from the Purchase model
+        spent = sum(purchase.total_cost for purchase in self.purchases)
         return self.amount - spent
     
 class Opportunity(db.Model):

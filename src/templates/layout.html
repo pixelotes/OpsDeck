@@ -83,6 +83,8 @@
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('purchases.') %}active{% endif %}" href="{{ url_for('purchases.purchases') }}"><i class="fas fa-shopping-cart"></i> Purchases</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('budgets.') %}active{% endif %}" href="{{ url_for('budgets.budgets') }}"><i class="fas fa-wallet"></i> Budgets</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('opportunities.') %}active{% endif %}" href="{{ url_for('opportunities.list_opportunities') }}"><i class="fas fa-lightbulb"></i> Opportunities</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('payment_methods.') %}active{% endif %}" href="{{ url_for('payment_methods.payment_methods') }}"><i class="fas fa-credit-card"></i> Payment Methods</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'reports.spend_analysis' %}active{% endif %}" href="{{ url_for('reports.spend_analysis') }}"><i class="fas fa-chart-line"></i> Spend Analysis</a></li>
                 </div>          
 
                 <hr class="text-white">
@@ -114,7 +116,6 @@
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('contacts.') %}active{% endif %}" href="{{ url_for('contacts.contacts') }}"><i class="fas fa-users"></i> Contacts</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('users.') %}active{% endif %}" href="{{ url_for('users.users') }}"><i class="fas fa-user-friends"></i> Users</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('groups.') %}active{% endif %}" href="{{ url_for('groups.list_groups') }}"><i class="fas fa-users"></i> Groups</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('payment_methods.') %}active{% endif %}" href="{{ url_for('payment_methods.payment_methods') }}"><i class="fas fa-credit-card"></i> Payment</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('tags.') %}active{% endif %}" href="{{ url_for('tags.tags') }}"><i class="fas fa-tags"></i> Tags</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('treeview.') %}active{% endif %}" href="{{ url_for('treeview.tree_view') }}"><i class="fas fa-sitemap"></i> Tree View</a></li>
                 </div>

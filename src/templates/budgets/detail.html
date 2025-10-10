@@ -14,7 +14,7 @@
     <div class="card-header">Budget Details</div>
     <div class="card-body">
         <p><strong>Category:</strong> {{ budget.category or 'N/A' }}</p>
-        <p><strong>Amount:</strong> €{{ "%.2f"|format(budget.amount) }}</p>
+        <p><strong>Amount:</strong> {{ budget.currency }} {{ "%.2f"|format(budget.amount) }}</p>
         <p class="mb-0"><strong>Period:</strong> {{ budget.period.title() }}</p>
     </div>
 </div>
@@ -28,7 +28,7 @@
             <li class="list-group-item d-flex justify-content-between align-items-center">
                 <a href="{{ url_for('purchases.purchase_detail', id=purchase.id) }}">{{ purchase.description }}</a>
                 <span>
-                    Purchased on {{ purchase.purchase_date.strftime('%Y-%m-%d') }} for €{{ "%.2f"|format(purchase.cost) }}
+                    Purchased on {{ purchase.purchase_date.strftime('%Y-%m-%d') }} for {{ budget.currency }} {{ "%.2f"|format(purchase.total_cost) }}
                 </span>
             </li>
         {% else %}

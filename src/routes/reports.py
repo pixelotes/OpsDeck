@@ -4,7 +4,7 @@ from flask import (
 from sqlalchemy import func
 from datetime import date
 from dateutil.relativedelta import relativedelta
-from ..models import db, Service, Asset, Supplier
+from ..models import db, Service, Asset, Supplier, User, Group, Peripheral
 from .main import login_required
 
 reports_bp = Blueprint('reports', __name__)
@@ -148,4 +148,78 @@ def asset_reports():
         status_data=status_data,
         warranty_labels=warranty_labels,
         warranty_data=warranty_data,
+    )
+
+@reports_bp.route('/spend-analysis', methods=['GET'])
+@login_required
+def spend_analysis():
+    # --- Get filter options from the database ---
+    suppliers = Supplier.query.order_by(Supplier.name).all()
+    users = User.query.filter_by(is_archived=False).order_by(User.name).all()
+    groups = Group.query.order_by(Group.name).all()
+    
+    # Get a distinct list of brands from both assets and peripherals
+    asset_brands = db.session.query(Asset.brand).filter(Asset.brand.isnot(None)).distinct()
+    peripheral_brands = db.session.query(Peripheral.brand).filter(Peripheral.brand.isnot(None)).distinct()
+    all_brands = sorted([b[0] for b in asset_brands.union(peripheral_brands)])
+
+    # --- Get filter criteria from URL arguments ---
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    item_type = request.args.get('item_type', 'both')
+    supplier_id = request.args.get('supplier_id', type=int)
+    brand = request.args.get('brand')
+    user_id = request.args.get('user_id', type=int)
+    group_id = request.args.get('group_id', type=int)
+
+    # --- Build the queries ---
+    assets_query = Asset.query
+    peripherals_query = Peripheral.query
+
+    if start_date:
+        assets_query = assets_query.filter(Asset.purchase_date >= start_date)
+        peripherals_query = peripherals_query.filter(Peripheral.purchase_date >= start_date)
+    if end_date:
+        assets_query = assets_query.filter(Asset.purchase_date <= end_date)
+        peripherals_query = peripherals_query.filter(Peripheral.purchase_date <= end_date)
+    if supplier_id:
+        assets_query = assets_query.filter(Asset.supplier_id == supplier_id)
+        peripherals_query = peripherals_query.filter(Peripheral.supplier_id == supplier_id)
+    if brand:
+        assets_query = assets_query.filter(Asset.brand == brand)
+        peripherals_query = peripherals_query.filter(Peripheral.brand == brand)
+    
+    # Handle user/group filtering
+    user_ids_to_filter = []
+    if user_id:
+        user_ids_to_filter.append(user_id)
+    if group_id:
+        group = Group.query.get(group_id)
+        if group:
+            user_ids_to_filter.extend([user.id for user in group.users])
+    
+    if user_ids_to_filter:
+        assets_query = assets_query.filter(Asset.user_id.in_(user_ids_to_filter))
+        peripherals_query = peripherals_query.filter(Peripheral.user_id.in_(user_ids_to_filter))
+    
+    # --- Execute queries and combine results ---
+    results = []
+    if item_type == 'assets' or item_type == 'both':
+        results.extend(assets_query.all())
+    if item_type == 'peripherals' or item_type == 'both':
+        results.extend(peripherals_query.all())
+
+    total_cost = sum(item.cost for item in results if item.cost)
+
+    return render_template(
+        'reports/spend_analysis.html',
+        results=results,
+        total_cost=total_cost,
+        suppliers=suppliers,
+        users=users,
+        groups=groups,
+        all_brands=all_brands,
+        # Pass filters back to template to pre-fill form
+        start_date=start_date, end_date=end_date, item_type=item_type,
+        supplier_id=supplier_id, brand=brand, user_id=user_id, group_id=group_id
     )
