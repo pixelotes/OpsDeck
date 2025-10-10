@@ -1,0 +1,192 @@
+{% extends "layout.html" %}
+{% block title %}Post-Incident Review - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<style>
+    .timeline-item {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem;
+        border-bottom: 1px solid #eee;
+    }
+    .timeline-item:hover {
+        background-color: #f8f9fa;
+    }
+    .timeline-handle {
+        cursor: grab;
+        color: #adb5bd;
+        margin-right: 1rem;
+    }
+    .timeline-time {
+        font-weight: 500;
+        width: 180px;
+    }
+    .timeline-desc {
+        flex-grow: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fas fa-file-alt"></i> Post-Incident Review</h2>
+        <h5 class="text-muted">For: <a href="{{ url_for('compliance.incident_detail', id=incident.id) }}">{{ incident.title }}</a></h5>
+    </div>
+    <a href="{{ url_for('compliance.incident_detail', id=incident.id) }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Incident
+    </a>
+</div>
+
+<form method="POST">
+    <div class="card mb-4">
+        <div class="card-header">Summary</div>
+        <div class="card-body">
+            <textarea name="summary" class="form-control" rows="3" placeholder="A brief, high-level summary of the incident. What happened, and what was the impact?">{{ review.summary or '' }}</textarea>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Timeline of Events</div>
+        <div class="card-body">
+            <div id="timeline-list">
+                {% for event in review.timeline_events %}
+                <div class="timeline-item" data-id="{{ event.id }}">
+                    <i class="fas fa-grip-vertical timeline-handle"></i>
+                    <div class="timeline-time">{{ event.event_time.strftime('%Y-%m-%d %H:%M') }}</div>
+                    <div class="timeline-desc">{{ event.description }}</div>
+                    <button type="button" class="btn-close ms-3" aria-label="Delete"></button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <input type="datetime-local" id="timeline-time-input" class="form-control">
+                </div>
+                <div class="col-md-7">
+                    <input type="text" id="timeline-desc-input" class="form-control" placeholder="Description of event...">
+                </div>
+                <div class="col-md-2">
+                    <button type="button" id="add-timeline-btn" class="btn btn-secondary w-100">Add Event</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Analysis</div>
+        <div class="card-body">
+            <label class="form-label">Lead-up</label>
+            <textarea name="lead_up" class="form-control mb-3" rows="3" placeholder="What were the circumstances leading up to the incident?">{{ review.lead_up or '' }}</textarea>
+            
+            <label class="form-label">Fault</label>
+            <textarea name="fault" class="form-control mb-3" rows="3" placeholder="What went wrong? Describe the root cause.">{{ review.fault or '' }}</textarea>
+            
+            <label class="form-label">Impact</label>
+            <textarea name="impact_analysis" class="form-control" rows="3" placeholder="How were users, services, or the business affected?">{{ review.impact_analysis or '' }}</textarea>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Response & Recovery</div>
+        <div class="card-body">
+            <label class="form-label">Detection</label>
+            <textarea name="detection" class="form-control mb-3" rows="2" placeholder="How was the incident first detected?">{{ review.detection or '' }}</textarea>
+            
+            <label class="form-label">Response</label>
+            <textarea name="response" class="form-control mb-3" rows="4" placeholder="What actions were taken to contain and resolve the incident? Who was involved?">{{ review.response or '' }}</textarea>
+            
+            <label class="form-label">Recovery</label>
+            <textarea name="recovery" class="form-control" rows="3" placeholder="What steps were taken to restore service and confirm resolution?">{{ review.recovery or '' }}</textarea>
+        </div>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header">Lessons Learned & Action Items</div>
+        <div class="card-body">
+            <textarea name="lessons_learned" class="form-control" rows="5" placeholder="What went well? What could be improved? List concrete action items.">{{ review.lessons_learned or '' }}</textarea>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Review</button>
+</form>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const reviewId = {{ review.id }};
+    const timelineList = document.getElementById('timeline-list');
+    const addBtn = document.getElementById('add-timeline-btn');
+    const timeInput = document.getElementById('timeline-time-input');
+    const descInput = document.getElementById('timeline-desc-input');
+
+    // Drag-and-drop sorting
+    const sortable = new Sortable(timelineList, {
+        handle: '.timeline-handle',
+        animation: 150,
+        onEnd: function(evt) {
+            const orderedIds = Array.from(timelineList.children).map(item => item.dataset.id);
+            fetch(`/compliance/incidents/review/${reviewId}/timeline/reorder`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ ordered_ids: orderedIds })
+            });
+        }
+    });
+
+    // Add new timeline event
+    addBtn.addEventListener('click', () => {
+        const time = timeInput.value;
+        const description = descInput.value.trim();
+
+        if (!time || !description) {
+            alert('Please provide both a time and a description for the event.');
+            return;
+        }
+
+        fetch(`/compliance/incidents/review/${reviewId}/timeline`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ time: time, description: description })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const newItem = document.createElement('div');
+            newItem.className = 'timeline-item';
+            newItem.dataset.id = data.id;
+            newItem.innerHTML = `
+                <i class="fas fa-grip-vertical timeline-handle"></i>
+                <div class="timeline-time">${data.time.replace('T', ' ')}</div>
+                <div class="timeline-desc">${data.description}</div>
+                <button type="button" class="btn-close ms-3" aria-label="Delete"></button>
+            `;
+            timelineList.appendChild(newItem);
+            timeInput.value = '';
+            descInput.value = '';
+        });
+    });
+
+    // Delete timeline event (using event delegation)
+    timelineList.addEventListener('click', function(e) {
+        if (e.target.classList.contains('btn-close')) {
+            const item = e.target.closest('.timeline-item');
+            const eventId = item.dataset.id;
+            
+            if (confirm('Are you sure you want to delete this timeline event?')) {
+                fetch(`/compliance/incidents/review/timeline/${eventId}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        item.remove();
+                    }
+                });
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

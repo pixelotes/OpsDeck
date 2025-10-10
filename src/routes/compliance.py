@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime
-from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Service, SecurityIncident
+from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Service, SecurityIncident, PostIncidentReview, IncidentTimelineEvent
 from .main import login_required
 from .admin import admin_required
 
@@ -396,3 +396,71 @@ def edit_incident(id):
     services = Service.query.filter_by(is_archived=False).order_by(Service.name).all()
     suppliers = Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all()
     return render_template('compliance/incident_form.html', incident=incident, users=users, assets=assets, services=services, suppliers=suppliers)
+
+@compliance_bp.route('/incidents/<int:id>/review', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def incident_review(id):
+    incident = SecurityIncident.query.get_or_404(id)
+    review = incident.review
+
+    if not review:
+        # If no review exists, create one to start with
+        review = PostIncidentReview(incident_id=id)
+        db.session.add(review)
+        db.session.commit()
+
+    if request.method == 'POST':
+        # Update the text fields
+        review.summary = request.form.get('summary')
+        review.lead_up = request.form.get('lead_up')
+        review.fault = request.form.get('fault')
+        review.impact_analysis = request.form.get('impact_analysis')
+        review.detection = request.form.get('detection')
+        review.response = request.form.get('response')
+        review.recovery = request.form.get('recovery')
+        review.lessons_learned = request.form.get('lessons_learned')
+        db.session.commit()
+        flash('Post-Incident Review saved successfully.', 'success')
+        return redirect(url_for('compliance.incident_review', id=id))
+
+    return render_template('compliance/pir_form.html', incident=incident, review=review)
+
+@compliance_bp.route('/incidents/review/<int:review_id>/timeline', methods=['POST'])
+@login_required
+@admin_required
+def add_timeline_event(review_id):
+    review = PostIncidentReview.query.get_or_404(review_id)
+    data = request.json
+    max_order = db.session.query(db.func.max(IncidentTimelineEvent.order)).filter_by(review_id=review.id).scalar() or -1
+    
+    event = IncidentTimelineEvent(
+        review_id=review.id,
+        event_time=datetime.fromisoformat(data['time']),
+        description=data['description'],
+        order=max_order + 1
+    )
+    db.session.add(event)
+    db.session.commit()
+    return jsonify({'id': event.id, 'time': event.event_time.strftime('%Y-%m-%dT%H:%M'), 'description': event.description}), 201
+
+@compliance_bp.route('/incidents/review/timeline/<int:event_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_timeline_event(event_id):
+    event = IncidentTimelineEvent.query.get_or_404(event_id)
+    db.session.delete(event)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@compliance_bp.route('/incidents/review/<int:review_id>/timeline/reorder', methods=['POST'])
+@login_required
+@admin_required
+def reorder_timeline_events(review_id):
+    ordered_ids = request.json.get('ordered_ids', [])
+    for index, event_id in enumerate(ordered_ids):
+        event = IncidentTimelineEvent.query.filter_by(id=event_id, review_id=review_id).first()
+        if event:
+            event.order = index
+    db.session.commit()
+    return jsonify({'success': True})

@@ -660,12 +660,11 @@ class SecurityIncident(db.Model):
     description = db.Column(db.Text, nullable=False)
     incident_date = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(50), default='Investigating') # Investigating, Contained, Resolved, Closed
-    
-    # --- UPDATED FIELDS ---
     severity = db.Column(db.String(50), default='SEV-3') # SEV-0 (Critical) to SEV-3 (Low)
     impact = db.Column(db.String(50), default='Minor') # Minor, Moderate, Significant, Extensive
     data_breach = db.Column(db.Boolean, default=False)
     third_party_impacted = db.Column(db.Boolean, default=False)
+    review = db.relationship('PostIncidentReview', backref='incident', uselist=False, cascade='all, delete-orphan')
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     resolved_at = db.Column(db.DateTime)
@@ -682,3 +681,27 @@ class SecurityIncident(db.Model):
     affected_services = db.relationship('Service', secondary=incident_services, backref='incidents')
     affected_suppliers = db.relationship('Supplier', secondary=incident_suppliers, backref='incidents')
     attachments = db.relationship('Attachment', backref='security_incident', lazy=True, cascade='all, delete-orphan')
+
+class PostIncidentReview(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    incident_id = db.Column(db.Integer, db.ForeignKey('security_incident.id'), unique=True, nullable=False)
+    summary = db.Column(db.Text)
+    lead_up = db.Column(db.Text)
+    fault = db.Column(db.Text)
+    impact_analysis = db.Column(db.Text)
+    detection = db.Column(db.Text)
+    response = db.Column(db.Text)
+    recovery = db.Column(db.Text)
+    lessons_learned = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    timeline_events = db.relationship('IncidentTimelineEvent', backref='review', lazy=True, cascade='all, delete-orphan', order_by='IncidentTimelineEvent.order')
+
+class IncidentTimelineEvent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    review_id = db.Column(db.Integer, db.ForeignKey('post_incident_review.id'), nullable=False)
+    event_time = db.Column(db.DateTime, nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    order = db.Column(db.Integer, nullable=False, default=0)

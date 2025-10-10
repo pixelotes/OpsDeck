@@ -3,9 +3,14 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-exclamation-circle"></i> {{ incident.title }}</h2>
-    <a href="{{ url_for('compliance.edit_incident', id=incident.id) }}" class="btn btn-outline-primary">
-        <i class="fas fa-edit"></i> Edit Incident
-    </a>
+    <div>
+        <a href="{{ url_for('compliance.incident_review', id=incident.id) }}" class="btn btn-secondary me-2">
+            <i class="fas fa-file-alt"></i> {% if incident.review %}View/Edit Review{% else %}Start Review{% endif %}
+        </a>
+        <a href="{{ url_for('compliance.edit_incident', id=incident.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-edit"></i> Edit Incident
+        </a>
+    </div>
 </div>
 
 <div class="card mb-4">
