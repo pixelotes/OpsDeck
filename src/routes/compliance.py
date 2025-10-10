@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime
-from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Service, SecurityIncident, PostIncidentReview, IncidentTimelineEvent
+from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Service, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog
 from .main import login_required
 from .admin import admin_required
 
@@ -464,3 +464,11 @@ def reorder_timeline_events(review_id):
             event.order = index
     db.session.commit()
     return jsonify({'success': True})
+
+@compliance_bp.route('/data-erasures')
+@login_required
+@admin_required
+def list_erasures():
+    """Displays a filtered list of all data erasure maintenance events for audit purposes."""
+    erasure_logs = MaintenanceLog.query.filter_by(event_type='Data Erasure').order_by(MaintenanceLog.event_date.desc()).all()
+    return render_template('compliance/erasure_list.html', logs=erasure_logs)

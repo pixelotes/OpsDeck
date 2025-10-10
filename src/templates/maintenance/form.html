@@ -43,9 +43,9 @@
                 <div class="col-md-4">
                     <label for="event_type" class="form-label">Event Type *</label>
                     <select class="form-select" id="event_type" name="event_type">
-                        {% set types = ['Repair', 'Planned Maintenance', 'Unplanned Maintenance', 'Upgrade', 'Inspection'] %}
+                        {% set types = ['Data Erasure', 'Repair', 'Planned Maintenance', 'Unplanned Maintenance', 'Upgrade', 'Inspection'] %}
                         {% for type in types %}
-                        <option value="{{ type }}" {% if log and log.event_type == type %}selected{% endif %}>{{ type }}</option>
+                        <option value="{{ type }}" {% if (log and log.event_type == type) or (event_type == type) %}selected{% endif %}>{{ type }}</option>
                         {% endfor %}
                     </select>
                 </div>

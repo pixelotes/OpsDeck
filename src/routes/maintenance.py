@@ -36,17 +36,19 @@ def new_log():
     # Pre-select asset or peripheral from query params if available
     preselected_asset_id = request.args.get('asset_id', type=int)
     preselected_peripheral_id = request.args.get('peripheral_id', type=int)
+    event_type = request.args.get('event_type')
     
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     assets = Asset.query.filter_by(is_archived=False).order_by(Asset.name).all()
     peripherals = Peripheral.query.filter_by(is_archived=False).order_by(Peripheral.name).all()
 
     return render_template('maintenance/form.html',
-                           users=users,
-                           assets=assets,
-                           peripherals=peripherals,
-                           preselected_asset_id=preselected_asset_id,
-                           preselected_peripheral_id=preselected_peripheral_id)
+                        users=users,
+                        assets=assets,
+                        peripherals=peripherals,
+                        preselected_asset_id=preselected_asset_id,
+                        preselected_peripheral_id=preselected_peripheral_id,
+                        event_type=event_type)
 
 @maintenance_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required

@@ -18,9 +18,19 @@
             <i class="fas fa-sign-out-alt"></i> Check Out
         </a>
         {% endif %}
-        <a href="{{ url_for('peripherals.edit_peripheral', id=peripheral.id) }}" class="btn btn-outline-primary">
-            <i class="fas fa-edit"></i> Edit Peripheral
-        </a>
+        <div class="btn-group d-inline">
+            <a href="{{ url_for('peripherals.edit_peripheral', id=peripheral.id) }}" class="btn btn-outline-primary">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="visually-hidden">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{{ url_for('maintenance.new_log', peripheral_id=peripheral.id, event_type='Data Erasure') }}">Log Data Erasure</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="{{ url_for('disposal.record_disposal', peripheral_id=peripheral.id) }}">Record Disposal</a></li>
+            </ul>
+        </div>
     </div>
 </div>
 

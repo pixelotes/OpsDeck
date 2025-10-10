@@ -115,6 +115,7 @@ class Attachment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     bcdr_test_log_id = db.Column(db.Integer, db.ForeignKey('bcdr_test_log.id'))
     maintenance_log_id = db.Column(db.Integer, db.ForeignKey('maintenance_log.id'))
+    disposal_record_id = db.Column(db.Integer, db.ForeignKey('disposal_record.id'))
 
     # Courses
     course_completion_id = db.Column(db.Integer, db.ForeignKey('course_completion.id'))
@@ -356,7 +357,7 @@ class Asset(db.Model):
     peripherals = db.relationship('Peripheral', backref='asset', lazy=True)
     assignments = db.relationship('AssetAssignment', backref='asset', lazy=True, cascade='all, delete-orphan', order_by='AssetAssignment.checked_out_date.desc()')
     maintenance_logs = db.relationship('MaintenanceLog', backref='asset', lazy='dynamic', cascade='all, delete-orphan')
-
+    disposal_record = db.relationship('DisposalRecord', backref='asset', uselist=False, cascade='all, delete-orphan')
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -400,6 +401,7 @@ class Peripheral(db.Model):
     status = db.Column(db.String(50), nullable=False, default='In Use')
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     maintenance_logs = db.relationship('MaintenanceLog', backref='peripheral', lazy='dynamic', cascade='all, delete-orphan')
+    disposal_record = db.relationship('DisposalRecord', backref='peripheral', uselist=False, cascade='all, delete-orphan')
     
     # --- ADDED/UPDATED FIELDS ---
     brand = db.Column(db.String(100))
@@ -705,3 +707,16 @@ class IncidentTimelineEvent(db.Model):
     event_time = db.Column(db.DateTime, nullable=False)
     description = db.Column(db.Text, nullable=False)
     order = db.Column(db.Integer, nullable=False, default=0)
+
+class DisposalRecord(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    disposal_date = db.Column(db.Date, nullable=False, default=date.today)
+    disposal_method = db.Column(db.String(100), nullable=False) # e.g., Recycled, Destroyed, Sold
+    disposal_partner = db.Column(db.String(255))
+    notes = db.Column(db.Text)
+
+    # Can only be linked to one item
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), unique=True)
+    peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'), unique=True)
+    
+    attachments = db.relationship('Attachment', backref='disposal_record', lazy=True, cascade='all, delete-orphan')

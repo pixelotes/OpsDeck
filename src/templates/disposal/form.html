@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+{% block title %}Record Disposal - {{ super() }}{% endblock %}
+{% block content %}
+<h2><i class="fas fa-archive"></i> Record Disposal for: {{ item.name }}</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="disposal_date" class="form-label">Date of Disposal *</label>
+                    <input type="date" class="form-control" id="disposal_date" name="disposal_date" value="{{ 'now'|string|replace(' 00:00:00', '') }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="disposal_method" class="form-label">Method *</label>
+                    <select class="form-select" id="disposal_method" name="disposal_method">
+                        <option value="Recycled">Recycled</option>
+                        <option value="Destroyed">Destroyed</option>
+                        <option value="Sold">Sold</option>
+                        <option value="Returned to Lessor">Returned to Lessor</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="disposal_partner" class="form-label">Disposal Partner/Vendor</label>
+                <input type="text" class="form-control" id="disposal_partner" name="disposal_partner" placeholder="e.g., eWaste Recyclers Inc.">
+            </div>
+            <div class="mb-3">
+                <label for="notes" class="form-label">Notes</label>
+                <textarea class="form-control" id="notes" name="notes" rows="4"></textarea>
+            </div>
+            <hr>
+            <button type="submit" class="btn btn-danger">Confirm Disposal & Archive</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
