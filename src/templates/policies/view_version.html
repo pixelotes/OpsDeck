@@ -1,37 +1,44 @@
 {% extends "layout.html" %}
-{% block title %}Policy: {{ version.policy.title }} v{{ version.version_number }} - {{ super() }}{% endblock %}
-{% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2><i class="fas fa-file-alt"></i> {{ version.policy.title }}</h2>
-        <h5 class="text-muted">Version {{ version.version_number }}</h5>
-    </div>
-    <a href="{{ url_for('policies.detail', id=version.policy.id) }}" class="btn btn-outline-secondary">
-        <i class="fas fa-arrow-left"></i> Back to Version History
-    </a>
-</div>
 
-<div class="card">
-    <div class="card-body">
-        <hr>
-        <div class="policy-content">
-            {{ version.content | markdown | safe }}
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0">{{ version.policy.title }} - v{{ version.version_number }}</h4>
+                <small>Effective Date: {{ version.effective_date.strftime('%Y-%m-%d') }} | Status: <span class="badge bg-secondary">{{ version.status }}</span></small>
+            </div>
+            <a href="{{ url_for('policies.detail', id=version.policy.id) }}" class="btn btn-secondary">Back to Policy</a>
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">Policy Content</h5>
+            <div class="policy-content p-3 border rounded" style="background-color: #f8f9fa;">
+                {{ version.content|markdown|safe }}
+            </div>
+        </div>
+        <div class="card-footer text-center">
+            {#
+               Here's the new logic:
+               1. We first set a variable 'user_ack' by filtering the version's acknowledgements
+                  to find one that matches the current logged-in user's ID.
+               2. We then use an if/else statement to check if 'user_ack' was found.
+            #}
+            {% set user_ack = version.acknowledgements|selectattr('user_id', 'equalto', current_user.id)|first %}
+
+            {% if user_ack %}
+                {# If found, the user has acknowledged. Show a disabled green button. #}
+                <button type="button" class="btn btn-success" disabled>
+                    <i class="fas fa-check-circle"></i> Acknowledged on {{ user_ack.acknowledged_at.strftime('%Y-%m-%d') }}
+                </button>
+            {% else %}
+                {# If not found, show the acknowledgement form and button. #}
+                <form action="{{ url_for('policies.acknowledge_version', id=version.id) }}" method="post" class="mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> I have read and understand the policy
+                    </button>
+                </form>
+            {% endif %}
         </div>
     </div>
-
-    {% if version.status == 'Active' %}
-    <div class="card-footer text-center">
-        {% set user_ack = version.acknowledgements|selectattr('user.name', 'equalto', current_user.username)|first %}
-        {% if user_ack %}
-            <div class="alert alert-success mb-0">
-                <i class="fas fa-check-circle"></i> You acknowledged this policy on {{ user_ack.acknowledged_at.strftime('%Y-%m-%d') }}.
-            </div>
-        {% else %}
-            <form action="{{ url_for('policies.acknowledge_version', id=version.id) }}" method="POST">
-                <button type="submit" class="btn btn-primary btn-lg">I Have Read and Understood This Policy</button>
-            </form>
-        {% endif %}
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

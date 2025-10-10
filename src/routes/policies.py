@@ -172,7 +172,9 @@ def activate_version(id):
 @login_required
 def view_version(id):
     version = PolicyVersion.query.get_or_404(id)
-    return render_template('policies/view_version.html', version=version)
+    user_id = session.get('user_id')
+    user = User.query.get(user_id)
+    return render_template('policies/view_version.html', version=version, current_user=user)
 
 @policies_bp.route('/version/<int:id>/acknowledge', methods=['POST'])
 @login_required
