@@ -757,3 +757,13 @@ class DisposalRecord(db.Model):
     peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'), unique=True)
     
     attachments = db.relationship('Attachment', backref='disposal_record', lazy=True, cascade='all, delete-orphan')
+
+class Lead(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    company_name = db.Column(db.String(255), nullable=False)
+    contact_name = db.Column(db.String(255))
+    email = db.Column(db.String(120))
+    phone = db.Column(db.String(50))
+    status = db.Column(db.String(50), default='New') # New, Contacted, Qualified, Converted, Disqualified
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

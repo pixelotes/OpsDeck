@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block title %}Leads - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-bullhorn"></i> Leads</h2>
+    <a href="{{ url_for('leads.new_lead') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Lead
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Company</th>
+                    <th>Contact</th>
+                    <th>Email / Phone</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lead in leads %}
+                <tr>
+                    <td>{{ lead.company_name }}</td>
+                    <td>{{ lead.contact_name or 'N/A' }}</td>
+                    <td>{{ lead.email or 'N/A' }} / {{ lead.phone or 'N/A' }}</td>
+                    <td><span class="badge bg-secondary">{{ lead.status }}</span></td>
+                    <td>
+                        <a href="{{ url_for('leads.edit_lead', id=lead.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                        {% if lead.status != 'Converted' %}
+                        <a href="{{ url_for('leads.convert_lead', id=lead.id) }}" class="btn btn-sm btn-outline-success">Convert</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">No leads found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

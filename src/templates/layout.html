@@ -83,6 +83,7 @@
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('purchases.') %}active{% endif %}" href="{{ url_for('purchases.purchases') }}"><i class="fas fa-shopping-cart"></i> Purchases</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('budgets.') %}active{% endif %}" href="{{ url_for('budgets.budgets') }}"><i class="fas fa-wallet"></i> Budgets</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('opportunities.') %}active{% endif %}" href="{{ url_for('opportunities.list_opportunities') }}"><i class="fas fa-lightbulb"></i> Opportunities</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('leads.') %}active{% endif %}" href="{{ url_for('leads.list_leads') }}"><i class="fas fa-bullhorn"></i> Leads</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('payment_methods.') %}active{% endif %}" href="{{ url_for('payment_methods.payment_methods') }}"><i class="fas fa-credit-card"></i> Payment Methods</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'reports.spend_analysis' %}active{% endif %}" href="{{ url_for('reports.spend_analysis') }}"><i class="fas fa-chart-line"></i> Spend Analysis</a></li>
                 </div>          

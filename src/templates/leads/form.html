@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+{% set title = "Edit Lead" if lead else "New Lead" %}
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+{% block content %}
+<h2><i class="fas fa-edit"></i> {{ title }}</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="company_name" class="form-label">Company Name *</label>
+                <input type="text" class="form-control" id="company_name" name="company_name" value="{{ lead.company_name if lead else '' }}" required>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="contact_name" class="form-label">Contact Name</label>
+                    <input type="text" class="form-control" id="contact_name" name="contact_name" value="{{ lead.contact_name if lead else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status">
+                        {% set statuses = ['New', 'Contacted', 'Qualified', 'Converted', 'Disqualified'] %}
+                        {% for s in statuses %}
+                        <option value="{{ s }}" {% if lead and lead.status == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+             <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ lead.email if lead else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="phone" class="form-label">Phone</label>
+                    <input type="tel" class="form-control" id="phone" name="phone" value="{{ lead.phone if lead else '' }}">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="notes" class="form-label">Notes</label>
+                <textarea class="form-control" id="notes" name="notes" rows="4">{{ lead.notes if lead else '' }}</textarea>
+            </div>
+            <hr>
+            <a href="{{ url_for('leads.list_leads') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Lead</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
