@@ -1,0 +1,157 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ purchase.description }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-shopping-cart"></i> {{ purchase.description }}</h2>
+    <a href="{{ url_for('purchases.edit_purchase', id=purchase.id) }}" class="btn btn-outline-primary">
+        <i class="fas fa-edit"></i> Edit Purchase
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Purchase Details</span>
+        <div>
+            {% if purchase.validated_cost is not none %}
+                <form action="{{ url_for('purchases.unvalidate_cost', id=purchase.id) }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Revert to dynamic cost calculation">
+                        <i class="fas fa-unlock"></i> Un-validate Cost
+                    </button>
+                </form>
+            {% else %}
+                <form action="{{ url_for('purchases.validate_cost', id=purchase.id) }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-success">
+                        <i class="fas fa-check-circle"></i> Validate Cost
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Purchase Date:</strong> {{ purchase.purchase_date.strftime('%Y-%m-%d') }}</p>
+                <p><strong>Total Cost:</strong> EUR {{ "%.2f"|format(purchase.total_cost) }}
+                    {% if purchase.validated_cost is none %}
+                        <span class="badge bg-info">Calculated</span>
+                    {% else %}
+                        <span class="badge bg-success">Validated</span>
+                    {% endif %}
+                </p>
+                <p><strong>Supplier:</strong> 
+                    {% if purchase.supplier %}
+                        <a href="{{ url_for('suppliers.supplier_detail', id=purchase.supplier.id) }}">{{ purchase.supplier.name }}</a>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Invoice Number:</strong> {{ purchase.invoice_number or 'N/A' }}</p>
+                <p><strong>Payment Method:</strong> {{ purchase.payment_method.name if purchase.payment_method else 'N/A' }}</p>
+                 {% if purchase.validated_cost is not none %}
+                    <p class="text-muted small">
+                        Cost validated on {{ purchase.cost_validated_at.strftime('%Y-%m-%d') }} by {{ purchase.cost_validated_by.name if purchase.cost_validated_by else 'N/A' }}.
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Associated Assets ({{ purchase.assets|length }})</div>
+            <ul class="list-group list-group-flush">
+                {% for asset in purchase.assets %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a>
+                    <span>{{ asset.currency }} {{ "%.2f"|format(asset.cost) if asset.cost is not none else 'N/A' }}</span>
+                </li>
+                {% else %}
+                <li class="list-group-item text-muted">No assets in this purchase.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Associated Peripherals ({{ purchase.peripherals|length }})</div>
+            <ul class="list-group list-group-flush">
+                {% for peripheral in purchase.peripherals %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('peripherals.peripheral_detail', id=peripheral.id) }}">{{ peripheral.name }}</a>
+                    <span>{{ peripheral.currency }} {{ "%.2f"|format(peripheral.cost) if peripheral.cost is not none else 'N/A' }}</span>
+                </li>
+                {% else %}
+                <li class="list-group-item text-muted">No peripherals in this purchase.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-paperclip"></i> Attachments (e.g., Invoices)</div>
+    <ul class="list-group list-group-flush">
+        {% for att in purchase.attachments %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+            </form>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No files attached.</li>
+        {% endfor %}
+    </ul>
+    <div class="card-body">
+        <form action="{{ url_for('attachments.upload_file') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="purchase_id" value="{{ purchase.id }}">
+            <div class="input-group">
+                <input type="file" class="form-control" name="file" required>
+                <button class="btn btn-outline-primary" type="submit">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-history"></i> Cost Validation History</div>
+    <div class="card-body">
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Action</th>
+                    <th>Validated Cost (EUR)</th>
+                    <th>User</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in purchase.cost_history %}
+                <tr>
+                    <td>{{ entry.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        {% if entry.action == 'Validated' %}
+                            <span class="badge bg-success">Validated</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Un-validated</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ "%.2f"|format(entry.cost) }}</td>
+                    <td>{{ entry.user.name if entry.user else 'N/A' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted">No validation history for this purchase.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

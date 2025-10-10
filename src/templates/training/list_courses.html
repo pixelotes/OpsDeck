@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+{% block title %}Manage Courses - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-chalkboard-teacher"></i> Manage Courses</h2>
+    <a href="{{ url_for('training.new_course') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Course
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 40%;">Title</th>
+                        <th style="width: 45%;">Completion</th>
+                        <th style="width: 15%;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for course in courses %}
+                    <tr>
+                        <td><a href="{{ url_for('training.course_detail', id=course.id) }}">{{ course.title }}</a></td>
+                        <td>
+                            {% set total = course.assignments|length %}
+                            {% if total > 0 %}
+                                {% set completed = course.assignments|selectattr('completion')|list|length %}
+                                {% set percentage = (completed / total * 100)|round|int %}
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar" style="width: {{ percentage }}%;" aria-valuenow="{{ percentage }}" aria-valuemin="0" aria-valuemax="100">{{ percentage }}%</div>
+                                    </div>
+                                    <span class="ms-3 fw-bold">{{ completed }}/{{ total }}</span>
+                                </div>
+                            {% else %}
+                                <span class="text-muted">Not Assigned</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('training.course_detail', id=course.id) }}" class="btn btn-sm btn-outline-primary">Details</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="text-center">No courses found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

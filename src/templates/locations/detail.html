@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ location.name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-map-marker-alt"></i> {{ location.name }}</h2>
+    <a href="{{ url_for('locations.edit_location', id=location.id) }}" class="btn btn-outline-primary">
+        <i class="fas fa-edit"></i> Edit Location
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-laptop"></i> Assets at this Location ({{ location.assets|length }})
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for asset in location.assets %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a>
+                <span>{{ asset.model or 'N/A' }}</span>
+            </li>
+        {% else %}
+            <li class="list-group-item text-muted">No assets are currently at this location.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

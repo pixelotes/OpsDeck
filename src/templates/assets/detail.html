@@ -1,0 +1,177 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ asset.name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-laptop"></i> {{ asset.name }}</h2>
+    <div>
+        <a href="{{ url_for('maintenance.new_log', asset_id=asset.id) }}" class="btn btn-info me-2">
+            <i class="fas fa-plus"></i> Add Maintenance Log
+        </a>
+        {% if asset.user_id %}
+        <form action="{{ url_for('assets.checkin_asset', id=asset.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to check in this asset?');">
+            <button type="submit" class="btn btn-warning"><i class="fas fa-sign-in-alt"></i> Check In</button>
+        </form>
+        {% else %}
+        <a href="{{ url_for('assets.checkout_asset', id=asset.id) }}" class="btn btn-success">
+            <i class="fas fa-sign-out-alt"></i> Check Out
+        </a>
+        {% endif %}
+        <div class="btn-group d-inline">
+            <a href="{{ url_for('assets.edit_asset', id=asset.id) }}" class="btn btn-outline-primary">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="visually-hidden">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ url_for('maintenance.new_log', asset_id=asset.id, event_type='Data Erasure') }}">Log Data Erasure</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="{{ url_for('disposal.record_disposal', asset_id=asset.id) }}">Record Disposal</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Asset Details</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Model:</strong> {{ asset.model or 'N/A' }}</p>
+                <p><strong>Brand:</strong> {{ asset.brand or 'N/A' }}</p>
+                <p><strong>Serial Number:</strong> {{ asset.serial_number or 'N/A' }}</p>
+                <p><strong>Status:</strong> 
+                    <span class="badge bg-info">{{ asset.status }}</span>
+                    {% if asset.disposal_record %}
+                        (<a href="{{ url_for('disposal.disposal_detail', id=asset.disposal_record.id) }}">View Disposal Record</a>)
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Assigned To:</strong> 
+                    {% if asset.user %}
+                        <a href="{{ url_for('users.user_detail', id=asset.user.id) }}">{{ asset.user.name }}</a>
+                    {% else %}
+                        <span class="text-muted">Not Assigned</span>
+                    {% endif %}
+                </p>
+                <p><strong>Location:</strong> {{ asset.location.name if asset.location else 'N/A' }}</p>
+                <p><strong>Supplier:</strong> {{ asset.supplier.name if asset.supplier else 'N/A' }}</p>
+                <p><strong>Cost:</strong> {{ asset.currency }} {{ "%.2f"|format(asset.cost) if asset.cost is not none else 'N/A' }}</p>
+                <p><strong>Warranty End:</strong> {{ asset.warranty_end_date.strftime('%Y-%m-%d') if asset.warranty_end_date else 'N/A' }}</p>
+                <p><strong>Associated Purchase:</strong> 
+                    {% if asset.purchase %}
+                        <a href="{{ url_for('purchases.purchase_detail', id=asset.purchase.id) }}">{{ asset.purchase.description }}</a>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        {% if asset.comments %}
+        <hr>
+        <p class="mb-0"><strong>Comments:</strong></p>
+        <p>{{ asset.comments }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-retweet"></i> Assignment History</div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Checked Out</th>
+                    <th>Checked In</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in asset.assignments %}
+                <tr>
+                    <td>{{ entry.user.name if entry.user else 'N/A' }}</td>
+                    <td>{{ entry.checked_out_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ entry.checked_in_date.strftime('%Y-%m-%d %H:%M') if entry.checked_in_date else 'Currently Checked Out' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="text-center">No assignment history found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-history"></i> Asset History</span>
+        <a href="{{ url_for('assets.asset_history', id=asset.id) }}" class="btn btn-sm btn-outline-primary">
+            View Full History <i class="fas fa-external-link-alt"></i>
+        </a>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-tools"></i> Maintenance History</div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in asset.maintenance_logs %}
+                <tr>
+                    <td>{{ log.event_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ log.event_type }}</td>
+                    <td>{{ log.description|truncate(70) }}</td>
+                    <td><span class="badge bg-info">{{ log.status }}</span></td>
+                    <td>
+                        <a href="{{ url_for('maintenance.edit_log', id=log.id) }}" class="btn btn-sm btn-outline-secondary">Details</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">No maintenance history found for this asset.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-paperclip"></i> Attachments</div>
+    <ul class="list-group list-group-flush">
+        {% for att in asset.attachments %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+            </form>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No files attached.</li>
+        {% endfor %}
+    </ul>
+    <div class="card-body">
+        <form action="{{ url_for('attachments.upload_file') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="asset_id" value="{{ asset.id }}">
+            <div class="input-group">
+                <input type="file" class="form-control" name="file" required>
+                <button class="btn btn-outline-primary" type="submit">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

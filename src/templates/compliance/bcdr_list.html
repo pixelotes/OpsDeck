@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+{% block title %}BCDR Plans - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-shield-alt"></i> Business Continuity & Disaster Recovery Plans</h2>
+    <a href="{{ url_for('compliance.new_bcdr_plan') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Plan
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="list-group">
+            {% for plan in plans %}
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <div>
+                        <h5 class="mb-1"><a href="{{ url_for('compliance.bcdr_detail', id=plan.id) }}">{{ plan.name }}</a></h5>
+                        <p class="mb-1">{{ plan.description|truncate(150) }}</p>
+                        <small class="text-muted">Covers {{ plan.services|length }} services and {{ plan.assets|length }} assets.</small>
+                    </div>
+                    <div class="d-flex flex-column align-items-end">
+                        <small>Last test: {{ plan.test_logs.first().test_date.strftime('%Y-%m-%d') if plan.test_logs.first() else 'N/A' }}</small>
+                        <div class="mt-2">
+                            <a href="{{ url_for('compliance.edit_bcdr_plan', id=plan.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <a href="{{ url_for('compliance.bcdr_detail', id=plan.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center p-4">No BCDR plans have been created yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

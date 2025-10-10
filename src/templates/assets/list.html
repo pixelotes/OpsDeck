@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+
+{% block title %}Assets - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-laptop"></i> Assets</h2>
+    <div>
+        <button class="btn btn-success" onclick="exportTableToCSV('assets-table', 'assets.csv')">
+            <i class="fas fa-file-csv"></i> Export to CSV
+        </button>
+        <a href="{{ url_for('assets.archived_assets') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-archive"></i> View Archived
+        </a>
+        <a href="{{ url_for('assets.new_asset') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Asset
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped" id="assets-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Model</th>
+                        <th>Brand</th>
+                        <th>Serial Number</th>
+                        <th>Status</th>
+                        <th>User</th>
+                        <th>Location</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asset in assets %}
+                    <tr>
+                        <td><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a></td>
+                        <td>{{ asset.model or '-' }}</td>
+                        <td>{{ asset.brand or '-' }}</td>
+                        <td>{{ asset.serial_number or '-' }}</td>
+                        <td><span class="badge bg-secondary">{{ asset.status }}</span></td>
+                        <td>{{ asset.user.name if asset.user else '-' }}</td>
+                        <td>{{ asset.location.name if asset.location else '-' }}</td>
+                        <td>
+                            <a href="{{ url_for('assets.edit_asset', id=asset.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <form action="{{ url_for('assets.archive_asset', id=asset.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this asset?');">
+                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
+                                    <i class="fas fa-archive"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center">No assets found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

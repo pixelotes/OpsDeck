@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block title %}User Groups - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-users"></i> User Groups</h2>
+    {% if current_user_role == 'admin' %}
+    <a href="{{ url_for('groups.new_group') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Group
+    </a>
+    {% endif %}
+</div>
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Group Name</th>
+                    <th>Description</th>
+                    <th>Members</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in groups %}
+                <tr>
+                    <td>{{ group.name }}</td>
+                    <td>{{ group.description }}</td>
+                    <td><span class="badge bg-info">{{ group.users|length }}</span></td>
+                    <td>
+                        {% if current_user_role == 'admin' %}
+                        <a href="{{ url_for('groups.edit_group', id=group.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center">No groups found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

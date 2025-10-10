@@ -6,10 +6,13 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-cogs"></i> Services</h2>
     <div>
-        <a href="{{ url_for('main.archived_services') }}" class="btn btn-outline-secondary">
+        <button class="btn btn-success" onclick="exportTableToCSV('services-table', 'services.csv')">
+            <i class="fas fa-file-csv"></i> Export to CSV
+        </button>
+        <a href="{{ url_for('services.archived_services') }}" class="btn btn-outline-secondary">
             <i class="fas fa-archive"></i> View Archived
         </a>
-        <a href="{{ url_for('main.new_service') }}" class="btn btn-primary">
+        <a href="{{ url_for('services.new_service') }}" class="btn btn-primary">
             <i class="fas fa-plus"></i> Add Service
         </a>
     </div>
@@ -17,7 +20,7 @@
 
 <div class="card mb-4">
     <div class="card-body">
-        <form method="GET" action="{{ url_for('main.services') }}" class="row g-3 align-items-center">
+        <form method="GET" action="{{ url_for('services.services') }}" class="row g-3 align-items-center">
             <div class="col-md-5">
                 <label for="service_type" class="form-label visually-hidden">Type</label>
                 <div class="input-group">
@@ -43,7 +46,7 @@
                 </div>
             </div>
             <div class="col-md-2">
-                <a href="{{ url_for('main.services') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                <a href="{{ url_for('services.services') }}" class="btn btn-outline-secondary w-100">Clear</a>
             </div>
         </form>
     </div>
@@ -51,7 +54,7 @@
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table class="table table-striped" id="services-table">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -68,9 +71,9 @@
                 <tbody>
                     {% for service in services %}
                     <tr>
-                        <td><a href="{{ url_for('main.service_detail', id=service.id) }}">{{ service.name }}</a></td>
+                        <td><a href="{{ url_for('services.service_detail', id=service.id) }}">{{ service.name }}</a></td>
                         <td><span class="badge bg-secondary">{{ service.service_type }}</span></td>
-                        <td><a href="{{ url_for('main.supplier_detail', id=service.supplier.id) }}">{{ service.supplier.name }}</a></td>
+                        <td><a href="{{ url_for('suppliers.supplier_detail', id=service.supplier.id) }}">{{ service.supplier.name }}</a></td>
                         <td>{{ service.renewal_period_value }} {{ service.renewal_period_type.title() }}</td>
                         <td>{{ service.next_renewal_date.strftime('%Y-%m-%d') }}</td>
                         <td>
@@ -81,14 +84,14 @@
                         <td class="currency-display">€{{ "%.2f"|format(service.cost_eur) }}</td>
                         <td>
                             {% for tag in service.tags %}
-                                <a href="{{ url_for('main.services', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none">{{ tag.name }}</a>
+                                <a href="{{ url_for('services.services', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none">{{ tag.name }}</a>
                             {% endfor %}
                         </td>
                         <td>
-                            <a href="{{ url_for('main.edit_service', id=service.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                            <a href="{{ url_for('services.edit_service', id=service.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <form action="{{ url_for('main.archive_service', id=service.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this service?');">
+                            <form action="{{ url_for('services.archive_service', id=service.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this service?');">
                                 <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
                                     <i class="fas fa-archive"></i>
                                 </button>

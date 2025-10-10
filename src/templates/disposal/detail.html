@@ -1,0 +1,87 @@
+{% extends "layout.html" %}
+{% block title %}Disposal Record - {{ super() }}{% endblock %}
+{% block content %}
+{% set item = record.asset or record.peripheral %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fas fa-archive"></i> Disposal Record</h2>
+        <h5 class="text-muted">For: {{ item.name }}</h5>
+    </div>
+    <a href="{{ url_for('disposal.edit_disposal', id=record.id) }}" class="btn btn-outline-primary">
+        <i class="fas fa-edit"></i> Edit Record
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Disposal Details</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Disposed Item:</strong> 
+                    {% if record.asset %}
+                        <a href="{{ url_for('assets.asset_detail', id=item.id) }}">{{ item.name }}</a> (Asset)
+                    {% else %}
+                        <a href="{{ url_for('peripherals.peripheral_detail', id=item.id) }}">{{ item.name }}</a> (Peripheral)
+                    {% endif %}
+                </p>
+                <p><strong>Disposal Date:</strong> {{ record.disposal_date.strftime('%Y-%m-%d') }}</p>
+                <p><strong>Method:</strong> {{ record.disposal_method }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Disposal Partner:</strong> {{ record.disposal_partner or 'N/A' }}</p>
+                {% if record.notes %}
+                <p><strong>Notes:</strong> {{ record.notes|nl2br }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-paperclip"></i> Attached Certificates</div>
+    <ul class="list-group list-group-flush">
+        {% for att in record.attachments %}
+        <li class="list-group-item">
+            <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No certificate was attached to this disposal record.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-history"></i> Change History</div>
+    <div class="card-body">
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>User</th>
+                    <th>Field Changed</th>
+                    <th>Old Value</th>
+                    <th>New Value</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in record.history %}
+                <tr>
+                    <td>{{ entry.changed_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ entry.changed_by.name if entry.changed_by else 'N/A' }}</td>
+                    <td><span class="badge bg-info">{{ entry.field_changed }}</span></td>
+                    <td>{{ entry.old_value }}</td>
+                    <td>{{ entry.new_value }}</td>
+                    <td>{{ entry.reason }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted">No changes have been logged for this record.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

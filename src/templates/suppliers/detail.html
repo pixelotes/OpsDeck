@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-building"></i> {{ supplier.name }}</h2>
-    <a href="{{ url_for('main.edit_supplier', id=supplier.id) }}" class="btn btn-outline-primary">
+    <a href="{{ url_for('suppliers.edit_supplier', id=supplier.id) }}" class="btn btn-outline-primary">
         <i class="fas fa-edit"></i> Edit Supplier
     </a>
 </div>
@@ -19,8 +19,63 @@
     </div>
 </div>
 
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-tasks"></i> Compliance</div>
+    <div class="card-body">
+        <p><strong>Status:</strong>
+            {% if supplier.compliance_status == 'Compliant' %}
+                <span class="badge bg-success">{{ supplier.compliance_status }}</span>
+            {% elif supplier.compliance_status == 'Non-Compliant' %}
+                <span class="badge bg-danger">{{ supplier.compliance_status }}</span>
+            {% else %}
+                <span class="badge bg-warning">{{ supplier.compliance_status }}</span>
+            {% endif %}
+        </p>
+        <p><strong>Data Storage Region:</strong> {{ supplier.data_storage_region or 'N/A' }}</p>
+        <p><strong>GDPR DPA Signed:</strong> {{ supplier.gdpr_dpa_signed.strftime('%Y-%m-%d') if supplier.gdpr_dpa_signed else 'N/A' }}</p>
+        {% if supplier.compliance_notes %}
+            <hr>
+            <p class="mb-1"><strong>Notes:</strong></p>
+            <p class="mb-0 text-muted">{{ supplier.compliance_notes|nl2br }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-user-shield"></i> Security Assessments</span>
+        <a href="{{ url_for('compliance.new_assessment', supplier_id=supplier.id) }}" class="btn btn-sm btn-primary">
+            <i class="fas fa-plus"></i> Add Assessment
+        </a>
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for assessment in supplier.security_assessments|sort(attribute='assessment_date', reverse=True) %}
+            <li class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('compliance.assessment_detail', id=assessment.id) }}">
+                        <strong>{{ assessment.assessment_date.strftime('%Y-%m-%d') }}</strong>
+                    </a>
+                    <span>
+                        {% if assessment.status == 'Approved' %}<span class="badge bg-success">{{ assessment.status }}</span>
+                        {% elif assessment.status == 'Rejected' %}<span class="badge bg-danger">{{ assessment.status }}</span>
+                        {% else %}<span class="badge bg-warning">{{ assessment.status }}</span>{% endif %}
+                        <a href="{{ url_for('compliance.edit_assessment', id=assessment.id) }}" class="btn btn-sm btn-outline-secondary ms-2">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </span>
+                </div>
+                {% if assessment.notes %}
+                <p class="mb-1 mt-2 text-muted">{{ assessment.notes|truncate(150)|nl2br }}</p>
+                {% endif %}
+            </li>
+        {% else %}
+            <li class="list-group-item text-muted">No security assessments logged for this supplier.</li>
+        {% endfor %}
+    </ul>
+</div>
+
 <div class="row">
-    <div class="col-md-6">
+    <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-cogs"></i> Associated Services ({{ supplier.services|length }})
@@ -28,7 +83,7 @@
             <ul class="list-group list-group-flush">
                 {% for service in supplier.services %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <a href="{{ url_for('main.edit_service', id=service.id) }}">{{ service.name }}</a>
+                        <a href="{{ url_for('services.service_detail', id=service.id) }}">{{ service.name }}</a>
                         <span class="badge bg-secondary">{{ service.service_type }}</span>
                     </li>
                 {% else %}
@@ -38,7 +93,7 @@
         </div>
     </div>
 
-    <div class="col-md-6">
+    <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-users"></i> Associated Contacts ({{ supplier.contacts|length }})
@@ -46,7 +101,7 @@
             <ul class="list-group list-group-flush">
                 {% for contact in supplier.contacts %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
-                         <a href="{{ url_for('main.edit_contact', id=contact.id) }}">{{ contact.name }}</a>
+                         <a href="{{ url_for('contacts.contact_detail', id=contact.id) }}">{{ contact.name }}</a>
                         <span class="text-muted small">{{ contact.role or 'No role' }}</span>
                     </li>
                 {% else %}
@@ -55,30 +110,68 @@
             </ul>
         </div>
     </div>
+</div>
 
-    <div class="card mt-4">
-        <div class="card-header"><i class="fas fa-paperclip"></i> Attachments</div>
-        <ul class="list-group list-group-flush">
-            {% for att in supplier.attachments %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                <a href="{{ url_for('main.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
-                <form action="{{ url_for('main.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
-                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
-                </form>
-            </li>
-            {% else %}
-            <li class="list-group-item text-muted">No files attached.</li>
-            {% endfor %}
-        </ul>
-        <div class="card-body">
-            <form action="{{ url_for('main.upload_file') }}" method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="supplier_id" value="{{ supplier.id }}">
-                <div class="input-group">
-                    <input type="file" class="form-control" name="file" required>
-                    <button class="btn btn-outline-primary" type="submit">Upload</button>
-                </div>
-            </form>
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-laptop"></i> Associated Assets ({{ supplier.assets|length }})
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for asset in supplier.assets %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a>
+                        <span class="badge bg-success">{{ asset.status }}</span>
+                    </li>
+                {% else %}
+                    <li class="list-group-item text-muted">No assets associated with this supplier.</li>
+                {% endfor %}
+            </ul>
         </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-keyboard"></i> Associated Peripherals ({{ supplier.peripherals|length }})
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for peripheral in supplier.peripherals %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('peripherals.peripheral_detail', id=peripheral.id) }}">{{ peripheral.name }}</a>
+                        <span class="text-muted small">{{ peripheral.type or 'N/A' }}</span>
+                    </li>
+                {% else %}
+                    <li class="list-group-item text-muted">No peripherals associated with this supplier.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-paperclip"></i> Attachments</div>
+    <ul class="list-group list-group-flush">
+        {% for att in supplier.attachments %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+            </form>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No files attached.</li>
+        {% endfor %}
+    </ul>
+    <div class="card-body">
+        <form action="{{ url_for('attachments.upload_file') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="supplier_id" value="{{ supplier.id }}">
+            <div class="input-group">
+                <input type="file" class="form-control" name="file" required>
+                <button class="btn btn-outline-primary" type="submit">Upload</button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}

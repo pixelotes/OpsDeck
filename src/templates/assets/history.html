@@ -1,0 +1,87 @@
+{% extends "layout.html" %}
+
+{% block title %}History for {{ asset.name }} - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    .history-table td, .history-table th {
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+        <i class="fas fa-history"></i> History for: 
+        <a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a>
+    </h2>
+    <a href="{{ url_for('assets.asset_detail', id=asset.id) }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Asset Detail
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                </div>
+            <div class="col-md-4">
+                <input type="text" id="history-search" class="form-control" placeholder="Filter history...">
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped history-table" id="history-table">
+                <thead>
+                    <tr>
+                        <th>Date of Change</th>
+                        <th>Field Changed</th>
+                        <th>Old Value</th>
+                        <th>New Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in asset.history %}
+                    <tr>
+                        <td>{{ entry.changed_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td><span class="badge bg-info">{{ entry.field_changed }}</span></td>
+                        <td>{{ entry.old_value or 'N/A' }}</td>
+                        <td>{{ entry.new_value or 'N/A' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">No history records found for this asset.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('history-search');
+        const tableBody = document.getElementById('history-table').querySelector('tbody');
+        const tableRows = tableBody.querySelectorAll('tr');
+
+        searchInput.addEventListener('keyup', function() {
+            const searchTerm = searchInput.value.toLowerCase();
+
+            tableRows.forEach(row => {
+                const rowText = row.textContent.toLowerCase();
+                // If the row text includes the search term, show it, otherwise hide it
+                if (rowText.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

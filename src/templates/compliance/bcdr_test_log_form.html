@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% set title = "Edit BCDR Test" if test_log else "Log BCDR Test" %}
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+{% block content %}
+<h2><i class="fas {{ 'fa-edit' if test_log else 'fa-vial' }}"></i> {{ title }} for: {{ plan.name }}</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST" enctype="multipart/form-data">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="test_date" class="form-label">Test Date *</label>
+                    <input type="date" class="form-control" id="test_date" name="test_date" value="{{ today_date }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="status" class="form-label">Status *</label>
+                    <select class="form-select" id="status" name="status">
+                        {% set statuses = ['In Progress', 'Passed', 'Failed'] %}
+                        {% for status in statuses %}
+                        <option value="{{ status }}" {% if test_log and test_log.status == status %}selected{% endif %}>{{ status }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="notes" class="form-label">Notes</label>
+                <textarea class="form-control" id="notes" name="notes" rows="5">{{ test_log.notes if test_log else '' }}</textarea>
+            </div>
+            <div class="mb-3">
+                <label for="proof_file" class="form-label">Upload Proof (Optional)</label>
+                <input class="form-control" type="file" id="proof_file" name="file">
+                <div class="form-text">Uploading a new file will replace any existing attachment for this test log.</div>
+            </div>
+            <hr>
+            <a href="{{ url_for('compliance.bcdr_detail', id=plan.id) }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Log</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

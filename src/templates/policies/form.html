@@ -1,0 +1,80 @@
+{% extends "layout.html" %}
+
+{% set title = "New Policy" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-file-contract"></i> {{ title }}</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="title" class="form-label">Policy Title *</label>
+                <input type="text" class="form-control" id="title" name="title" required>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="category" class="form-label">Category</label>
+                    <input type="text" class="form-control" id="category" name="category" placeholder="e.g., IT Security, HR">
+                </div>
+                <div class="col-md-6">
+                    <label for="link" class="form-label">Reference Link</label>
+                    <input type="url" class="form-control" id="link" name="link" placeholder="https://">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="description" class="form-label">Brief Description</label>
+                <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+            </div>
+
+            <hr class="my-4">
+            
+            <h4 class="mb-3">Initial Version (1.0)</h4>
+
+            <div class="mb-3">
+                <label for="content" class="form-label">Policy Content *</label>
+                <textarea class="form-control" id="policy-content-editor" name="content" rows="15" placeholder="Enter the full text of the policy here..."></textarea>
+                <div class="form-text">The status will be set to 'Draft' by default. You can activate it from the policy detail page.</div>
+            </div>
+
+                        <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="user_ids" class="form-label">Assign to Specific Users</label>
+                    <select class="form-select" id="user_ids" name="user_ids" multiple size="5">
+                        {% for user in users %}
+                        <option value="{{ user.id }}">{{ user.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="group_ids" class="form-label">Assign to Groups</label>
+                    <select class="form-select" id="group_ids" name="group_ids" multiple size="5">
+                        {% for group in groups %}
+                        <option value="{{ group.id }}">{{ group.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-text">Hold Ctrl (or Command) to select multiple. If no users or groups are selected, the policy will apply to everyone.</div>
+            </div>
+
+            <hr>
+            <a href="{{ url_for('policies.list_policies') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Create Policy</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const easyMDE = new EasyMDE({
+            element: document.getElementById('policy-content-editor'),
+            spellChecker: false,
+        });
+    });
+</script>
+{% endblock %}

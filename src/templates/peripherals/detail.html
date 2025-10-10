@@ -1,0 +1,138 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ peripheral.name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-keyboard"></i> {{ peripheral.name }}</h2>
+    <div>
+        <a href="{{ url_for('maintenance.new_log', peripheral_id=peripheral.id) }}" class="btn btn-info me-2">
+             <i class="fas fa-plus"></i> Add Maintenance Log
+        </a>
+        {% if peripheral.user_id %}
+        <form action="{{ url_for('peripherals.checkin_peripheral', id=peripheral.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to check in this peripheral?');">
+            <button type="submit" class="btn btn-warning"><i class="fas fa-sign-in-alt"></i> Check In</button>
+        </form>
+        {% else %}
+        <a href="{{ url_for('peripherals.checkout_peripheral', id=peripheral.id) }}" class="btn btn-success">
+            <i class="fas fa-sign-out-alt"></i> Check Out
+        </a>
+        {% endif %}
+        <div class="btn-group d-inline">
+            <a href="{{ url_for('peripherals.edit_peripheral', id=peripheral.id) }}" class="btn btn-outline-primary">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="visually-hidden">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{{ url_for('maintenance.new_log', peripheral_id=peripheral.id, event_type='Data Erasure') }}">Log Data Erasure</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="{{ url_for('disposal.record_disposal', peripheral_id=peripheral.id) }}">Record Disposal</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Peripheral Details</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Type:</strong> {{ peripheral.type or 'N/A' }}</p>
+                <p><strong>Brand:</strong> {{ peripheral.brand or 'N/A' }}</p>
+                <p><strong>Serial Number:</strong> {{ peripheral.serial_number or 'N/A' }}</p>
+                <p><strong>Status:</strong> 
+                    <span class="badge bg-info">{{ peripheral.status }}</span>
+                    {% if peripheral.disposal_record %}
+                        (<a href="{{ url_for('disposal.disposal_detail', id=peripheral.disposal_record.id) }}">View Disposal Record</a>)
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Assigned To:</strong> 
+                    {% if peripheral.user %}
+                        <a href="{{ url_for('users.user_detail', id=peripheral.user.id) }}">{{ peripheral.user.name }}</a>
+                    {% else %}
+                        <span class="text-muted">Not Assigned</span>
+                    {% endif %}
+                </p>
+                <p><strong>Attached to Asset:</strong> 
+                    {% if peripheral.asset %}
+                        <a href="{{ url_for('assets.asset_detail', id=peripheral.asset.id) }}">{{ peripheral.asset.name }}</a>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </p>
+                <p><strong>Supplier:</strong> {{ peripheral.supplier.name if peripheral.supplier else 'N/A' }}</p>
+                <p><strong>Cost:</strong> {{ peripheral.currency }} {{ "%.2f"|format(peripheral.cost) if peripheral.cost is not none else 'N/A' }}</p>
+                <p><strong>Warranty End:</strong> {{ peripheral.warranty_end_date.strftime('%Y-%m-%d') if peripheral.warranty_end_date else 'N/A' }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-retweet"></i> Assignment History</div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Checked Out</th>
+                    <th>Checked In</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in peripheral.assignments %}
+                <tr>
+                    <td>{{ entry.user.name if entry.user else 'N/A' }}</td>
+                    <td>{{ entry.checked_out_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ entry.checked_in_date.strftime('%Y-%m-%d %H:%M') if entry.checked_in_date else 'Currently Checked Out' }}</td>
+                    <td>{{ entry.notes or '' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center">No assignment history found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-tools"></i> Maintenance History</div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in peripheral.maintenance_logs %}
+                <tr>
+                    <td>{{ log.event_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ log.event_type }}</td>
+                    <td>{{ log.description|truncate(70) }}</td>
+                    <td><span class="badge bg-info">{{ log.status }}</span></td>
+                    <td>
+                        <a href="{{ url_for('maintenance.edit_log', id=log.id) }}" class="btn btn-sm btn-outline-secondary">Details</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">No maintenance history found for this peripheral.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

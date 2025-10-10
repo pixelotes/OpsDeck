@@ -6,3 +6,6 @@ APScheduler
 python-dateutil
 python-dotenv
 gunicorn
+markupsafe
+Faker==19.13.0
+Markdown>=3.0

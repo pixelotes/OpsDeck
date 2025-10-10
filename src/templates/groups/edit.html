@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+{% block title %}Edit Group - {{ super() }}{% endblock %}
+{% block content %}
+<h2><i class="fas fa-edit"></i> Edit Group: {{ group.name }}</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="name" class="form-label">Group Name *</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ group.name }}" required>
+            </div>
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="3">{{ group.description }}</textarea>
+            </div>
+            <div class="mb-3">
+                <label for="user_ids" class="form-label">Group Members</label>
+                <select class="form-select" id="user_ids" name="user_ids" multiple size="8">
+                    {% set selected_users = group.users|map(attribute='id')|list %}
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if user.id in selected_users %}selected{% endif %}>
+                        {{ user.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Hold Ctrl (or Command on Mac) to select multiple users.</div>
+            </div>
+            <hr>
+            <a href="{{ url_for('groups.list_groups') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

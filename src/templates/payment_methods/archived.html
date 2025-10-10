@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block title %}Archived Payment Methods - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-archive"></i> Archived Payment Methods</h2>
+    <a href="{{ url_for('payment_methods.payment_methods') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Active Methods
+    </a>
+</div>
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Details</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for method in payment_methods %}
+                    <tr>
+                        <td>{{ method.name }}</td>
+                        <td><span class="badge bg-secondary">{{ method.method_type }}</span></td>
+                        <td>{{ method.details or '-' }}</td>
+                        <td>
+                            <form action="{{ url_for('payment_methods.unarchive_payment_method', id=method.id) }}" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Restore">
+                                    <i class="fas fa-undo"></i> Restore
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center">No archived payment methods found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

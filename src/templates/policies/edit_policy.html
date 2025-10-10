@@ -1,0 +1,59 @@
+{% extends "layout.html" %}
+
+{% block title %}Edit Policy - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-edit"></i> Edit Policy: {{ policy.title }}</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="title" class="form-label">Policy Title *</label>
+                <input type="text" class="form-control" id="title" name="title" value="{{ policy.title }}" required>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="category" class="form-label">Category</label>
+                    <input type="text" class="form-control" id="category" name="category" value="{{ policy.category or '' }}" placeholder="e.g., IT Security, HR">
+                </div>
+                <div class="col-md-6">
+                    <label for="link" class="form-label">Reference Link</label>
+                    <input type="url" class="form-control" id="link" name="link" value="{{ policy.link or '' }}" placeholder="https://">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="description" class="form-label">Brief Description</label>
+                <textarea class="form-control" id="description" name="description" rows="2">{{ policy.description or '' }}</textarea>
+            </div>
+            <div class="mb-3">
+                <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="user_ids" class="form-label">Assign to Specific Users</label>
+                    <select class="form-select" id="user_ids" name="user_ids" multiple size="5">
+                        {% set assigned_user_ids = latest_version.users_to_acknowledge|map(attribute='id')|list if latest_version else [] %}
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if user.id in assigned_user_ids %}selected{% endif %}>{{ user.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="group_ids" class="form-label">Assign to Groups</label>
+                    <select class="form-select" id="group_ids" name="group_ids" multiple size="5">
+                        {% set assigned_group_ids = latest_version.groups_to_acknowledge|map(attribute='id')|list if latest_version else [] %}
+                        {% for group in groups %}
+                        <option value="{{ group.id }}" {% if group.id in assigned_group_ids %}selected{% endif %}>{{ group.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-text">Hold Ctrl (or Command) to select multiple. If no users or groups are selected, the policy will apply to everyone.</div>
+            </div>
+            </div>
+            <hr>
+            <a href="{{ url_for('policies.detail', id=policy.id) }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

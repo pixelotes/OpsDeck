@@ -1,0 +1,62 @@
+{% extends "layout.html" %}
+{% set title = "Edit Version" if version else "New Version" %}
+{% block title %}{{ title }} for {{ policy.title }} - {{ super() }}{% endblock %}
+{% block content %}
+<h2><i class="fas fa-file-signature"></i> {{ title }} for: {{ policy.title }}</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="version_number" class="form-label">Version Number *</label>
+                    <input type="text" class="form-control" id="version_number" name="version_number" value="{{ version.version_number if version else '' }}" required placeholder="e.g., 1.1">
+                </div>
+                <div class="col-md-6">
+                    <label for="effective_date" class="form-label">Effective Date *</label>
+                    <input type="date" class="form-control" id="effective_date" name="effective_date" value="{{ version.effective_date.strftime('%Y-%m-%d') if version and version.effective_date else '' }}" required>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="content" class="form-label">Policy Content *</label>
+                <textarea class="form-control" id="policy-content-editor" name="content" rows="15">{{ version.content if version else '' }}</textarea>
+            </div>
+            <hr>
+            <a href="{{ url_for('policies.detail', id=policy.id) }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Version</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const textarea = document.getElementById('policy-content-editor');
+        
+        const easyMDE = new EasyMDE({
+            element: textarea,
+            spellChecker: false,
+        });
+
+        // Remove the required attribute to prevent HTML5 validation on hidden field
+        textarea.removeAttribute('required');
+
+        // Add custom validation before form submission
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            // Ensure EasyMDE updates the textarea
+            easyMDE.codemirror.save();
+            
+            const content = textarea.value.trim();
+            if (!content) {
+                e.preventDefault();
+                e.stopPropagation();
+                alert('Policy content cannot be empty.');
+                return false;
+            }
+        });
+    });
+</script>
+{% endblock %}

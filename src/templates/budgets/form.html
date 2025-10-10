@@ -1,0 +1,59 @@
+{% extends "layout.html" %}
+
+{% set title = "Edit Budget" if budget else "New Budget" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-wallet"></i> {{ title }}</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="name" class="form-label">Name *</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ budget.name if budget else '' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="category" class="form-label">Category</label>
+                    <input type="text" class="form-control" id="category" name="category" value="{{ budget.category if budget else '' }}">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="amount" class="form-label">Amount *</label>
+                    <input type="number" class="form-control" id="amount" name="amount" step="0.01" value="{{ budget.amount if budget else '' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="currency" class="form-label">Currency</label>
+                    <select class="form-select" id="currency" name="currency">
+                        {% set currencies = ['EUR', 'USD', 'GBP', 'ZAR'] %}
+                        {% for curr in currencies %}
+                        <option value="{{ curr }}" {% if budget and budget.currency == curr %}selected{% endif %}>{{ curr }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="period" class="form-label">Period *</label>
+                <select class="form-select" id="period" name="period" required>
+                    <option value="One-time" {% if budget and budget.period == 'One-time' %}selected{% endif %}>One-time</option>
+                    <option value="monthly" {% if budget and budget.period == 'monthly' %}selected{% endif %}>Monthly</option>
+                    <option value="yearly" {% if budget and budget.period == 'yearly' %}selected{% endif %}>Yearly</option>
+                </select>
+            </div>
+
+            <hr>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('budgets.budgets') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save Budget</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

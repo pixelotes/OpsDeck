@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+
+{% block title %}Archived Locations - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-archive"></i> Archived Locations</h2>
+    <a href="{{ url_for('locations.locations') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Active Locations
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for location in locations %}
+                    <tr>
+                        <td>{{ location.name }}</td>
+                        <td>
+                            <form action="{{ url_for('locations.unarchive_location', id=location.id) }}" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Restore">
+                                    <i class="fas fa-undo"></i> Restore
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="2" class="text-center">No archived locations found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

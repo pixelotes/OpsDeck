@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% block title %}New Group - {{ super() }}{% endblock %}
+{% block content %}
+<h2><i class="fas fa-plus"></i> New User Group</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="name" class="form-label">Group Name *</label>
+                <input type="text" class="form-control" id="name" name="name" required>
+            </div>
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+            </div>
+            <hr>
+            <a href="{{ url_for('groups.list_groups') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Create Group</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

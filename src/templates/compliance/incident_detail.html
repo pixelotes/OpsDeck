@@ -1,0 +1,116 @@
+{% extends "layout.html" %}
+{% block title %}Incident: {{ incident.title }} - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-exclamation-circle"></i> {{ incident.title }}</h2>
+    <div>
+        <a href="{{ url_for('compliance.incident_review', id=incident.id) }}" class="btn btn-secondary me-2">
+            <i class="fas fa-file-alt"></i> {% if incident.review %}View/Edit Review{% else %}Start Review{% endif %}
+        </a>
+        <a href="{{ url_for('compliance.edit_incident', id=incident.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-edit"></i> Edit Incident
+        </a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Incident Details</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Date & Time:</strong> {{ incident.incident_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                <p><strong>Severity:</strong> <span class="badge bg-danger">{{ incident.severity }}</span></p>
+                <p><strong>Impact:</strong> <span class="badge bg-warning text-dark">{{ incident.impact }}</span></p>
+                <p><strong>Status:</strong> <span class="badge bg-info">{{ incident.status }}</span></p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Reported By:</strong> {{ incident.reported_by.name if incident.reported_by else 'N/A' }}</p>
+                <p><strong>Owner:</strong> {{ incident.owner.name if incident.owner else 'N/A' }}</p>
+                <p><strong>Data Breach:</strong> {{ 'Yes' if incident.data_breach else 'No' }}</p>
+                <p><strong>Third Party Impacted:</strong> {{ 'Yes' if incident.third_party_impacted else 'No' }}</p>
+            </div>
+        </div>
+        <hr>
+        <p><strong>Description:</strong></p>
+        <p>{{ incident.description|nl2br }}</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Affected Assets</div>
+            <ul class="list-group list-group-flush">
+                {% for asset in incident.affected_assets %}
+                <li class="list-group-item"><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a></li>
+                {% else %}
+                <li class="list-group-item text-muted">No assets linked to this incident.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Affected Users</div>
+            <ul class="list-group list-group-flush">
+                {% for user in incident.affected_users %}
+                <li class="list-group-item"><a href="{{ url_for('users.user_detail', id=user.id) }}">{{ user.name }}</a></li>
+                {% else %}
+                <li class="list-group-item text-muted">No users linked to this incident.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Affected Services</div>
+            <ul class="list-group list-group-flush">
+                {% for service in incident.affected_services %}
+                <li class="list-group-item"><a href="{{ url_for('services.service_detail', id=service.id) }}">{{ service.name }}</a></li>
+                {% else %}
+                <li class="list-group-item text-muted">No services linked to this incident.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Affected Suppliers</div>
+            <ul class="list-group list-group-flush">
+                {% for supplier in incident.affected_suppliers %}
+                <li class="list-group-item"><a href="{{ url_for('suppliers.supplier_detail', id=supplier.id) }}">{{ supplier.name }}</a></li>
+                {% else %}
+                <li class="list-group-item text-muted">No suppliers linked to this incident.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-paperclip"></i> Attachments</div>
+    <ul class="list-group list-group-flush">
+        {% for att in incident.attachments %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+            </form>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No files attached to this incident.</li>
+        {% endfor %}
+    </ul>
+    <div class="card-body">
+        <form action="{{ url_for('attachments.upload_file') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="security_incident_id" value="{{ incident.id }}">
+            <div class="input-group">
+                <input type="file" class="form-control" name="file" required>
+                <button class="btn btn-outline-primary" type="submit">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

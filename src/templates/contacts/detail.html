@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-user"></i> {{ contact.name }}</h2>
-    <a href="{{ url_for('main.edit_contact', id=contact.id) }}" class="btn btn-outline-primary">
+    <a href="{{ url_for('contacts.edit_contact', id=contact.id) }}" class="btn btn-outline-primary">
         <i class="fas fa-edit"></i> Edit Contact
     </a>
 </div>
@@ -16,7 +16,7 @@
         <p><strong>Email:</strong> {{ contact.email or 'N/A' }}</p>
         <p><strong>Phone:</strong> {{ contact.phone or 'N/A' }}</p>
         <p><strong>Role:</strong> {{ contact.role or 'N/A' }}</p>
-        <p class="mb-0"><strong>Supplier:</strong> <a href="{{ url_for('main.supplier_detail', id=contact.supplier.id) }}">{{ contact.supplier.name }}</a></p>
+        <p class="mb-0"><strong>Supplier:</strong> <a href="{{ url_for('suppliers.supplier_detail', id=contact.supplier.id) }}">{{ contact.supplier.name }}</a></p>
     </div>
 </div>
 
@@ -27,7 +27,7 @@
     <ul class="list-group list-group-flush">
         {% for service in contact.services %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
-                <a href="{{ url_for('main.edit_service', id=service.id) }}">{{ service.name }}</a>
+                <a href="{{ url_for('services.edit_service', id=service.id) }}">{{ service.name }}</a>
                 <span class="badge bg-secondary">{{ service.service_type }}</span>
             </li>
         {% else %}
