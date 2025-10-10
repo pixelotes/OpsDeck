@@ -114,6 +114,7 @@ class Attachment(db.Model):
     secure_filename = db.Column(db.String(255), nullable=False, unique=True) # Stored filename
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     bcdr_test_log_id = db.Column(db.Integer, db.ForeignKey('bcdr_test_log.id'))
+    maintenance_log_id = db.Column(db.Integer, db.ForeignKey('maintenance_log.id'))
 
     # Courses
     course_completion_id = db.Column(db.Integer, db.ForeignKey('course_completion.id'))
@@ -127,6 +128,9 @@ class Attachment(db.Model):
 
     # Risks
     risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'))
+                        
+    # Security Incidents
+    security_incident_id = db.Column(db.Integer, db.ForeignKey('security_incident.id'))
     
     # Foreign keys - one of these will be set
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'))
@@ -351,6 +355,7 @@ class Asset(db.Model):
     history = db.relationship('AssetHistory', backref='asset', lazy=True, cascade='all, delete-orphan', order_by='AssetHistory.changed_at.desc()')
     peripherals = db.relationship('Peripheral', backref='asset', lazy=True)
     assignments = db.relationship('AssetAssignment', backref='asset', lazy=True, cascade='all, delete-orphan', order_by='AssetAssignment.checked_out_date.desc()')
+    maintenance_logs = db.relationship('MaintenanceLog', backref='asset', lazy='dynamic', cascade='all, delete-orphan')
 
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -394,13 +399,14 @@ class Peripheral(db.Model):
     serial_number = db.Column(db.String(100), unique=True)
     status = db.Column(db.String(50), nullable=False, default='In Use')
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
+    maintenance_logs = db.relationship('MaintenanceLog', backref='peripheral', lazy='dynamic', cascade='all, delete-orphan')
     
     # --- ADDED/UPDATED FIELDS ---
     brand = db.Column(db.String(100))
     purchase_date = db.Column(db.Date)
     warranty_length = db.Column(db.Integer) # in months
     
-    # --- NEW FIELDS ---
+    # --- COSTS ---
     cost = db.Column(db.Float)
     currency = db.Column(db.String(3), default='EUR')
 
@@ -610,3 +616,69 @@ class AuditEvent(db.Model):
     # Relationships to get details in templates
     asset = db.relationship('Asset')
     user = db.relationship('User')
+
+class MaintenanceLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    event_type = db.Column(db.String(100), nullable=False) # e.g., Repair, Planned Maintenance, Unplanned Maintenance
+    description = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(50), nullable=False, default='Open') # Open, In Progress, Completed, Cancelled
+    event_date = db.Column(db.Date, nullable=False, default=date.today)
+    ticket_link = db.Column(db.String(512))
+    notes = db.Column(db.Text)
+    
+    # Relationships
+    assigned_to_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
+    peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'))
+    
+    assigned_to = db.relationship('User', backref='maintenance_logs')
+    attachments = db.relationship('Attachment', backref='maintenance_log', lazy=True, cascade='all, delete-orphan')
+
+incident_assets = db.Table('incident_assets',
+    db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
+    db.Column('asset_id', db.Integer, db.ForeignKey('asset.id'), primary_key=True)
+)
+
+incident_users = db.Table('incident_users',
+    db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+)
+
+incident_services = db.Table('incident_services',
+    db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
+    db.Column('service_id', db.Integer, db.ForeignKey('service.id'), primary_key=True)
+)
+
+incident_suppliers = db.Table('incident_suppliers',
+    db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
+    db.Column('supplier_id', db.Integer, db.ForeignKey('supplier.id'), primary_key=True)
+)
+
+class SecurityIncident(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    incident_date = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(50), default='Investigating') # Investigating, Contained, Resolved, Closed
+    
+    # --- UPDATED FIELDS ---
+    severity = db.Column(db.String(50), default='SEV-3') # SEV-0 (Critical) to SEV-3 (Low)
+    impact = db.Column(db.String(50), default='Minor') # Minor, Moderate, Significant, Extensive
+    data_breach = db.Column(db.Boolean, default=False)
+    third_party_impacted = db.Column(db.Boolean, default=False)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    resolved_at = db.Column(db.DateTime)
+    
+    # Relationships
+    reported_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    reported_by = db.relationship('User', foreign_keys=[reported_by_id])
+    owner = db.relationship('User', foreign_keys=[owner_id])
+    
+    affected_assets = db.relationship('Asset', secondary=incident_assets, backref='incidents')
+    affected_users = db.relationship('User', secondary=incident_users, backref='incidents')
+    affected_services = db.relationship('Service', secondary=incident_services, backref='incidents')
+    affected_suppliers = db.relationship('Supplier', secondary=incident_suppliers, backref='incidents')
+    attachments = db.relationship('Attachment', backref='security_incident', lazy=True, cascade='all, delete-orphan')

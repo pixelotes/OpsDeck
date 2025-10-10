@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+{% block title %}Security Incidents - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-exclamation-circle"></i> Security Incidents</h2>
+    <a href="{{ url_for('compliance.new_incident') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Log New Incident
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Title</th>
+                    <th>Severity</th>
+                    <th>Impact</th>
+                    <th>Status</th>
+                    <th>Owner</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for incident in incidents %}
+                <tr>
+                    <td>{{ incident.incident_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td><a href="{{ url_for('compliance.incident_detail', id=incident.id) }}">{{ incident.title }}</a></td>
+                    <td><span class="badge bg-danger">{{ incident.severity }}</span></td>
+                    <td><span class="badge bg-warning text-dark">{{ incident.impact }}</span></td>
+                    <td><span class="badge bg-info">{{ incident.status }}</span></td>
+                    <td>{{ incident.owner.name if incident.owner else 'N/A' }}</td>
+                    <td>
+                        <a href="{{ url_for('compliance.incident_detail', id=incident.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center">No security incidents have been logged.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

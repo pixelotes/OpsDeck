@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from datetime import datetime
-from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Service
+from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Service, SecurityIncident
 from .main import login_required
 from .admin import admin_required
 
@@ -319,3 +319,80 @@ def edit_bcdr_test(test_id):
         return redirect(url_for('compliance.bcdr_detail', id=plan.id))
 
     return render_template('compliance/bcdr_test_log_form.html', plan=plan, test_log=test_log, today_date=test_log.test_date.strftime('%Y-%m-%d'))
+
+@compliance_bp.route('/incidents')
+@login_required
+@admin_required
+def list_incidents():
+    incidents = SecurityIncident.query.order_by(SecurityIncident.incident_date.desc()).all()
+    return render_template('compliance/incident_list.html', incidents=incidents)
+
+@compliance_bp.route('/incidents/new', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def new_incident():
+    if request.method == 'POST':
+        incident = SecurityIncident(
+            title=request.form['title'],
+            description=request.form['description'],
+            incident_date=datetime.strptime(request.form['incident_date'], '%Y-%m-%dT%H:%M'),
+            status=request.form['status'],
+            severity=request.form['severity'],
+            impact=request.form['impact'],
+            data_breach='data_breach' in request.form,
+            third_party_impacted='third_party_impacted' in request.form,
+            reported_by_id=session.get('user_id'),
+            owner_id=request.form.get('owner_id') or None
+        )
+        incident.affected_assets = Asset.query.filter(Asset.id.in_(request.form.getlist('asset_ids'))).all()
+        incident.affected_users = User.query.filter(User.id.in_(request.form.getlist('user_ids'))).all()
+        incident.affected_services = Service.query.filter(Service.id.in_(request.form.getlist('service_ids'))).all()
+        incident.affected_suppliers = Supplier.query.filter(Supplier.id.in_(request.form.getlist('supplier_ids'))).all()
+        db.session.add(incident)
+        db.session.commit()
+        flash('Security incident logged successfully.', 'success')
+        return redirect(url_for('compliance.incident_detail', id=incident.id))
+    users = User.query.filter_by(is_archived=False).order_by(User.name).all()
+    assets = Asset.query.filter_by(is_archived=False).order_by(Asset.name).all()
+    services = Service.query.filter_by(is_archived=False).order_by(Service.name).all()
+    suppliers = Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all()
+    return render_template('compliance/incident_form.html', users=users, assets=assets, services=services, suppliers=suppliers)
+
+@compliance_bp.route('/incidents/<int:id>')
+@login_required
+@admin_required
+def incident_detail(id):
+    incident = SecurityIncident.query.get_or_404(id)
+    return render_template('compliance/incident_detail.html', incident=incident)
+
+@compliance_bp.route('/incidents/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_incident(id):
+    incident = SecurityIncident.query.get_or_404(id)
+    if request.method == 'POST':
+        incident.title = request.form['title']
+        incident.description = request.form['description']
+        incident.incident_date = datetime.strptime(request.form['incident_date'], '%Y-%m-%dT%H:%M')
+        incident.status = request.form['status']
+        incident.severity = request.form['severity']
+        incident.impact = request.form['impact']
+        incident.data_breach = 'data_breach' in request.form
+        incident.third_party_impacted = 'third_party_impacted' in request.form
+        incident.owner_id = request.form.get('owner_id') or None
+        if incident.status == 'Closed' and not incident.resolved_at:
+            incident.resolved_at = datetime.utcnow()
+        elif incident.status != 'Closed':
+            incident.resolved_at = None
+        incident.affected_assets = Asset.query.filter(Asset.id.in_(request.form.getlist('asset_ids'))).all()
+        incident.affected_users = User.query.filter(User.id.in_(request.form.getlist('user_ids'))).all()
+        incident.affected_services = Service.query.filter(Service.id.in_(request.form.getlist('service_ids'))).all()
+        incident.affected_suppliers = Supplier.query.filter(Supplier.id.in_(request.form.getlist('supplier_ids'))).all()
+        db.session.commit()
+        flash('Incident details updated.', 'success')
+        return redirect(url_for('compliance.incident_detail', id=id))
+    users = User.query.filter_by(is_archived=False).order_by(User.name).all()
+    assets = Asset.query.filter_by(is_archived=False).order_by(Asset.name).all()
+    services = Service.query.filter_by(is_archived=False).order_by(Service.name).all()
+    suppliers = Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all()
+    return render_template('compliance/incident_form.html', incident=incident, users=users, assets=assets, services=services, suppliers=suppliers)

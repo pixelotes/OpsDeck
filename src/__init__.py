@@ -75,7 +75,8 @@ def create_app():
     from .routes.policies import policies_bp
     from .routes.compliance import compliance_bp
     from .routes.risk import risk_bp
-    from .routes.training import training_bp 
+    from .routes.training import training_bp
+    from .routes.maintenance import maintenance_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(assets_bp, url_prefix='/assets')
@@ -99,6 +100,7 @@ def create_app():
     app.register_blueprint(compliance_bp, url_prefix='/compliance')
     app.register_blueprint(risk_bp, url_prefix='/risk')
     app.register_blueprint(training_bp, url_prefix='/training')
+    app.register_blueprint(maintenance_bp)
 
     # --- Make user role avaiable in all templates ---
     @app.context_processor

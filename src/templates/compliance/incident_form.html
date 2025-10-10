@@ -1,0 +1,128 @@
+{% extends "layout.html" %}
+{% set title = "Edit Incident" if incident else "Log New Incident" %}
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+{% block content %}
+<h2><i class="fas {{ 'fa-edit' if incident else 'fa-plus' }}"></i> {{ title }}</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="title" class="form-label">Title *</label>
+                <input type="text" class="form-control" id="title" name="title" value="{{ incident.title if incident else '' }}" required>
+            </div>
+            <div class="mb-3">
+                <label for="description" class="form-label">Description *</label>
+                <textarea class="form-control" id="description" name="description" rows="4" required>{{ incident.description if incident else '' }}</textarea>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="incident_date" class="form-label">Date & Time of Incident *</label>
+                    <input type="datetime-local" class="form-control" id="incident_date" name="incident_date" value="{{ incident.incident_date.strftime('%Y-%m-%dT%H:%M') if incident else '' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="status" class="form-label">Status *</label>
+                    <select class="form-select" id="status" name="status">
+                        {% set statuses = ['Investigating', 'Contained', 'Resolved', 'Closed'] %}
+                        {% for s in statuses %}
+                        <option value="{{ s }}" {% if incident and incident.status == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="severity" class="form-label">Severity *</label>
+                    <select class="form-select" id="severity" name="severity">
+                        <option value="SEV-3" {% if not incident or incident.severity == 'SEV-3' %}selected{% endif %}>SEV-3 (Low)</option>
+                        <option value="SEV-2" {% if incident and incident.severity == 'SEV-2' %}selected{% endif %}>SEV-2 (Medium)</option>
+                        <option value="SEV-1" {% if incident and incident.severity == 'SEV-1' %}selected{% endif %}>SEV-1 (High)</option>
+                        <option value="SEV-0" {% if incident and incident.severity == 'SEV-0' %}selected{% endif %}>SEV-0 (Critical)</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="impact" class="form-label">Impact *</label>
+                    <select class="form-select" id="impact" name="impact">
+                        {% set impacts = ['Minor', 'Moderate', 'Significant', 'Extensive'] %}
+                        {% for i in impacts %}
+                        <option value="{{ i }}" {% if incident and incident.impact == i %}selected{% endif %}>{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="data_breach" name="data_breach" {% if incident and incident.data_breach %}checked{% endif %}>
+                        <label class="form-check-label" for="data_breach">
+                            Did this incident involve a data breach?
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="third_party_impacted" name="third_party_impacted" {% if incident and incident.third_party_impacted %}checked{% endif %}>
+                        <label class="form-check-label" for="third_party_impacted">
+                            Was a third party (customer, supplier) impacted?
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="owner_id" class="form-label">Owner</label>
+                <select class="form-select" id="owner_id" name="owner_id">
+                    <option value="">Select an owner...</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if incident and incident.owner_id == user.id %}selected{% endif %}>{{ user.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <hr>
+            <h5 class="mb-3">Affected Items</h5>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="asset_ids" class="form-label">Affected Assets</label>
+                    <select class="form-select" id="asset_ids" name="asset_ids" multiple size="5">
+                        {% set selected_assets = incident.affected_assets|map(attribute='id')|list if incident else [] %}
+                        {% for asset in assets %}
+                        <option value="{{ asset.id }}" {% if asset.id in selected_assets %}selected{% endif %}>{{ asset.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="user_ids" class="form-label">Affected Users</label>
+                    <select class="form-select" id="user_ids" name="user_ids" multiple size="5">
+                        {% set selected_users = incident.affected_users|map(attribute='id')|list if incident else [] %}
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if user.id in selected_users %}selected{% endif %}>{{ user.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="service_ids" class="form-label">Affected Services</label>
+                    <select class="form-select" id="service_ids" name="service_ids" multiple size="5">
+                        {% set selected_services = incident.affected_services|map(attribute='id')|list if incident else [] %}
+                        {% for service in services %}
+                        <option value="{{ service.id }}" {% if service.id in selected_services %}selected{% endif %}>{{ service.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="supplier_ids" class="form-label">Affected Suppliers</label>
+                    <select class="form-select" id="supplier_ids" name="supplier_ids" multiple size="5">
+                        {% set selected_suppliers = incident.affected_suppliers|map(attribute='id')|list if incident else [] %}
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if supplier.id in selected_suppliers %}selected{% endif %}>{{ supplier.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <hr>
+            <a href="{{ url_for('compliance.list_incidents') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Incident</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

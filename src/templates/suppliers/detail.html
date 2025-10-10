@@ -112,6 +112,44 @@
     </div>
 </div>
 
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-laptop"></i> Associated Assets ({{ supplier.assets|length }})
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for asset in supplier.assets %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a>
+                        <span class="badge bg-success">{{ asset.status }}</span>
+                    </li>
+                {% else %}
+                    <li class="list-group-item text-muted">No assets associated with this supplier.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-keyboard"></i> Associated Peripherals ({{ supplier.peripherals|length }})
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for peripheral in supplier.peripherals %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('peripherals.peripheral_detail', id=peripheral.id) }}">{{ peripheral.name }}</a>
+                        <span class="text-muted small">{{ peripheral.type or 'N/A' }}</span>
+                    </li>
+                {% else %}
+                    <li class="list-group-item text-muted">No peripherals associated with this supplier.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
 <div class="card mt-4">
     <div class="card-header"><i class="fas fa-paperclip"></i> Attachments</div>
     <ul class="list-group list-group-flush">

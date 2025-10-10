@@ -70,6 +70,7 @@
                 <div class="collapse" id="assets-menu" data-bs-parent="#sidebar-accordion">
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('assets.') and 'warranties' not in request.endpoint %}active{% endif %}" href="{{ url_for('assets.assets') }}"><i class="fas fa-laptop"></i> Assets</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('peripherals.') %}active{% endif %}" href="{{ url_for('peripherals.peripherals') }}"><i class="fas fa-keyboard"></i> Peripherals</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('maintenance.') %}active{% endif %}" href="{{ url_for('maintenance.list_logs') }}"><i class="fas fa-tools"></i> Maintenance</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'assets.warranties' %}active{% endif %}" href="{{ url_for('assets.warranties') }}"><i class="fas fa-shield-alt"></i> Warranties</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'reports.asset_reports' %}active{% endif %}" href="{{ url_for('reports.asset_reports') }}"><i class="fas fa-chart-bar"></i> Reports</a></li>
                 </div>
@@ -92,6 +93,7 @@
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('policies.') %}active{% endif %}" href="{{ url_for('policies.list_policies') }}"><i class="fas fa-file-contract"></i> Policies</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'compliance.policy_report' %}active{% endif %}" href="{{ url_for('compliance.policy_report') }}"><i class="fas fa-user-check"></i> Policy Report</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('risk.') %}active{% endif %}" href="{{ url_for('risk.list_risks') }}"><i class="fas fa-exclamation-triangle"></i> Risk Register</a></li>
+                    <li class="nav-item"><a class="nav-link {% if 'incident' in request.endpoint %}active{% endif %}" href="{{ url_for('compliance.list_incidents') }}"><i class="fas fa-exclamation-circle"></i> Incident Management</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('compliance.vendor_compliance') %}active{% endif %}" href="{{ url_for('compliance.vendor_compliance') }}"><i class="fas fa-tasks"></i> Vendor Compliance</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('compliance.list_audits') or request.endpoint.startswith('compliance.audit_detail') %}active{% endif %}" href="{{ url_for('compliance.list_audits') }}"><i class="fas fa-clipboard-check"></i> Asset Auditing</a></li>
                     <li class="nav-item"><a class="nav-link {% if 'bcdr' in request.endpoint %}active{% endif %}" href="{{ url_for('compliance.list_bcdr_plans') }}"><i class="fas fa-shield-alt"></i> BCDR Planning</a></li>

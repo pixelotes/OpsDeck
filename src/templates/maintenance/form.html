@@ -1,0 +1,107 @@
+{% extends "layout.html" %}
+{% set title = "Edit Maintenance Log" if log else "New Maintenance Log" %}
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas {{ 'fa-edit' if log else 'fa-plus' }}"></i> {{ title }}</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST" enctype="multipart/form-data">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="asset_id" class="form-label">Affected Asset</label>
+                    <select class="form-select" id="asset_id" name="asset_id">
+                        <option value="">None</option>
+                        {% for asset in assets %}
+                        <option value="{{ asset.id }}" {% if (log and log.asset_id == asset.id) or (preselected_asset_id == asset.id) %}selected{% endif %}>
+                            {{ asset.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="peripheral_id" class="form-label">Affected Peripheral</label>
+                    <select class="form-select" id="peripheral_id" name="peripheral_id">
+                        <option value="">None</option>
+                        {% for peripheral in peripherals %}
+                        <option value="{{ peripheral.id }}" {% if (log and log.peripheral_id == peripheral.id) or (preselected_peripheral_id == peripheral.id) %}selected{% endif %}>
+                            {{ peripheral.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-text">Please select either an asset or a peripheral.</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">Description of Event/Issue *</label>
+                <textarea class="form-control" id="description" name="description" rows="3" required>{{ log.description if log else '' }}</textarea>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="event_type" class="form-label">Event Type *</label>
+                    <select class="form-select" id="event_type" name="event_type">
+                        {% set types = ['Repair', 'Planned Maintenance', 'Unplanned Maintenance', 'Upgrade', 'Inspection'] %}
+                        {% for type in types %}
+                        <option value="{{ type }}" {% if log and log.event_type == type %}selected{% endif %}>{{ type }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="status" class="form-label">Status *</label>
+                    <select class="form-select" id="status" name="status">
+                        {% set statuses = ['Open', 'In Progress', 'Completed', 'Cancelled'] %}
+                        {% for status in statuses %}
+                        <option value="{{ status }}" {% if log and log.status == status %}selected{% endif %}>{{ status }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="event_date" class="form-label">Date of Event *</label>
+                    <input type="date" class="form-control" id="event_date" name="event_date" value="{{ (log.event_date if log else 'now')|string|replace(' 00:00:00', '') }}" required>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="assigned_to_id" class="form-label">Assigned To</label>
+                    <select class="form-select" id="assigned_to_id" name="assigned_to_id">
+                        <option value="">None</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if log and log.assigned_to_id == user.id %}selected{% endif %}>{{ user.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="ticket_link" class="form-label">External Ticket Link</label>
+                    <input type="url" class="form-control" id="ticket_link" name="ticket_link" value="{{ log.ticket_link if log else '' }}" placeholder="https://...">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="notes" class="form-label">Notes</label>
+                <textarea class="form-control" id="notes" name="notes" rows="4">{{ log.notes if log else '' }}</textarea>
+            </div>
+            
+            {% if log %}
+            <div class="mb-3">
+                <label for="file" class="form-label">Attach File</label>
+                <form action="{{ url_for('attachments.upload_file') }}" method="post" enctype="multipart/form-data">
+                    <input type="hidden" name="maintenance_log_id" value="{{ log.id }}">
+                    <div class="input-group">
+                        <input class="form-control" type="file" name="file">
+                        <button class="btn btn-outline-secondary" type="submit">Upload</button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            <hr>
+            <a href="{{ url_for('maintenance.list_logs') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Log</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

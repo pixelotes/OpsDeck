@@ -6,6 +6,9 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-keyboard"></i> {{ peripheral.name }}</h2>
     <div>
+        <a href="{{ url_for('maintenance.new_log', peripheral_id=peripheral.id) }}" class="btn btn-info me-2">
+             <i class="fas fa-plus"></i> Add Maintenance Log
+        </a>
         {% if peripheral.user_id %}
         <form action="{{ url_for('peripherals.checkin_peripheral', id=peripheral.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to check in this peripheral?');">
             <button type="submit" class="btn btn-warning"><i class="fas fa-sign-in-alt"></i> Check In</button>
@@ -77,6 +80,40 @@
                 {% else %}
                 <tr>
                     <td colspan="4" class="text-center">No assignment history found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-tools"></i> Maintenance History</div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in peripheral.maintenance_logs %}
+                <tr>
+                    <td>{{ log.event_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ log.event_type }}</td>
+                    <td>{{ log.description|truncate(70) }}</td>
+                    <td><span class="badge bg-info">{{ log.status }}</span></td>
+                    <td>
+                        <a href="{{ url_for('maintenance.edit_log', id=log.id) }}" class="btn btn-sm btn-outline-secondary">Details</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">No maintenance history found for this peripheral.</td>
                 </tr>
                 {% endfor %}
             </tbody>
