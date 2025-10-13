@@ -6,6 +6,9 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-keyboard"></i> Peripherals</h2>
     <div>
+        <button class="btn btn-success" onclick="exportTableToCSV('peripherals-table', 'peripherals.csv')">
+            <i class="fas fa-file-csv"></i> Export to CSV
+        </button>
         <a href="{{ url_for('peripherals.archived_peripherals') }}" class="btn btn-outline-secondary">
             <i class="fas fa-archive"></i> View Archived
         </a>
