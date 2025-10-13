@@ -4,7 +4,7 @@ from flask import (
 from sqlalchemy import func
 from datetime import date
 from dateutil.relativedelta import relativedelta
-from ..models import db, Service, Asset, Supplier, User, Group, Peripheral
+from ..models import db, Service, Asset, Supplier, User, Group, Peripheral, Location, CURRENCY_RATES
 from .main import login_required
 
 reports_bp = Blueprint('reports', __name__)
@@ -17,7 +17,6 @@ def subscription_reports():
 
     all_active_services = Service.query.filter_by(is_archived=False).all()
 
-    # ... (rest of subscription_reports function is unchanged)
     # Chart 1: Spending by Supplier
     supplier_spending = {}
     year_start = date(selected_year, 1, 1)
@@ -222,4 +221,149 @@ def spend_analysis():
         # Pass filters back to template to pre-fill form
         start_date=start_date, end_date=end_date, item_type=item_type,
         supplier_id=supplier_id, brand=brand, user_id=user_id, group_id=group_id
+    )
+
+@reports_bp.route('/depreciation', methods=['GET'])
+@login_required
+def depreciation_report():
+    # --- Get filter options from the database ---
+    suppliers = Supplier.query.order_by(Supplier.name).all()
+    users = User.query.filter_by(is_archived=False).order_by(User.name).all()
+    groups = Group.query.order_by(Group.name).all()
+    locations = Location.query.order_by(Location.name).all()
+    
+    asset_brands = db.session.query(Asset.brand).filter(Asset.brand.isnot(None)).distinct()
+    peripheral_brands = db.session.query(Peripheral.brand).filter(Peripheral.brand.isnot(None)).distinct()
+    all_brands = sorted([b[0] for b in asset_brands.union(peripheral_brands)])
+
+    # --- Get filter criteria from URL arguments ---
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    depreciation_period = request.args.get('depreciation_period', 5, type=int)
+    depreciation_algorithm = request.args.get('depreciation_algorithm', 'linear')
+    item_type = request.args.get('item_type', 'both')
+    supplier_id = request.args.get('supplier_id', type=int)
+    brand = request.args.get('brand')
+    user_id = request.args.get('user_id', type=int)
+    group_id = request.args.get('group_id', type=int)
+    location_id = request.args.get('location_id', type=int)
+    currency = request.args.get('currency')
+
+    # --- Build the queries ---
+    assets_query = Asset.query
+    peripherals_query = Peripheral.query
+
+    if start_date:
+        assets_query = assets_query.filter(Asset.purchase_date >= start_date)
+        peripherals_query = peripherals_query.filter(Peripheral.purchase_date >= start_date)
+    if end_date:
+        assets_query = assets_query.filter(Asset.purchase_date <= end_date)
+        peripherals_query = peripherals_query.filter(Peripheral.purchase_date <= end_date)
+    if supplier_id:
+        assets_query = assets_query.filter(Asset.supplier_id == supplier_id)
+        peripherals_query = peripherals_query.filter(Peripheral.supplier_id == supplier_id)
+    if brand:
+        assets_query = assets_query.filter(Asset.brand == brand)
+        peripherals_query = peripherals_query.filter(Peripheral.brand == brand)
+    if location_id:
+        assets_query = assets_query.filter(Asset.location_id == location_id)
+    
+    user_ids_to_filter = []
+    if user_id:
+        user_ids_to_filter.append(user_id)
+    if group_id:
+        group = Group.query.get(group_id)
+        if group:
+            user_ids_to_filter.extend([user.id for user in group.users])
+    
+    if user_ids_to_filter:
+        assets_query = assets_query.filter(Asset.user_id.in_(user_ids_to_filter))
+        peripherals_query = peripherals_query.filter(Peripheral.user_id.in_(user_ids_to_filter))
+    
+    results = []
+    if item_type == 'assets' or item_type == 'both':
+        results.extend(assets_query.all())
+    if item_type == 'peripherals' or item_type == 'both':
+        results.extend(peripherals_query.all())
+
+    # --- Depreciation and Chart Calculations ---
+    depreciation_results = []
+    today = date.today()
+    total_original_value_eur = 0
+    total_depreciated_value_eur = 0
+    depreciation_by_location = {}
+
+    for item in results:
+        cost = item.cost
+        depreciated_value = None
+        
+        if item.purchase_date and cost and cost > 0:
+            age_in_days = (today - item.purchase_date).days
+            age_in_years = age_in_days / 365.25
+
+            if depreciation_algorithm == 'linear':
+                depreciation_per_year = cost / depreciation_period
+                depreciation_amount = depreciation_per_year * age_in_years
+                depreciated_value = max(0, cost - depreciation_amount)
+            elif depreciation_algorithm == 'declining_balance':
+                factor = 2
+                book_value = cost
+                for _ in range(int(age_in_years)):
+                    book_value -= (book_value * (factor / depreciation_period))
+                depreciated_value = max(0, book_value)
+
+            # Summing up in EUR for consistent chart data
+            rate = CURRENCY_RATES.get(item.currency, 1.0)
+            total_original_value_eur += cost * rate
+            total_depreciated_value_eur += depreciated_value * rate
+            
+            if hasattr(item, 'location') and item.location:
+                location_name = item.location.name
+                if location_name not in depreciation_by_location:
+                    depreciation_by_location[location_name] = 0
+                depreciation_by_location[location_name] += (depreciated_value * rate)
+
+        # Currency conversion for table display
+        display_currency = item.currency
+        if currency:
+            display_currency = currency
+            if item.currency in CURRENCY_RATES and currency in CURRENCY_RATES and cost:
+                cost_in_eur = cost / CURRENCY_RATES[item.currency]
+                cost = cost_in_eur * CURRENCY_RATES[currency]
+                if depreciated_value is not None:
+                    depreciated_in_eur = depreciated_value / CURRENCY_RATES[item.currency]
+                    depreciated_value = depreciated_in_eur * CURRENCY_RATES[currency]
+
+        depreciation_results.append({
+            'item': item,
+            'cost': cost,
+            'depreciated_value': depreciated_value,
+            'display_currency': display_currency
+        })
+
+    # Prepare data for charts
+    value_chart_labels = ['Depreciated Value', 'Value Lost to Depreciation']
+    value_chart_data = [round(total_depreciated_value_eur, 2), round(max(0, total_original_value_eur - total_depreciated_value_eur), 2)]
+
+    location_chart_labels = list(depreciation_by_location.keys())
+    location_chart_data = [round(value, 2) for value in depreciation_by_location.values()]
+
+    return render_template(
+        'reports/depreciation.html',
+        results=depreciation_results,
+        suppliers=suppliers,
+        users=users,
+        groups=groups,
+        locations=locations,
+        all_brands=all_brands,
+        start_date=start_date, end_date=end_date, item_type=item_type,
+        supplier_id=supplier_id, brand=brand, user_id=user_id, group_id=group_id,
+        location_id=location_id,
+        depreciation_period=depreciation_period,
+        depreciation_algorithm=depreciation_algorithm,
+        currency=currency,
+        value_chart_labels=value_chart_labels,
+        value_chart_data=value_chart_data,
+        location_chart_labels=location_chart_labels,
+        location_chart_data=location_chart_data
     )

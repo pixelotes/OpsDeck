@@ -6,6 +6,7 @@
     <title>{% block title %}Service Renewal Manager{% endblock %}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.css" rel="stylesheet" type="text/css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     {% block head_extra %}{% endblock %}
     <style>
@@ -76,6 +77,7 @@
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('budgets.') %}active{% endif %}" href="{{ url_for('budgets.budgets') }}"><i class="fas fa-wallet"></i> Budgets</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('payment_methods.') %}active{% endif %}" href="{{ url_for('payment_methods.payment_methods') }}"><i class="fas fa-credit-card"></i> Payment Methods</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'reports.spend_analysis' %}active{% endif %}" href="{{ url_for('reports.spend_analysis') }}"><i class="fas fa-chart-line"></i> Spend Analysis</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'reports.depreciation_report' %}active{% endif %}" href="{{ url_for('reports.depreciation_report') }}"><i class="fas fa-chart-area"></i> Depreciation</a></li>
                 </div>
 
                 <hr class="text-white">
@@ -130,6 +132,7 @@
         });
     </script>
     <script src="{{ url_for('static', filename='js/search.js') }}"></script>
+    <script src="/static/js/export.js"></script>
     {% block scripts_extra %}{% endblock %}
 </body>
 </html>

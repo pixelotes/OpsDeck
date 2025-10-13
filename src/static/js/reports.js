@@ -90,10 +90,13 @@ document.addEventListener('DOMContentLoaded', function() {
     createChart('costHistoryChart', 'bar', { ...barData, datasets: [{...barData.datasets[0], backgroundColor: 'rgba(75, 192, 192, 0.5)', borderColor: 'rgba(75, 192, 192, 1)', label: 'Cost in €'}] }, { ...barOptions, scales: {y: {beginAtZero: false}}});
 
 
-    // --- NEW: Asset Report Charts ---
+    // --- Asset Report Charts ---
     createChart('assetsByBrandChart', 'doughnut', { ...doughnutPieData, datasets: [{...doughnutPieData.datasets[0], label: 'Assets by Brand'}] }, doughnutPieOptions);
     createChart('assetsBySupplierChart', 'pie', { ...doughnutPieData, datasets: [{...doughnutPieData.datasets[0], label: 'Assets by Supplier'}] }, doughnutPieOptions);
     createChart('assetsByStatusChart', 'bar', { ...barData, datasets: [{...barData.datasets[0], label: 'Assets by Status'}] }, barOptions);
     createChart('warrantyStatusChart', 'pie', { ...doughnutPieData, datasets: [{...doughnutPieData.datasets[0], label: 'Warranty Status'}] }, doughnutPieOptions);
 
+    // --- Depreciation Report Charts ---
+    createChart('totalVsDepreciatedChart', 'doughnut', { ...doughnutPieData, datasets: [{...doughnutPieData.datasets[0], label: 'Value'}] }, doughnutPieOptions);
+    createChart('depreciationByLocationChart', 'bar', { ...barData, datasets: [{...barData.datasets[0], label: 'Depreciated Value'}] }, barOptions);
 });
