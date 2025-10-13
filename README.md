@@ -1,18 +1,51 @@
-# RenewalGuard 🛡️
-RenewalGuard is a self-hosted Flask application designed to help you manage renewals for all your recurring services, contracts, licenses, domains, and certificates. Never miss a renewal date again and keep track of all associated costs, suppliers, contacts, and payment methods in one central place.
+# OpsDeck 🛡️
+For IT managers and operations teams struggling with disconnected tools and sprawling spreadsheets, OpsDeck is the all-in-one control center that unifies asset management, vendor relations, and compliance into a single, intuitive platform. Ditch the chaos and gain complete visibility and control over your entire IT ecosystem, from procurement to disposal.
 
-## Features ✨
+## ✨ Key Features
+OpsDeck provides a comprehensive suite of tools to streamline your IT operations:
 
-* Dashboard Overview: At-a-glance view of upcoming renewals with configurable time periods (7, 30, 90 days) and a summary of total costs.
-* Comprehensive Management: Full CRUD (Create, Read, Update, Delete) functionality for:
-  + Services: Track any type of recurring service or subscription.
-  + Suppliers: Manage vendor information.
-  + Contacts: Keep a record of contacts associated with suppliers and services.
-  + Payment Methods: Link services to specific credit cards or bank accounts to easily see dependencies.
-* Interlinked Detail Views: Navigate seamlessly between services, suppliers, contacts, and payment methods to see all related information.
-* Calendar View: Visualize all your upcoming renewal dates on a full-page calendar.
-* Configurable Notifications: Set up automatic alerts via Email and Webhooks. You can configure when you get notified (e.g., 30, 14, and 7 days before a renewal) and how.
-* Background Scheduler: A built-in scheduler automatically checks for renewals and sends notifications based on your settings.
+### Asset Lifecycle Management
+- Complete Asset Tracking: Monitor hardware, software, and peripherals from purchase to end-of-life.
+
+- Check-in/Check-out: Easily assign assets to users and track assignment history.
+
+- Warranty Monitoring: Receive automatic alerts for expiring warranties.
+
+- Maintenance & Disposal: Log all maintenance activities and manage formal disposal records.
+
+- Location Management: Track the physical location of all your assets.
+
+### Vendor & Procurement Management
+- Supplier Database: A centralized repository for all vendor information, contracts, and compliance status.
+
+- Purchase Management: Create and track purchase orders, linking them to assets, budgets, and suppliers.
+
+- Budget Oversight: Define budgets by category and monitor spending in real-time.
+
+- Service & Subscription Tracking: Never miss a renewal with proactive tracking of all recurring services and software licenses.
+
+### Governance, Risk & Compliance (GRC)
+- Policy Management: Create and version control policies, and track employee acknowledgements.
+
+- Risk Register: Identify, assess, and document mitigation plans for organizational risks.
+
+- Security Incident Management: A complete workflow to log, investigate, and resolve security incidents, including Post-Incident Reviews (PIR).
+
+- Auditing: Conduct asset audits to ensure inventory accuracy and accountability.
+
+### Team & Resource Management
+- User Directory: Manage user profiles, assigned assets, and contact information.
+
+- Training Hub: Create training courses, assign them to users or groups, and track completion.
+
+- Team Grouping: Organize users into groups for easier policy and asset assignment.
+
+### Financial Oversight & Reporting
+- Depreciation Reports: Automatically calculate and visualize asset depreciation.
+
+- Spend Analysis: Gain insights into spending patterns by supplier, brand, or asset type.
+
+- Subscription Forecasting: Project future costs for all recurring services.
 
 ## Tech Stack
 * Backend: Python 3, Flask
@@ -31,8 +64,8 @@ Follow these steps to get the application running locally.
 ```bash
 
 # Clone the repository (or use your existing project folder)
-# git clone https://github.com/your-username/renewalguard.git
-# cd renewalguard
+# git clone https://github.com/pixelotes/opsdeck.git
+# cd opsdeck
 
 # Create and activate a virtual environment
 python3 -m venv venv
