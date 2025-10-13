@@ -5,15 +5,20 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-lightbulb"></i> Opportunities</h2>
-    <a href="{{ url_for('opportunities.new_opportunity') }}" class="btn btn-primary">
-        <i class="fas fa-plus"></i> New Opportunity
-    </a>
+    <div>
+        <button class="btn btn-success" onclick="exportTableToCSV('opportunities-table', 'opportunities.csv')">
+            <i class="fas fa-file-csv"></i> Export to CSV
+        </button>
+        <a href="{{ url_for('opportunities.new_opportunity') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> New Opportunity
+        </a>
+    </div>
 </div>
 
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table class="table table-striped" id="opportunities-table">
                 <thead>
                     <tr>
                         <th>Name</th>
