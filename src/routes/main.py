@@ -6,7 +6,7 @@ from markupsafe import Markup
 from functools import wraps
 from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
-from ..models import db, User, Service, NotificationSetting, Asset, Supplier, Contact, Purchase, Peripheral, Location, PaymentMethod
+from ..models import db, User, Subscription, NotificationSetting, Asset, Supplier, Contact, Purchase, Peripheral, Location, PaymentMethod
 import calendar
 
 main_bp = Blueprint('main', __name__)
@@ -60,7 +60,7 @@ def password_change_required(f):
 def dashboard():
     # --- STAT CARD COUNTS ---
     stats = {
-        'services': Service.query.filter_by(is_archived=False).count(),
+        'subscriptions': Subscription.query.filter_by(is_archived=False).count(),
         'assets': Asset.query.filter_by(is_archived=False).count(),
         'peripherals': Peripheral.query.filter_by(is_archived=False).count(),
         'suppliers': Supplier.query.filter_by(is_archived=False).count(),
@@ -89,16 +89,16 @@ def dashboard():
         period = '30'
         start_date, end_date = today, today + timedelta(days=30)
 
-    all_active_services = Service.query.filter_by(is_archived=False).all()
+    all_active_subscriptions = Subscription.query.filter_by(is_archived=False).all()
     upcoming_renewals, total_cost = [], 0
 
-    for service in all_active_services:
-        next_renewal = service.next_renewal_date
+    for subscription in all_active_subscriptions:
+        next_renewal = subscription.next_renewal_date
         while next_renewal <= end_date:
             if next_renewal >= start_date:
-                upcoming_renewals.append((next_renewal, service))
-                total_cost += service.cost_eur
-            next_renewal = service.get_renewal_date_after(next_renewal)
+                upcoming_renewals.append((next_renewal, subscription))
+                total_cost += subscription.cost_eur
+            next_renewal = subscription.get_renewal_date_after(next_renewal)
             
     upcoming_renewals.sort(key=lambda x: x[0])
 
@@ -114,13 +114,13 @@ def dashboard():
         forecast_keys.append(year_month_key)
         forecast_costs[year_month_key] = 0
 
-    for service in all_active_services:
-        renewal = service.renewal_date
+    for subscription in all_active_subscriptions:
+        renewal = subscription.renewal_date
         while renewal < end_of_forecast_period:
             year_month_key = renewal.strftime('%Y-%m')
             if year_month_key in forecast_costs:
-                forecast_costs[year_month_key] += service.cost_eur
-            renewal = service.get_renewal_date_after(renewal)
+                forecast_costs[year_month_key] += subscription.cost_eur
+            renewal = subscription.get_renewal_date_after(renewal)
 
     forecast_data = [round(cost, 2) for cost in forecast_costs.values()]
 
@@ -216,13 +216,13 @@ def search():
     search_term = f'%{query}%'
     limit = 5
 
-    # Search Services
-    services = Service.query.filter(Service.name.ilike(search_term), Service.is_archived == False).limit(limit).all()
-    for item in services:
+    # Search Subscriptions
+    subscriptions = Subscription.query.filter(Subscription.name.ilike(search_term), Subscription.is_archived == False).limit(limit).all()
+    for item in subscriptions:
         results.append({
             'name': item.name,
-            'type': 'Service',
-            'url': url_for('services.service_detail', id=item.id)
+            'type': 'Subscription',
+            'url': url_for('subscriptions.subscription_detail', id=item.id)
         })
 
     # Search Assets

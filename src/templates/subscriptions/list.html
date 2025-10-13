@@ -1,33 +1,33 @@
 {% extends "layout.html" %}
 
-{% block title %}Services - {{ super() }}{% endblock %}
+{% block title %}Subscriptions - {{ super() }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="fas fa-cogs"></i> Services</h2>
+    <h2><i class="fas fa-cogs"></i> Subscriptions</h2>
     <div>
-        <button class="btn btn-success" onclick="exportTableToCSV('services-table', 'services.csv')">
+        <button class="btn btn-success" onclick="exportTableToCSV('subscriptions-table', 'subscriptions.csv')">
             <i class="fas fa-file-csv"></i> Export to CSV
         </button>
-        <a href="{{ url_for('services.archived_services') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('subscriptions.archived_subscriptions') }}" class="btn btn-outline-secondary">
             <i class="fas fa-archive"></i> View Archived
         </a>
-        <a href="{{ url_for('services.new_service') }}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Add Service
+        <a href="{{ url_for('subscriptions.new_subscription') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Subscription
         </a>
     </div>
 </div>
 
 <div class="card mb-4">
     <div class="card-body">
-        <form method="GET" action="{{ url_for('services.services') }}" class="row g-3 align-items-center">
+        <form method="GET" action="{{ url_for('subscriptions.subscriptions') }}" class="row g-3 align-items-center">
             <div class="col-md-5">
-                <label for="service_type" class="form-label visually-hidden">Type</label>
+                <label for="subscription_type" class="form-label visually-hidden">Type</label>
                 <div class="input-group">
                     <span class="input-group-text">Type</span>
-                    <select name="service_type" class="form-select" onchange="this.form.submit()">
+                    <select name="subscription_type" class="form-select" onchange="this.form.submit()">
                         <option value="all">All Types</option>
-                        {% for type in service_types %}
+                        {% for type in subscription_types %}
                         <option value="{{ type }}" {% if selected_filter == type %}selected{% endif %}>{{ type.title() }}</option>
                         {% endfor %}
                     </select>
@@ -46,7 +46,7 @@
                 </div>
             </div>
             <div class="col-md-2">
-                <a href="{{ url_for('services.services') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                <a href="{{ url_for('subscriptions.subscriptions') }}" class="btn btn-outline-secondary w-100">Clear</a>
             </div>
         </form>
     </div>
@@ -54,7 +54,7 @@
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped" id="services-table">
+            <table class="table table-striped" id="subscriptions-table">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -69,29 +69,29 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for service in services %}
+                    {% for subscription in subscriptions %}
                     <tr>
-                        <td><a href="{{ url_for('services.service_detail', id=service.id) }}">{{ service.name }}</a></td>
-                        <td><span class="badge bg-secondary">{{ service.service_type }}</span></td>
-                        <td><a href="{{ url_for('suppliers.supplier_detail', id=service.supplier.id) }}">{{ service.supplier.name }}</a></td>
-                        <td>{{ service.renewal_period_value }} {{ service.renewal_period_type.title() }}</td>
-                        <td>{{ service.next_renewal_date.strftime('%Y-%m-%d') }}</td>
+                        <td><a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{ subscription.name }}</a></td>
+                        <td><span class="badge bg-secondary">{{ subscription.subscription_type }}</span></td>
+                        <td><a href="{{ url_for('suppliers.supplier_detail', id=subscription.supplier.id) }}">{{ subscription.supplier.name }}</a></td>
+                        <td>{{ subscription.renewal_period_value }} {{ subscription.renewal_period_type.title() }}</td>
+                        <td>{{ subscription.next_renewal_date.strftime('%Y-%m-%d') }}</td>
                         <td>
-                            <span class="badge {{ 'bg-success' if service.auto_renew else 'bg-warning' }}">
-                                {{ 'Yes' if service.auto_renew else 'No' }}
+                            <span class="badge {{ 'bg-success' if subscription.auto_renew else 'bg-warning' }}">
+                                {{ 'Yes' if subscription.auto_renew else 'No' }}
                             </span>
                         </td>
-                        <td class="currency-display">€{{ "%.2f"|format(service.cost_eur) }}</td>
+                        <td class="currency-display">€{{ "%.2f"|format(subscription.cost_eur) }}</td>
                         <td>
-                            {% for tag in service.tags %}
-                                <a href="{{ url_for('services.services', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none">{{ tag.name }}</a>
+                            {% for tag in subscription.tags %}
+                                <a href="{{ url_for('subscriptions.subscriptions', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none">{{ tag.name }}</a>
                             {% endfor %}
                         </td>
                         <td>
-                            <a href="{{ url_for('services.edit_service', id=service.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                            <a href="{{ url_for('subscriptions.edit_subscription', id=subscription.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <form action="{{ url_for('services.archive_service', id=service.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this service?');">
+                            <form action="{{ url_for('subscriptions.archive_subscription', id=subscription.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this subscription?');">
                                 <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
                                     <i class="fas fa-archive"></i>
                                 </button>
@@ -100,7 +100,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="7" class="text-center">No services found for the selected filter.</td>
+                        <td colspan="7" class="text-center">No subscriptions found for the selected filter.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -111,7 +111,7 @@
 <div class="card mt-4">
     <div class="card-body text-end">
         <h5 class="card-title mb-0">
-            Total Cost of Listed Services:
+            Total Cost of Listed Subscriptions:
             <span class="text-primary fw-bold">€{{ "%.2f"|format(total_cost) }}</span>
         </h5>
     </div>

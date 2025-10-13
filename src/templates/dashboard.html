@@ -46,11 +46,11 @@
 
 <div class="row mb-4">
     <div class="col-md-3 mb-4">
-        <a href="{{ url_for('services.services') }}" class="stat-card bg-primary">
+        <a href="{{ url_for('subscriptions.subscriptions') }}" class="stat-card bg-primary">
             <div class="card-body stat-card-body">
                 <div class="stat-card-content">
-                    <h3>{{ stats.services }}</h3>
-                    <p>Services</p>
+                    <h3>{{ stats.subscriptions }}</h3>
+                    <p>Subscriptions</p>
                 </div>
                 <i class="fas fa-cogs stat-card-icon"></i>
             </div>
@@ -223,7 +223,7 @@
     <div class="card-body">
         <div class="row">
             {% if upcoming_renewals %}
-                {% for renewal_date, service in upcoming_renewals %}
+                {% for renewal_date, subscription in upcoming_renewals %}
                 <div class="col-md-6 mb-3">
                     {% set days_left = (renewal_date - today).days %}
                     <div class="card renewal-card {% if days_left <= 7 %}urgent{% elif days_left <= 14 %}warning{% endif %}">
@@ -231,15 +231,15 @@
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
                                     <h6 class="card-title">
-                                        <a href="{{ url_for('services.service_detail', id=service.id) }}" class="text-decoration-none">{{ service.name }}</a>
+                                        <a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}" class="text-decoration-none">{{ subscription.name }}</a>
                                         <small class="text-muted fw-normal">on {{ renewal_date.strftime('%b %d') }}</small>
                                     </h6>
                                     
-                                    <p class="card-text text-muted mb-1">{{ service.service_type }} • <a href="{{ url_for('suppliers.supplier_detail', id=service.supplier.id) }}" class="text-decoration-none text-muted">{{ service.supplier.name }}</a></p>
+                                    <p class="card-text text-muted mb-1">{{ subscription.subscription_type }} • <a href="{{ url_for('suppliers.supplier_detail', id=subscription.supplier.id) }}" class="text-decoration-none text-muted">{{ subscription.supplier.name }}</a></p>
                                     
                                     <div class="mb-2">
-                                    {% for tag in service.tags %}
-                                        <a href="{{ url_for('services.services', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none fw-normal">{{ tag.name }}</a>
+                                    {% for tag in subscription.tags %}
+                                        <a href="{{ url_for('subscriptions.subscriptions', tag_id=tag.id) }}" class="badge bg-primary text-decoration-none fw-normal">{{ tag.name }}</a>
                                     {% endfor %}
                                     </div>
 
@@ -248,9 +248,9 @@
                                     </p>
                                 </div>
                                 <div class="text-end">
-                                    <span class="currency-display">€{{ "%.2f"|format(service.cost_eur) }}</span><br>
-                                    <span class="badge {{ 'bg-success' if service.auto_renew else 'bg-warning' }}">
-                                        {{ 'Auto' if service.auto_renew else 'Manual' }}
+                                    <span class="currency-display">€{{ "%.2f"|format(subscription.cost_eur) }}</span><br>
+                                    <span class="badge {{ 'bg-success' if subscription.auto_renew else 'bg-warning' }}">
+                                        {{ 'Auto' if subscription.auto_renew else 'Manual' }}
                                     </span>
                                 </div>
                             </div>

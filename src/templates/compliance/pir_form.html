@@ -86,7 +86,7 @@
             <textarea name="fault" class="form-control mb-3" rows="3" placeholder="What went wrong? Describe the root cause.">{{ review.fault or '' }}</textarea>
             
             <label class="form-label">Impact</label>
-            <textarea name="impact_analysis" class="form-control" rows="3" placeholder="How were users, services, or the business affected?">{{ review.impact_analysis or '' }}</textarea>
+            <textarea name="impact_analysis" class="form-control" rows="3" placeholder="How were users, subscriptions, or the business affected?">{{ review.impact_analysis or '' }}</textarea>
         </div>
     </div>
 
@@ -100,7 +100,7 @@
             <textarea name="response" class="form-control mb-3" rows="4" placeholder="What actions were taken to contain and resolve the incident? Who was involved?">{{ review.response or '' }}</textarea>
             
             <label class="form-label">Recovery</label>
-            <textarea name="recovery" class="form-control" rows="3" placeholder="What steps were taken to restore service and confirm resolution?">{{ review.recovery or '' }}</textarea>
+            <textarea name="recovery" class="form-control" rows="3" placeholder="What steps were taken to restore subscription and confirm resolution?">{{ review.recovery or '' }}</textarea>
         </div>
     </div>
     

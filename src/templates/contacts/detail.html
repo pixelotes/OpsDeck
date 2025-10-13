@@ -22,16 +22,16 @@
 
 <div class="card">
     <div class="card-header">
-        <i class="fas fa-cogs"></i> Associated Services ({{ contact.services|length }})
+        <i class="fas fa-cogs"></i> Associated Subscriptions ({{ contact.subscriptions|length }})
     </div>
     <ul class="list-group list-group-flush">
-        {% for service in contact.services %}
+        {% for subscription in contact.subscriptions %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
-                <a href="{{ url_for('services.edit_service', id=service.id) }}">{{ service.name }}</a>
-                <span class="badge bg-secondary">{{ service.service_type }}</span>
+                <a href="{{ url_for('subscriptions.edit_subscription', id=subscription.id) }}">{{ subscription.name }}</a>
+                <span class="badge bg-secondary">{{ subscription.subscription_type }}</span>
             </li>
         {% else %}
-            <li class="list-group-item text-muted">This contact is not associated with any services.</li>
+            <li class="list-group-item text-muted">This contact is not associated with any subscriptions.</li>
         {% endfor %}
     </ul>
 </div>

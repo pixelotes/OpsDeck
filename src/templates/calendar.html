@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,listWeek'
         },
-        events: "{{ url_for('services.calendar_events') }}",
+        events: "{{ url_for('subscriptions.calendar_events') }}",
         eventClick: function(info) {
             info.jsEvent.preventDefault(); 
             if (info.event.url) {
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
             let innerHtml = `
                 <div class="fc-event-main-frame">
                     <div class="fc-event-title-container">
-                        <div class="fc-event-title fc-sticky">${props.service_name}</div>
+                        <div class="fc-event-title fc-sticky">${props.subscription_name}</div>
                     </div><br/>
                     <div class="fc-event-cost">${props.cost_eur}</div>
                 </div>`;

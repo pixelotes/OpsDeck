@@ -16,13 +16,13 @@
 <div class="card">
     <div class="card-body">
         <table class="table table-striped" id="tags-table">
-            <thead><tr><th>Name</th><th>Services Using Tag</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>Subscriptions Using Tag</th><th>Actions</th></tr></thead>
             <tbody>
                 {% for tag in tags %}
                 <tr>
-                    <td><a href="{{ url_for('services.services', tag_id=tag.id) }}">{{ tag.name }}</a></td>
+                    <td><a href="{{ url_for('subscriptions.subscriptions', tag_id=tag.id) }}">{{ tag.name }}</a></td>
 
-                    <td><span class="badge bg-info">{{ tag.services.count() }}</span></td>
+                    <td><span class="badge bg-info">{{ tag.subscriptions.count() }}</span></td>
                     <td>
                         <a href="{{ url_for('tags.edit_tag', id=tag.id) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></a>
                         <form action="{{ url_for('tags.archive_tag', id=tag.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this tag?');">

@@ -3,7 +3,7 @@ from datetime import date, timedelta, datetime
 from faker import Faker
 from .models import (
     db, Supplier, Contact, User, Location, PaymentMethod, Tag, Budget, Purchase,
-    Asset, Peripheral, Service, CostHistory, Risk, SecurityIncident,
+    Asset, Peripheral, Subscription, CostHistory, Risk, SecurityIncident,
     PostIncidentReview, IncidentTimelineEvent, MaintenanceLog, DisposalRecord,
     BCDRPlan, BCDRTestLog, Course, CourseAssignment, Group, Policy, PolicyVersion, Opportunity
 )
@@ -32,7 +32,7 @@ def seed_data():
             Supplier(name='Zoom', email='info@zoom.us', phone='888-799-9666'),
             Supplier(name='Apple', email='business@apple.com', phone='800-854-3680'),
             Supplier(name='Logitech', email='support@logi.com', phone='646-454-3200'),
-            Supplier(name='Amazon Web Services', email='aws-sales@amazon.com', compliance_status='Compliant'),
+            Supplier(name='Amazon Web Subscriptions', email='aws-sales@amazon.com', compliance_status='Compliant'),
             Supplier(name='Namecheap', email='support@namecheap.com'),
             Supplier(name='Figma', email='sales@figma.com'),
             Supplier(name='Herman Miller', email='info@hermanmiller.com'),
@@ -131,16 +131,16 @@ def seed_data():
         db.session.add_all(peripherals)
         db.session.commit()
         
-        # 5. Create Services and Opportunities
-        print("Creating services and opportunities...")
-        services_data = [
+        # 5. Create Subscriptions and Opportunities
+        print("Creating subscriptions and opportunities...")
+        subscriptions_data = [
             {'name': 'Adobe Creative Cloud', 'type': 'Software', 'renewal': date(2025, 11, 1), 'cost': 15000, 'supplier': suppliers[0]},
             {'name': 'Microsoft 365 E5', 'type': 'SaaS', 'renewal': date(2026, 1, 1), 'cost': 35000, 'supplier': suppliers[1]},
             {'name': 'Okta Identity Provider', 'type': 'Security', 'renewal': date(2026, 6, 1), 'cost': 12000, 'supplier': suppliers[12]},
         ]
-        for data in services_data:
-            service = Service(name=data['name'], service_type=data['type'], renewal_date=data['renewal'], cost=data['cost'], supplier=data['supplier'], renewal_period_type='yearly')
-            db.session.add(service)
+        for data in subscriptions_data:
+            subscription = Subscription(name=data['name'], subscription_type=data['type'], renewal_date=data['renewal'], cost=data['cost'], supplier=data['supplier'], renewal_period_type='yearly')
+            db.session.add(subscription)
         
         opportunities = [
             Opportunity(name="Company-wide SSO solution", status="Evaluating", potential_value=20000, supplier=suppliers[12]),
@@ -186,7 +186,7 @@ def seed_data():
         db.session.add(incident)
         
         bcdr_plan = BCDRPlan(name="Primary Database Failure Plan", description="Steps to restore the main application database from backups.")
-        bcdr_plan.services.append(Service.query.first())
+        bcdr_plan.subscriptions.append(Subscription.query.first())
         db.session.add(bcdr_plan)
         db.session.commit()
         

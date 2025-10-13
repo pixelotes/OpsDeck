@@ -82,16 +82,16 @@ def tree_view():
                 'url': url_for('suppliers.supplier_detail', id=supplier.id),
                 'children': []
             }
-            # Add associated services
-            if supplier.services:
-                services_node = {'name': 'Services', 'icon': 'fa-cogs', 'children': []}
-                for service in supplier.services:
-                    services_node['children'].append({
-                        'name': service.name,
+            # Add associated subscriptions
+            if supplier.subscriptions:
+                subscriptions_node = {'name': 'Subscriptions', 'icon': 'fa-cogs', 'children': []}
+                for subscription in supplier.subscriptions:
+                    subscriptions_node['children'].append({
+                        'name': subscription.name,
                         'icon': 'fa-cogs',
-                        'url': url_for('services.service_detail', id=service.id)
+                        'url': url_for('subscriptions.subscription_detail', id=subscription.id)
                     })
-                supplier_node['children'].append(services_node)
+                supplier_node['children'].append(subscriptions_node)
 
             # Add associated assets
             if supplier.assets:

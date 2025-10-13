@@ -31,7 +31,7 @@ def upload_file():
         new_attachment = Attachment(
             filename=original_filename,
             secure_filename=unique_filename,
-            service_id=request.form.get('service_id'),
+            subscription_id=request.form.get('subscription_id'),
             supplier_id=request.form.get('supplier_id'),
             purchase_id=request.form.get('purchase_id'),
             asset_id=request.form.get('asset_id'),

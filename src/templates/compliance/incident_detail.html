@@ -65,12 +65,12 @@
 <div class="row">
     <div class="col-md-6">
         <div class="card mb-4">
-            <div class="card-header">Affected Services</div>
+            <div class="card-header">Affected Subscriptions</div>
             <ul class="list-group list-group-flush">
-                {% for service in incident.affected_services %}
-                <li class="list-group-item"><a href="{{ url_for('services.service_detail', id=service.id) }}">{{ service.name }}</a></li>
+                {% for subscription in incident.affected_subscriptions %}
+                <li class="list-group-item"><a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{ subscription.name }}</a></li>
                 {% else %}
-                <li class="list-group-item text-muted">No services linked to this incident.</li>
+                <li class="list-group-item text-muted">No subscriptions linked to this incident.</li>
                 {% endfor %}
             </ul>
         </div>

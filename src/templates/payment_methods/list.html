@@ -20,7 +20,7 @@
                         <th>Type</th>
                         <th>Details</th>
                         <th>Expiry Date</th>
-                        <th>Services Linked</th>
+                        <th>Subscriptions Linked</th>
                         <th>Purchases Linked</th>
                         <th>Actions</th>
                     </tr>
@@ -33,7 +33,7 @@
                         <td><span class="badge bg-secondary">{{ method.method_type }}</span></td>
                         <td>{{ method.details or '-' }}</td>
                         <td>{{ method.expiry_date.strftime('%Y-%m') if method.expiry_date else '-' }}</td>
-                        <td><span class="badge bg-info">{{ method.services|length }}</span></td>
+                        <td><span class="badge bg-info">{{ method.subscriptions|length }}</span></td>
                         <td><span class="badge bg-success">{{ method.purchases|length }}</span></td>
                         <td>
                             <a href="{{ url_for('payment_methods.edit_payment_method', id=method.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit"><i class="fas fa-edit"></i></a>
