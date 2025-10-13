@@ -312,28 +312,37 @@ def depreciation_report():
                     book_value -= (book_value * (factor / depreciation_period))
                 depreciated_value = max(0, book_value)
 
-            # Summing up in EUR for consistent chart data
-            rate = CURRENCY_RATES.get(item.currency, 1.0)
-            total_original_value_eur += cost * rate
-            total_depreciated_value_eur += depreciated_value * rate
+            # Convert original and depreciated values to EUR for chart calculations
+            rate_to_eur = CURRENCY_RATES.get(item.currency, 1.0)
+            original_value_eur = cost * rate_to_eur
+            depreciated_value_eur = (depreciated_value * rate_to_eur) if depreciated_value is not None else 0
+            
+            total_original_value_eur += original_value_eur
+            total_depreciated_value_eur += depreciated_value_eur
             
             if hasattr(item, 'location') and item.location:
                 location_name = item.location.name
                 if location_name not in depreciation_by_location:
-                    depreciation_by_location[location_name] = 0
-                depreciation_by_location[location_name] += (depreciated_value * rate)
+                    depreciation_by_location[location_name] = {'original': 0, 'depreciated': 0}
+                depreciation_by_location[location_name]['original'] += original_value_eur
+                depreciation_by_location[location_name]['depreciated'] += depreciated_value_eur
 
-        # Currency conversion for table display
+        # --- CORRECTED CURRENCY CONVERSION LOGIC FOR TABLE DISPLAY ---
         display_currency = item.currency
-        if currency:
+        if currency and currency != item.currency:
             display_currency = currency
-            if item.currency in CURRENCY_RATES and currency in CURRENCY_RATES and cost:
-                cost_in_eur = cost / CURRENCY_RATES[item.currency]
-                cost = cost_in_eur * CURRENCY_RATES[currency]
-                if depreciated_value is not None:
-                    depreciated_in_eur = depreciated_value / CURRENCY_RATES[item.currency]
-                    depreciated_value = depreciated_in_eur * CURRENCY_RATES[currency]
+            if cost:
+                # Step 1: Convert original cost to EUR
+                cost_in_eur = cost * CURRENCY_RATES.get(item.currency, 1.0)
+                # Step 2: Convert EUR to target currency
+                cost = cost_in_eur / CURRENCY_RATES.get(currency, 1.0)
 
+                if depreciated_value is not None:
+                    # Step 1: Convert original depreciated value to EUR
+                    depreciated_in_eur = depreciated_value * CURRENCY_RATES.get(item.currency, 1.0)
+                    # Step 2: Convert EUR to target currency
+                    depreciated_value = depreciated_in_eur / CURRENCY_RATES.get(currency, 1.0)
+        
         depreciation_results.append({
             'item': item,
             'cost': cost,
@@ -346,7 +355,8 @@ def depreciation_report():
     value_chart_data = [round(total_depreciated_value_eur, 2), round(max(0, total_original_value_eur - total_depreciated_value_eur), 2)]
 
     location_chart_labels = list(depreciation_by_location.keys())
-    location_chart_data = [round(value, 2) for value in depreciation_by_location.values()]
+    location_chart_data_original = [round(data['original'], 2) for data in depreciation_by_location.values()]
+    location_chart_data_depreciated = [round(data['depreciated'], 2) for data in depreciation_by_location.values()]
 
     return render_template(
         'reports/depreciation.html',
@@ -365,5 +375,6 @@ def depreciation_report():
         value_chart_labels=value_chart_labels,
         value_chart_data=value_chart_data,
         location_chart_labels=location_chart_labels,
-        location_chart_data=location_chart_data
+        location_chart_data_original=location_chart_data_original,
+        location_chart_data_depreciated=location_chart_data_depreciated
     )

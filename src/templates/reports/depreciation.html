@@ -117,11 +117,12 @@
     </div>
     <div class="col-lg-6 mb-4">
         <div class="card h-100">
-            <div class="card-header"><h5>Depreciated Value by Location (EUR)</h5></div>
+            <div class="card-header"><h5>Depreciation by Location (EUR)</h5></div>
             <div class="card-body">
                 <canvas id="depreciationByLocationChart"
                         data-labels='{{ location_chart_labels|tojson|safe }}'
-                        data-values='{{ location_chart_data|tojson|safe }}'></canvas>
+                        data-values-original='{{ location_chart_data_original|tojson|safe }}'
+                        data-values-depreciated='{{ location_chart_data_depreciated|tojson|safe }}'></canvas>
             </div>
         </div>
     </div>

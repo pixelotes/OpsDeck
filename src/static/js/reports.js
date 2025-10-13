@@ -10,7 +10,28 @@ document.addEventListener('DOMContentLoaded', function() {
             const values = JSON.parse(ctx.dataset.values || '[]');
             
             chartData.labels = labels;
-            chartData.datasets[0].data = values;
+
+            if (chartType === 'bar' && ctx.dataset.valuesOriginal) {
+                // Handle grouped bar chart for depreciation by location
+                chartData.datasets = [
+                    {
+                        label: 'Original Value (€)',
+                        data: JSON.parse(ctx.dataset.valuesOriginal),
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Depreciated Value (€)',
+                        data: JSON.parse(ctx.dataset.valuesDepreciated),
+                        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }
+                ];
+            } else {
+                chartData.datasets[0].data = values;
+            }
 
             if (ctx.dataset.keys) {
                 chartData.keys = JSON.parse(ctx.dataset.keys);
@@ -32,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const barOptions = {
         responsive: true,
         scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-        plugins: { legend: { display: false } }
+        plugins: { legend: { display: true } } // Display legend for bar charts
     };
     const lineOptions = {
         responsive: true,
@@ -98,5 +119,51 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Depreciation Report Charts ---
     createChart('totalVsDepreciatedChart', 'doughnut', { ...doughnutPieData, datasets: [{...doughnutPieData.datasets[0], label: 'Value'}] }, doughnutPieOptions);
-    createChart('depreciationByLocationChart', 'bar', { ...barData, datasets: [{...barData.datasets[0], label: 'Depreciated Value'}] }, barOptions);
+    
+    const depreciationByLocationCtx = document.getElementById('depreciationByLocationChart');
+    if (depreciationByLocationCtx) {
+        const labels = JSON.parse(depreciationByLocationCtx.dataset.labels || '[]');
+        const originalValues = JSON.parse(depreciationByLocationCtx.dataset.valuesOriginal || '[]');
+        const depreciatedValues = JSON.parse(depreciationByLocationCtx.dataset.valuesDepreciated || '[]');
+
+        new Chart(depreciationByLocationCtx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Original Value (€)',
+                        data: originalValues,
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Depreciated Value (€)',
+                        data: depreciatedValues,
+                        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Original vs. Depreciated Value by Location'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
 });
