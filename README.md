@@ -1,7 +1,7 @@
 # OpsDeck 🛡️
 For IT managers and operations teams struggling with disconnected tools and sprawling spreadsheets, OpsDeck is the all-in-one control center that unifies asset management, vendor relations, and compliance into a single, intuitive platform. Ditch the chaos and gain complete visibility and control over your entire IT ecosystem, from procurement to disposal.
 
-## ✨ Key Features
+## Key Features
 OpsDeck provides a comprehensive suite of tools to streamline your IT operations:
 
 ### Asset Lifecycle Management
