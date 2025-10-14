@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+{% block title %}Licenses - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-id-badge"></i> Licenses</h2>
+    <a href="{{ url_for('licenses.add_license') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add License</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Assigned To</th>
+                    <th>Subscription</th>
+                    <th>Purchase Date</th>
+                    <th>Expiry Date</th>
+                    <th>Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for license in licenses.items %}
+                <tr>
+                    <td><a href="{{ url_for('licenses.detail', id=license.id) }}">{{ license.name }}</a></td>
+                    <td>{% if license.user %}{{ license.user.name }}{% else %}<span class="text-muted">Unassigned</span>{% endif %}</td>
+                    <td>{% if license.subscription %}{{ license.subscription.name }}{% else %}<span class="text-muted">N/A</span>{% endif %}</td>
+                    <td>{{ license.purchase_date.strftime('%Y-%m-%d') if license.purchase_date else '' }}</td>
+                    <td>{{ license.expiry_date.strftime('%Y-%m-%d') if license.expiry_date else 'Perpetual' }}</td>
+                    <td>{{ license.currency }} {{ "%.2f"|format(license.cost) if license.cost else '' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center">No licenses found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

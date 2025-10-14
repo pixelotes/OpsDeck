@@ -48,6 +48,7 @@ class User(db.Model): # Add UserMixin here if using Flask-Login
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     assets = db.relationship('Asset', backref='user', lazy=True)
     peripherals = db.relationship('Peripheral', backref='user', lazy=True)
+    licenses = db.relationship('License', backref='user', lazy=True)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     acknowledgements = db.relationship('PolicyAcknowledgement', backref='user', lazy=True, cascade='all, delete-orphan')
     groups = db.relationship('Group', secondary=user_groups, back_populates='users')
@@ -185,7 +186,7 @@ class Subscription(db.Model):
     renewal_period_type = db.Column(db.String(20), nullable=False)
     renewal_period_value = db.Column(db.Integer, default=1)
     
-    # NEW FIELD: Stores 'first', 'last', or a day number (e.g., '15') for monthly renewals
+    # Stores 'first', 'last', or a day number (e.g., '15') for monthly renewals
     monthly_renewal_day = db.Column(db.String(10), nullable=True)
     
     auto_renew = db.Column(db.Boolean, default=False)
@@ -193,6 +194,9 @@ class Subscription(db.Model):
     # Cost information
     cost = db.Column(db.Float, nullable=False)
     currency = db.Column(db.String(3), default='EUR')
+
+    # Licenses
+    licenses = db.relationship('License', backref='subscription', lazy=True)
     
     # Relationships
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
@@ -336,6 +340,7 @@ class Purchase(db.Model):
     attachments = db.relationship('Attachment', backref='purchase', lazy=True, cascade='all, delete-orphan')
     assets = db.relationship('Asset', backref='purchase', lazy=True)
     peripherals = db.relationship('Peripheral', backref='purchase', lazy=True)
+    licenses = db.relationship('License', backref='purchase', lazy=True)
     
     cost_history = db.relationship('PurchaseCostHistory', backref='purchase', lazy=True, order_by='PurchaseCostHistory.timestamp.desc()')
 
@@ -780,4 +785,26 @@ class Lead(db.Model):
     phone = db.Column(db.String(50))
     status = db.Column(db.String(50), default='New') # New, Contacted, Qualified, Converted, Disqualified
     notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class License(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    license_key = db.Column(db.Text)
+    
+    # Financials
+    cost = db.Column(db.Float)
+    currency = db.Column(db.String(3), default='EUR')
+    
+    # Dates
+    purchase_date = db.Column(db.Date)
+    expiry_date = db.Column(db.Date, nullable=True) # Optional for perpetual licenses
+
+    # Relationships
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Assigned user (seat)
+    purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'), nullable=True)
+    subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'), nullable=True)
+    
+    # Metadata
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

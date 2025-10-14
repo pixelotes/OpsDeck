@@ -19,7 +19,7 @@
                 <div class="col-md-6">
                     <label for="subscription_type" class="form-label">Type *</label>
                     <select class="form-select" id="subscription_type" name="subscription_type" required>
-                        {% set types = ['subscription', 'contract', 'license', 'domain', 'certificate'] %}
+                        {% set types = ['subscription', 'contract', 'domain', 'certificate'] %}
                         {% for type in types %}
                         <option value="{{ type }}" {% if subscription and subscription.subscription_type == type %}selected{% endif %}>{{ type.title() }}</option>
                         {% endfor %}
