@@ -79,7 +79,7 @@ class Supplier(db.Model):
     attachments = db.relationship('Attachment', backref='supplier', lazy=True, cascade='all, delete-orphan')
     
     contacts = db.relationship('Contact', backref='supplier', lazy=True, cascade='all, delete-orphan')
-    services = db.relationship('Service', backref='supplier', lazy=True)
+    subscriptions = db.relationship('Subscription', backref='supplier', lazy=True)
     purchases = db.relationship('Purchase', backref='supplier', lazy=True)
     assets = db.relationship('Asset', backref='supplier', lazy=True)
     peripherals = db.relationship('Peripheral', backref='supplier', lazy=True)
@@ -102,9 +102,9 @@ class Tag(db.Model):
     name = db.Column(db.String(50), unique=True, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
-# Association table for Services and Tags
-service_tags = db.Table('service_tags',
-    db.Column('service_id', db.Integer, db.ForeignKey('service.id'), primary_key=True),
+# Association table for Subscriptions and Tags
+subscription_tags = db.Table('subscription_tags',
+    db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True),
     db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
 )
 
@@ -134,27 +134,27 @@ class Attachment(db.Model):
     security_incident_id = db.Column(db.Integer, db.ForeignKey('security_incident.id'))
     
     # Foreign keys - one of these will be set
-    service_id = db.Column(db.Integer, db.ForeignKey('service.id'))
+    subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'))
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
     asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
     peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'))
 
-# Association table for many-to-many relationship between services and payments
-service_payment_methods = db.Table('service_payment_methods',
-    db.Column('service_id', db.Integer, db.ForeignKey('service.id'), primary_key=True),
+# Association table for many-to-many relationship between subscriptions and payments
+subscription_payment_methods = db.Table('subscription_payment_methods',
+    db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True),
     db.Column('payment_method_id', db.Integer, db.ForeignKey('payment_method.id'), primary_key=True)
 )
 
-# Association table for many-to-many relationship between services and contacts
-service_contacts = db.Table('service_contacts',
-    db.Column('service_id', db.Integer, db.ForeignKey('service.id'), primary_key=True),
+# Association table for many-to-many relationship between subscriptions and contacts
+subscription_contacts = db.Table('subscription_contacts',
+    db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True),
     db.Column('contact_id', db.Integer, db.ForeignKey('contact.id'), primary_key=True),
 )
 
 class CostHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
+    subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'), nullable=False)
     cost = db.Column(db.Float, nullable=False)
     currency = db.Column(db.String(3), nullable=False)
     # The date this cost became effective
@@ -170,14 +170,14 @@ class PaymentMethod(db.Model):
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
 
-    # Relationship back to Service (optional, but useful)
-    services = db.relationship('Service', secondary=service_payment_methods, back_populates='payment_methods')
+    # Relationship back to Subscription (optional, but useful)
+    subscriptions = db.relationship('Subscription', secondary=subscription_payment_methods, back_populates='payment_methods')
     purchases = db.relationship('Purchase', backref='payment_method', lazy=True)
 
-class Service(db.Model):
+class Subscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    service_type = db.Column(db.String(50), nullable=False)
+    subscription_type = db.Column(db.String(50), nullable=False)
     description = db.Column(db.Text)
     
     # Renewal information
@@ -196,11 +196,11 @@ class Service(db.Model):
     
     # Relationships
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
-    contacts = db.relationship('Contact', secondary=service_contacts, backref='services')
-    payment_methods = db.relationship('PaymentMethod', secondary=service_payment_methods, back_populates='services')
-    attachments = db.relationship('Attachment', backref='service', lazy=True, cascade='all, delete-orphan')
-    cost_history = db.relationship('CostHistory', backref='service', lazy=True, cascade='all, delete-orphan', order_by='CostHistory.changed_date')
-    tags = db.relationship('Tag', secondary=service_tags, backref=db.backref('services', lazy='dynamic'))
+    contacts = db.relationship('Contact', secondary=subscription_contacts, backref='subscriptions')
+    payment_methods = db.relationship('PaymentMethod', secondary=subscription_payment_methods, back_populates='subscriptions')
+    attachments = db.relationship('Attachment', backref='subscription', lazy=True, cascade='all, delete-orphan')
+    cost_history = db.relationship('CostHistory', backref='subscription', lazy=True, cascade='all, delete-orphan', order_by='CostHistory.changed_date')
+    tags = db.relationship('Tag', secondary=subscription_tags, backref=db.backref('subscriptions', lazy='dynamic'))
     
     # Metadata
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
@@ -568,9 +568,9 @@ class Risk(db.Model):
     attachments = db.relationship('Attachment', backref='risk', lazy=True, cascade='all, delete-orphan')
 
 # --- Association Tables for BCDR ---
-bcdr_plan_services = db.Table('bcdr_plan_services',
+bcdr_plan_subscriptions = db.Table('bcdr_plan_subscriptions',
     db.Column('plan_id', db.Integer, db.ForeignKey('bcdr_plan.id'), primary_key=True),
-    db.Column('service_id', db.Integer, db.ForeignKey('service.id'), primary_key=True)
+    db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True)
 )
 
 bcdr_plan_assets = db.Table('bcdr_plan_assets',
@@ -586,7 +586,7 @@ class BCDRPlan(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
-    services = db.relationship('Service', secondary=bcdr_plan_services, backref='bcdr_plans')
+    subscriptions = db.relationship('Subscription', secondary=bcdr_plan_subscriptions, backref='bcdr_plans')
     assets = db.relationship('Asset', secondary=bcdr_plan_assets, backref='bcdr_plans')
     test_logs = db.relationship('BCDRTestLog', backref='plan', lazy='dynamic', cascade='all, delete-orphan', order_by='BCDRTestLog.test_date.desc()')
 
@@ -683,9 +683,9 @@ incident_users = db.Table('incident_users',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
 )
 
-incident_services = db.Table('incident_services',
+incident_subscriptions = db.Table('incident_subscriptions',
     db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
-    db.Column('service_id', db.Integer, db.ForeignKey('service.id'), primary_key=True)
+    db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True)
 )
 
 incident_suppliers = db.Table('incident_suppliers',
@@ -717,7 +717,7 @@ class SecurityIncident(db.Model):
     
     affected_assets = db.relationship('Asset', secondary=incident_assets, backref='incidents')
     affected_users = db.relationship('User', secondary=incident_users, backref='incidents')
-    affected_services = db.relationship('Service', secondary=incident_services, backref='incidents')
+    affected_subscriptions = db.relationship('Subscription', secondary=incident_subscriptions, backref='incidents')
     affected_suppliers = db.relationship('Supplier', secondary=incident_suppliers, backref='incidents')
     attachments = db.relationship('Attachment', backref='security_incident', lazy=True, cascade='all, delete-orphan')
 

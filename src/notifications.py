@@ -6,7 +6,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 
 # Import the models needed for the notification logic
-from .models import Service, NotificationSetting
+from .models import Subscription, NotificationSetting
 
 # --- Notification Functions ---
 
@@ -49,7 +49,7 @@ def send_webhook(app, url, data):
 
 def check_upcoming_renewals(app):
     """
-    Checks for services that need renewal notifications based on user settings
+    Checks for subscriptions that need renewal notifications based on user settings
     and sends alerts via email and/or webhooks.
     """
     with app.app_context():
@@ -69,34 +69,34 @@ def check_upcoming_renewals(app):
         if not notify_days:
             return # No notification days configured
 
-        # Step 3: Find services that match the notification criteria
+        # Step 3: Find subscriptions that match the notification criteria
         today = datetime.now().date()
-        services_to_notify = []
-        all_services = Service.query.all()
+        subscriptions_to_notify = []
+        all_subscriptions = Subscription.query.all()
 
-        for service in all_services:
-            days_until = (service.next_renewal_date - today).days
-            # Check if the service is due on one of the configured notification days
+        for subscription in all_subscriptions:
+            days_until = (subscription.next_renewal_date - today).days
+            # Check if the subscription is due on one of the configured notification days
             if days_until in notify_days:
-                services_to_notify.append(service)
+                subscriptions_to_notify.append(subscription)
 
-        # Step 4: If there are services to notify about, build and send the alerts
-        if services_to_notify:
-            html_content = "<h2>Upcoming Service Renewals</h2><ul>"
+        # Step 4: If there are subscriptions to notify about, build and send the alerts
+        if subscriptions_to_notify:
+            html_content = "<h2>Upcoming subscription Renewals</h2><ul>"
             webhook_data = {
-                "text": "Upcoming Service Renewals",
+                "text": "Upcoming subscription Renewals",
                 "renewals": []
             }
             
-            for service in services_to_notify:
-                days_until = (service.next_renewal_date - today).days
-                html_content += f"<li><strong>{service.name}</strong> ({service.service_type}) - Renews in {days_until} days - €{service.cost_eur:.2f}</li>"
+            for subscription in subscriptions_to_notify:
+                days_until = (subscription.next_renewal_date - today).days
+                html_content += f"<li><strong>{subscription.name}</strong> ({subscription.subscription_type}) - Renews in {days_until} days - €{subscription.cost_eur:.2f}</li>"
                 webhook_data["renewals"].append({
-                    "name": service.name,
-                    "type": service.service_type,
-                    "renewal_date": service.next_renewal_date.isoformat(),
+                    "name": subscription.name,
+                    "type": subscription.subscription_type,
+                    "renewal_date": subscription.next_renewal_date.isoformat(),
                     "days_until": days_until,
-                    "cost_eur": service.cost_eur
+                    "cost_eur": subscription.cost_eur
                 })
             
             html_content += "</ul>"
@@ -105,7 +105,7 @@ def check_upcoming_renewals(app):
             if settings.email_enabled and settings.email_recipient:
                 send_email(
                     app,
-                    "Service Renewal Reminder", 
+                    "Subscription Renewal Reminder", 
                     html_content,
                     [settings.email_recipient]
                 )
@@ -114,4 +114,4 @@ def check_upcoming_renewals(app):
             if settings.webhook_enabled and settings.webhook_url:
                 send_webhook(app, settings.webhook_url, webhook_data)
         else:
-            app.logger.info("No services require notification today.")
+            app.logger.info("No subscriptions require notification today.")

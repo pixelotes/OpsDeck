@@ -27,7 +27,7 @@
                         <th>Name</th>
                         <th>Email</th>
                         <th>Phone</th>
-                        <th>Services</th>
+                        <th>Subscriptions</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -38,7 +38,7 @@
 
                             <td>{{ supplier.email or '-' }}</td>
                             <td>{{ supplier.phone or '-' }}</td>
-                            <td><span class="badge bg-info">{{ supplier.services|length }}</span></td>
+                            <td><span class="badge bg-info">{{ supplier.subscriptions|length }}</span></td>
                             <td>
                                 <a href="{{ url_for('suppliers.edit_supplier', id=supplier.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                     <i class="fas fa-edit"></i>

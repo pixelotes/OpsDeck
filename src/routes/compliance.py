@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime
-from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Service, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog
+from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Subscription, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog
 from .main import login_required
 from .admin import admin_required
 
@@ -228,10 +228,10 @@ def new_bcdr_plan():
             name=request.form['name'],
             description=request.form.get('description')
         )
-        # Handle service and asset associations
-        service_ids = request.form.getlist('service_ids')
+        # Handle subscription and asset associations
+        subscription_ids = request.form.getlist('subscription_ids')
         asset_ids = request.form.getlist('asset_ids')
-        plan.services = Service.query.filter(Service.id.in_(service_ids)).all()
+        plan.subscriptions = Subscription.query.filter(Subscription.id.in_(subscription_ids)).all()
         plan.assets = Asset.query.filter(Asset.id.in_(asset_ids)).all()
         
         db.session.add(plan)
@@ -239,9 +239,9 @@ def new_bcdr_plan():
         flash('BCDR Plan created successfully.', 'success')
         return redirect(url_for('compliance.list_bcdr_plans'))
 
-    services = Service.query.order_by(Service.name).all()
+    subscriptions = Subscription.query.order_by(Subscription.name).all()
     assets = Asset.query.order_by(Asset.name).all()
-    return render_template('compliance/bcdr_form.html', services=services, assets=assets)
+    return render_template('compliance/bcdr_form.html', subscriptions=subscriptions, assets=assets)
 
 @compliance_bp.route('/bcdr/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -252,19 +252,19 @@ def edit_bcdr_plan(id):
         plan.name = request.form['name']
         plan.description = request.form.get('description')
         
-        # Handle service and asset associations
-        service_ids = request.form.getlist('service_ids')
+        # Handle subscription and asset associations
+        subscription_ids = request.form.getlist('subscription_ids')
         asset_ids = request.form.getlist('asset_ids')
-        plan.services = Service.query.filter(Service.id.in_(service_ids)).all()
+        plan.subscriptions = Subscription.query.filter(Subscription.id.in_(subscription_ids)).all()
         plan.assets = Asset.query.filter(Asset.id.in_(asset_ids)).all()
         
         db.session.commit()
         flash('BCDR Plan updated successfully.', 'success')
         return redirect(url_for('compliance.bcdr_detail', id=plan.id))
 
-    services = Service.query.order_by(Service.name).all()
+    subscriptions = Subscription.query.order_by(Subscription.name).all()
     assets = Asset.query.order_by(Asset.name).all()
-    return render_template('compliance/bcdr_form.html', plan=plan, services=services, assets=assets)
+    return render_template('compliance/bcdr_form.html', plan=plan, subscriptions=subscriptions, assets=assets)
 
 @compliance_bp.route('/bcdr/<int:id>')
 @login_required
@@ -346,7 +346,7 @@ def new_incident():
         )
         incident.affected_assets = Asset.query.filter(Asset.id.in_(request.form.getlist('asset_ids'))).all()
         incident.affected_users = User.query.filter(User.id.in_(request.form.getlist('user_ids'))).all()
-        incident.affected_services = Service.query.filter(Service.id.in_(request.form.getlist('service_ids'))).all()
+        incident.affected_subscriptions = Subscription.query.filter(Subscription.id.in_(request.form.getlist('subscription_ids'))).all()
         incident.affected_suppliers = Supplier.query.filter(Supplier.id.in_(request.form.getlist('supplier_ids'))).all()
         db.session.add(incident)
         db.session.commit()
@@ -354,9 +354,9 @@ def new_incident():
         return redirect(url_for('compliance.incident_detail', id=incident.id))
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     assets = Asset.query.filter_by(is_archived=False).order_by(Asset.name).all()
-    services = Service.query.filter_by(is_archived=False).order_by(Service.name).all()
+    subscriptions = Subscription.query.filter_by(is_archived=False).order_by(Subscription.name).all()
     suppliers = Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all()
-    return render_template('compliance/incident_form.html', users=users, assets=assets, services=services, suppliers=suppliers)
+    return render_template('compliance/incident_form.html', users=users, assets=assets, subscriptions=subscriptions, suppliers=suppliers)
 
 @compliance_bp.route('/incidents/<int:id>')
 @login_required
@@ -386,16 +386,16 @@ def edit_incident(id):
             incident.resolved_at = None
         incident.affected_assets = Asset.query.filter(Asset.id.in_(request.form.getlist('asset_ids'))).all()
         incident.affected_users = User.query.filter(User.id.in_(request.form.getlist('user_ids'))).all()
-        incident.affected_services = Service.query.filter(Service.id.in_(request.form.getlist('service_ids'))).all()
+        incident.affected_subscriptions = Subscription.query.filter(Subscription.id.in_(request.form.getlist('subscription_ids'))).all()
         incident.affected_suppliers = Supplier.query.filter(Supplier.id.in_(request.form.getlist('supplier_ids'))).all()
         db.session.commit()
         flash('Incident details updated.', 'success')
         return redirect(url_for('compliance.incident_detail', id=id))
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     assets = Asset.query.filter_by(is_archived=False).order_by(Asset.name).all()
-    services = Service.query.filter_by(is_archived=False).order_by(Service.name).all()
+    subscriptions = Subscription.query.filter_by(is_archived=False).order_by(Subscription.name).all()
     suppliers = Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all()
-    return render_template('compliance/incident_form.html', incident=incident, users=users, assets=assets, services=services, suppliers=suppliers)
+    return render_template('compliance/incident_form.html', incident=incident, users=users, assets=assets, subscriptions=subscriptions, suppliers=suppliers)
 
 @compliance_bp.route('/incidents/<int:id>/review', methods=['GET', 'POST'])
 @login_required

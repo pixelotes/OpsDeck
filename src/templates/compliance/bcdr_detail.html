@@ -19,8 +19,8 @@
         <p><strong>Description:</strong> {{ plan.description or 'N/A' }}</p>
         <div class="row">
             <div class="col-md-6">
-                <p><strong>Covered Services ({{ plan.services|length }}):</strong></p>
-                <ul>{% for service in plan.services %}<li><a href="{{ url_for('services.service_detail', id=service.id) }}">{{ service.name }}</a></li>{% else %}<li>None</li>{% endfor %}</ul>
+                <p><strong>Covered Subscriptions ({{ plan.subscriptions|length }}):</strong></p>
+                <ul>{% for subscription in plan.subscriptions %}<li><a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{ subscription.name }}</a></li>{% else %}<li>None</li>{% endfor %}</ul>
             </div>
             <div class="col-md-6">
                 <p><strong>Covered Assets ({{ plan.assets|length }}):</strong></p>

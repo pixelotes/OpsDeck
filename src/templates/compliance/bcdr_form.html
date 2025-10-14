@@ -17,11 +17,11 @@
             </div>
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <label for="service_ids" class="form-label">Covered Services</label>
-                    <select class="form-select" id="service_ids" name="service_ids" multiple size="5">
-                        {% set selected_services = plan.services|map(attribute='id')|list if plan else [] %}
-                        {% for service in services %}
-                        <option value="{{ service.id }}" {% if service.id in selected_services %}selected{% endif %}>{{ service.name }}</option>
+                    <label for="subscription_ids" class="form-label">Covered Subscriptions</label>
+                    <select class="form-select" id="subscription_ids" name="subscription_ids" multiple size="5">
+                        {% set selected_subscriptions = plan.subscriptions|map(attribute='id')|list if plan else [] %}
+                        {% for subscription in subscriptions %}
+                        <option value="{{ subscription.id }}" {% if subscription.id in selected_subscriptions %}selected{% endif %}>{{ subscription.name }}</option>
                         {% endfor %}
                     </select>
                 </div>

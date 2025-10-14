@@ -4,7 +4,7 @@ from flask import (
 from sqlalchemy import func
 from datetime import date
 from dateutil.relativedelta import relativedelta
-from ..models import db, Service, Asset, Supplier, User, Group, Peripheral, Location, CURRENCY_RATES
+from ..models import db, Subscription, Asset, Supplier, User, Group, Peripheral, Location, CURRENCY_RATES
 from .main import login_required
 
 reports_bp = Blueprint('reports', __name__)
@@ -15,36 +15,36 @@ def subscription_reports():
     today = date.today()
     selected_year = request.args.get('year', default=today.year, type=int)
 
-    all_active_services = Service.query.filter_by(is_archived=False).all()
+    all_active_subscriptions = Subscription.query.filter_by(is_archived=False).all()
 
     # Chart 1: Spending by Supplier
     supplier_spending = {}
     year_start = date(selected_year, 1, 1)
     year_end = date(selected_year, 12, 31)
 
-    for service in all_active_services:
-        renewal = service.renewal_date
+    for subscription in all_active_subscriptions:
+        renewal = subscription.renewal_date
         while renewal < year_start:
-            renewal = service.get_renewal_date_after(renewal)
+            renewal = subscription.get_renewal_date_after(renewal)
 
         while renewal <= year_end:
-            supplier_name = service.supplier.name
+            supplier_name = subscription.supplier.name
             if supplier_name not in supplier_spending:
                 supplier_spending[supplier_name] = 0
-            supplier_spending[supplier_name] += service.cost_eur
-            renewal = service.get_renewal_date_after(renewal)
+            supplier_spending[supplier_name] += subscription.cost_eur
+            renewal = subscription.get_renewal_date_after(renewal)
 
     sorted_supplier_spending = sorted(supplier_spending.items(), key=lambda item: item[1], reverse=True)
     supplier_labels = [item[0] for item in sorted_supplier_spending]
     supplier_data = [round(item[1], 2) for item in sorted_supplier_spending]
 
-    available_years_query = db.session.query(func.strftime('%Y', Service.renewal_date)).distinct().order_by(func.strftime('%Y', Service.renewal_date).desc()).all()
+    available_years_query = db.session.query(func.strftime('%Y', Subscription.renewal_date)).distinct().order_by(func.strftime('%Y', Subscription.renewal_date).desc()).all()
     available_years = [int(y[0]) for y in available_years_query]
 
-    # Chart 2: Services by type
-    services_by_type = db.session.query(Service.service_type, func.count(Service.id)).filter(Service.is_archived == False).group_by(Service.service_type).order_by(func.count(Service.id).desc()).all()
-    type_labels = [item[0].title() for item in services_by_type]
-    type_data = [item[1] for item in services_by_type]
+    # Chart 2: Subscriptions by type
+    subscriptions_by_type = db.session.query(Subscription.subscription_type, func.count(Subscription.id)).filter(Subscription.is_archived == False).group_by(Subscription.subscription_type).order_by(func.count(Subscription.id).desc()).all()
+    type_labels = [item[0].title() for item in subscriptions_by_type]
+    type_data = [item[1] for item in subscriptions_by_type]
 
     # Chart 3 & 4: Historical Spending
     monthly_start_date = (today.replace(day=1) - relativedelta(months=12))
@@ -62,21 +62,21 @@ def subscription_reports():
         yearly_labels.append(year_date.strftime('%Y'))
         yearly_costs[year_date.strftime('%Y')] = 0
 
-    for service in all_active_services:
-        renewal = service.renewal_date
+    for subscription in all_active_subscriptions:
+        renewal = subscription.renewal_date
         while renewal < yearly_start_date:
-            renewal = service.get_renewal_date_after(renewal)
+            renewal = subscription.get_renewal_date_after(renewal)
 
         while renewal <= today:
             year_key = renewal.strftime('%Y')
             if year_key in yearly_costs:
-                yearly_costs[year_key] += service.cost_eur
+                yearly_costs[year_key] += subscription.cost_eur
 
             month_key = renewal.strftime('%Y-%m')
             if month_key in monthly_costs:
-                monthly_costs[month_key] += service.cost_eur
+                monthly_costs[month_key] += subscription.cost_eur
 
-            renewal = service.get_renewal_date_after(renewal)
+            renewal = subscription.get_renewal_date_after(renewal)
 
     monthly_data = [round(cost, 2) for cost in monthly_costs.values()]
     yearly_data = [round(cost, 2) for cost in yearly_costs.values()]
@@ -90,13 +90,13 @@ def subscription_reports():
         forecast_labels.append(month_date.strftime('%b %Y'))
         forecast_costs[year_month_key] = 0
 
-    for service in all_active_services:
-        renewal = service.next_renewal_date
+    for subscription in all_active_subscriptions:
+        renewal = subscription.next_renewal_date
         while renewal < end_of_forecast_period:
             year_month_key = renewal.strftime('%Y-%m')
             if year_month_key in forecast_costs:
-                forecast_costs[year_month_key] += service.cost_eur
-            renewal = service.get_renewal_date_after(renewal)
+                forecast_costs[year_month_key] += subscription.cost_eur
+            renewal = subscription.get_renewal_date_after(renewal)
 
     forecast_data = [round(cost, 2) for cost in forecast_costs.values()]
 

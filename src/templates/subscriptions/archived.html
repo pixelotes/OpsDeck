@@ -1,22 +1,22 @@
 {% extends "layout.html" %}
 
-{% block title %}Archived Services - {{ super() }}{% endblock %}
+{% block title %}Archived Subscriptions - {{ super() }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="fas fa-archive"></i> Archived Services</h2>
-    <button class="btn btn-success" onclick="exportTableToCSV('archived-services-table', 'archived-services.csv')">
+    <h2><i class="fas fa-archive"></i> Archived Subscriptions</h2>
+    <button class="btn btn-success" onclick="exportTableToCSV('archived-subscriptions-table', 'archived-subscriptions.csv')">
         <i class="fas fa-file-csv"></i> Export to CSV
     </button>
-    <a href="{{ url_for('services.services') }}" class="btn btn-outline-secondary">
-        <i class="fas fa-arrow-left"></i> Back to Active Services
+    <a href="{{ url_for('subscriptions.subscriptions') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Active Subscriptions
     </a>
 </div>
 
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped" id="archived-services">
+            <table class="table table-striped" id="archived-subscriptions">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -26,13 +26,13 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for service in services %}
+                    {% for subscription in subscriptions %}
                     <tr>
-                        <td><a href="{{ url_for('services.service_detail', id=service.id) }}">{{ service.name }}</a></td>
-                        <td><span class="badge bg-secondary">{{ service.service_type }}</span></td>
-                        <td>{{ service.supplier.name }}</td>
+                        <td><a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{ subscription.name }}</a></td>
+                        <td><span class="badge bg-secondary">{{ subscription.subscription_type }}</span></td>
+                        <td>{{ subscription.supplier.name }}</td>
                         <td>
-                            <form action="{{ url_for('services.unarchive_service', id=service.id) }}" method="POST" class="d-inline">
+                            <form action="{{ url_for('subscriptions.unarchive_subscription', id=subscription.id) }}" method="POST" class="d-inline">
                                 <button type="submit" class="btn btn-sm btn-outline-success" title="Restore">
                                     <i class="fas fa-undo"></i> Restore
                                 </button>
@@ -41,7 +41,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" class="text-center">No archived services found.</td>
+                        <td colspan="4" class="text-center">No archived subscriptions found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

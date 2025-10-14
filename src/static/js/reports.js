@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Subscription Report Charts ---
     createChart('spendingBySupplierChart', 'doughnut', { ...doughnutPieData, datasets: [{...doughnutPieData.datasets[0], label: 'Spending in €'}] }, doughnutPieOptions);
-    createChart('servicesByTypeChart', 'bar', { ...barData, datasets: [{...barData.datasets[0], label: 'Number of Services'}] }, barOptions);
+    createChart('subscriptionsByTypeChart', 'bar', { ...barData, datasets: [{...barData.datasets[0], label: 'Number of Subscriptions'}] }, barOptions);
     createChart('monthlySpendingChart', 'line', { ...lineData('54, 162, 235'), datasets: [{...lineData('54, 162, 235').datasets[0], label: 'Spending in €'}] }, lineOptions);
     createChart('yearlySpendingChart', 'line', { ...lineData('255, 99, 132'), datasets: [{...lineData('255, 99, 132').datasets[0], label: 'Spending in €'}] }, lineOptions);
     
@@ -100,14 +100,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const elementIndex = elements[0].index;
                 const yearMonthKey = chart.data.keys[elementIndex];
                 if (yearMonthKey) {
-                    window.location.href = `/services?month=${yearMonthKey}`;
+                    window.location.href = `/subscriptions?month=${yearMonthKey}`;
                 }
             }
         }
     };
     createChart('forecastChart', 'bar', { ...barData, datasets: [{...barData.datasets[0], backgroundColor: 'rgba(153, 102, 255, 0.5)', borderColor: 'rgba(153, 102, 255, 1)', label: 'Forecasted Cost in €'}] }, forecastChartOptions);
 
-    // --- Service Detail Cost History Chart ---
+    // --- Subscription Detail Cost History Chart ---
     createChart('costHistoryChart', 'bar', { ...barData, datasets: [{...barData.datasets[0], backgroundColor: 'rgba(75, 192, 192, 0.5)', borderColor: 'rgba(75, 192, 192, 1)', label: 'Cost in €'}] }, { ...barOptions, scales: {y: {beginAtZero: false}}});
 
 

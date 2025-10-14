@@ -78,16 +78,16 @@
     <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-header">
-                <i class="fas fa-cogs"></i> Associated Services ({{ supplier.services|length }})
+                <i class="fas fa-cogs"></i> Associated Subscriptions ({{ supplier.subscriptions|length }})
             </div>
             <ul class="list-group list-group-flush">
-                {% for service in supplier.services %}
+                {% for subscription in supplier.subscriptions %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <a href="{{ url_for('services.service_detail', id=service.id) }}">{{ service.name }}</a>
-                        <span class="badge bg-secondary">{{ service.service_type }}</span>
+                        <a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{ subscription.name }}</a>
+                        <span class="badge bg-secondary">{{ subscription.subscription_type }}</span>
                     </li>
                 {% else %}
-                    <li class="list-group-item text-muted">No services associated with this supplier.</li>
+                    <li class="list-group-item text-muted">No subscriptions associated with this supplier.</li>
                 {% endfor %}
             </ul>
         </div>

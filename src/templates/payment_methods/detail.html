@@ -21,18 +21,18 @@
 
 <div class="card mb-4">
     <div class="card-header">
-        <i class="fas fa-cogs"></i> Associated Services ({{ method.services|length }})
+        <i class="fas fa-cogs"></i> Associated Subscriptions ({{ method.subscriptions|length }})
     </div>
     <ul class="list-group list-group-flush">
-        {% for service in method.services %}
+        {% for subscription in method.subscriptions %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
-                <a href="{{ url_for('services.service_detail', id=service.id) }}">{{ service.name }}</a>
+                <a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{ subscription.name }}</a>
                 <span>
-                    Renews on {{ service.next_renewal_date.strftime('%Y-%m-%d') }} for €{{ "%.2f"|format(service.cost_eur) }}
+                    Renews on {{ subscription.next_renewal_date.strftime('%Y-%m-%d') }} for €{{ "%.2f"|format(subscription.cost_eur) }}
                 </span>
             </li>
         {% else %}
-            <li class="list-group-item text-muted">No services are currently using this payment method.</li>
+            <li class="list-group-item text-muted">No subscriptions are currently using this payment method.</li>
         {% endfor %}
     </ul>
 </div>
