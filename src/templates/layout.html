@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Subscription Renewal Manager{% endblock %}</title>
+    <title>{% block title %}OpsDeck{% endblock %}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
     <link href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.css" rel="stylesheet" type="text/css">
@@ -24,7 +24,7 @@
 <body>
 
     <nav class="sidebar">
-        <div class="container-fluid"><a class="navbar-brand text-white mb-3 d-block text-center" href="{{ url_for('main.dashboard') }}"><i class="fas fa-sync-alt"></i> Renewals</a></div>
+        <div class="container-fluid"><a class="navbar-brand text-white mb-3 d-block text-center" href="{{ url_for('main.dashboard') }}"><i class="fas fa-sync-alt"></i> OpsDeck</a></div>
         <div class="p-2 position-relative"><input type="search" id="global-search-input" class="form-control" placeholder="Search..." autocomplete="off"><div id="global-search-results" class="list-group"></div></div>
         
         <div class="sidebar-body" id="sidebar-accordion">
@@ -45,6 +45,7 @@
                 <div class="collapse" id="operations-menu" data-bs-parent="#sidebar-accordion">
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('subscriptions.') %}active{% endif %}" href="{{ url_for('subscriptions.subscriptions') }}"><i class="fas fa-cogs"></i> Subscriptions</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.blueprint == 'licenses' %}active{% endif %}" href="{{ url_for('licenses.list_licenses') }}"><i class="fas fa-id-badge fa-fw me-2"></i>Licenses</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.blueprint == 'software' %}active{% endif %}" href="{{ url_for('software.list_software') }}"><i class="fas fa-compact-disc fa-fw me-2"></i>Software</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'subscriptions.calendar' %}active{% endif %}" href="{{ url_for('subscriptions.calendar') }}"><i class="fas fa-calendar"></i> Calendar</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('assets.') and 'warranties' not in request.endpoint %}active{% endif %}" href="{{ url_for('assets.assets') }}"><i class="fas fa-laptop"></i> Assets</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('peripherals.') %}active{% endif %}" href="{{ url_for('peripherals.peripherals') }}"><i class="fas fa-keyboard"></i> Peripherals</a></li>

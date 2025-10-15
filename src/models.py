@@ -200,6 +200,7 @@ class Subscription(db.Model):
     
     # Relationships
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
     contacts = db.relationship('Contact', secondary=subscription_contacts, backref='subscriptions')
     payment_methods = db.relationship('PaymentMethod', secondary=subscription_payment_methods, back_populates='subscriptions')
     attachments = db.relationship('Attachment', backref='subscription', lazy=True, cascade='all, delete-orphan')
@@ -804,7 +805,49 @@ class License(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Assigned user (seat)
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'), nullable=True)
     subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'), nullable=True)
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=False)
     
     # Metadata
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def status(self):
+        today = date.today()
+        if self.expiry_date and self.expiry_date < today:
+            return "Expired"
+        if self.user_id:
+            return "In use"
+        return "Available"
+    
+class Software(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False, unique=True)
+    category = db.Column(db.String(100)) # e.g., 'Design', 'Productivity', 'Security'
+    description = db.Column(db.Text)
+
+    # Ownership
+    owner_id = db.Column(db.Integer)
+    owner_type = db.Column(db.String(50)) # 'user' or 'group'
+
+    # Relationships
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=True)
+    subscriptions = db.relationship('Subscription', backref='software', lazy='dynamic')
+    licenses = db.relationship('License', backref='software', lazy='dynamic')
+    
+    supplier = db.relationship('Supplier', backref='software')
+
+    # ISO 27001 Compliance Field
+    iso_27001_control_references = db.Column(db.Text, nullable=True, comment="Relevant ISO 27001 controls, e.g., A.12.1.2, A.14.2.1")
+
+    # Metadata
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def owner(self):
+        if self.owner_type == 'user' and self.owner_id:
+            return User.query.get(self.owner_id)
+        if self.owner_type == 'group' and self.owner_id:
+            return Group.query.get(self.owner_id)
+        return None

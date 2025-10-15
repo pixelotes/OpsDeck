@@ -12,9 +12,9 @@
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Status</th>
                     <th>Assigned To</th>
                     <th>Subscription</th>
-                    <th>Purchase Date</th>
                     <th>Expiry Date</th>
                     <th>Cost</th>
                 </tr>
@@ -23,9 +23,17 @@
                 {% for license in licenses.items %}
                 <tr>
                     <td><a href="{{ url_for('licenses.detail', id=license.id) }}">{{ license.name }}</a></td>
+                    <td>
+                        {% if license.status == 'In use' %}
+                            <span class="badge bg-success">In use</span>
+                        {% elif license.status == 'Available' %}
+                            <span class="badge bg-info text-dark">Available</span>
+                        {% elif license.status == 'Expired' %}
+                            <span class="badge bg-danger">Expired</span>
+                        {% endif %}
+                    </td>
                     <td>{% if license.user %}{{ license.user.name }}{% else %}<span class="text-muted">Unassigned</span>{% endif %}</td>
                     <td>{% if license.subscription %}{{ license.subscription.name }}{% else %}<span class="text-muted">N/A</span>{% endif %}</td>
-                    <td>{{ license.purchase_date.strftime('%Y-%m-%d') if license.purchase_date else '' }}</td>
                     <td>{{ license.expiry_date.strftime('%Y-%m-%d') if license.expiry_date else 'Perpetual' }}</td>
                     <td>{{ license.currency }} {{ "%.2f"|format(license.cost) if license.cost else '' }}</td>
                 </tr>
