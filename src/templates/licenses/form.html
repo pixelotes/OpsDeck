@@ -13,6 +13,42 @@
                 <label for="license_key" class="form-label">License Key</label>
                 <textarea class="form-control" id="license_key" name="license_key">{{ license.license_key or '' }}</textarea>
             </div>
+            
+            <hr>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="link_type" class="form-label">Link To *</label>
+                    <select class="form-select" id="link_type" name="link_type" required>
+                        <option value="software" {% if license and license.software_id and not license.subscription_id %}selected{% endif %}>Software Application</option>
+                        <option value="subscription" {% if license and license.subscription_id %}selected{% endif %}>Subscription / Billing Plan</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6" id="software-group">
+                    <label for="software_id" class="form-label">Software *</label>
+                    <select class="form-select" id="software_id" name="software_id" required>
+                        <option value="">-- Select Software --</option>
+                        {% for software in software_items %}
+                        <option value="{{ software.id }}" {% if license and license.software_id == software.id %}selected{% endif %}>{{ software.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6" id="subscription-group" style="display: none;">
+                    <label for="subscription_id" class="form-label">Subscription *</label>
+                    <select class="form-select" id="subscription_id" name="subscription_id" required>
+                        <option value="">-- Select Subscription --</option>
+                        {% for sub in subscriptions %}
+                        <option value="{{ sub.id }}" {% if license and license.subscription_id == sub.id %}selected{% endif %}>{{ sub.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <hr>
+
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label for="user_id" class="form-label">Assigned User</label>
@@ -24,11 +60,11 @@
                     </select>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label for="subscription_id" class="form-label">Associated Subscription</label>
-                    <select class="form-select" id="subscription_id" name="subscription_id">
-                        <option value="">-- Standalone License --</option>
-                        {% for sub in subscriptions %}
-                        <option value="{{ sub.id }}" {% if license and license.subscription_id == sub.id %}selected{% endif %}>{{ sub.name }}</option>
+                     <label for="purchase_id" class="form-label">Associated Purchase</label>
+                    <select class="form-select" id="purchase_id" name="purchase_id">
+                        <option value="">-- None --</option>
+                        {% for purchase in purchases %}
+                        <option value="{{ purchase.id }}" {% if license and license.purchase_id == purchase.id %}selected{% endif %}>{{ purchase.purchase_date.strftime('%Y-%m-%d') }} - {{ purchase.description }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -57,15 +93,6 @@
                     <input type="date" class="form-control" id="expiry_date" name="expiry_date" value="{{ license.expiry_date.strftime('%Y-%m-%d') if license and license.expiry_date }}">
                 </div>
             </div>
-             <div class="mb-3">
-                <label for="purchase_id" class="form-label">Associated Purchase</label>
-                <select class="form-select" id="purchase_id" name="purchase_id">
-                    <option value="">-- None --</option>
-                    {% for purchase in purchases %}
-                    <option value="{{ purchase.id }}" {% if license and license.purchase_id == purchase.id %}selected{% endif %}>{{ purchase.purchase_date.strftime('%Y-%m-%d') }} - {{ purchase.description }}</option>
-                    {% endfor %}
-                </select>
-            </div>
         </div>
         <div class="card-footer text-end">
             <a href="{{ url_for('licenses.list_licenses') }}" class="btn btn-secondary">Cancel</a>
@@ -73,4 +100,35 @@
         </div>
     </div>
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const linkType = document.getElementById('link_type');
+    const softwareGroup = document.getElementById('software-group');
+    const subscriptionGroup = document.getElementById('subscription-group');
+    const softwareSelect = document.getElementById('software_id');
+    const subscriptionSelect = document.getElementById('subscription_id');
+
+    function toggleLinkFields() {
+        if (linkType.value === 'software') {
+            softwareGroup.style.display = 'block';
+            subscriptionGroup.style.display = 'none';
+            // Enable required on active, disable on hidden
+            softwareSelect.setAttribute('required', 'required');
+            subscriptionSelect.removeAttribute('required');
+        } else {
+            softwareGroup.style.display = 'none';
+            subscriptionGroup.style.display = 'block';
+            // Enable required on active, disable on hidden
+            softwareSelect.removeAttribute('required');
+            subscriptionSelect.setAttribute('required', 'required');
+        }
+    }
+
+    linkType.addEventListener('change', toggleLinkFields);
+
+    // Initial check on load
+    toggleLinkFields();
+});
+</script>
 {% endblock %}
