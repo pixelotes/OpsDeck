@@ -44,8 +44,8 @@
                 <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#operations-menu" aria-expanded="false">Operations <i class="fas fa-chevron-down float-end"></i></h6>
                 <div class="collapse" id="operations-menu" data-bs-parent="#sidebar-accordion">
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('subscriptions.') %}active{% endif %}" href="{{ url_for('subscriptions.subscriptions') }}"><i class="fas fa-cogs"></i> Subscriptions</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.blueprint == 'licenses' %}active{% endif %}" href="{{ url_for('licenses.list_licenses') }}"><i class="fas fa-id-badge fa-fw me-2"></i>Licenses</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.blueprint == 'software' %}active{% endif %}" href="{{ url_for('software.list_software') }}"><i class="fas fa-compact-disc fa-fw me-2"></i>Software</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.blueprint == 'licenses' %}active{% endif %}" href="{{ url_for('licenses.list_licenses') }}"><i class="fas fa-id-badge"></i> Licenses</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.blueprint == 'software' %}active{% endif %}" href="{{ url_for('software.list_software') }}"><i class="fas fa-compact-disc"></i> Software</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'subscriptions.calendar' %}active{% endif %}" href="{{ url_for('subscriptions.calendar') }}"><i class="fas fa-calendar"></i> Calendar</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('assets.') and 'warranties' not in request.endpoint %}active{% endif %}" href="{{ url_for('assets.assets') }}"><i class="fas fa-laptop"></i> Assets</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('peripherals.') %}active{% endif %}" href="{{ url_for('peripherals.peripherals') }}"><i class="fas fa-keyboard"></i> Peripherals</a></li>
