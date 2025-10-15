@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
-from ..models import db, Software, Supplier, User, Group
+from ..models import db, Software, Supplier, User, Group, License
 from .main import login_required
 
 software_bp = Blueprint('software', __name__, url_prefix='/software')
@@ -15,7 +15,30 @@ def list_software():
 @login_required
 def detail(id):
     software = Software.query.get_or_404(id)
-    return render_template('software/detail.html', software=software)
+    
+    # --- Collect all Licenses (Direct and Indirect) ---
+    combined_licenses = []
+
+    # 1. Licenses directly attached to this software
+    for license in software.licenses:
+        combined_licenses.append({
+            'license': license,
+            'origin': 'Direct attach'
+        })
+        
+    # 2. Licenses attached via subscriptions linked to this software
+    # Use .all() on the dynamic relationship to fetch items
+    for subscription in software.subscriptions.all():
+        for license in subscription.licenses:
+            combined_licenses.append({
+                'license': license,
+                'origin': f'{subscription.name} subscription'
+            })
+
+    # Sort the licenses for consistent display
+    combined_licenses.sort(key=lambda x: x['license'].name)
+
+    return render_template('software/detail.html', software=software, combined_licenses=combined_licenses) # Passed the new list
 
 @software_bp.route('/new', methods=['GET', 'POST'])
 @login_required

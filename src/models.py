@@ -805,7 +805,7 @@ class License(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Assigned user (seat)
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'), nullable=True)
     subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'), nullable=True)
-    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=False)
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
     
     # Metadata
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
