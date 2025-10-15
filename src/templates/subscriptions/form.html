@@ -34,9 +34,9 @@
 
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <label for="supplier_id" class="form-label">Supplier *</label>
-                    <select class="form-select" id="supplier_id" name="supplier_id" required>
-                        <option value="">Select a supplier...</option>
+                    <label for="supplier_id" class="form-label">Supplier</label>
+                    <select class="form-select" id="supplier_id" name="supplier_id">
+                        <option value="">Select a supplier (Optional)...</option>
                         {% for supplier in suppliers %}
                         <option value="{{ supplier.id }}" {% if subscription and subscription.supplier_id == supplier.id %}selected{% endif %}>
                             {{ supplier.name }}
@@ -45,6 +45,19 @@
                     </select>
                 </div>
                 <div class="col-md-6">
+                    <label for="software_id" class="form-label">Associated Software</label>
+                    <select class="form-select" id="software_id" name="software_id">
+                        <option value="">Select an application (Optional)...</option>
+                        {% for software in software_items %}
+                        <option value="{{ software.id }}" {% if subscription and subscription.software_id == software.id %}selected{% endif %}>
+                            {{ software.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-12">
                     <label for="contact_ids" class="form-label">Associated Contacts</label>
                     <select class="form-select" id="contact_ids" name="contact_ids" multiple size="3">
                         {% set selected_contacts = subscription.contacts|map(attribute='id')|list if subscription else [] %}
@@ -57,7 +70,7 @@
                     <small class="form-text text-muted">Hold Ctrl or Command to select multiple.</small>
                 </div>
             </div>
-            
+
             <div class="row mb-3">
                 <div class="col-md-12">
                     <label for="payment_method_ids" class="form-label">Payment Methods</label>
