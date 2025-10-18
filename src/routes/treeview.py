@@ -1,7 +1,8 @@
 from flask import (
     Blueprint, render_template, request, url_for
 )
-from ..models import Location, User, Supplier
+# --- UPDATED: Import Asset, Peripheral, License ---
+from ..models import Location, User, Supplier, Asset, Peripheral, License
 from .main import login_required
 
 treeview_bp = Blueprint('treeview', __name__)
@@ -11,7 +12,7 @@ treeview_bp = Blueprint('treeview', __name__)
 def tree_view():
     selected_root = request.args.get('root', 'locations')
     tree_data = []
-    
+
     # Define the available options for the dropdown
     root_options = ["Locations", "Users", "Suppliers"]
 
@@ -35,7 +36,7 @@ def tree_view():
                     peripheral_node = {
                         'name': peripheral.name,
                         'icon': 'fa-keyboard',
-                        'url': url_for('peripherals.edit_peripheral', id=peripheral.id)
+                        'url': url_for('peripherals.peripheral_detail', id=peripheral.id)
                     }
                     asset_node['children'].append(peripheral_node)
                 location_node['children'].append(asset_node)
@@ -50,7 +51,7 @@ def tree_view():
                 'url': url_for('users.user_detail', id=user.id),
                 'children': []
             }
-            # Add assigned assets as children
+            # Add assigned assets
             if user.assets:
                 assets_node = {'name': 'Assets', 'icon': 'fa-laptop', 'children': []}
                 for asset in user.assets:
@@ -60,8 +61,37 @@ def tree_view():
                         'url': url_for('assets.asset_detail', id=asset.id)
                     })
                 user_node['children'].append(assets_node)
-            
-            # Add associated purchases as children
+
+            # --- ADD Peripherals ---
+            if user.peripherals:
+                peripherals_node = {'name': 'Peripherals', 'icon': 'fa-keyboard', 'children': []}
+                for peripheral in user.peripherals:
+                    peripherals_node['children'].append({
+                        'name': peripheral.name,
+                        'icon': 'fa-keyboard', # Or fa-mouse, fa-headphones etc. based on type?
+                        'url': url_for('peripherals.peripheral_detail', id=peripheral.id)
+                    })
+                user_node['children'].append(peripherals_node)
+            # --- END ADD Peripherals ---
+
+            # --- ADD Licenses ---
+            if user.licenses:
+                licenses_node = {'name': 'Licenses', 'icon': 'fa-id-badge', 'children': []}
+                for license in user.licenses:
+                    license_display_name = f"{license.name}"
+                    # Example: Truncate key if you want to show part of it
+                    # if license.license_key:
+                    #    license_display_name += f" (...{license.license_key[-6:]})"
+
+                    licenses_node['children'].append({
+                        'name': license_display_name,
+                        'icon': 'fa-id-badge', # Or fa-key
+                        'url': url_for('licenses.detail', id=license.id)
+                    })
+                user_node['children'].append(licenses_node)
+            # --- END ADD Licenses ---
+
+            # Add associated purchases
             if user.purchases:
                 purchases_node = {'name': 'Purchases', 'icon': 'fa-shopping-cart', 'children': []}
                 for purchase in user.purchases:
@@ -103,6 +133,19 @@ def tree_view():
                         'url': url_for('assets.asset_detail', id=asset.id)
                     })
                 supplier_node['children'].append(assets_node)
+
+            # --- ADD Peripherals ---
+            if supplier.peripherals:
+                peripherals_node = {'name': 'Peripherals', 'icon': 'fa-keyboard', 'children': []}
+                for peripheral in supplier.peripherals:
+                    peripherals_node['children'].append({
+                        'name': peripheral.name,
+                        'icon': 'fa-keyboard', # Or other icons based on type
+                        'url': url_for('peripherals.peripheral_detail', id=peripheral.id)
+                    })
+                supplier_node['children'].append(peripherals_node)
+            # --- END ADD Peripherals ---
+
             tree_data.append(supplier_node)
 
     return render_template('tree_view.html',
