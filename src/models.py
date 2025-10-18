@@ -335,28 +335,42 @@ class Purchase(db.Model):
     cost_validated_at = db.Column(db.DateTime, nullable=True)
     cost_validated_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     cost_validated_by = db.relationship('User', foreign_keys=[cost_validated_by_id])
-    
+
     users = db.relationship('User', secondary=purchase_users, backref='purchases')
     tags = db.relationship('Tag', secondary=purchase_tags, backref='purchases')
     attachments = db.relationship('Attachment', backref='purchase', lazy=True, cascade='all, delete-orphan')
     assets = db.relationship('Asset', backref='purchase', lazy=True)
     peripherals = db.relationship('Peripheral', backref='purchase', lazy=True)
-    licenses = db.relationship('License', backref='purchase', lazy=True)
-    
+    licenses = db.relationship('License', backref='purchase', lazy=True) # Added relationship
+
     cost_history = db.relationship('PurchaseCostHistory', backref='purchase', lazy=True, order_by='PurchaseCostHistory.timestamp.desc()')
 
     @property
     def calculated_cost(self):
-        """Always calculates the cost from associated items."""
-        total = 0
+        """Calculates the cost from associated assets, peripherals, AND perpetual licenses."""
+        total = 0.0 # Use float for calculations
+        # Add costs from Assets
         for asset in self.assets:
-            if asset.cost:
+            if asset.cost is not None:
+                # Assuming purchase total should be sum of original costs
+                # Add currency conversion here if needed, e.g., to EUR
                 total += asset.cost
+        # Add costs from Peripherals
         for peripheral in self.peripherals:
-            if peripheral.cost:
-                total += peripheral.cost
+            if peripheral.cost is not None:
+                 # Add currency conversion here if needed
+                 total += peripheral.cost
+
+        # --- ADDED: Include costs from perpetual/standalone licenses ---
+        for license in self.licenses:
+            # Only include cost if it's NOT linked to a subscription (i.e., it's perpetual/standalone)
+            # and if the cost exists
+            if license.subscription_id is None and license.cost is not None:
+                 # Add currency conversion here if needed
+                 total += license.cost
+        # --- END ADDITION ---
         return total
-    
+
     @property
     def total_cost(self):
         """Returns the validated cost if it exists, otherwise calculates it."""
@@ -804,6 +818,7 @@ class License(db.Model):
     # Relationships
     user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Assigned user (seat)
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'), nullable=True)
+    budget_id = db.Column(db.Integer, db.ForeignKey('budget.id'), nullable=True)
     subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'), nullable=True)
     software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
     
