@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+{% block title %}Software - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-compact-disc"></i> Software</h2>
+    <a href="{{ url_for('software.add_software') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Software</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Owner</th>
+                    <th>Supplier</th>
+                    <th>Licenses</th>
+                    <th>Subscriptions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for software in all_software.items %}
+                <tr>
+                    <td><a href="{{ url_for('software.detail', id=software.id) }}">{{ software.name }}</a></td>
+                    <td>{{ software.category }}</td>
+                    <td>{{ software.owner.name if software.owner else 'N/A' }}</td>
+                    <td>{{ software.supplier.name if software.supplier else 'N/A' }}</td>
+                    <td>{{ software.licenses.count() }}</td>
+                    <td>{{ software.subscriptions.count() }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center">No software found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

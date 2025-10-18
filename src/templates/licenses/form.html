@@ -1,0 +1,162 @@
+{% extends "layout.html" %}
+{% block title %}{% if license %}Edit License{% else %}Add License{% endif %} - {{ super() }}{% endblock %}
+{% block content %}
+<h2>{% if license %}Edit License{% else %}Add New License{% endif %}</h2>
+
+{# Check if the associated purchase (if any) is validated #}
+{% set purchase_is_validated = license and license.purchase and license.purchase.validated_cost is not none %}
+
+{# Display alert if the purchase is validated #}
+{% if purchase_is_validated %}
+<div class="alert alert-warning" role="alert">
+    <i class="fas fa-lock"></i> The associated purchase for this license has a validated cost. Financial details (Cost, Currency, Purchase Date, Purchase Link) cannot be changed.
+</div>
+{% endif %}
+
+<form method="POST">
+    <div class="card">
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="name" class="form-label">License Name *</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ license.name or '' }}" required>
+            </div>
+            <div class="mb-3">
+                <label for="license_key" class="form-label">License Key</label>
+                <textarea class="form-control" id="license_key" name="license_key">{{ license.license_key or '' }}</textarea>
+            </div>
+
+            <hr>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="link_type" class="form-label">Link To *</label>
+                    <select class="form-select" id="link_type" name="link_type" required>
+                        {# Set default selection based on existing license or default to software #}
+                        <option value="software" {% if not license or (license.software_id and not license.subscription_id) %}selected{% endif %}>Software Application (Perpetual/Standalone)</option>
+                        <option value="subscription" {% if license and license.subscription_id %}selected{% endif %}>Subscription / Billing Plan (Seat)</option>
+                    </select>
+                     <div class="form-text">Choose 'Software' for perpetual licenses or licenses not tied to a recurring bill. Choose 'Subscription' for seats included in a recurring plan.</div>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6" id="software-group">
+                    <label for="software_id" class="form-label">Software *</label>
+                    <select class="form-select" id="software_id" name="software_id"> {# Removed required initially #}
+                        <option value="">-- Select Software --</option>
+                        {% for software in software_items %}
+                        <option value="{{ software.id }}" {% if license and license.software_id == software.id %}selected{% endif %}>{{ software.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6" id="subscription-group" style="display: none;">
+                    <label for="subscription_id" class="form-label">Subscription *</label>
+                    <select class="form-select" id="subscription_id" name="subscription_id"> {# Removed required initially #}
+                        <option value="">-- Select Subscription --</option>
+                        {% for sub in subscriptions %}
+                        <option value="{{ sub.id }}" {% if license and license.subscription_id == sub.id %}selected{% endif %}>{{ sub.name }}</option>
+                        {% endfor %}
+                    </select>
+                     <div class="form-text">Cost for subscription-based licenses is primarily tracked on the Subscription record itself.</div>
+                </div>
+            </div>
+
+            <hr>
+
+             <div class="row" id="cost-section"> {# Added ID for easier show/hide #}
+                <div class="col-md-6 mb-3">
+                    <label for="cost" class="form-label">Cost (One-time)</label>
+                    <input type="number" step="0.01" class="form-control" id="cost" name="cost" value="{{ license.cost or '' }}" {% if purchase_is_validated %}disabled{% endif %}> {# Add disabled #}
+                     <div class="form-text">Enter cost only for perpetual licenses or licenses purchased separately. Leave blank for subscription seats.{% if purchase_is_validated %} Cannot change cost for validated purchase.{% endif %}</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="currency" class="form-label">Currency</label>
+                     <select class="form-select" id="currency" name="currency" {% if purchase_is_validated %}disabled{% endif %}> {# Add disabled #}
+                        {# Use CURRENCY_RATES keys for options if available, otherwise fallback #}
+                         <option value="EUR" {% if license and license.currency == 'EUR' %}selected{% endif %}>EUR</option>
+                         <option value="USD" {% if license and license.currency == 'USD' %}selected{% endif %}>USD</option>
+                         <option value="GBP" {% if license and license.currency == 'GBP' %}selected{% endif %}>GBP</option>
+                         <option value="ZAR" {% if license and license.currency == 'ZAR' %}selected{% endif %}>ZAR</option> {# Added ZAR #}
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                 <div class="col-md-6 mb-3">
+                    <label for="user_id" class="form-label">Assigned User</label>
+                    <select class="form-select" id="user_id" name="user_id">
+                        <option value="">-- Unassigned --</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if license and license.user_id == user.id %}selected{% endif %}>{{ user.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                 <div class="col-md-6 mb-3">
+                     <label for="purchase_id" class="form-label">Associated Purchase (Optional)</label>
+                    <select class="form-select" id="purchase_id" name="purchase_id" {% if purchase_is_validated %}disabled{% endif %}> {# Add disabled #}
+                        <option value="">-- None --</option>
+                        {% for purchase in purchases %}
+                        <option value="{{ purchase.id }}" {% if license and license.purchase_id == purchase.id %}selected{% endif %}>{{ purchase.purchase_date.strftime('%Y-%m-%d') }} - {{ purchase.description }}</option>
+                        {% endfor %}
+                    </select>
+                     <div class="form-text">Link if this license was part of a specific one-time purchase order.{% if purchase_is_validated %} Cannot change purchase link for validated purchase.{% endif %}</div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="purchase_date" class="form-label">Purchase Date</label>
+                    <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="{{ license.purchase_date.strftime('%Y-%m-%d') if license and license.purchase_date }}" {% if purchase_is_validated %}disabled{% endif %}> {# Add disabled #}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="expiry_date" class="form-label">Expiry Date (Optional)</label>
+                    <input type="date" class="form-control" id="expiry_date" name="expiry_date" value="{{ license.expiry_date.strftime('%Y-%m-%d') if license and license.expiry_date }}">
+                     <div class="form-text">Leave blank for perpetual licenses.</div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer text-end">
+            <a href="{{ url_for('licenses.list_licenses') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save License</button>
+        </div>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const linkType = document.getElementById('link_type');
+    const softwareGroup = document.getElementById('software-group');
+    const subscriptionGroup = document.getElementById('subscription-group');
+    const softwareSelect = document.getElementById('software_id');
+    const subscriptionSelect = document.getElementById('subscription_id');
+    const costSection = document.getElementById('cost-section'); // Get cost section
+    const costInput = document.getElementById('cost'); // Get cost input
+
+    function toggleLinkFields() {
+        if (linkType.value === 'software') {
+            softwareGroup.style.display = 'block';
+            subscriptionGroup.style.display = 'none';
+            costSection.style.display = 'flex'; // Show cost section for software/perpetual
+            softwareSelect.setAttribute('required', 'required');
+            subscriptionSelect.removeAttribute('required');
+            subscriptionSelect.value = ''; // Clear subscription selection
+            // costInput.setAttribute('required', 'required'); // Optional: Make cost required for perpetual
+        } else { // subscription selected
+            softwareGroup.style.display = 'none';
+            subscriptionGroup.style.display = 'block';
+            costSection.style.display = 'none'; // Hide cost section for subscription
+            softwareSelect.removeAttribute('required');
+            softwareSelect.value = ''; // Clear software selection
+            subscriptionSelect.setAttribute('required', 'required');
+            costInput.removeAttribute('required'); // Cost is not required for subscription seats
+            // costInput.value = ''; // Optionally clear cost field when switching to subscription
+        }
+    }
+
+    linkType.addEventListener('change', toggleLinkFields);
+
+    // Initial check on load
+    toggleLinkFields();
+});
+</script>
+{% endblock %}

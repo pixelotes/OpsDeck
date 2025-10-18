@@ -1,0 +1,94 @@
+{% extends "layout.html" %}
+{% block title %}{{ license.name }} - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-id-badge"></i> {{ license.name }}</h2>
+    <div>
+        <a href="{{ url_for('licenses.edit_license', id=license.id) }}" class="btn btn-secondary">Edit</a>
+        {# Add Archive Button if needed #}
+        {#
+        <form action="{{ url_for('licenses.archive_license', id=license.id) }}" method="POST" class="d-inline ms-1" onsubmit="return confirm('Are you sure you want to archive this license?');">
+            <button type="submit" class="btn btn-outline-warning" title="Archive">
+                <i class="fas fa-archive"></i> Archive
+            </button>
+        </form>
+         #}
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">License Details</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Status:</strong>
+                    {% if license.status == 'In use' %}
+                        <span class="badge bg-success">In use</span>
+                    {% elif license.status == 'Available' %}
+                        <span class="badge bg-info text-dark">Available</span>
+                    {% elif license.status == 'Expired' %}
+                        <span class="badge bg-danger">Expired</span>
+                    {% else %}
+                         <span class="badge bg-secondary">{{ license.status }}</span>
+                    {% endif %}
+                </p>
+                <p><strong>License Key:</strong> <code>{{ license.license_key or 'N/A' }}</code></p>
+                <p><strong>Assigned User:</strong>
+                    {% if license.user %}
+                        <a href="{{ url_for('users.user_detail', id=license.user.id) }}">{{ license.user.name }}</a>
+                    {% else %}
+                        <span class="text-muted">Unassigned</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-6">
+                 <p><strong>Cost:</strong>
+                    {% if license.cost is not none %}
+                        {{ license.currency }} {{ "%.2f"|format(license.cost) }} (One-time)
+                    {% else %}
+                         <span class="text-muted">N/A (Cost tracked via Subscription)</span>
+                    {% endif %}
+                 </p>
+                <p><strong>Purchase Date:</strong> {{ license.purchase_date.strftime('%Y-%m-%d') if license.purchase_date else 'N/A' }}</p>
+                <p><strong>Expiry Date:</strong> {{ license.expiry_date.strftime('%Y-%m-%d') if license.expiry_date else 'Perpetual' }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Association Details</div>
+     <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Linked Software:</strong>
+                    {% if license.software %}
+                        <a href="{{ url_for('software.detail', id=license.software.id) }}">{{ license.software.name }}</a>
+                    {% else %}
+                        <span class="text-muted">N/A</span>
+                    {% endif %}
+                </p>
+                <p><strong>Linked Subscription:</strong>
+                    {% if license.subscription %}
+                        <a href="{{ url_for('subscriptions.subscription_detail', id=license.subscription.id) }}">{{ license.subscription.name }}</a>
+                         <span class="text-muted">(Seat/Usage Right)</span>
+                    {% else %}
+                         <span class="text-muted">N/A (Likely Perpetual/Standalone)</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-6">
+                 <p><strong>Associated Purchase:</strong>
+                    {% if license.purchase %}
+                        <a href="{{ url_for('purchases.purchase_detail', id=license.purchase.id) }}">{{ license.purchase.description }}</a>
+                        <span class="text-muted small d-block">on {{ license.purchase.purchase_date.strftime('%Y-%m-%d') }}</span>
+                    {% else %}
+                        <span class="text-muted">N/A</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

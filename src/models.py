@@ -48,6 +48,7 @@ class User(db.Model): # Add UserMixin here if using Flask-Login
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     assets = db.relationship('Asset', backref='user', lazy=True)
     peripherals = db.relationship('Peripheral', backref='user', lazy=True)
+    licenses = db.relationship('License', backref='user', lazy=True)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     acknowledgements = db.relationship('PolicyAcknowledgement', backref='user', lazy=True, cascade='all, delete-orphan')
     groups = db.relationship('Group', secondary=user_groups, back_populates='users')
@@ -185,7 +186,7 @@ class Subscription(db.Model):
     renewal_period_type = db.Column(db.String(20), nullable=False)
     renewal_period_value = db.Column(db.Integer, default=1)
     
-    # NEW FIELD: Stores 'first', 'last', or a day number (e.g., '15') for monthly renewals
+    # Stores 'first', 'last', or a day number (e.g., '15') for monthly renewals
     monthly_renewal_day = db.Column(db.String(10), nullable=True)
     
     auto_renew = db.Column(db.Boolean, default=False)
@@ -193,9 +194,13 @@ class Subscription(db.Model):
     # Cost information
     cost = db.Column(db.Float, nullable=False)
     currency = db.Column(db.String(3), default='EUR')
+
+    # Licenses
+    licenses = db.relationship('License', backref='subscription', lazy=True)
     
     # Relationships
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
     contacts = db.relationship('Contact', secondary=subscription_contacts, backref='subscriptions')
     payment_methods = db.relationship('PaymentMethod', secondary=subscription_payment_methods, back_populates='subscriptions')
     attachments = db.relationship('Attachment', backref='subscription', lazy=True, cascade='all, delete-orphan')
@@ -330,27 +335,42 @@ class Purchase(db.Model):
     cost_validated_at = db.Column(db.DateTime, nullable=True)
     cost_validated_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     cost_validated_by = db.relationship('User', foreign_keys=[cost_validated_by_id])
-    
+
     users = db.relationship('User', secondary=purchase_users, backref='purchases')
     tags = db.relationship('Tag', secondary=purchase_tags, backref='purchases')
     attachments = db.relationship('Attachment', backref='purchase', lazy=True, cascade='all, delete-orphan')
     assets = db.relationship('Asset', backref='purchase', lazy=True)
     peripherals = db.relationship('Peripheral', backref='purchase', lazy=True)
-    
+    licenses = db.relationship('License', backref='purchase', lazy=True) # Added relationship
+
     cost_history = db.relationship('PurchaseCostHistory', backref='purchase', lazy=True, order_by='PurchaseCostHistory.timestamp.desc()')
 
     @property
     def calculated_cost(self):
-        """Always calculates the cost from associated items."""
-        total = 0
+        """Calculates the cost from associated assets, peripherals, AND perpetual licenses."""
+        total = 0.0 # Use float for calculations
+        # Add costs from Assets
         for asset in self.assets:
-            if asset.cost:
+            if asset.cost is not None:
+                # Assuming purchase total should be sum of original costs
+                # Add currency conversion here if needed, e.g., to EUR
                 total += asset.cost
+        # Add costs from Peripherals
         for peripheral in self.peripherals:
-            if peripheral.cost:
-                total += peripheral.cost
+            if peripheral.cost is not None:
+                 # Add currency conversion here if needed
+                 total += peripheral.cost
+
+        # --- ADDED: Include costs from perpetual/standalone licenses ---
+        for license in self.licenses:
+            # Only include cost if it's NOT linked to a subscription (i.e., it's perpetual/standalone)
+            # and if the cost exists
+            if license.subscription_id is None and license.cost is not None:
+                 # Add currency conversion here if needed
+                 total += license.cost
+        # --- END ADDITION ---
         return total
-    
+
     @property
     def total_cost(self):
         """Returns the validated cost if it exists, otherwise calculates it."""
@@ -781,3 +801,68 @@ class Lead(db.Model):
     status = db.Column(db.String(50), default='New') # New, Contacted, Qualified, Converted, Disqualified
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class License(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    license_key = db.Column(db.Text)
+    
+    # Financials
+    cost = db.Column(db.Float)
+    currency = db.Column(db.String(3), default='EUR')
+    
+    # Dates
+    purchase_date = db.Column(db.Date)
+    expiry_date = db.Column(db.Date, nullable=True) # Optional for perpetual licenses
+
+    # Relationships
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Assigned user (seat)
+    purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'), nullable=True)
+    budget_id = db.Column(db.Integer, db.ForeignKey('budget.id'), nullable=True)
+    subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'), nullable=True)
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
+    
+    # Metadata
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def status(self):
+        today = date.today()
+        if self.expiry_date and self.expiry_date < today:
+            return "Expired"
+        if self.user_id:
+            return "In use"
+        return "Available"
+    
+class Software(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False, unique=True)
+    category = db.Column(db.String(100)) # e.g., 'Design', 'Productivity', 'Security'
+    description = db.Column(db.Text)
+
+    # Ownership
+    owner_id = db.Column(db.Integer)
+    owner_type = db.Column(db.String(50)) # 'user' or 'group'
+
+    # Relationships
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=True)
+    subscriptions = db.relationship('Subscription', backref='software', lazy='dynamic')
+    licenses = db.relationship('License', backref='software', lazy='dynamic')
+    
+    supplier = db.relationship('Supplier', backref='software')
+
+    # ISO 27001 Compliance Field
+    iso_27001_control_references = db.Column(db.Text, nullable=True, comment="Relevant ISO 27001 controls, e.g., A.12.1.2, A.14.2.1")
+
+    # Metadata
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def owner(self):
+        if self.owner_type == 'user' and self.owner_id:
+            return User.query.get(self.owner_id)
+        if self.owner_type == 'group' and self.owner_id:
+            return Group.query.get(self.owner_id)
+        return None

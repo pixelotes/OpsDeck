@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+{% block title %}{% if software %}Edit Software{% else %}Add Software{% endif %} - {{ super() }}{% endblock %}
+{% block content %}
+<h2>{% if software %}Edit Software{% else %}Add New Software{% endif %}</h2>
+<form method="POST">
+    <div class="card">
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="name" class="form-label">Software Name</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ software.name or '' }}" required>
+            </div>
+             <div class="mb-3">
+                <label for="category" class="form-label">Category</label>
+                <input type="text" class="form-control" id="category" name="category" value="{{ software.category or '' }}">
+            </div>
+             <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description">{{ software.description or '' }}</textarea>
+            </div>
+            <div class="row">
+                 <div class="col-md-6 mb-3">
+                    <label for="owner" class="form-label">Owner</label>
+                    <select class="form-select" id="owner" name="owner">
+                        <option value="">-- No Owner --</option>
+                        <optgroup label="Users">
+                            {% for user in users %}
+                            <option value="user_{{ user.id }}" {% if software and software.owner_type == 'user' and software.owner_id == user.id %}selected{% endif %}>{{ user.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Groups">
+                             {% for group in groups %}
+                            <option value="group_{{ group.id }}" {% if software and software.owner_type == 'group' and software.owner_id == group.id %}selected{% endif %}>{{ group.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="supplier_id" class="form-label">Primary Supplier</label>
+                    <select class="form-select" id="supplier_id" name="supplier_id">
+                        <option value="">-- No Supplier --</option>
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if software and software.supplier_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+             <div class="mb-3">
+                <label for="iso_27001_control_references" class="form-label">ISO 27001 Control References</label>
+                <input type="text" class="form-control" id="iso_27001_control_references" name="iso_27001_control_references" value="{{ software.iso_27001_control_references or '' }}" placeholder="e.g., A.12.1.2, A.14.2.1">
+            </div>
+        </div>
+        <div class="card-footer text-end">
+            <a href="{{ url_for('software.list_software') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Software</button>
+        </div>
+    </div>
+</form>
+{% endblock %}

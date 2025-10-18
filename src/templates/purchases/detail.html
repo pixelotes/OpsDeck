@@ -33,14 +33,14 @@
         <div class="row">
             <div class="col-md-6">
                 <p><strong>Purchase Date:</strong> {{ purchase.purchase_date.strftime('%Y-%m-%d') }}</p>
-                <p><strong>Total Cost:</strong> EUR {{ "%.2f"|format(purchase.total_cost) }}
+                <p><strong>Total Cost:</strong> EUR {{ "%.2f"|format(purchase.total_cost) }} {# Assumes total_cost property returns a number #}
                     {% if purchase.validated_cost is none %}
                         <span class="badge bg-info">Calculated</span>
                     {% else %}
                         <span class="badge bg-success">Validated</span>
                     {% endif %}
                 </p>
-                <p><strong>Supplier:</strong> 
+                <p><strong>Supplier:</strong>
                     {% if purchase.supplier %}
                         <a href="{{ url_for('suppliers.supplier_detail', id=purchase.supplier.id) }}">{{ purchase.supplier.name }}</a>
                     {% else %}
@@ -53,11 +53,12 @@
                 <p><strong>Payment Method:</strong> {{ purchase.payment_method.name if purchase.payment_method else 'N/A' }}</p>
                  {% if purchase.validated_cost is not none %}
                     <p class="text-muted small">
-                        Cost validated on {{ purchase.cost_validated_at.strftime('%Y-%m-%d') }} by {{ purchase.cost_validated_by.name if purchase.cost_validated_by else 'N/A' }}.
+                        Cost validated on {{ purchase.cost_validated_at.strftime('%Y-%m-%d %H:%M') if purchase.cost_validated_at else 'N/A' }} by {{ purchase.cost_validated_by.name if purchase.cost_validated_by else 'N/A' }}.
                     </p>
                 {% endif %}
             </div>
         </div>
+        {# Removed the erroneous input line that caused the UndefinedError #}
     </div>
 </div>
 
@@ -94,6 +95,37 @@
     </div>
 </div>
 
+<div class="card mb-4"> {# NEW card for licenses #}
+    <div class="card-header">Associated Licenses ({{ purchase.licenses|length }})</div>
+    <ul class="list-group list-group-flush">
+        {% for license in purchase.licenses %} {# This 'license' is the loop variable #}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div> {# Wrap link and user in a div for better alignment #}
+                <a href="{{ url_for('licenses.detail', id=license.id) }}">{{ license.name }}</a>
+                {% if license.user %}
+                    <small class="text-muted d-block">Assigned to: {{ license.user.name }}</small>
+                {% endif %}
+            </div>
+            {# --- ADDED COST DISPLAY --- #}
+            <span>
+                {% if license.subscription_id is none and license.cost is not none %}
+                     {{ license.currency }} {{ "%.2f"|format(license.cost) }}
+                {% elif license.subscription_id %}
+                     <span class="badge bg-secondary">Subscription Seat</span>
+                {% else %}
+                    {# Cost is None #}
+                    <span class="text-muted">N/A</span>
+                {% endif %}
+            </span>
+            {# --- END COST DISPLAY --- #}
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No licenses in this purchase.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+
 <div class="card mb-4">
     <div class="card-header"><i class="fas fa-paperclip"></i> Attachments (e.g., Invoices)</div>
     <ul class="list-group list-group-flush">
@@ -127,14 +159,14 @@
                 <tr>
                     <th>Date</th>
                     <th>Action</th>
-                    <th>Validated Cost (EUR)</th>
+                    <th>Validated Cost (EUR)</th> {# Assuming EUR, adjust if needed #}
                     <th>User</th>
                 </tr>
             </thead>
             <tbody>
                 {% for entry in purchase.cost_history %}
                 <tr>
-                    <td>{{ entry.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ entry.timestamp.strftime('%Y-%m-%d %H:%M') if entry.timestamp else 'N/A' }}</td>
                     <td>
                         {% if entry.action == 'Validated' %}
                             <span class="badge bg-success">Validated</span>
@@ -142,7 +174,7 @@
                             <span class="badge bg-secondary">Un-validated</span>
                         {% endif %}
                     </td>
-                    <td>{{ "%.2f"|format(entry.cost) }}</td>
+                     <td>{{ "%.2f"|format(entry.cost) if entry.cost is not none else 'N/A' }}</td>
                     <td>{{ entry.user.name if entry.user else 'N/A' }}</td>
                 </tr>
                 {% else %}

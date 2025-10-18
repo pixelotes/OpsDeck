@@ -16,7 +16,20 @@
         <div class="row">
             <div class="col-md-6">
                 <p><strong>Type:</strong> {{ subscription.subscription_type.title() }}</p>
-                <p><strong>Supplier:</strong> <a href="{{ url_for('suppliers.supplier_detail', id=subscription.supplier.id) }}">{{ subscription.supplier.name }}</a></p>
+                <p><strong>Supplier:</strong> 
+                    {% if subscription.supplier %}
+                        <a href="{{ url_for('suppliers.supplier_detail', id=subscription.supplier.id) }}">{{ subscription.supplier.name }}</a>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </p>
+                <p><strong>Software:</strong> 
+                    {% if subscription.software %}
+                        <a href="{{ url_for('software.detail', id=subscription.software.id) }}">{{ subscription.software.name }}</a>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </p>
                 <p><strong>Description:</strong> {{ subscription.description or 'N/A' }}</p>
             </div>
             <div class="col-md-6">
@@ -76,6 +89,24 @@
             </ul>
         </div>
     </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="fas fa-id-badge"></i> Associated Licenses ({{ subscription.licenses|length }})
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for license in subscription.licenses %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('licenses.detail', id=license.id) }}">{{ license.name }}</a>
+                <span class="text-muted small float-end">
+                    {{ license.user.name if license.user else 'Unassigned' }}
+                </span>
+            </li>
+        {% else %}
+            <li class="list-group-item text-muted">No licenses are tracked under this subscription.</li>
+        {% endfor %}
+    </ul>
 </div>
 
 <div class="card mt-4">

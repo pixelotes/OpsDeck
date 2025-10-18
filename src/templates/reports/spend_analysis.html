@@ -26,13 +26,15 @@
                 <div class="col-md-3">
                     <label for="item_type" class="form-label">Item Type</label>
                     <select class="form-select" id="item_type" name="item_type">
-                        <option value="both" {% if item_type == 'both' %}selected{% endif %}>Assets & Peripherals</option>
+                        {# *** Updated Options *** #}
+                        <option value="all" {% if item_type == 'all' %}selected{% endif %}>All Items</option>
                         <option value="assets" {% if item_type == 'assets' %}selected{% endif %}>Assets Only</option>
                         <option value="peripherals" {% if item_type == 'peripherals' %}selected{% endif %}>Peripherals Only</option>
+                        <option value="licenses" {% if item_type == 'licenses' %}selected{% endif %}>Licenses Only (Standalone)</option>
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label for="brand" class="form-label">Brand</label>
+                    <label for="brand" class="form-label">Brand (Asset/Peripheral)</label> {# Clarified scope #}
                     <select class="form-select" id="brand" name="brand">
                         <option value="">All Brands</option>
                         {% for b in all_brands %}
@@ -67,6 +69,16 @@
                         {% endfor %}
                     </select>
                 </div>
+                {# Added Location Filter #}
+                <div class="col-md-4">
+                    <label for="location_id" class="form-label">Location (Asset)</label> {# Clarified scope #}
+                    <select class="form-select" id="location_id" name="location_id">
+                        <option value="">All Locations</option>
+                         {% for l in locations %}
+                        <option value="{{ l.id }}" {% if location_id == l.id %}selected{% endif %}>{{ l.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
             <div class="mt-3">
                 <button type="submit" class="btn btn-primary">Apply Filters</button>
@@ -79,7 +91,8 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span>Results</span>
-        <span class="fw-bold">Total Spend: EUR {{ "%.2f"|format(total_cost) }}</span>
+        {# Updated Total Cost Display (assuming EUR base - adjust if needed) #}
+        <span class="fw-bold">Total Spend (Sum of Original Costs): EUR {{ "%.2f"|format(total_cost) }}</span>
     </div>
     <div class="card-body">
         <table class="table table-striped" id="spendings-table">
@@ -87,7 +100,7 @@
                 <tr>
                     <th>Type</th>
                     <th>Name</th>
-                    <th>Brand</th>
+                    <th>Brand/Software</th> {# Combined Header #}
                     <th>User</th>
                     <th>Purchase Date</th>
                     <th>Cost</th>
@@ -96,28 +109,44 @@
             <tbody>
                 {% for item in results %}
                 <tr>
+                    {# *** Handle License Type Display *** #}
                     <td>
                         {% if item.__class__.__name__ == 'Asset' %}
                             <span class="badge bg-primary">Asset</span>
-                        {% else %}
+                        {% elif item.__class__.__name__ == 'Peripheral' %}
                             <span class="badge bg-info">Peripheral</span>
+                        {% elif item.__class__.__name__ == 'License' %}
+                            <span class="badge bg-warning">License</span> {# New Badge #}
                         {% endif %}
                     </td>
+                    {# *** Handle Links for Each Type *** #}
                     <td>
                         {% if item.__class__.__name__ == 'Asset' %}
                             <a href="{{ url_for('assets.asset_detail', id=item.id) }}">{{ item.name }}</a>
-                        {% else %}
+                        {% elif item.__class__.__name__ == 'Peripheral' %}
                             <a href="{{ url_for('peripherals.peripheral_detail', id=item.id) }}">{{ item.name }}</a>
+                        {% elif item.__class__.__name__ == 'License' %}
+                             <a href="{{ url_for('licenses.detail', id=item.id) }}">{{ item.name }}</a> {# License Link #}
                         {% endif %}
                     </td>
-                    <td>{{ item.brand or 'N/A' }}</td>
+                    {# *** Handle Brand/Software Display *** #}
+                    <td>
+                        {% if item.__class__.__name__ in ['Asset', 'Peripheral'] %}
+                            {{ item.brand or 'N/A' }}
+                        {% elif item.__class__.__name__ == 'License' %}
+                             {# Show linked software if available #}
+                            {{ item.software.name if item.software else 'N/A' }}
+                        {% else %}
+                             N/A
+                        {% endif %}
+                    </td>
                     <td>{{ item.user.name if item.user else 'N/A' }}</td>
                     <td>{{ item.purchase_date.strftime('%Y-%m-%d') if item.purchase_date else 'N/A' }}</td>
                     <td>{{ item.currency }} {{ "%.2f"|format(item.cost) if item.cost is not none else '0.00' }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="text-center">No items found matching the selected criteria.</td>
+                    <td colspan="6" class="text-center">No items found matching the selected criteria.</td> {# Updated colspan #}
                 </tr>
                 {% endfor %}
             </tbody>

@@ -3,7 +3,7 @@ from flask import (
 )
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
-from ..models import db, Subscription, Supplier, Contact, PaymentMethod, Tag, CostHistory, CURRENCY_RATES
+from ..models import db, Subscription, Supplier, Contact, PaymentMethod, Tag, CostHistory, CURRENCY_RATES, Software
 from .main import login_required
 
 subscriptions_bp = Blueprint('subscriptions', __name__)
@@ -80,6 +80,8 @@ def subscription_detail(id):
 @subscriptions_bp.route('/new', methods=['GET', 'POST'])
 @login_required
 def new_subscription():
+    software_items = Software.query.filter_by(is_archived=False).order_by(Software.name).all()
+
     if request.method == 'POST':
         subscription = Subscription(
             name=request.form['name'],
@@ -91,7 +93,8 @@ def new_subscription():
             auto_renew='auto_renew' in request.form,
             cost=float(request.form['cost']),
             currency=request.form['currency'],
-            supplier_id=request.form['supplier_id']
+            supplier_id=request.form.get('supplier_id') or None,
+            software_id=request.form.get('software_id') or None
         )
 
         if subscription.renewal_period_type == 'monthly':
@@ -127,12 +130,14 @@ def new_subscription():
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             contacts=Contact.query.order_by(Contact.name).all(),
                             payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
-                            tags=Tag.query.order_by(Tag.name).all())
+                            tags=Tag.query.order_by(Tag.name).all(),
+                            software_items=software_items)
 
 @subscriptions_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_subscription(id):
     subscription = Subscription.query.get_or_404(id)
+    software_items = Software.query.filter_by(is_archived=False).order_by(Software.name).all()
 
     if request.method == 'POST':
         new_cost = float(request.form['cost'])
@@ -153,7 +158,8 @@ def edit_subscription(id):
         subscription.auto_renew = 'auto_renew' in request.form
         subscription.cost = new_cost
         subscription.currency = new_currency
-        subscription.supplier_id = request.form['supplier_id']
+        subscription.supplier_id = request.form.get('supplier_id') or None
+        subscription.software_id = request.form.get('software_id') or None
         subscription.monthly_renewal_day = None
         if subscription.renewal_period_type == 'monthly':
             selector = request.form.get('monthly_renewal_day_selector')
@@ -186,7 +192,8 @@ def edit_subscription(id):
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             contacts=Contact.query.order_by(Contact.name).all(),
                             payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
-                            tags=Tag.query.order_by(Tag.name).all())
+                            tags=Tag.query.order_by(Tag.name).all(),
+                            software_items=software_items)
 
 @subscriptions_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
