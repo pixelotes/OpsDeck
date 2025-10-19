@@ -24,6 +24,7 @@
 <body>
 
     <nav class="sidebar">
+        <div class="container-fluid"><a class="navbar-brand text-white mb-3 d-block text-center" href="{{ url_for('main.dashboard') }}"><i class="fas fa-sync-alt"></i> OpsDeck</a></div>
         <div class="p-2 position-relative"><input type="search" id="global-search-input" class="form-control" placeholder="Search..." autocomplete="off"><div id="global-search-results" class="list-group"></div></div>
         
         <div class="sidebar-body" id="sidebar-accordion">
@@ -134,6 +135,31 @@
     </script>
     <script src="{{ url_for('static', filename='js/search.js') }}"></script>
     <script src="/static/js/export.js"></script>
+
+    {# ADD Simple Datatables JS #}
+    <script src="https://cdn.jsdelivr.net/npm/simple-datatables@latest"></script>
+
+    {# ADD Global Initialization Script #}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Find all tables with the class 'datatable'
+            const tables = document.querySelectorAll('.datatable');
+            tables.forEach(table => {
+                // Initialize simple-datatables on each table found
+                new simpleDatatables.DataTable(table, {
+                    // Default options for all tables
+                    perPage: 25,
+                    perPageSelect: [10, 15, 25, 50, 100],
+                    labels: {
+                        placeholder: "Search...",
+                        perPage: " entries per page",
+                        noRows: "No entries found",
+                        info: "Showing {start} to {end} of {rows} entries",
+                    }
+                });
+            });
+        });
+    </script>
     {% block scripts_extra %}{% endblock %}
 </body>
 </html>
