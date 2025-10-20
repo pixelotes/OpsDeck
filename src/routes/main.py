@@ -47,10 +47,22 @@ def password_change_required(f):
         if user_id:
             user = User.query.get(user_id)
             if user and user.name == 'admin' and user.check_password('admin123'): # Check name for default admin
-                if request.endpoint not in ['main.change_password', 'main.logout', 'static']:
+                if request.endpoint not in ['main.change_password', 'main.logout', 'static']: # Check if request is not for allowed endpoints
+
                     link = url_for('main.change_password')
-                    message = Markup(f'For security, you must change the default admin password. <a href="{link}" class="alert-link">Click here to change it now.</a>')
-                    flash(message, 'warning')
+                    message_text = f'For security, you must change the default admin password. <a href="{link}" class="alert-link">Click here to change it now.</a>'
+                    message = Markup(message_text)
+                    
+                    # Check if there's already a "warning" message in the queue
+                    flashed_messages = session.get('_flashed_messages', [])
+                    message_already_flashed = any(
+                        msg[0] == 'warning' and msg[1] == message_text
+                        for msg in flashed_messages
+                    )
+
+                    if not message_already_flashed:
+                        flash(message, 'warning') # Add only if message is missing
+                        
                     return redirect(url_for('main.change_password'))
         return f(*args, **kwargs)
     return decorated_function
@@ -70,7 +82,6 @@ def dashboard():
         'payment_methods': PaymentMethod.query.filter_by(is_archived=False).count(),
     }
 
-    # ... (rest of dashboard logic is unchanged)
     # --- Upcoming Renewals & Filter Logic ---
     period = request.args.get('period', '30', type=str)
     today = date.today()
