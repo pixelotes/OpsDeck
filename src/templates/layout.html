@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}OpsDeck{% endblock %}</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.css" rel="stylesheet" type="text/css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/easymde/easymde.min.css') }}">
+    <link href="{{ url_for('static', filename='vendor/simple-datatables/css/simple-datatables.css') }}" rel="stylesheet" type="text/css">
+    <link href="{{ url_for('static', filename='vendor/font-awesome/css/all.min.css') }}" rel="stylesheet">
     {% block head_extra %}{% endblock %}
     <style>
         .sidebar { display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; width: 250px; background: #343a40; z-index: 1000; }
@@ -116,7 +116,6 @@
         {% block content %}{% endblock %}
     </main>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const sidebarBody = document.querySelector('.sidebar-body');
@@ -134,10 +133,9 @@
         });
     </script>
     <script src="{{ url_for('static', filename='js/search.js') }}"></script>
-    <script src="/static/js/export.js"></script>
-
-    {# ADD Simple Datatables JS #}
-    <script src="https://cdn.jsdelivr.net/npm/simple-datatables@latest"></script>
+    <script src="{{ url_for('static', filename='js/export.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/simple-datatables/js/simple-datatables.js') }}"></script>
 
     {# ADD Global Initialization Script #}
     <script>

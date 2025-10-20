@@ -2,7 +2,6 @@
 {% block title %}Renewal Calendar - {{ super() }}{% endblock %}
 
 {% block head_extra %}
-<link href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.8/index.min.css" rel="stylesheet">
 <style>
     .fc-event-main-frame {
         font-size: 12px;
@@ -39,7 +38,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script src="{{ url_for('static', filename='js/fullcalendar.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/fullcalendar/js/fullcalendar.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');
