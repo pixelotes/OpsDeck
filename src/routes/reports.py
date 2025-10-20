@@ -1,13 +1,10 @@
-# src/routes/reports.py
-
 from flask import (
     Blueprint, render_template, request
 )
 from sqlalchemy import func
-from datetime import date, timedelta # Import timedelta if not already there
+from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
-# *** Ensure License is imported ***
-from ..models import db, Subscription, Asset, Supplier, User, Group, Peripheral, Location, CURRENCY_RATES, License, Purchase # Import Purchase if filtering by it
+from ..models import db, Subscription, Asset, Supplier, User, Group, Peripheral, Location, CURRENCY_RATES, License, Purchase
 from .main import login_required
 
 reports_bp = Blueprint('reports', __name__)

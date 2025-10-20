@@ -1,10 +1,7 @@
-# pixelotes/opsdeck/OpsDeck-feat-licenses/src/routes/opportunities.py
-
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
 from datetime import datetime
-# Ensure Risk and Budget are imported if you implemented the previous changes
 from ..models import db, Opportunity, Activity, Supplier, Contact, Risk, Budget
 from .main import login_required
 
