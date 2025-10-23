@@ -12,10 +12,16 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         user_id = session.get('user_id')
-        user = User.query.get(user_id) if user_id else None
+        if not user_id:
+            # ... redirect to login
+            return redirect(url_for('main.login'))
+
+        user = User.query.get(user_id) # ALWAYS fetch from DB
+
         if not user or user.role != 'admin':
-            flash('This area requires administrator privileges.', 'danger')
+            flash('You do not have permission to access this page.', 'danger')
             return redirect(url_for('main.dashboard'))
+            
         return f(*args, **kwargs)
     return decorated_function
 
