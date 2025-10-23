@@ -30,7 +30,7 @@ def admin_required(f):
 @login_required
 @admin_required
 def list_users():
-    users = User.query.order_by(User.name).all()
+    users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     return render_template('admin/list_users.html', users=users)
 
 @admin_bp.route('/users/new', methods=['GET', 'POST'])

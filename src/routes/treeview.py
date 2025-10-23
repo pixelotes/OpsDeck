@@ -43,7 +43,7 @@ def tree_view():
             tree_data.append(location_node)
 
     elif selected_root == 'users':
-        users = User.query.order_by(User.name).all()
+        users = User.query.order_by(User.name).filter_by(is_archived=False).all() # Show all users, even archived ones
         for user in users:
             user_node = {
                 'name': user.name,

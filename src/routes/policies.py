@@ -56,7 +56,7 @@ def new_policy():
 @login_required
 def detail(id):
     policy = Policy.query.get_or_404(id)
-    users = User.query.order_by(User.name).all()
+    users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     groups = Group.query.order_by(Group.name).all()
     return render_template('policies/detail.html', policy=policy, users=users, groups=groups)
 
@@ -83,7 +83,7 @@ def edit_policy(id):
         flash('Policy details have been updated.', 'success')
         return redirect(url_for('policies.detail', id=policy.id))
     
-    users = User.query.order_by(User.name).all()
+    users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     groups = Group.query.order_by(Group.name).all()
     return render_template('policies/edit_policy.html', policy=policy, users=users, groups=groups, latest_version=latest_version)
 
@@ -112,7 +112,7 @@ def new_version(id):
         flash(f'New version "{version.version_number}" has been created.', 'success')
         return redirect(url_for('policies.detail', id=id))
         
-    users = User.query.order_by(User.name).all()
+    users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     groups = Group.query.order_by(Group.name).all()
     return render_template('policies/version_form.html', policy=policy, users=users, groups=groups)
 
@@ -143,7 +143,7 @@ def edit_version(id):
         flash(f'Version "{version.version_number}" has been updated.', 'success')
         return redirect(url_for('policies.detail', id=policy.id))
     
-    users = User.query.order_by(User.name).all()
+    users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     groups = Group.query.order_by(Group.name).all()
     return render_template('policies/version_form.html', policy=policy, version=version, users=users, groups=groups)
 

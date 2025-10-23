@@ -69,7 +69,7 @@ def new_asset():
         return redirect(url_for('assets.assets'))
 
     return render_template('assets/form.html',
-                            users=User.query.order_by(User.name).all(),
+                            users=User.query.filter_by(is_archived=False).order_by(User.name).all(),
                             locations=Location.query.order_by(Location.name).all(),
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             purchases=Purchase.query.order_by(Purchase.description).all())
@@ -168,7 +168,7 @@ def edit_asset(id):
 
     return render_template('assets/form.html',
                             asset=asset,
-                            users=User.query.order_by(User.name).all(),
+                            users=User.query.filter_by(is_archived=False).order_by(User.name).all(),
                             locations=Location.query.order_by(Location.name).all(),
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             purchases=Purchase.query.order_by(Purchase.description).all())

@@ -60,7 +60,7 @@ def course_detail(id):
         user_ids = request.form.getlist('user_ids')
         group_ids = request.form.getlist('group_ids')
         
-        users_to_assign = set(User.query.filter(User.id.in_(user_ids)).all())
+        users_to_assign = set(User.query.filter(User.id.in_(user_ids)).filter_by(is_archived=False).all())
         groups = Group.query.filter(Group.id.in_(group_ids)).all()
         for group in groups:
             users_to_assign.update(group.users)
@@ -79,7 +79,7 @@ def course_detail(id):
         flash(f'{assigned_count} user(s) have been assigned this training.', 'success')
         return redirect(url_for('training.course_detail', id=id))
 
-    users = User.query.order_by(User.name).all()
+    users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     groups = Group.query.order_by(Group.name).all()
     return render_template('training/course_detail.html', course=course, users=users, groups=groups)
 
