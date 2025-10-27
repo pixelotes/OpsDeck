@@ -1,0 +1,27 @@
+{
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.1.0",
+    "bootstrap": "^5.3.8",
+    "chart.js": "4.5.0",
+    "easymde": "^2.20.0",
+    "fullcalendar": "^6.1.19",
+    "simple-datatables": "^10.2.0",
+    "sortablejs": "^1.15.6"
+  },
+  "devDependencies": {
+    "copyfiles": "^2.4.1",
+    "rimraf": "^6.0.1"
+  },
+  "scripts": {
+  "clean:static": "rimraf src/static/vendor",
+  "build:static": "npm run clean:static && npm run copy:bootstrap && npm run copy:chartjs && npm run copy:datatables && npm run copy:fontawesome && npm run copy:easymde && npm run copy:fullcalendar && npm run copy:sortablejs",
+  
+  "copy:bootstrap": "copyfiles -u 1 \"node_modules/bootstrap/dist/**/*\" src/static/vendor",
+  "copy:chartjs": "copyfiles -u 1 \"node_modules/chart.js/dist/chart.js\" src/static/vendor",
+  "copy:datatables": "copyfiles -u 1 \"node_modules/simple-datatables/dist/**/*\" src/static/vendor",
+  "copy:fontawesome": "copyfiles -u 4 \"node_modules/@fortawesome/fontawesome-free/css/all.min.css\" src/static/vendor/font-awesome/css && copyfiles -u 4 \"node_modules/@fortawesome/fontawesome-free/webfonts/*\" src/static/vendor/font-awesome/webfonts",
+  "copy:easymde": "copyfiles -u 1 \"node_modules/easymde/dist/easymde.min.css\" \"node_modules/easymde/dist/easymde.min.js\" src/static/vendor",
+  "copy:fullcalendar": "copyfiles -u 1 \"node_modules/fullcalendar/index.global.min.js\" src/static/vendor/fullcalendar/js",
+  "copy:sortablejs": "copyfiles -u 1 \"node_modules/sortablejs/Sortable.min.js\" src/static/vendor"
+}
+}
