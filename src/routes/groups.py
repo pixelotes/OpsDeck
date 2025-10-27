@@ -40,11 +40,11 @@ def edit_group(id):
         
         # Handle user assignments
         user_ids = request.form.getlist('user_ids')
-        group.users = User.query.filter(User.id.in_(user_ids)).all()
+        group.users = User.query.filter(User.id.in_(user_ids)).filter_by(is_archived=False).all()
         
         db.session.commit()
         flash(f'Group "{group.name}" updated successfully.', 'success')
         return redirect(url_for('groups.list_groups'))
 
-    users = User.query.order_by(User.name).all()
+    users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     return render_template('groups/edit.html', group=group, users=users)

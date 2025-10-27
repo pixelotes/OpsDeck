@@ -11,28 +11,33 @@
     .tree-view li {
         position: relative;
     }
+    /* Vertical line styling */
     .tree-view li::before {
         content: '';
         position: absolute;
         top: 0;
-        left: -20px;
+        left: -15px; /* Adjust line position */
         border-left: 1px solid #ccc;
         height: 100%;
+        width: 1px;
     }
     .tree-view li:last-child::before {
-        height: 1em; /* Adjust to align with the text */
+        height: 1.1em; /* Adjust line height for last item */
     }
+    /* Horizontal line styling */
     .tree-view li::after {
         content: '';
         position: absolute;
-        top: 1em; /* Vertically center with the text */
-        left: -20px;
+        top: 1.1em; /* Adjust vertical position of horizontal line */
+        left: -15px; /* Match vertical line position */
         border-top: 1px solid #ccc;
-        width: 15px;
+        width: 10px; /* Adjust horizontal line length */
     }
-    .tree-view a {
+    .tree-view a, .tree-view span {
         text-decoration: none;
         color: inherit;
+        display: inline-block; /* Helps with alignment */
+        line-height: 1.5em; /* Ensure consistent line height */
     }
     .tree-view a:hover {
         text-decoration: underline;
@@ -40,7 +45,32 @@
     .tree-view .icon {
         margin-right: 8px;
         color: #6c757d;
+        width: 1em; /* Ensure icon takes consistent space */
+        text-align: center;
     }
+    /* Styles for the toggle icon */
+    .tree-toggle {
+        cursor: pointer;
+        margin-right: 5px;
+        display: inline-block;
+        width: 1em; /* Give it space even if empty */
+        text-align: center;
+    }
+    .tree-toggle .fa-chevron-right {
+        transition: transform 0.2s ease-in-out;
+    }
+    .tree-toggle[aria-expanded="true"] .fa-chevron-right {
+        transform: rotate(90deg);
+    }
+    /* Adjust padding for nested lists */
+    .tree-view ul.collapse, .tree-view ul.collapsing {
+        padding-left: 25px; /* Indent nested list */
+        margin-left: -20px; /* Align vertical lines */
+    }
+    .tree-view ul ul::before {
+        display: none; /* Hide double vertical lines in deeper levels */
+    }
+
 </style>
 {% endblock %}
 
@@ -65,19 +95,32 @@
 
 <div class="card">
     <div class="card-body">
-        {% macro render_tree(nodes) %}
-            <ul>
+        {# --- UPDATED MACRO --- #}
+        {% macro render_tree(nodes, parent_id='') %}
+            <ul class="{{ 'collapse' if parent_id else '' }}" id="tree-{{ parent_id if parent_id else 'root' }}">
             {% for node in nodes %}
+                {% set node_id = parent_id ~ '-' ~ loop.index %} {# Create a unique ID #}
                 <li>
-                    <i class="fas {{ node.icon }} icon"></i>
+                    {# Toggle added only if there are children #}
+                    {% if node.children %}
+                        <span class="tree-toggle" data-bs-toggle="collapse" href="#tree-{{ node_id }}" role="button" aria-expanded="false" aria-controls="tree-{{ node_id }}">
+                           <i class="fas fa-chevron-right fa-xs"></i>
+                        </span>
+                    {% else %}
+                         <span class="tree-toggle"></span> {# Placeholder for alignment #}
+                    {% endif %}
+
+                    <i class="fas {{ node.icon }} icon fa-fw"></i> {# Added fa-fw for fixed width #}
+
                     {% if node.url %}
                         <a href="{{ node.url }}">{{ node.name }}</a>
                     {% else %}
                         <span>{{ node.name }}</span>
                     {% endif %}
-                    
+
                     {% if node.children %}
-                        {{ render_tree(node.children) }}
+                        {# Recurse with the new node_id as the parent_id #}
+                        {{ render_tree(node.children, node_id) }}
                     {% endif %}
                 </li>
             {% endfor %}
@@ -85,7 +128,7 @@
         {% endmacro %}
 
         <div class="tree-view">
-            {{ render_tree(tree_data) }}
+            {{ render_tree(tree_data) }} {# Initial call uses default parent_id #}
         </div>
     </div>
 </div>
