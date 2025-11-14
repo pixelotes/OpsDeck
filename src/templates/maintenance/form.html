@@ -85,18 +85,10 @@
                 <textarea class="form-control" id="notes" name="notes" rows="4">{{ log.notes if log else '' }}</textarea>
             </div>
             
-            {% if log %}
             <div class="mb-3">
                 <label for="file" class="form-label">Attach File</label>
-                <form action="{{ url_for('attachments.upload_file') }}" method="post" enctype="multipart/form-data">
-                    <input type="hidden" name="maintenance_log_id" value="{{ log.id }}">
-                    <div class="input-group">
-                        <input class="form-control" type="file" name="file">
-                        <button class="btn btn-outline-secondary" type="submit">Upload</button>
-                    </div>
-                </form>
+                <input class="form-control" type="file" name="file" id="file">
             </div>
-            {% endif %}
 
             <hr>
             <a href="{{ url_for('maintenance.list_logs') }}" class="btn btn-secondary">Cancel</a>

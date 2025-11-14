@@ -58,6 +58,7 @@
                 <hr class="text-white">
                 <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#governance-menu" aria-expanded="false">Governance <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
                 <div class="collapse" id="governance-menu" data-bs-parent="#sidebar-accordion">
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('documentation.') %}active{% endif %}"" href="{{ url_for('documentation.list_docs') }}"><i class="fas fa-book-open"></i> Documentation</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('policies.') %}active{% endif %}" href="{{ url_for('policies.list_policies') }}"><i class="fa-fw fas fa-file-contract"></i> Policies</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint == 'compliance.policy_report' %}active{% endif %}" href="{{ url_for('compliance.policy_report') }}"><i class="fa-fw fas fa-user-check"></i> Policy Report</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('risk.') %}active{% endif %}" href="{{ url_for('risk.list_risks') }}"><i class="fa-fw fas fa-exclamation-triangle"></i> Risk Register</a></li>

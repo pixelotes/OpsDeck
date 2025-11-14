@@ -74,6 +74,7 @@
                     </td>
                     <td>
                         {% if not assignment.completion %}
+                            <!-- Botón y Modal para MARCAR COMO COMPLETO (Existente) -->
                             <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#completeModal-{{ assignment.id }}">
                                 <i class="fas fa-check-circle"></i> Mark Complete
                             </button>
@@ -109,11 +110,63 @@
                                 </div>
                             </div>
                         {% else %}
-                             {% if assignment.completion.attachment %}
-                                <a href="{{ url_for('attachments.download_attachment', id=assignment.completion.attachment.id) }}" class="btn btn-sm btn-info">
-                                    <i class="fas fa-download"></i> View Certificate
-                                </a>
-                            {% endif %}
+                            <!-- Grupo de botones para Ver/Editar -->
+                            <div class="btn-group" role="group" aria-label="Completion Actions">
+                                
+                                <!-- Botón Ver Certificado (si existe) -->
+                                {% if assignment.completion.attachments %}
+                                    {% set cert = assignment.completion.attachments[0] %}
+                                    <a href="{{ url_for('attachments.download_file', attachment_id=cert.id) }}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-download"></i> View
+                                    </a>
+                                {% endif %}
+                                
+                                <!-- Botón Editar -->
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editCompleteModal-{{ assignment.completion.id }}">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                            </div>
+
+                            <!-- Modal de Edición  -->
+                            <div class="modal fade" id="editCompleteModal-{{ assignment.completion.id }}" tabindex="-1" aria-labelledby="editCompleteModalLabel-{{ assignment.completion.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="editCompleteModalLabel-{{ assignment.completion.id }}">Edit Completion for {{ assignment.user.name }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <!-- El formulario apunta a la nueva ruta 'training.edit_completion' -->
+                                        <form action="{{ url_for('training.edit_completion', completion_id=assignment.completion.id) }}" method="post" enctype="multipart/form-data">
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label for="completion_date-edit-{{ assignment.completion.id }}" class="form-label">Completion Date</label>
+                                                    <!-- Rellenamos el valor con la fecha existente -->
+                                                    <input type="date" name="completion_date" id="completion_date-edit-{{ assignment.completion.id }}" class="form-control" 
+                                                           value="{{ assignment.completion.completion_date.strftime('%Y-%m-%d') }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="notes-edit-{{ assignment.completion.id }}" class="form-label">Notes</label>
+                                                    <!-- Rellenamos el valor con las notas existentes -->
+                                                    <textarea name="notes" id="notes-edit-{{ assignment.completion.id }}" class="form-control" rows="3">{{ assignment.completion.notes or '' }}</textarea>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="certificate-edit-{{ assignment.completion.id }}" class="form-label">Certificate</label>
+                                                    <!-- Mostramos el nombre del archivo actual si existe -->
+                                                    {% if assignment.completion.attachments %}
+                                                        <p class="form-text">Currently: {{ assignment.completion.attachments[0].filename }}</p>
+                                                    {% endif %}
+                                                    <input type="file" name="certificate" id="certificate-edit-{{ assignment.completion.id }}" class="form-control">
+                                                    <div class="form-text">Uploading a new file will replace the existing one.</div>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                         {% endif %}
                     </td>
                 </tr>

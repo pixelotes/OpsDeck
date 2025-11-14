@@ -10,7 +10,7 @@
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label for="test_date" class="form-label">Test Date *</label>
-                    <input type="date" class="form-control" id="test_date" name="test_date" value="{{ today_date }}" required>
+                    <input type="date" class="form-control" id="test_date" name="test_date" value="{{ (test_log.test_date if test_log else today_date)|string|replace(' 00:00:00', '') }}" required>
                 </div>
                 <div class="col-md-6">
                     <label for="status" class="form-label">Status *</label>

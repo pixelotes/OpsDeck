@@ -1,6 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+import os
+import uuid
+from werkzeug.utils import secure_filename
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
 from datetime import datetime
-from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Subscription, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog
+from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Subscription, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog, Attachment
 from .main import login_required
 from .admin import admin_required
 
@@ -28,20 +31,26 @@ def new_assessment(supplier_id):
         db.session.add(assessment)
         db.session.commit()
         
-        # This will now work correctly with the updated attachments route
         if 'report_file' in request.files:
             file = request.files['report_file']
             if file.filename != '':
-                # Manually create a new request context to call the upload function
-                with request.another_app.test_request_context(
-                    '/attachments/upload', 
-                    method='POST', 
-                    data={'security_assessment_id': assessment.id},
-                    files={'file': file}
-                ):
-                    # You might need a more robust way to handle this cross-blueprint call
-                    # depending on your final upload logic. For now, this demonstrates the principle.
-                    pass
+                original_filename = secure_filename(file.filename)
+                file_ext = os.path.splitext(original_filename)[1]
+                unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+                
+                # Save physical file
+                upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+                file.save(upload_path)
+
+                # Create Attachment record manually
+                new_attachment = Attachment(
+                    filename=original_filename,
+                    secure_filename=unique_filename,
+                    linkable_type='SecurityAssessment', # Polymorphic link
+                    linkable_id=assessment.id           # ID from committed object
+                )
+                db.session.add(new_attachment)
+                db.session.commit()
 
 
         flash('New security assessment has been logged.', 'success')
@@ -273,6 +282,14 @@ def bcdr_detail(id):
     plan = BCDRPlan.query.get_or_404(id)
     return render_template('compliance/bcdr_detail.html', plan=plan)
 
+@compliance_bp.route('/bcdr/test/<int:test_id>')
+@login_required
+@admin_required
+def bcdr_test_log_detail(test_id):
+    """Muestra los detalles de un único BCDR test log."""
+    test_log = BCDRTestLog.query.get_or_404(test_id)
+    return render_template('compliance/bcdr_test_log_detail.html', test_log=test_log)
+
 @compliance_bp.route('/bcdr/<int:plan_id>/log_test', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -286,16 +303,29 @@ def log_bcdr_test(plan_id):
             notes=request.form.get('notes')
         )
         db.session.add(test_log)
-        db.session.commit()
+        db.session.commit() # Hacemos commit para obtener el test_log.id
         
-        # This logic is simplified; a more robust solution would handle the file directly
-        if 'proof_file' in request.files and request.files['proof_file'].filename != '':
-            # Create a new request to the attachment upload endpoint
-            # This is a workaround. A better approach would be to refactor file uploading into a helper function.
-            return redirect(url_for('attachments.upload_file', bcdr_test_log_id=test_log.id, _method='POST', **request.files))
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename != '':
+                original_filename = secure_filename(file.filename)
+                file_ext = os.path.splitext(original_filename)[1]
+                unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+                
+                file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
+                
+                attachment = Attachment(
+                    filename=original_filename,
+                    secure_filename=unique_filename,
+                    linkable_type='BCDRTestLog',
+                    linkable_id=test_log.id
+                )
+                db.session.add(attachment)
+                db.session.commit()
 
         flash('BCDR test log has been recorded.', 'success')
-        return redirect(url_for('compliance.bcdr_detail', id=plan_id))
+        # Redirigimos a la nueva vista de detalles del log
+        return redirect(url_for('compliance.bcdr_test_log_detail', test_id=test_log.id))
 
     return render_template('compliance/bcdr_test_log_form.html', plan=plan, today_date=datetime.utcnow().strftime('%Y-%m-%d'))
 
@@ -310,13 +340,38 @@ def edit_bcdr_test(test_id):
         test_log.status = request.form['status']
         test_log.notes = request.form.get('notes')
         
-        db.session.commit()
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename != '':
+                # Borramos el adjunto anterior si existe (opcional, pero recomendado)
+                existing_attachment = Attachment.query.filter_by(linkable_type='BCDRTestLog', linkable_id=test_log.id).first()
+                if existing_attachment:
+                    try:
+                        os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], existing_attachment.secure_filename))
+                    except OSError:
+                        pass # Ignorar si el archivo no existe
+                    db.session.delete(existing_attachment)
+                
+                # Subir el nuevo
+                original_filename = secure_filename(file.filename)
+                file_ext = os.path.splitext(original_filename)[1]
+                unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+                
+                file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
+                
+                attachment = Attachment(
+                    filename=original_filename,
+                    secure_filename=unique_filename,
+                    linkable_type='BCDRTestLog',
+                    linkable_id=test_log.id
+                )
+                db.session.add(attachment)
         
-        if 'proof_file' in request.files and request.files['proof_file'].filename != '':
-             return redirect(url_for('attachments.upload_file', bcdr_test_log_id=test_log.id, _method='POST', **request.files))
+        db.session.commit()
 
         flash('BCDR test log has been updated.', 'success')
-        return redirect(url_for('compliance.bcdr_detail', id=plan.id))
+        # Redirigimos a la nueva vista de detalles del log
+        return redirect(url_for('compliance.bcdr_test_log_detail', test_id=test_log.id))
 
     return render_template('compliance/bcdr_test_log_form.html', plan=plan, test_log=test_log, today_date=test_log.test_date.strftime('%Y-%m-%d'))
 

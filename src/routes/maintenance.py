@@ -1,6 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+import os
+import uuid
+from werkzeug.utils import secure_filename
+from flask import current_app, Blueprint, render_template, request, redirect, url_for, flash
 from datetime import datetime
-from ..models import db, MaintenanceLog, Asset, Peripheral, User
+from ..models import db, MaintenanceLog, Asset, Peripheral, User, Attachment # Added Attachment
 from .main import login_required
 from .admin import admin_required
 
@@ -11,6 +14,12 @@ maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 def list_logs():
     logs = MaintenanceLog.query.order_by(MaintenanceLog.event_date.desc()).all()
     return render_template('maintenance/list.html', logs=logs)
+
+@maintenance_bp.route('/<int:id>')
+@login_required
+def log_detail(id):
+    log = MaintenanceLog.query.get_or_404(id)
+    return render_template('maintenance/detail.html', log=log)
 
 @maintenance_bp.route('/new', methods=['GET', 'POST'])
 @login_required
@@ -30,10 +39,30 @@ def new_log():
         )
         db.session.add(log)
         db.session.commit()
-        flash('Maintenance log created successfully.', 'success')
-        return redirect(url_for('maintenance.list_logs'))
 
-    # Pre-select asset or peripheral from query params if available
+        # Handle File Upload
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename != '':
+                original_filename = secure_filename(file.filename)
+                file_ext = os.path.splitext(original_filename)[1]
+                unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+                
+                file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
+                
+                attachment = Attachment(
+                    filename=original_filename,
+                    secure_filename=unique_filename,
+                    linkable_type='MaintenanceLog',
+                    linkable_id=log.id
+                )
+                db.session.add(attachment)
+                db.session.commit()
+
+        flash('Maintenance log created successfully.', 'success')
+        return redirect(url_for('maintenance.log_detail', id=log.id))
+
+    # Pre-select asset or peripheral for query params if available
     preselected_asset_id = request.args.get('asset_id', type=int)
     preselected_peripheral_id = request.args.get('peripheral_id', type=int)
     event_type = request.args.get('event_type')
@@ -65,9 +94,28 @@ def edit_log(id):
         log.assigned_to_id = request.form.get('assigned_to_id') or None
         log.asset_id = request.form.get('asset_id') or None
         log.peripheral_id = request.form.get('peripheral_id') or None
+        
+        # Handle File Upload
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename != '':
+                original_filename = secure_filename(file.filename)
+                file_ext = os.path.splitext(original_filename)[1]
+                unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+                
+                file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
+                
+                attachment = Attachment(
+                    filename=original_filename,
+                    secure_filename=unique_filename,
+                    linkable_type='MaintenanceLog',
+                    linkable_id=log.id
+                )
+                db.session.add(attachment)
+
         db.session.commit()
         flash('Maintenance log updated successfully.', 'success')
-        return redirect(url_for('maintenance.list_logs'))
+        return redirect(url_for('maintenance.log_detail', id=log.id))
 
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     assets = Asset.query.filter_by(is_archived=False).order_by(Asset.name).all()

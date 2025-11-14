@@ -1,14 +1,15 @@
 {% extends "layout.html" %}
 {% block title %}{{ plan.name }} - {{ super() }}{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-shield-alt"></i> {{ plan.name }}</h2>
     <div>
-        <a href="{{ url_for('compliance.edit_bcdr_plan', id=plan.id) }}" class="btn btn-outline-secondary me-2">
-            <i class="fas fa-edit"></i> Edit Plan
+        <a href="{{ url_for('compliance.log_bcdr_test', plan_id=plan.id) }}" class="btn btn-primary me-2">
+            <i class="fas fa-vial"></i> Log New Test
         </a>
-        <a href="{{ url_for('compliance.log_bcdr_test', plan_id=plan.id) }}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Log New Test
+        <a href="{{ url_for('compliance.edit_bcdr_plan', id=plan.id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-edit"></i> Edit Plan
         </a>
     </div>
 </div>
@@ -16,46 +17,95 @@
 <div class="card mb-4">
     <div class="card-header">Plan Details</div>
     <div class="card-body">
-        <p><strong>Description:</strong> {{ plan.description or 'N/A' }}</p>
-        <div class="row">
-            <div class="col-md-6">
-                <p><strong>Covered Subscriptions ({{ plan.subscriptions|length }}):</strong></p>
-                <ul>{% for subscription in plan.subscriptions %}<li><a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{ subscription.name }}</a></li>{% else %}<li>None</li>{% endfor %}</ul>
-            </div>
-            <div class="col-md-6">
-                <p><strong>Covered Assets ({{ plan.assets|length }}):</strong></p>
-                <ul>{% for asset in plan.assets %}<li><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a></li>{% else %}<li>None</li>{% endfor %}</ul>
-            </div>
+        <p><strong>Description:</strong> {{ plan.description|nl2br or 'No description provided.' }}</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Associated Assets</div>
+            <ul class="list-group list-group-flush">
+                {% for asset in plan.assets %}
+                <li class="list-group-item"><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a></li>
+                {% else %}
+                <li class="list-group-item text-muted">No assets linked to this plan.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Associated Subscriptions</div>
+            <ul class="list-group list-group-flush">
+                {% for subscription in plan.subscriptions %}
+                <li class="list-group-item"><a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{ subscription.name }}</a></li>
+                {% else %}
+                <li class="list-group-item text-muted">No subscriptions linked to this plan.</li>
+                {% endfor %}
+            </ul>
         </div>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header">Test Log History</div>
-    <ul class="list-group list-group-flush">
-        {% for log in plan.test_logs %}
-        <li class="list-group-item">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <h5 class="mb-1">{{ log.test_date.strftime('%Y-%m-%d') }}</h5>
-                    <p class="mb-1 text-muted">{{ log.notes|nl2br }}</p>
-                    {% for att in log.attachments %}
-                        <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}"><i class="fas fa-paperclip"></i> {{ att.filename }}</a>
-                    {% endfor %}
-                </div>
-                <div class="d-flex flex-column align-items-end">
-                    <span>
-                        {% if log.status == 'Passed' %}<span class="badge bg-success">{{ log.status }}</span>
-                        {% elif log.status == 'Failed' %}<span class="badge bg-danger">{{ log.status }}</span>
-                        {% else %}<span class="badge bg-warning">{{ log.status }}</span>{% endif %}
-                    </span>
-                    <a href="{{ url_for('compliance.edit_bcdr_test', test_id=log.id) }}" class="btn btn-sm btn-outline-secondary mt-2">Edit</a>
-                </div>
-            </div>
-        </li>
-        {% else %}
-        <li class="list-group-item text-muted">No tests have been logged for this plan yet.</li>
-        {% endfor %}
-    </ul>
+<div class="card mt-4">
+    <div class="card-header">Test Logs</div>
+    <div class="card-body">
+        <table class="table table-striped" id="test-logs-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in plan.test_logs %}
+                <tr>
+                    <td>{{ log.test_date.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        {% if log.status == 'Passed' %}
+                            <span class="badge bg-success">Passed</span>
+                        {% elif log.status == 'Failed' %}
+                            <span class="badge bg-danger">Failed</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">In Progress</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ log.notes|truncate(100) }}</td>
+                    <td>
+                        <!-- --- ENLACES ACTUALIZADOS --- -->
+                        <div class="btn-group">
+                            <a href="{{ url_for('compliance.bcdr_test_log_detail', test_id=log.id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i> Details
+                            </a>
+                            <a href="{{ url_for('compliance.edit_bcdr_test', test_id=log.id) }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                        </div>
+                        <!-- -------------------------- -->
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center">No test logs recorded for this plan.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        new simpleDatatables.DataTable("#test-logs-table", {
+            searchable: false,
+            paging: false,
+            info: false
+        });
+    });
+</script>
 {% endblock %}

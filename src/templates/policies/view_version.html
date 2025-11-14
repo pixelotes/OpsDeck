@@ -11,27 +11,35 @@
             <a href="{{ url_for('policies.detail', id=version.policy.id) }}" class="btn btn-secondary">Back to Policy</a>
         </div>
         <div class="card-body">
+            
+            {% if version.attachments %}
+            <div class="mb-4">
+                <h5 class="card-title"><i class="fas fa-paperclip"></i> Attached Documents</h5>
+                <ul class="list-group">
+                    {% for att in version.attachments %}
+                    <li class="list-group-item">
+                        <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">
+                            <i class="fas fa-file-download"></i> {{ att.filename }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
             <h5 class="card-title">Policy Content</h5>
             <div class="policy-content p-3 border rounded" style="background-color: #f8f9fa;">
                 {{ version.content|markdown|safe }}
             </div>
         </div>
         <div class="card-footer text-center">
-            {#
-               Here's the new logic:
-               1. We first set a variable 'user_ack' by filtering the version's acknowledgements
-                  to find one that matches the current logged-in user's ID.
-               2. We then use an if/else statement to check if 'user_ack' was found.
-            #}
             {% set user_ack = version.acknowledgements|selectattr('user_id', 'equalto', current_user.id)|first %}
 
             {% if user_ack %}
-                {# If found, the user has acknowledged. Show a disabled green button. #}
                 <button type="button" class="btn btn-success" disabled>
                     <i class="fas fa-check-circle"></i> Acknowledged on {{ user_ack.acknowledged_at.strftime('%Y-%m-%d') }}
                 </button>
             {% else %}
-                {# If not found, show the acknowledgement form and button. #}
                 <form action="{{ url_for('policies.acknowledge_version', id=version.id) }}" method="post" class="mt-3">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-check"></i> I have read and understand the policy

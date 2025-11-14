@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+{% block title %}Maintenance Log {{ log.id }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-tools"></i> Maintenance Log Details</h2>
+    <div>
+        <a href="{{ url_for('maintenance.list_logs') }}" class="btn btn-outline-secondary">Back to List</a>
+        <a href="{{ url_for('maintenance.edit_log', id=log.id) }}" class="btn btn-primary"><i class="fas fa-edit"></i> Edit</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        Event Info
+        <span class="badge float-end {% if log.status == 'Completed' %}bg-success{% elif log.status == 'Cancelled' %}bg-secondary{% else %}bg-warning text-dark{% endif %}">
+            {{ log.status }}
+        </span>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Date:</strong> {{ log.event_date.strftime('%Y-%m-%d') }}</p>
+                <p><strong>Type:</strong> {{ log.event_type }}</p>
+                <p><strong>Assigned To:</strong> {{ log.assigned_to.name if log.assigned_to else 'Unassigned' }}</p>
+                {% if log.ticket_link %}
+                <p><strong>Ticket:</strong> <a href="{{ log.ticket_link }}" target="_blank">External Link <i class="fas fa-external-link-alt"></i></a></p>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <p><strong>Asset:</strong> 
+                    {% if log.asset %}
+                        <a href="{{ url_for('assets.asset_detail', id=log.asset.id) }}">{{ log.asset.name }}</a>
+                    {% else %}N/A{% endif %}
+                </p>
+                <p><strong>Peripheral:</strong> 
+                    {% if log.peripheral %}
+                        <a href="{{ url_for('peripherals.peripheral_detail', id=log.peripheral.id) }}">{{ log.peripheral.name }}</a>
+                    {% else %}N/A{% endif %}
+                </p>
+            </div>
+        </div>
+        <hr>
+        <h5>Description</h5>
+        <p>{{ log.description }}</p>
+        {% if log.notes %}
+            <h5>Notes</h5>
+            <p>{{ log.notes }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-paperclip"></i> Attachments</div>
+    <ul class="list-group list-group-flush">
+        {% for att in log.attachments %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+            </form>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No attachments found.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

@@ -7,7 +7,7 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label for="version_number" class="form-label">Version Number *</label>
@@ -22,6 +22,13 @@
                 <label for="content" class="form-label">Policy Content *</label>
                 <textarea class="form-control" id="policy-content-editor" name="content" rows="15">{{ version.content if version else '' }}</textarea>
             </div>
+            
+            <div class="mb-3">
+                <label for="file" class="form-label">Attach File (PDF, DOCX, etc.)</label>
+                <input class="form-control" type="file" id="file" name="file">
+                <div class="form-text">Uploading a file here will add it to the version attachments.</div>
+            </div>
+            
             <hr>
             <a href="{{ url_for('policies.detail', id=policy.id) }}" class="btn btn-secondary">Cancel</a>
             <button type="submit" class="btn btn-primary">Save Version</button>
