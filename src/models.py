@@ -3,6 +3,7 @@ from .extensions import db
 from datetime import datetime, timedelta, date
 from dateutil.relativedelta import relativedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.orm import foreign
 
 # Currency conversion rates (EUR base)
 CURRENCY_RATES = {
@@ -54,6 +55,10 @@ class User(db.Model): # Add UserMixin here if using Flask-Login
     groups = db.relationship('Group', secondary=user_groups, back_populates='users')
     policy_versions_to_acknowledge = db.relationship('PolicyVersion', secondary=policy_version_users, back_populates='users_to_acknowledge')
     course_assignments = db.relationship('CourseAssignment', backref='user', lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(User.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='User')",
+                            lazy=True, cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -77,8 +82,11 @@ class Supplier(db.Model):
     security_assessment_completed = db.Column(db.Date, nullable=True)
     compliance_notes = db.Column(db.Text, nullable=True)
     data_storage_region = db.Column(db.String(50), default='EU')
-    attachments = db.relationship('Attachment', backref='supplier', lazy=True, cascade='all, delete-orphan')
-    
+    attachments = db.relationship('Attachment',
+        primaryjoin="and_(Supplier.id==foreign(Attachment.linkable_id), "
+        "Attachment.linkable_type=='Supplier')",
+        lazy=True, cascade='all, delete-orphan')
+
     contacts = db.relationship('Contact', backref='supplier', lazy=True, cascade='all, delete-orphan')
     subscriptions = db.relationship('Subscription', backref='supplier', lazy=True)
     purchases = db.relationship('Purchase', backref='supplier', lazy=True)
@@ -114,32 +122,13 @@ class Attachment(db.Model):
     filename = db.Column(db.String(255), nullable=False) # Original filename
     secure_filename = db.Column(db.String(255), nullable=False, unique=True) # Stored filename
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    bcdr_test_log_id = db.Column(db.Integer, db.ForeignKey('bcdr_test_log.id'))
-    maintenance_log_id = db.Column(db.Integer, db.ForeignKey('maintenance_log.id'))
-    disposal_record_id = db.Column(db.Integer, db.ForeignKey('disposal_record.id'))
 
-    # Courses
-    course_completion_id = db.Column(db.Integer, db.ForeignKey('course_completion.id'))
+    linkable_id = db.Column(db.Integer, nullable=False)
+    linkable_type = db.Column(db.String(50), nullable=False)
 
-    # Policies
-    policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'))
-    policy_version_id = db.Column(db.Integer, db.ForeignKey('policy_version.id'))
-
-    # Policy assessments
-    security_assessment_id = db.Column(db.Integer, db.ForeignKey('security_assessment.id'))
-
-    # Risks
-    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'))
-                        
-    # Security Incidents
-    security_incident_id = db.Column(db.Integer, db.ForeignKey('security_incident.id'))
-    
-    # Foreign keys - one of these will be set
-    subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'))
-    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
-    purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
-    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
-    peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'))
+    __table_args__ = (
+        db.Index('idx_attachment_linkable', 'linkable_id', 'linkable_type'),
+    )
 
 # Association table for many-to-many relationship between subscriptions and payments
 subscription_payment_methods = db.Table('subscription_payment_methods',
@@ -203,7 +192,10 @@ class Subscription(db.Model):
     software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
     contacts = db.relationship('Contact', secondary=subscription_contacts, backref='subscriptions')
     payment_methods = db.relationship('PaymentMethod', secondary=subscription_payment_methods, back_populates='subscriptions')
-    attachments = db.relationship('Attachment', backref='subscription', lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(Subscription.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='Subscription')",
+                            lazy=True, cascade='all, delete-orphan')
     cost_history = db.relationship('CostHistory', backref='subscription', lazy=True, cascade='all, delete-orphan', order_by='CostHistory.changed_date')
     tags = db.relationship('Tag', secondary=subscription_tags, backref=db.backref('subscriptions', lazy='dynamic'))
     
@@ -338,7 +330,10 @@ class Purchase(db.Model):
 
     users = db.relationship('User', secondary=purchase_users, backref='purchases')
     tags = db.relationship('Tag', secondary=purchase_tags, backref='purchases')
-    attachments = db.relationship('Attachment', backref='purchase', lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(Purchase.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='Purchase')",
+                            lazy=True, cascade='all, delete-orphan')
     assets = db.relationship('Asset', backref='purchase', lazy=True)
     peripherals = db.relationship('Peripheral', backref='purchase', lazy=True)
     licenses = db.relationship('License', backref='purchase', lazy=True) # Added relationship
@@ -408,7 +403,10 @@ class Asset(db.Model):
     location_id = db.Column(db.Integer, db.ForeignKey('location.id'))
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'))
-    attachments = db.relationship('Attachment', backref='asset', lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(Asset.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='Asset')",
+                            lazy=True, cascade='all, delete-orphan')
     history = db.relationship('AssetHistory', backref='asset', lazy=True, cascade='all, delete-orphan', order_by='AssetHistory.changed_at.desc()')
     peripherals = db.relationship('Peripheral', backref='asset', lazy=True)
     assignments = db.relationship('AssetAssignment', backref='asset', lazy=True, cascade='all, delete-orphan', order_by='AssetAssignment.checked_out_date.desc()')
@@ -476,6 +474,10 @@ class Peripheral(db.Model):
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
     
     assignments = db.relationship('PeripheralAssignment', backref='peripheral', lazy=True, cascade='all, delete-orphan', order_by='PeripheralAssignment.checked_out_date.desc()')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(Peripheral.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='Peripheral')",
+                            lazy=True, cascade='all, delete-orphan')
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -541,7 +543,10 @@ class Policy(db.Model):
 
     # Relationship to its versions
     versions = db.relationship('PolicyVersion', backref='policy', lazy=True, cascade='all, delete-orphan')
-    attachments = db.relationship('Attachment', primaryjoin="and_(Attachment.policy_id==Policy.id)", lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(Policy.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='Policy')",
+                            lazy=True, cascade='all, delete-orphan')
 
 class PolicyVersion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -556,7 +561,10 @@ class PolicyVersion(db.Model):
 
     # Relationship back to the main policy document
     policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'), nullable=False)
-    attachments = db.relationship('Attachment', primaryjoin="and_(Attachment.policy_version_id==PolicyVersion.id)", lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(PolicyVersion.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='PolicyVersion')",
+                            lazy=True, cascade='all, delete-orphan')
 
 class PolicyAcknowledgement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -572,7 +580,10 @@ class SecurityAssessment(db.Model):
     
     # Relationships
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
-    attachments = db.relationship('Attachment', backref='security_assessment', lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(SecurityAssessment.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='SecurityAssessment')",
+                            lazy=True, cascade='all, delete-orphan')
 
 class Risk(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -585,7 +596,10 @@ class Risk(db.Model):
     iso_27001_control = db.Column(db.String(100)) # e.g., 'A.12.1.2 Protection against malware'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     link = db.Column(db.String(512))
-    attachments = db.relationship('Attachment', backref='risk', lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(Risk.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='Risk')",
+                            lazy=True, cascade='all, delete-orphan')
 
 # --- Association Tables for BCDR ---
 bcdr_plan_subscriptions = db.Table('bcdr_plan_subscriptions',
@@ -619,7 +633,10 @@ class BCDRTestLog(db.Model):
     notes = db.Column(db.Text)
     
     # Relationships
-    attachments = db.relationship('Attachment', backref='bcdr_test_log', lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(BCDRTestLog.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='BCDRTestLog')",
+                            lazy=True, cascade='all, delete-orphan')
 
 class Course(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -647,9 +664,10 @@ class CourseCompletion(db.Model):
     notes = db.Column(db.Text)
     
     assignment_id = db.Column(db.Integer, db.ForeignKey('course_assignment.id'), nullable=False)
-    attachment_id = db.Column(db.Integer, db.ForeignKey('attachment.id'))
-    
-    attachment = db.relationship('Attachment', foreign_keys=[attachment_id])
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(CourseCompletion.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='CourseCompletion')",
+                            lazy=True, cascade='all, delete-orphan')
 
 class Audit(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -691,7 +709,10 @@ class MaintenanceLog(db.Model):
     peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'))
     
     assigned_to = db.relationship('User', backref='maintenance_logs')
-    attachments = db.relationship('Attachment', backref='maintenance_log', lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(MaintenanceLog.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='MaintenanceLog')",
+                            lazy=True, cascade='all, delete-orphan')
 
 incident_assets = db.Table('incident_assets',
     db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
@@ -739,7 +760,10 @@ class SecurityIncident(db.Model):
     affected_users = db.relationship('User', secondary=incident_users, backref='incidents')
     affected_subscriptions = db.relationship('Subscription', secondary=incident_subscriptions, backref='incidents')
     affected_suppliers = db.relationship('Supplier', secondary=incident_suppliers, backref='incidents')
-    attachments = db.relationship('Attachment', backref='security_incident', lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(SecurityIncident.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='SecurityIncident')",
+                            lazy=True, cascade='all, delete-orphan')
 
 class PostIncidentReview(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -788,7 +812,10 @@ class DisposalRecord(db.Model):
     asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), unique=True)
     peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'), unique=True)
     
-    attachments = db.relationship('Attachment', backref='disposal_record', lazy=True, cascade='all, delete-orphan')
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(DisposalRecord.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='DisposalRecord')",
+                            lazy=True, cascade='all, delete-orphan')
 
     history = db.relationship('DisposalHistory', backref='disposal_record', lazy=True, cascade='all, delete-orphan', order_by='DisposalHistory.changed_at.desc()')
 
@@ -864,5 +891,43 @@ class Software(db.Model):
         if self.owner_type == 'user' and self.owner_id:
             return User.query.get(self.owner_id)
         if self.owner_type == 'group' and self.owner_id:
+            return Group.query.get(self.owner_id)
+        return None
+
+documentation_tags = db.Table('documentation_tags',
+    db.Column('documentation_id', db.Integer, db.ForeignKey('documentation.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+)
+
+class Documentation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    external_link = db.Column(db.String(512)) # Enlace externo
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Propietario polimórfico (User o Group)
+    owner_id = db.Column(db.Integer)
+    owner_type = db.Column(db.String(50)) # 'User' o 'Group'
+    
+    # Relación con Software (opcional)
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
+    software = db.relationship('Software', backref='documentation')
+
+    # Relación con Tags (muchos a muchos)
+    tags = db.relationship('Tag', secondary=documentation_tags, backref=db.backref('documentation', lazy='dynamic'))
+    
+    # Relación con Attachments (polimórfica)
+    attachments = db.relationship('Attachment',
+                            primaryjoin="and_(Documentation.id==foreign(Attachment.linkable_id), "
+                                        "Attachment.linkable_type=='Documentation')",
+                            lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def owner(self):
+        """Devuelve el objeto User o Group basado en owner_type y owner_id."""
+        if self.owner_type == 'User' and self.owner_id:
+            return User.query.get(self.owner_id)
+        if self.owner_type == 'Group' and self.owner_id:
             return Group.query.get(self.owner_id)
         return None

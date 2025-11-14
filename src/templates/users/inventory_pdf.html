@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Inventario de Usuario - {{ user.name }}</title>
+    <style>
+        /* Estilos básicos para que WeasyPrint los renderice */
+        @page { margin: 1.5cm; }
+        body { font-family: 'Helvetica', sans-serif; font-size: 11px; color: #333; }
+        h1 { border-bottom: 2px solid #333; padding-bottom: 10px; font-size: 18px; text-align: center; }
+        h2 { margin-top: 25px; background-color: #f0f0f0; padding: 5px 8px; border-left: 5px solid #007bff; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        th { background-color: #f8f9fa; font-weight: bold; }
+        .meta { margin-bottom: 30px; }
+        .meta p { margin: 3px 0; }
+        .footer { position: fixed; bottom: -20px; width: 100%; text-align: center; font-size: 9px; color: #777; }
+        .signature { margin-top: 60px; }
+        .signature-line { border-top: 1px solid #555; width: 250px; margin-top: 40px; }
+    </style>
+</head>
+<body>
+    <div class="footer">
+        Documento generado por OpsDeck | {{ generated_at.strftime('%Y-%m-%d %H:%M:%S') }}
+    </div>
+
+    <h1>Snapshot de Inventario de Usuario</h1>
+    
+    <div class="meta">
+        <p><strong>Usuario:</strong> {{ user.name }}</p>
+        <p><strong>Email:</strong> {{ user.email or 'N/A' }}</p>
+        <p><strong>Departamento:</strong> {{ user.department or 'N/A' }}</p>
+        <p><strong>Generado el:</strong> {{ generated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+    </div>
+
+    <!-- Activos Asignados -->
+    <h2>Activos (Assets)</h2>
+    {% if user.assets %}
+    <table>
+        <thead>
+            <tr>
+                <th>Nombre / Tag</th>
+                <th>Modelo</th>
+                <th>Nº de Serie</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for asset in user.assets %}
+            <tr>
+                <td>{{ asset.name }}</td>
+                <td>{{ asset.model or '-' }}</td>
+                <td>{{ asset.serial_number or '-' }}</td>
+                <td>{{ asset.status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No hay activos (assets) asignados.</p>
+    {% endif %}
+
+    <!-- Periféricos Asignados -->
+    <h2>Periféricos</h2>
+    {% if user.peripherals %}
+    <table>
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>Nº de Serie</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for peripheral in user.peripherals %}
+            <tr>
+                <td>{{ peripheral.name }}</td>
+                <td>{{ peripheral.type or '-' }}</td>
+                <td>{{ peripheral.serial_number or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No hay periféricos asignados.</p>
+    {% endif %}
+
+    <!-- Licencias Asignadas -->
+    <h2>Licencias de Software</h2>
+    {% if user.licenses %}
+    <table>
+        <thead>
+            <tr>
+                <th>Software</th>
+                <th>Clave (Key)</th>
+                <th>Caducidad</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for license in user.licenses %}
+            <tr>
+                <td>{{ license.software.name if license.software else license.name }}</td>
+                <td>{{ license.license_key or '******' }}</td>
+                <td>{{ license.expiry_date.strftime('%Y-%m-%d') if license.expiry_date else 'Perpetua' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No hay licencias asignadas.</p>
+    {% endif %}
+
+    <!-- Sección de Firmas (para Offboarding) -->
+    <table style="width: 100%; margin-top: 80px; border: none;">
+        <tr style="border: none;">
+            <td style="width: 50%; border: none; text-align: center;">
+                <div class="signature">
+                    <div class="signature-line"></div>
+                    <p>Firma del Empleado</p>
+                    <p>{{ user.name }}</p>
+                </div>
+            </td>
+            <td style="width: 50%; border: none; text-align: center;">
+                <div class="signature">
+                    <div class="signature-line"></div>
+                    <p>Firma del Mánager (IT)</p>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

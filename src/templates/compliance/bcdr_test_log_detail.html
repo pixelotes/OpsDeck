@@ -1,0 +1,54 @@
+{% extends "layout.html" %}
+{% block title %}BCDR Test Log {{ test_log.id }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-vial"></i> BCDR Test Log Details</h2>
+    <div>
+        <a href="{{ url_for('compliance.bcdr_detail', id=test_log.plan.id) }}" class="btn btn-outline-secondary">Back to Plan</a>
+        <a href="{{ url_for('compliance.edit_bcdr_test', test_id=test_log.id) }}" class="btn btn-primary"><i class="fas fa-edit"></i> Edit Log</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        Log Info
+        <span class="badge float-end 
+            {% if test_log.status == 'Passed' %}bg-success
+            {% elif test_log.status == 'Failed' %}bg-danger
+            {% else %}bg-warning text-dark{% endif %}">
+            {{ test_log.status }}
+        </span>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Plan:</strong> <a href="{{ url_for('compliance.bcdr_detail', id=test_log.plan.id) }}">{{ test_log.plan.name }}</a></p>
+                <p><strong>Test Date:</strong> {{ test_log.test_date.strftime('%Y-%m-%d') }}</p>
+            </div>
+        </div>
+        <hr>
+        <h5>Notes</h5>
+        <p>{{ test_log.notes|nl2br or 'No notes provided.' }}</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-paperclip"></i> Attachments</div>
+    <ul class="list-group list-group-flush">
+        {% for att in test_log.attachments %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+            </form>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No attachments found.</li>
+        {% endfor %}
+    </ul>
+    <div class="card-body">
+        <p class="text-muted small">You can add or replace an attachment by editing the log.</p>
+    </div>
+</div>
+{% endblock %}

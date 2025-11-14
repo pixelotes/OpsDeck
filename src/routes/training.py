@@ -165,3 +165,54 @@ def admin_complete_course(assignment_id):
     db.session.commit()
     flash(f'Successfully marked "{assignment.course.title}" as complete for {assignment.user.name}!', 'success')
     return redirect(url_for('training.course_detail', id=assignment.course_id))
+
+@training_bp.route('/completion/<int:completion_id>/edit', methods=['POST'])
+@login_required
+@admin_required
+def edit_completion(completion_id):
+    """
+    Edita una finalización de curso existente.
+    """
+    completion = CourseCompletion.query.get_or_404(completion_id)
+    assignment = completion.assignment
+    
+    if not completion:
+        flash('Completion record not found.', 'danger')
+        return redirect(request.referrer)
+
+    # Actualizar campos
+    completion.completion_date = datetime.strptime(request.form['completion_date'], '%Y-%m-%d').date()
+    completion.notes = request.form.get('notes')
+
+    # Gestionar subida de nuevo certificado
+    if 'certificate' in request.files:
+        file = request.files['certificate']
+        if file.filename != '':
+            # 1. Eliminar el certificado antiguo si existe
+            if completion.attachments:
+                old_attachment = completion.attachments[0]
+                try:
+                    os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], old_attachment.secure_filename))
+                except OSError as e:
+                    current_app.logger.warning(f"Could not delete old certificate file: {e}")
+                db.session.delete(old_attachment)
+            
+            # 2. Guardar el nuevo certificado
+            original_filename = secure_filename(file.filename)
+            file_ext = os.path.splitext(original_filename)[1]
+            unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+            
+            file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
+            
+            # 3. Crear el nuevo registro de Attachment
+            new_attachment = Attachment(
+                filename=original_filename,
+                secure_filename=unique_filename,
+                linkable_type='CourseCompletion',
+                linkable_id=completion.id
+            )
+            db.session.add(new_attachment)
+
+    db.session.commit()
+    flash(f'Completion for "{assignment.course.title}" (User: {assignment.user.name}) has been updated.', 'success')
+    return redirect(url_for('training.course_detail', id=assignment.course_id))

@@ -1,0 +1,104 @@
+{% extends "layout.html" %}
+{% set title = "Edit Documentation" if doc else "New Documentation" %}
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas {{ 'fa-edit' if doc else 'fa-plus' }}"></i> {{ title }}</h2>
+<hr>
+<div class="card">
+    <div class="card-body">
+        <form method="POST" enctype="multipart/form-data">
+            
+            <div class="mb-3">
+                <label for="name" class="form-label">Name *</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ doc.name if doc else '' }}" required>
+            </div>
+            
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description-editor" name="description" rows="8">{{ doc.description if doc else '' }}</textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="external_link" class="form-label">External Link</label>
+                <input type="url" class="form-control" id="external_link" name="external_link" value="{{ doc.external_link if doc else '' }}" placeholder="https://...">
+            </div>
+            
+            <hr>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="owner" class="form-label">Owner (User or Group) *</label>
+                    <select class="form-select" id="owner" name="owner" required>
+                        <option value="">Select an owner...</option>
+                        {% set current_owner = (doc.owner_type ~ '-' ~ doc.owner_id) if doc else '' %}
+                        <optgroup label="Users">
+                            {% for user in users %}
+                            <option value="User-{{ user.id }}" {% if current_owner == 'User-' ~ user.id %}selected{% endif %}>
+                                {{ user.name }}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Groups">
+                            {% for group in groups %}
+                            <option value="Group-{{ group.id }}" {% if current_owner == 'Group-' ~ group.id %}selected{% endif %}>
+                                {{ group.name }}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="software_id" class="form-label">Related Software (Optional)</label>
+                    <select class="form-select" id="software_id" name="software_id">
+                        <option value="">None</option>
+                        {% for s in software %}
+                        <option value="{{ s.id }}" {% if doc and doc.software_id == s.id %}selected{% endif %}>
+                            {{ s.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="tags" class="form-label">Tags (Optional)</label>
+                <select class="form-select" id="tags" name="tags" multiple size="5">
+                    {% set current_tags = doc.tags|map(attribute='id')|list if doc else [] %}
+                    {% for tag in tags %}
+                    <option value="{{ tag.id }}" {% if tag.id in current_tags %}selected{% endif %}>
+                        {{ tag.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Hold Ctrl/Cmd to select multiple tags.</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="file" class="form-label">Attach File (Optional)</label>
+                <input class="form-control" type="file" id="file" name="file">
+                <div class="form-text">Uploading a file will add it to the attachments list.</div>
+            </div>
+
+            <hr>
+            <a href="{{ url_for('documentation.list_docs') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Documentation</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const textarea = document.getElementById('description-editor');
+        if (textarea) {
+            new EasyMDE({
+                element: textarea,
+                spellChecker: false,
+                minHeight: "150px"
+            });
+        }
+    });
+</script>
+{% endblock %}

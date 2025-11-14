@@ -1,0 +1,100 @@
+{% extends "layout.html" %}
+{% block title %}Documentation - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-book"></i> Documentation</h2>
+    <a href="{{ url_for('documentation.new_doc') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Documentation
+    </a>
+</div>
+
+<!-- Formulario de Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('documentation.list_docs') }}">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label for="search_name" class="form-label">Filter by Name</label>
+                    <input type="text" class="form-control" id="search_name" name="search_name" value="{{ search_name or '' }}" placeholder="e.g., SOC2 Report...">
+                </div>
+                <div class="col-md-5">
+                    <label for="tags" class="form-label">Filter by Tags</label>
+                    <select id="tags" name="tags" class="form-select" multiple>
+                        {% for tag in all_tags %}
+                            <!-- Marcar tags que ya estaban seleccionados -->
+                            <option value="{{ tag.name }}" {% if tag.name in search_tags %}selected{% endif %}>
+                                {{ tag.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-secondary w-100 me-2">Filter</button>
+                    <a href="{{ url_for('documentation.list_docs') }}" class="btn btn-outline-secondary w-100">Reset</a>
+                </div>
+            </div>
+            <div class="form-text">Hold Ctrl/Cmd to select multiple tags.</div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de Resultados -->
+<div class="card">
+    <div class="card-header">Documentation Entries</div>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Owner</th>
+                    <th>Software</th>
+                    <th>Tags</th>
+                    <th>Link</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documentation %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('documentation.detail', id=doc.id) }}"><strong>{{ doc.name }}</strong></a>
+                        <p class="small text-muted mb-0">{{ doc.description|truncate(100) }}</p>
+                    </td>
+                    <td>
+                        {% if doc.owner %}
+                            <i class="fas {{ 'fa-user' if doc.owner_type == 'User' else 'fa-users' }}"></i>
+                            {{ doc.owner.name }}
+                        {% else %}
+                            <span class="text-muted">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if doc.software %}
+                            <a href="{{ url_for('software.software_detail', id=doc.software.id) }}">{{ doc.software.name }}</a>
+                        {% else %}
+                            <span class="text-muted">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% for tag in doc.tags %}
+                            <span class="badge bg-secondary">{{ tag.name }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if doc.external_link %}
+                            <a href="{{ doc.external_link }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-external-link-alt"></i> Link
+                            </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">No documentation found matching your criteria.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

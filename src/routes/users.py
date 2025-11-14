@@ -1,8 +1,12 @@
+import os
+import uuid
+from datetime import datetime
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash
+    Blueprint, render_template, request, redirect, url_for, flash, current_app
 )
-from ..models import db, User
+from ..models import db, User, Attachment
 from .main import login_required
+from weasyprint import HTML
 
 users_bp = Blueprint('users', __name__)
 
@@ -76,3 +80,57 @@ def edit_user(id):
         return redirect(url_for('users.users'))
 
     return render_template('users/form.html', user=user)
+
+@users_bp.route('/<int:id>/inventory/generate', methods=['POST'])
+@login_required
+def generate_inventory(id):
+    """
+    Genera un snapshot en PDF del inventario del usuario y lo guarda
+    como un adjunto enlazado a ese usuario.
+    """
+    user = User.query.get_or_404(id)
+    
+    # 1. Renderizar la plantilla HTML específica para el PDF
+    html_content = render_template(
+        'users/inventory_pdf.html', 
+        user=user,
+        generated_at=datetime.now()
+    )
+    
+    # 2. Generar los bytes del PDF en memoria
+    try:
+        pdf_bytes = HTML(string=html_content).write_pdf()
+    except Exception as e:
+        current_app.logger.error(f"Error al generar PDF con WeasyPrint: {e}")
+        flash('Error al generar el PDF. Revisa los logs.', 'danger')
+        return redirect(url_for('users.user_detail', id=id))
+
+    # 3. Definir nombres de archivo
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M')
+    original_filename = f"Inventory_{user.name.replace(' ', '_')}_{timestamp}.pdf"
+    secure_filename_to_save = f"{uuid.uuid4().hex}.pdf"
+    
+    # 4. Guardar el archivo físico
+    save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], secure_filename_to_save)
+    
+    try:
+        with open(save_path, 'wb') as f:
+            f.write(pdf_bytes)
+    except OSError as e:
+        current_app.logger.error(f"Error al guardar archivo PDF: {e}")
+        flash('Error al guardar el archivo de inventario.', 'danger')
+        return redirect(url_for('users.user_detail', id=id))
+
+    # 5. Crear el registro 'Attachment' en la BD
+    attachment = Attachment(
+        filename=original_filename,
+        secure_filename=secure_filename_to_save,
+        linkable_type='User',
+        linkable_id=user.id
+    )
+    
+    db.session.add(attachment)
+    db.session.commit()
+    
+    flash('Snapshot de inventario generado y guardado.', 'success')
+    return redirect(url_for('users.user_detail', id=id))

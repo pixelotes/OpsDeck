@@ -1,11 +1,13 @@
+import os
+import uuid
+from werkzeug.utils import secure_filename
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, session
+    Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 )
 from datetime import date, datetime
-from ..models import db, Policy, PolicyVersion, User, Group, PolicyAcknowledgement
+from ..models import db, Policy, PolicyVersion, User, Group, PolicyAcknowledgement, Attachment
 from .main import login_required
 from .admin import admin_required
-
 policies_bp = Blueprint('policies', __name__)
 
 @policies_bp.route('/')
@@ -108,7 +110,26 @@ def new_version(id):
             effective_date=datetime.strptime(request.form['effective_date'], '%Y-%m-%d').date()
         )
         db.session.add(version)
-        db.session.commit()
+        db.session.commit() # Commit to get ID
+        
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename != '':
+                original_filename = secure_filename(file.filename)
+                file_ext = os.path.splitext(original_filename)[1]
+                unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+                
+                file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
+                
+                attachment = Attachment(
+                    filename=original_filename,
+                    secure_filename=unique_filename,
+                    linkable_type='PolicyVersion',
+                    linkable_id=version.id
+                )
+                db.session.add(attachment)
+                db.session.commit()
+
         flash(f'New version "{version.version_number}" has been created.', 'success')
         return redirect(url_for('policies.detail', id=id))
         
@@ -138,6 +159,23 @@ def edit_version(id):
         group_ids = request.form.getlist('group_ids')
         version.users_to_acknowledge = User.query.filter(User.id.in_(user_ids)).all()
         version.groups_to_acknowledge = Group.query.filter(Group.id.in_(group_ids)).all()
+
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename != '':
+                original_filename = secure_filename(file.filename)
+                file_ext = os.path.splitext(original_filename)[1]
+                unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+                
+                file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
+                
+                attachment = Attachment(
+                    filename=original_filename,
+                    secure_filename=unique_filename,
+                    linkable_type='PolicyVersion',
+                    linkable_id=version.id
+                )
+                db.session.add(attachment)
 
         db.session.commit()
         flash(f'Version "{version.version_number}" has been updated.', 'success')
