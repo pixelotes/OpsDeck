@@ -26,8 +26,8 @@ def new_budget():
             name=request.form['name'],
             category=request.form.get('category'),
             amount=float(request.form['amount']),
-            currency=request.form['currency'],
-            period=request.form['period']
+            currency=request.form.get('currency', 'EUR'), # Use .get() and add default
+            period=request.form.get('period', 'One-time') # Use .get() and add default
         )
         db.session.add(budget)
         db.session.commit()

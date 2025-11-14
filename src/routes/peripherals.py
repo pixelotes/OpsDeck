@@ -29,7 +29,7 @@ def new_peripheral():
             brand=request.form.get('brand'),
             serial_number=request.form.get('serial_number'),
             status=request.form['status'],
-            purchase_date=datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date() if request.form['purchase_date'] else None,
+            purchase_date=datetime.strptime(request.form.get('purchase_date'), '%Y-%m-%d').date() if request.form.get('purchase_date') else None,
             warranty_length=int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None,
             cost=float(request.form.get('cost')) if request.form.get('cost') else None,
             currency=request.form.get('currency'),

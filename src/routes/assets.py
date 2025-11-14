@@ -4,6 +4,7 @@ from flask import (
 from datetime import datetime
 from ..models import db, Asset, AssetHistory, User, Location, Supplier, Purchase, AssetAssignment, Peripheral
 from .main import login_required
+from .admin import admin_required
 
 assets_bp = Blueprint('assets', __name__)
 
@@ -44,6 +45,7 @@ def unarchive_asset(id):
 
 @assets_bp.route('/new', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def new_asset():
     if request.method == 'POST':
         asset = Asset(
@@ -54,7 +56,7 @@ def new_asset():
             status=request.form['status'],
             internal_id=request.form.get('internal_id'),
             comments=request.form.get('comments'),
-            purchase_date=datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date() if request.form['purchase_date'] else None,
+            purchase_date=datetime.strptime(request.form.get('purchase_date'), '%Y-%m-%d').date() if request.form.get('purchase_date') else None,
             cost=float(request.form.get('cost')) if request.form.get('cost') else None,
             currency=request.form.get('currency'),
             warranty_length=int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None,

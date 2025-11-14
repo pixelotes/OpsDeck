@@ -28,6 +28,7 @@ def login():
 
         if user and user.check_password(password):
             session['user_id'] = user.id
+            flash('Logged in successfully', 'success')
             return redirect(url_for('main.dashboard'))
         else:
             flash('Invalid email or password')
@@ -38,6 +39,7 @@ def login():
 @login_required
 def logout():
     session.pop('user_id', None)
+    flash('You have been logged out', 'success')
     return redirect(url_for('main.login'))
 
 def password_change_required(f):
