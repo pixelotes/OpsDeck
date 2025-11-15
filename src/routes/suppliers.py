@@ -4,6 +4,7 @@ from flask import (
 from ..models import db, Supplier
 from .main import login_required
 from datetime import datetime
+from .admin import admin_required
 
 suppliers_bp = Blueprint('suppliers', __name__)
 
@@ -40,6 +41,7 @@ def unarchive_supplier(id):
 
 @suppliers_bp.route('/new', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def new_supplier():
     if request.method == 'POST':
         supplier = Supplier(

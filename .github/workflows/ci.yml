@@ -1,0 +1,37 @@
+name: Python CI Test Suite
+
+#
+# Triggers the workflow on commits to any pull request.
+#
+on:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out your repository code so the runner can access it
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python. I'm using 3.11 to match your Dockerfile.
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Step 3: Install all your app dependencies from requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      # Step 4: Run the tests!
+      - name: Run tests (suppressing warnings)
+        env:
+          # This is critical: It respects your pytest.ini setting (pythonpath = . src)
+          # so that Python can find your 'src' modules.
+          PYTHONPATH: ./src
+        run: |
+          pytest --disable-warnings

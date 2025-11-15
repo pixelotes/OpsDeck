@@ -94,7 +94,11 @@ def complete_course(assignment_id):
         notes=notes
     )
 
-    # Handle file upload for certificate
+    # 1. Añade y "flushea" la finalización PRIMERO para que obtenga un ID
+    db.session.add(completion)
+    db.session.flush()  # Esto asigna completion.id sin terminar la transacción
+
+    # 2. Maneja la subida del archivo
     if 'certificate' in request.files:
         file = request.files['certificate']
         if file.filename != '':
@@ -104,14 +108,18 @@ def complete_course(assignment_id):
             
             file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
             
+            # 3. Crea el adjunto y enlázalo usando el ID de la finalización
             attachment = Attachment(
                 filename=original_filename,
-                secure_filename=unique_filename
+                secure_filename=unique_filename,
+                linkable_id=completion.id,        # <-- Enlace correcto
+                linkable_type='CourseCompletion'  # <-- Enlace correcto
             )
-            completion.attachment = attachment
+            db.session.add(attachment) # Añade el adjunto a la sesión
 
-    db.session.add(completion)
+    # 4. Comete la transacción (guarda la finalización Y el adjunto)
     db.session.commit()
+
     flash(f'Successfully marked "{assignment.course.title}" as complete!', 'success')
     return redirect(url_for('training.my_training'))
 

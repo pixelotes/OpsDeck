@@ -7,6 +7,7 @@ from flask import (
 from ..models import db, User, Attachment
 from .main import login_required
 from weasyprint import HTML
+from .admin import admin_required
 
 users_bp = Blueprint('users', __name__)
 
@@ -25,6 +26,7 @@ def archived_users():
 
 @users_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
+@admin_required
 def archive_user(id):
     user = User.query.get_or_404(id)
     user.is_archived = True
@@ -35,6 +37,7 @@ def archive_user(id):
 
 @users_bp.route('/<int:id>/unarchive', methods=['POST'])
 @login_required
+@admin_required
 def unarchive_user(id):
     user = User.query.get_or_404(id)
     user.is_archived = False
@@ -50,6 +53,7 @@ def user_detail(id):
 
 @users_bp.route('/new', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def new_user():
     if request.method == 'POST':
         user = User(
@@ -67,6 +71,7 @@ def new_user():
 
 @users_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def edit_user(id):
     user = User.query.get_or_404(id)
 

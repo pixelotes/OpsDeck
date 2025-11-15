@@ -29,7 +29,7 @@ def new_peripheral():
             brand=request.form.get('brand'),
             serial_number=request.form.get('serial_number'),
             status=request.form['status'],
-            purchase_date=datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date() if request.form['purchase_date'] else None,
+            purchase_date=datetime.strptime(request.form.get('purchase_date'), '%Y-%m-%d').date() if request.form.get('purchase_date') else None,
             warranty_length=int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None,
             cost=float(request.form.get('cost')) if request.form.get('cost') else None,
             currency=request.form.get('currency'),
@@ -79,7 +79,8 @@ def edit_peripheral(id):
         peripheral.brand = request.form.get('brand')
         peripheral.serial_number = request.form.get('serial_number')
         peripheral.status = new_status
-        peripheral.purchase_date = datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date() if request.form['purchase_date'] else None
+        purchase_date_str = request.form.get('purchase_date')
+        peripheral.purchase_date = datetime.strptime(purchase_date_str, '%Y-%m-%d').date() if purchase_date_str else None
         peripheral.warranty_length = int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None
         peripheral.cost = float(request.form.get('cost')) if request.form.get('cost') else None
         peripheral.currency = request.form.get('currency')
