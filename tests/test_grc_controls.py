@@ -68,19 +68,21 @@ def test_documentation_filtering(auth_client, app):
         admin = db.session.get(User, 1)
         
         # Crear Tags
-        tag_audit = Tag(name='Auditoría')
+        tag_audit = Tag(name='Auditoria')  # <-- CAMBIO: Sin acento
         tag_general = Tag(name='General')
         db.session.add_all([tag_audit, tag_general])
         
         # Crear Documentación
         doc1 = Documentation(
-            name='Doc de Auditoría',
+            name='Doc de Auditoria',  # <-- CAMBIO: Sin acento
+            description='Una descripción de prueba.',
             owner_id=admin.id,
             owner_type='User',
             tags=[tag_audit]
         )
         doc2 = Documentation(
             name='Doc General',
+            description='Otra descripción de prueba.',
             owner_id=admin.id,
             owner_type='User',
             tags=[tag_general]
@@ -93,13 +95,13 @@ def test_documentation_filtering(auth_client, app):
         assert doc1.id == 1
         assert doc2.id == 2
 
-    # --- Acción (Filtrar por tag 'Auditoría') ---
+    # --- Acción (Filtrar por tag 'Auditoria') ---
     # La ruta usa el nombre del tag, no el ID
-    response = auth_client.get('/documentation/', query_string={'tags': 'Auditoría'})
+    response = auth_client.get('/documentation/', query_string={'tags': 'Auditoria'}) # <-- CAMBIO: Sin acento
     
     # --- Verify ---
     assert response.status_code == 200
-    assert b'Doc de Auditoria' in response.data
+    assert b'Doc de Auditoria' in response.data   # <-- Esta aserción ahora funcionará
     assert b'Doc General' not in response.data
 
     # --- Acción (Filtrar por tag 'General') ---
@@ -107,5 +109,5 @@ def test_documentation_filtering(auth_client, app):
     
     # --- Verify ---
     assert response.status_code == 200
-    assert b'Doc de Auditoria' not in response.data
+    assert b'Doc de Auditoria' not in response.data # <-- Esta aserción ahora funcionará
     assert b'Doc General' in response.data

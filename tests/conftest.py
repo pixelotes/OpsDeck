@@ -1,4 +1,6 @@
 import pytest
+import os
+import tempfile
 from src import create_app, db
 from src.models import User
 
@@ -6,12 +8,17 @@ from src.models import User
 def app():
     """Crea una instancia de la aplicación Flask para pruebas."""
     app = create_app()
+    
+    # Crear un directorio temporal para uploads que persista durante el módulo
+    tmpdir = tempfile.mkdtemp()
+    
     app.config.update({
         "TESTING": True,
         # Usar una base de datos en memoria para las pruebas
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "WTF_CSRF_ENABLED": False,  # Deshabilita CSRF para facilitar los POSTs
-        "SECRET_KEY": "test-secret-key" # Clave simple para pruebas
+        "SECRET_KEY": "test-secret-key", # Clave simple para pruebas
+        "UPLOAD_FOLDER": tmpdir  # Directorio temporal para archivos
     })
 
     with app.app_context():
@@ -19,6 +26,13 @@ def app():
         yield app
         db.session.remove()
         db.drop_all()
+    
+    # Limpiar el directorio temporal después de todos los tests
+    import shutil
+    try:
+        shutil.rmtree(tmpdir)
+    except:
+        pass
 
 @pytest.fixture(scope='module')
 def client(app):
@@ -40,6 +54,9 @@ def auth_client(client, app):
         # Borra todos los datos antes de cada test
         db.drop_all()
         db.create_all()
+        
+        # Asegurar que el UPLOAD_FOLDER existe
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         
         # Crea el usuario admin
         admin = User(name='Admin', email='admin@test.com', role='admin')
@@ -71,6 +88,9 @@ def user_client(client, app):
         # Borra todos los datos antes de cada test
         db.drop_all()
         db.create_all()
+        
+        # Asegurar que el UPLOAD_FOLDER existe
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         
         # Crea el usuario admin (ID 1)
         admin = User(name='Admin', email='admin@test.com', role='admin')

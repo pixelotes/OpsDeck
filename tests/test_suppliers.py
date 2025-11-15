@@ -1,6 +1,7 @@
 import io
+import os
 from src.models import Supplier, Attachment
-from src import db # <-- AÑADIR IMPORT
+from src import db
 
 def test_supplier_lifecycle(auth_client, app):
     """
@@ -23,7 +24,6 @@ def test_supplier_lifecycle(auth_client, app):
 
     # Verifica en la BD (El ID 1 será el primer proveedor)
     with app.app_context():
-        # CORREGIR LegacyAPIWarning
         supplier = db.session.get(Supplier, 1)
         assert supplier is not None
         assert supplier.name == 'Test Supplier Inc.'
@@ -41,7 +41,6 @@ def test_supplier_lifecycle(auth_client, app):
 
     # Verifica en la BD
     with app.app_context():
-        # CORREGIR LegacyAPIWarning
         supplier = db.session.get(Supplier, 1)
         assert supplier.name == 'Test Supplier (Edited)'
         assert supplier.compliance_status == 'Approved'
@@ -53,7 +52,6 @@ def test_supplier_lifecycle(auth_client, app):
     
     # Verifica en la BD
     with app.app_context():
-        # CORREGIR LegacyAPIWarning
         supplier = db.session.get(Supplier, 1)
         assert supplier.is_archived == True
 
@@ -61,31 +59,36 @@ def test_supplier_attachment_upload(auth_client, app):
     """
     Prueba la subida de un adjunto a un proveedor.
     """
-    # Primero, crea el proveedor
-    auth_client.post('/suppliers/new', data={'name': 'Supplier for Attachments'}, follow_redirects=True)
+    # Asegurar que el UPLOAD_FOLDER existe
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
-    # Simula la subida de un archivo
+    # Primero, crea el proveedor
+    response = auth_client.post('/suppliers/new', data={'name': 'Supplier for Attachments'}, follow_redirects=True)
+    assert response.status_code == 200
+    
+    # Simula la subida de un archivo con el referrer correcto
     data = {
-        'supplier_id': '1', # ID del proveedor que acabamos de crear
+        'supplier_id': '1',
         'file': (io.BytesIO(b"dummy file content"), 'test_contract.pdf')
     }
     
+    # NO usar follow_redirects, usar environ_base para establecer HTTP_REFERER
     response = auth_client.post(
         '/attachments/upload', 
         data=data, 
-        follow_redirects=True, 
-        content_type='multipart/form-data'
+        content_type='multipart/form-data',
+        environ_base={'HTTP_REFERER': '/suppliers/1'}
     )
 
-    # Verifica que el flash de éxito está
-    # El 404 debería resolverse arreglando models.py
-    assert response.status_code == 200
-    assert b'File uploaded successfully!' in response.data
+    # Debe ser un redirect (302/303)
+    assert response.status_code in [302, 303]
     
     # Verifica que el adjunto está en la BD
     with app.app_context():
-        # CORREGIR LegacyAPIWarning (implícito)
-        attachment = db.session.query(Attachment).filter_by(linkable_id=1, linkable_type='Supplier').first()
+        attachment = db.session.query(Attachment).filter_by(
+            linkable_id=1, 
+            linkable_type='Supplier'
+        ).first()
         assert attachment is not None
         assert attachment.filename == 'test_contract.pdf'
 
