@@ -1,0 +1,276 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-0">{{ title }}</h1>
+<hr>
+
+{% set current_data = framework_data or framework %}
+
+<form method="POST"
+    action="{% if framework %}{{ url_for('frameworks.edit', id=framework.id) }}{% else %}{{ url_for('frameworks.create') }}{% endif %}">
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Detalles del Framework</h5>
+                </div>
+                <div class="card-body">
+                    {% set framework_disabled = (framework and not framework.is_custom) %}
+                    
+                    {% if framework_disabled %}
+                    <div class="alert alert-info">
+                        <i class="fa-solid fa-circle-info"></i> 
+                        Los detalles de los frameworks incorporados no se pueden modificar. 
+                        Solo puedes activar o desactivarlos.
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Nombre del Framework</label>
+                        <input type="text" class="form-control" id="name" name="name"
+                               value="{{ current_data.name if current_data else '' }}" 
+                               {% if framework_disabled %}disabled{% endif %}
+                               required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="description" name="description" rows="4"
+                                  {% if framework_disabled %}disabled{% endif %}
+                                  >{{ current_data.description if current_data else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="link" class="form-label">Enlace (Opcional)</label>
+                        <input type="url" class="form-control" id="link" name="link"
+                               value="{{ current_data.link if current_data else '' }}"
+                               {% if framework_disabled %}disabled{% endif %}>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                               {% if (current_data and current_data.is_active) or (not current_data) %}checked{% endif %}>
+                        <label class="form-check-label" for="is_active">
+                            Activo
+                        </label>
+                        <div class="form-text">
+                            Los frameworks inactivos no se mostrarán al crear nuevas auditorías.
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer text-end">
+                    <a href="{{ url_for('frameworks.list') }}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </div>
+
+            {% if framework and framework.is_custom %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Gestión de Controles</h5>
+                        <button type="button" class="btn btn-sm btn-success" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#controlModal"
+                                onclick="prepareAddModal()">
+                            <i class="fa-solid fa-plus"></i> Añadir Control
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID Control</th>
+                                    <th>Nombre</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for control in controls %}
+                                <tr>
+                                    <td>{{ control.control_id }}</td>
+                                    <td>{{ control.name }}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                data-bs-toggle="modal" data-bs-target="#controlModal"
+                                                data-control-id="{{ control.id }}"
+                                                onclick="prepareEditModal(this)">
+                                            <i class="fa-solid fa-pencil"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                onclick="deleteControl(this, '{{ control.id }}')">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center">
+                                        No hay controles definidos. ¡Añade el primero!
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div> <div class="col-lg-4">
+            {% if framework and framework.is_custom %}
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">Zona de Peligro</h5>
+                </div>
+                <div class="card-body">
+                    <p>Eliminar este framework es una acción permanente.</p>
+                    <button type="button" id="deleteFrameworkBtn" class="btn btn-danger w-100">
+                        <i class="fa-solid fa-triangle-exclamation"></i> 
+                        Eliminar Framework
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+</form> {% if framework and framework.is_custom %}
+    {% include 'frameworks/_control_modal.html' %}
+{% endif %}
+
+{% endblock %}
+
+
+{% block scripts_extra %}
+{% if framework and framework.is_custom %}
+<script>
+    // --- Lógica del Modal (adaptada SIN CSRF) ---
+    const controlModal = new bootstrap.Modal(document.getElementById('controlModal'));
+    const modalTitle = document.getElementById('controlModalLabel');
+    const modalForm = document.getElementById('controlForm');
+    const modalSubmitBtn = document.getElementById('modalSubmitBtn');
+
+    // Apuntar a los campos del modal por su ID
+    const formFieldControlId = document.getElementById('modalControlIdText');
+    const formFieldName = document.getElementById('modalName');
+    const formFieldDesc = document.getElementById('modalDescription');
+    const formFieldFwId = document.getElementById('modalFrameworkId');
+    
+    // Prepara el modal para AÑADIR (sin cambios)
+    function prepareAddModal() {
+        modalForm.setAttribute('action', '{{ url_for("frameworks.add_control") }}');
+        modalTitle.textContent = 'Añadir Nuevo Control';
+        modalSubmitBtn.textContent = 'Añadir Control';
+        formFieldControlId.value = '';
+        formFieldName.value = '';
+        formFieldDesc.value = '';
+        formFieldFwId.value = '{{ framework.id }}';
+    }
+    
+    // Prepara el modal para EDITAR (sin cambios)
+    async function prepareEditModal(button) {
+        const controlId = button.getAttribute('data-control-id');
+        modalForm.setAttribute('action', `/frameworks/control/${controlId}/edit`);
+        modalTitle.textContent = 'Editar Control';
+        modalSubmitBtn.textContent = 'Guardar Cambios';
+        formFieldFwId.value = '{{ framework.id }}';
+
+        try {
+            const response = await fetch(`/frameworks/control/${controlId}/get_data`);
+            if (!response.ok) throw new Error('No se pudieron cargar los datos del control.');
+            const data = await response.json();
+            formFieldControlId.value = data.control_id_text;
+            formFieldName.value = data.name;
+            formFieldDesc.value = data.description || '';
+        } catch (error) {
+            console.error(error);
+            alert('Error al cargar datos: ' + error.message);
+            controlModal.hide();
+        }
+    }
+
+    // Listener para el botón de Guardar del modal (sin cambios)
+    modalSubmitBtn.addEventListener('click', async function(e) {
+        
+        const url = modalForm.getAttribute('action');
+        const formData = new FormData(modalForm); 
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                if (result.reload) {
+                    window.location.reload();
+                }
+            } else {
+                throw new Error(result.message || 'Error desconocido');
+            }
+        } catch (error) {
+            console.error('Error al enviar el formulario:', error);
+            alert('Error: ' + error.message);
+        }
+    });
+
+    // Listener para borrar control (sin cambios)
+    async function deleteControl(button, controlId) {
+        if (!confirm('¿Estás seguro de que quieres eliminar este control?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/frameworks/control/${controlId}/delete`, {
+                method: 'POST',
+            });
+            const result = await response.json();
+            if (result.success && result.reload) {
+                window.location.reload();
+            } else {
+                throw new Error(result.message || 'Error desconocido');
+            }
+        } catch (error) {
+            console.error('Error al eliminar el control:', error);
+            alert('Error: ' + error.message);
+        }
+    }
+
+    // Listener para borrar framework (sin cambios)
+    const deleteFrameworkBtn = document.getElementById('deleteFrameworkBtn');
+    if (deleteFrameworkBtn) {
+        deleteFrameworkBtn.addEventListener('click', async function() {
+            if (!confirm('¿Estás SEGURO de que quieres eliminar este framework y todos sus controles? Esta acción es permanente.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('{{ url_for("frameworks.delete", id=framework.id) }}', {
+                    method: 'POST',
+                });
+                const result = await response.json();
+                if (result.success && result.redirect_url) {
+                    window.location.href = result.redirect_url;
+                } else {
+                    throw new Error(result.message || 'Error desconocido');
+                }
+            } catch (error) {
+                console.error('Error al eliminar el framework:', error);
+                alert('Error: ' + error.message);
+            }
+        });
+    }
+
+</script>
+{% endif %}
+{% endblock %}

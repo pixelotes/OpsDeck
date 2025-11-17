@@ -1,0 +1,46 @@
+<div class="modal fade" id="controlModal" tabindex="-1" aria-labelledby="controlModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="controlForm" method="POST" action="">
+                
+                <input type="hidden" id="modalFrameworkId" name="framework_id" value="">
+                
+                <div class="modal-header">
+                    <h5 class="modal-title" id="controlModalLabel">Añadir/Editar Control</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                
+                <div class="modal-body">
+                    <p>Define el identificador único y el nombre del control.</p>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="modalControlIdText" class="form-label">Identificador del Control</label>
+                                <input type="text" class="form-control" id="modalControlIdText" name="control_id_text" 
+                                       placeholder="Ej: A.5.7" required>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="modalName" class="form-label">Nombre del Control</label>
+                                <input type="text" class="form-control" id="modalName" name="name" 
+                                       placeholder="Ej: Threat Intelligence" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="modalDescription" class="form-label">Descripción (Opcional)</label>
+                        <textarea class="form-control" id="modalDescription" name="description" rows="4"></textarea>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" id="modalSubmitBtn" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

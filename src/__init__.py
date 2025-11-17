@@ -10,6 +10,7 @@ from .models import User
 from . import notifications # Added the missing import
 import markdown
 from markupsafe import Markup
+from .seeder_prod import seed_production_frameworks
 import re
 
 def create_app():
@@ -82,6 +83,7 @@ def create_app():
     from .routes.disposal import disposal_bp
     from .routes.leads import leads_bp
     from .routes.documentation import documentation_bp
+    from .routes.frameworks import frameworks_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(assets_bp, url_prefix='/assets')
@@ -111,6 +113,7 @@ def create_app():
     app.register_blueprint(disposal_bp)
     app.register_blueprint(leads_bp)
     app.register_blueprint(documentation_bp, url_prefix='/documentation')
+    app.register_blueprint(frameworks_bp)
 
 
     # --- Make user role available in all templates ---
@@ -155,10 +158,17 @@ def create_app():
                 print("Database initialized and admin user created.")
     
     # --- Seed the db with fake demo data ---
-    @app.cli.command("seed-db")
+    @app.cli.command("seed-db-demodata")
     def seed_db_command():
         """Seeds the database with demo data."""
         from .seeder import seed_data
         seed_data()
+
+
+
+    @app.cli.command('seed-db-prod')
+    def seed_prod_command():
+        """Carga los datos maestros de producción (Frameworks)."""
+        seed_production_frameworks()
 
     return app

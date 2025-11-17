@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, date
 from dateutil.relativedelta import relativedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import foreign
+from sqlalchemy import and_
 
 # Currency conversion rates (EUR base)
 CURRENCY_RATES = {
@@ -931,3 +932,81 @@ class Documentation(db.Model):
         if self.owner_type == 'Group' and self.owner_id:
             return Group.query.get(self.owner_id)
         return None
+    
+class Framework(db.Model):
+    """
+    Representa un marco de trabajo o normativa (ej. ISO27001, ITIL).
+    """
+    __tablename__ = 'framework'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), unique=True, nullable=False)
+    
+    # <-- REQUISITO: Descripción
+    description = db.Column(db.Text)
+    
+    # <-- REQUISITO: Enlace a web externa
+    link = db.Column(db.String(1024))
+    
+    # Flag para diferenciar los 'built-in' (no editables)
+    is_custom = db.Column(db.Boolean, default=True, nullable=False)
+    
+    # <-- ¡NUEVO! REQUISITO: Para activar/desactivar el framework en la org
+    is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
+
+    # --- Relaciones ---
+
+    # Relación con los controles del marco
+    framework_controls = db.relationship(
+        'FrameworkControl', 
+        backref='framework', 
+        lazy='dynamic', 
+        cascade='all, delete-orphan'
+    )
+    
+    # <-- REQUISITO: Soporte para attachments (manuales, etc.)
+    # (Asumiendo que tu modelo Attachment está configurado para polimorfismo)
+    attachments = db.relationship(
+        'Attachment', 
+        # Convertimos el string a una lambda para poder usar funciones de Python
+        primaryjoin=lambda: and_(
+            # ¡LA CLAVE ESTÁ AQUÍ! Le decimos a SQLAlchemy que 'linkable_id'
+            # es la columna que actúa como clave foránea.
+            foreign(Attachment.linkable_id) == Framework.id,
+            Attachment.linkable_type == 'Framework'
+        ),
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+        overlaps="attachments" 
+    )
+
+    # Relación futura con Auditorías
+    # audits = db.relationship('Audit', backref='framework', lazy='dynamic')
+
+    def __repr__(self):
+        status = "Activo" if self.is_active else "Inactivo"
+        return f'<Framework {self.id}: {self.name} ({status})>'
+
+
+class FrameworkControl(db.Model):
+    """
+    Representa un control individual o práctica dentro de un Framework.
+    """
+    __tablename__ = 'framework_control'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    framework_id = db.Column(db.Integer, db.ForeignKey('framework.id'), nullable=False)
+    
+    # Identificador del control (ej. "A.5.7")
+    control_id = db.Column(db.String(100), nullable=False) 
+    
+    name = db.Column(db.String(512), nullable=False)
+    
+    # Descripción específica del control
+    description = db.Column(db.Text)
+    
+    # Relación futura con los controles de una auditoría específica
+    # audit_controls = db.relationship('AuditControl', backref='base_control', lazy='dynamic')
+
+    def __repr__(self):
+        return f'<FrameworkControl {self.id}: {self.control_id}>'
