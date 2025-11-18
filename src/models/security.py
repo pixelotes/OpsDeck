@@ -228,7 +228,6 @@ class ComplianceLink(db.Model):
     linkable_id = db.Column(db.Integer, nullable=False, index=True)
     linkable_type = db.Column(db.String(50), nullable=False, index=True)
 
-    # El "Oro": La explicación de CÓMO se cumple
     description = db.Column(db.Text, nullable=False)
 
     # --- Relaciones ---

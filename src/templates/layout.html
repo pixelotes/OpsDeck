@@ -1,104 +1,272 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}OpsDeck{% endblock %}</title>
     <link href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/easymde/easymde.min.css') }}">
-    <link href="{{ url_for('static', filename='vendor/simple-datatables/css/simple-datatables.css') }}" rel="stylesheet" type="text/css">
+    <link href="{{ url_for('static', filename='vendor/simple-datatables/css/simple-datatables.css') }}" rel="stylesheet"
+        type="text/css">
     <link href="{{ url_for('static', filename='vendor/font-awesome/css/all.min.css') }}" rel="stylesheet">
     {% block head_extra %}{% endblock %}
     <style>
-        .sidebar { display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; width: 250px; background: #343a40; z-index: 1000; }
-        .sidebar .nav-link { color: #ffffff; border-radius: 0.5rem; margin: 0.25rem 0; }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active { background: #495057; color: #ffffff; }
-        .main-content { margin-left: 250px; padding: 2rem; min-height: 100vh; }
-        .sidebar-heading { color: #adb5bd; padding: 0.5rem 1rem; font-size: 0.9rem; text-transform: uppercase; cursor: pointer; }
-        .sidebar-heading .fa-chevron-down { transition: transform 0.2s; }
-        .sidebar-heading[aria-expanded="true"] .fa-chevron-down { transform: rotate(180deg); }
-        .sidebar-body { overflow-y: auto; flex-grow: 1; }
-        #global-search-results { position: absolute; width: calc(100% - 1rem); left: 0.5rem; top: 100%; z-index: 1050; display: none; }
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 250px;
+            background: #343a40;
+            z-index: 1000;
+        }
+
+        .sidebar .nav-link {
+            color: #ffffff;
+            border-radius: 0.5rem;
+            margin: 0.25rem 0;
+        }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background: #495057;
+            color: #ffffff;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        .sidebar-heading {
+            color: #adb5bd;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .sidebar-heading .fa-chevron-down {
+            transition: transform 0.2s;
+        }
+
+        .sidebar-heading[aria-expanded="true"] .fa-chevron-down {
+            transform: rotate(180deg);
+        }
+
+        .sidebar-body {
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        #global-search-results {
+            position: absolute;
+            width: calc(100% - 1rem);
+            left: 0.5rem;
+            top: 100%;
+            z-index: 1050;
+            display: none;
+        }
     </style>
 </head>
+
 <body>
 
     <nav class="sidebar">
-        <div class="container-fluid"><a class="navbar-brand text-white mb-3 d-block text-center" href="{{ url_for('main.dashboard') }}"><i class="fas fa-sync-alt"></i> OpsDeck</a></div>
-        <div class="p-2 position-relative"><input type="search" id="global-search-input" class="form-control" placeholder="Search..." autocomplete="off"><div id="global-search-results" class="list-group"></div></div>
-        
+        <div class="container-fluid"><a class="navbar-brand text-white mb-3 d-block text-center"
+                href="{{ url_for('main.dashboard') }}"><i class="fas fa-sync-alt"></i> OpsDeck</a></div>
+        <div class="p-2 position-relative"><input type="search" id="global-search-input" class="form-control"
+                placeholder="Search..." autocomplete="off">
+            <div id="global-search-results" class="list-group"></div>
+        </div>
+
         <div class="sidebar-body" id="sidebar-accordion">
             <ul class="nav flex-column">
-                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-                
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}"
+                        href="{{ url_for('main.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+
                 <hr class="text-white">
-                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#crm-menu" aria-expanded="false">CRM <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
+                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#crm-menu" aria-expanded="false">
+                    CRM <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
                 <div class="collapse" id="crm-menu" data-bs-parent="#sidebar-accordion">
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('leads.') %}active{% endif %}" href="{{ url_for('leads.list_leads') }}"><i class="fa-fw fas fa-bullhorn"></i> Leads</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('opportunities.') %}active{% endif %}" href="{{ url_for('opportunities.list_opportunities') }}"><i class="fa-fw fas fa-lightbulb"></i> Opportunities</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('suppliers.') %}active{% endif %}" href="{{ url_for('suppliers.suppliers') }}"><i class="fa-fw fas fa-building"></i> Suppliers</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('contacts.') %}active{% endif %}" href="{{ url_for('contacts.contacts') }}"><i class="fa-fw fas fa-address-book"></i> Contacts</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('leads.') %}active{% endif %}"
+                            href="{{ url_for('leads.list_leads') }}"><i class="fa-fw fas fa-bullhorn"></i> Leads</a>
+                    </li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('opportunities.') %}active{% endif %}"
+                            href="{{ url_for('opportunities.list_opportunities') }}"><i
+                                class="fa-fw fas fa-lightbulb"></i> Opportunities</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('suppliers.') %}active{% endif %}"
+                            href="{{ url_for('suppliers.suppliers') }}"><i class="fa-fw fas fa-building"></i>
+                            Suppliers</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('contacts.') %}active{% endif %}"
+                            href="{{ url_for('contacts.contacts') }}"><i class="fa-fw fas fa-address-book"></i>
+                            Contacts</a></li>
                 </div>
 
                 <hr class="text-white">
-                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#operations-menu" aria-expanded="false">Operations <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
+                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#operations-menu"
+                    aria-expanded="false">Operations <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
                 <div class="collapse" id="operations-menu" data-bs-parent="#sidebar-accordion">
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('subscriptions.subscriptions') %}active{% endif %}" href="{{ url_for('subscriptions.subscriptions') }}"><i class="fa-fw fas fa-cogs"></i> Subscriptions</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.blueprint == 'licenses' %}active{% endif %}" href="{{ url_for('licenses.list_licenses') }}"><i class="fa-fw fas fa-id-badge"></i> Licenses</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.blueprint == 'software' %}active{% endif %}" href="{{ url_for('software.list_software') }}"><i class="fa-fw fas fa-compact-disc"></i> Software</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'subscriptions.calendar' %}active{% endif %}" href="{{ url_for('subscriptions.calendar') }}"><i class="fa-fw fas fa-calendar"></i> Renewals</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('assets.') and 'warranties' not in request.endpoint %}active{% endif %}" href="{{ url_for('assets.assets') }}"><i class="fa-fw fas fa-laptop"></i> Assets</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('peripherals.') %}active{% endif %}" href="{{ url_for('peripherals.peripherals') }}"><i class="fa-fw fas fa-keyboard"></i> Peripherals</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('maintenance.') %}active{% endif %}" href="{{ url_for('maintenance.list_logs') }}"><i class="fa-fw fas fa-tools"></i> Maintenance</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('disposal.') %}active{% endif %}" href="{{ url_for('disposal.list_disposals') }}"><i class="fa-fw fas fa-archive"></i> Disposals</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'assets.warranties' %}active{% endif %}" href="{{ url_for('assets.warranties') }}"><i class="fa-fw fas fa-shield-alt"></i> Warranties</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'reports.asset_reports' %}active{% endif %}" href="{{ url_for('reports.asset_reports') }}"><i class="fa-fw fas fa-chart-bar"></i> Asset Reports</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('subscriptions.subscriptions') %}active{% endif %}"
+                            href="{{ url_for('subscriptions.subscriptions') }}"><i class="fa-fw fas fa-cogs"></i>
+                            Subscriptions</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.blueprint == 'licenses' %}active{% endif %}"
+                            href="{{ url_for('licenses.list_licenses') }}"><i class="fa-fw fas fa-id-badge"></i>
+                            Licenses</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.blueprint == 'software' %}active{% endif %}"
+                            href="{{ url_for('software.list_software') }}"><i class="fa-fw fas fa-compact-disc"></i>
+                            Software</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint == 'subscriptions.calendar' %}active{% endif %}"
+                            href="{{ url_for('subscriptions.calendar') }}"><i class="fa-fw fas fa-calendar"></i>
+                            Renewals</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('assets.') and 'warranties' not in request.endpoint %}active{% endif %}"
+                            href="{{ url_for('assets.assets') }}"><i class="fa-fw fas fa-laptop"></i> Assets</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('peripherals.') %}active{% endif %}"
+                            href="{{ url_for('peripherals.peripherals') }}"><i class="fa-fw fas fa-keyboard"></i>
+                            Peripherals</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('maintenance.') %}active{% endif %}"
+                            href="{{ url_for('maintenance.list_logs') }}"><i class="fa-fw fas fa-tools"></i>
+                            Maintenance</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('disposal.') %}active{% endif %}"
+                            href="{{ url_for('disposal.list_disposals') }}"><i class="fa-fw fas fa-archive"></i>
+                            Disposals</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint == 'assets.warranties' %}active{% endif %}"
+                            href="{{ url_for('assets.warranties') }}"><i class="fa-fw fas fa-shield-alt"></i>
+                            Warranties</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint == 'reports.asset_reports' %}active{% endif %}"
+                            href="{{ url_for('reports.asset_reports') }}"><i class="fa-fw fas fa-chart-bar"></i> Asset
+                            Reports</a></li>
                 </div>
 
                 <hr class="text-white">
-                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#governance-menu" aria-expanded="false">Governance <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
+                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#governance-menu"
+                    aria-expanded="false">Governance <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
                 <div class="collapse" id="governance-menu" data-bs-parent="#sidebar-accordion">
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('documentation.') %}active{% endif %}"" href="{{ url_for('documentation.list_docs') }}"><i class="fas fa-book-open"></i> Documentation</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('policies.') %}active{% endif %}" href="{{ url_for('policies.list_policies') }}"><i class="fa-fw fas fa-file-contract"></i> Policies</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'compliance.policy_report' %}active{% endif %}" href="{{ url_for('compliance.policy_report') }}"><i class="fa-fw fas fa-user-check"></i> Policy Report</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('risk.') %}active{% endif %}" href="{{ url_for('risk.list_risks') }}"><i class="fa-fw fas fa-exclamation-triangle"></i> Risk Register</a></li>
-                    <li class="nav-item"><a class="nav-link {% if 'incident' in request.endpoint %}active{% endif %}" href="{{ url_for('compliance.list_incidents') }}"><i class="fa-fw fas fa-exclamation-circle"></i> Incidents</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'compliance.vendor_compliance' %}active{% endif %}" href="{{ url_for('compliance.vendor_compliance') }}"><i class="fa-fw fas fa-tasks"></i> Vendor Compliance</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.blueprint == 'frameworks' %}active{% endif %}" href="{{ url_for('frameworks.list') }}"><i class="fa-fw fas fa-layer-group"></i> Frameworks</a></li>
-                    <li class="nav-item"><a class="nav-link {% if 'audit' in request.endpoint %}active{% endif %}" href="{{ url_for('compliance.list_audits') }}"><i class="fa-fw fas fa-clipboard-check"></i> Asset Audits</a></li>
-                    <li class="nav-item"><a class="nav-link {% if 'erasure' in request.endpoint %}active{% endif %}" href="{{ url_for('compliance.list_erasures') }}"><i class="fa-fw fas fa-eraser"></i> Erasure Log</a></li>
-                    <li class="nav-item"><a class="nav-link {% if 'bcdr' in request.endpoint %}active{% endif %}" href="{{ url_for('compliance.list_bcdr_plans') }}"><i class="fa-fw fas fa-shield-alt"></i> BCDR</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('training.') and request.endpoint == 'training.my_training' %}active{% endif %}" href="{{ url_for('training.my_training') }}"><i class="fa-fw fas fa-graduation-cap"></i> My Training</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('documentation.') %}active{% endif %}"" href="
+                            {{ url_for('documentation.list_docs') }}"><i class="fas fa-book-open"></i> Documentation</a>
+                    </li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('links.') %}active{% endif %}"
+                            href="{{ url_for('links.list_links') }}"><i class="fas fa-link"></i> Links</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('policies.') %}active{% endif %}"
+                            href="{{ url_for('policies.list_policies') }}"><i class="fa-fw fas fa-file-contract"></i>
+                            Policies</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint == 'compliance.policy_report' %}active{% endif %}"
+                            href="{{ url_for('compliance.policy_report') }}"><i class="fa-fw fas fa-user-check"></i>
+                            Policy Report</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('risk.') %}active{% endif %}"
+                            href="{{ url_for('risk.list_risks') }}"><i class="fa-fw fas fa-exclamation-triangle"></i>
+                            Risk Register</a></li>
+                    <li class="nav-item"><a class="nav-link {% if 'incident' in request.endpoint %}active{% endif %}"
+                            href="{{ url_for('compliance.list_incidents') }}"><i
+                                class="fa-fw fas fa-exclamation-circle"></i> Incidents</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint == 'compliance.vendor_compliance' %}active{% endif %}"
+                            href="{{ url_for('compliance.vendor_compliance') }}"><i class="fa-fw fas fa-tasks"></i>
+                            Vendor Compliance</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.blueprint == 'frameworks' %}active{% endif %}"
+                            href="{{ url_for('frameworks.list') }}"><i class="fa-fw fas fa-layer-group"></i>
+                            Frameworks</a></li>
+                    <li class="nav-item"><a class="nav-link {% if 'audit' in request.endpoint %}active{% endif %}"
+                            href="{{ url_for('compliance.list_audits') }}"><i class="fa-fw fas fa-clipboard-check"></i>
+                            Asset Audits</a></li>
+                    <li class="nav-item"><a class="nav-link {% if 'erasure' in request.endpoint %}active{% endif %}"
+                            href="{{ url_for('compliance.list_erasures') }}"><i class="fa-fw fas fa-eraser"></i> Erasure
+                            Log</a></li>
+                    <li class="nav-item"><a class="nav-link {% if 'bcdr' in request.endpoint %}active{% endif %}"
+                            href="{{ url_for('compliance.list_bcdr_plans') }}"><i class="fa-fw fas fa-shield-alt"></i>
+                            BCDR</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('training.') and request.endpoint == 'training.my_training' %}active{% endif %}"
+                            href="{{ url_for('training.my_training') }}"><i class="fa-fw fas fa-graduation-cap"></i> My
+                            Training</a></li>
                     {% if current_user_role == 'admin' %}
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('training.') and request.endpoint != 'training.my_training' %}active{% endif %}" href="{{ url_for('training.list_courses') }}"><i class="fa-fw fas fa-chalkboard-teacher"></i> Manage Courses</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('training.') and request.endpoint != 'training.my_training' %}active{% endif %}"
+                            href="{{ url_for('training.list_courses') }}"><i
+                                class="fa-fw fas fa-chalkboard-teacher"></i> Manage Courses</a></li>
                     {% endif %}
                 </div>
 
                 <hr class="text-white">
-                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#finance-menu" aria-expanded="false">Finance <i class="fa-fw fas fa-chevron-down float-end"></i></h6>      
+                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#finance-menu"
+                    aria-expanded="false">Finance <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
                 <div class="collapse" id="finance-menu" data-bs-parent="#sidebar-accordion">
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('purchases.') %}active{% endif %}" href="{{ url_for('purchases.purchases') }}"><i class="fa-fw fas fa-shopping-cart"></i> Purchases</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('budgets.') %}active{% endif %}" href="{{ url_for('budgets.budgets') }}"><i class="fa-fw fas fa-wallet"></i> Budgets</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('payment_methods.') %}active{% endif %}" href="{{ url_for('payment_methods.payment_methods') }}"><i class="fa-fw fas fa-credit-card"></i> Payment Methods</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'reports.spend_analysis' %}active{% endif %}" href="{{ url_for('reports.spend_analysis') }}"><i class="fa-fw fas fa-chart-line"></i> Spend Analysis</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'reports.depreciation_report' %}active{% endif %}" href="{{ url_for('reports.depreciation_report') }}"><i class="fa-fw fas fa-chart-area"></i> Depreciation</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('purchases.') %}active{% endif %}"
+                            href="{{ url_for('purchases.purchases') }}"><i class="fa-fw fas fa-shopping-cart"></i>
+                            Purchases</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('budgets.') %}active{% endif %}"
+                            href="{{ url_for('budgets.budgets') }}"><i class="fa-fw fas fa-wallet"></i> Budgets</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('payment_methods.') %}active{% endif %}"
+                            href="{{ url_for('payment_methods.payment_methods') }}"><i
+                                class="fa-fw fas fa-credit-card"></i> Payment Methods</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint == 'reports.spend_analysis' %}active{% endif %}"
+                            href="{{ url_for('reports.spend_analysis') }}"><i class="fa-fw fas fa-chart-line"></i> Spend
+                            Analysis</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint == 'reports.depreciation_report' %}active{% endif %}"
+                            href="{{ url_for('reports.depreciation_report') }}"><i class="fa-fw fas fa-chart-area"></i>
+                            Depreciation</a></li>
                 </div>
 
                 <hr class="text-white">
-                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#admin-menu" aria-expanded="false">Administration <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
+                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#admin-menu"
+                    aria-expanded="false">Administration <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
                 <div class="collapse" id="admin-menu" data-bs-parent="#sidebar-accordion">
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('users.') %}active{% endif %}" href="{{ url_for('users.users') }}"><i class="fa-fw fas fa-users"></i> Users</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('groups.') %}active{% endif %}" href="{{ url_for('groups.list_groups') }}"><i class="fa-fw fas fa-users-cog"></i> Groups</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('locations.') %}active{% endif %}" href="{{ url_for('locations.locations') }}"><i class="fa-fw fas fa-map-marker-alt"></i> Locations</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('tags.') %}active{% endif %}" href="{{ url_for('tags.tags') }}"><i class="fa-fw fas fa-tags"></i> Tags</a></li>
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint.startswith('treeview.') %}active{% endif %}" href="{{ url_for('treeview.tree_view') }}"><i class="fa-fw fas fa-sitemap"></i> Tree View</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('users.') %}active{% endif %}"
+                            href="{{ url_for('users.users') }}"><i class="fa-fw fas fa-users"></i> Users</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('groups.') %}active{% endif %}"
+                            href="{{ url_for('groups.list_groups') }}"><i class="fa-fw fas fa-users-cog"></i> Groups</a>
+                    </li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('locations.') %}active{% endif %}"
+                            href="{{ url_for('locations.locations') }}"><i class="fa-fw fas fa-map-marker-alt"></i>
+                            Locations</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('tags.') %}active{% endif %}"
+                            href="{{ url_for('tags.tags') }}"><i class="fa-fw fas fa-tags"></i> Tags</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('treeview.') %}active{% endif %}"
+                            href="{{ url_for('treeview.tree_view') }}"><i class="fa-fw fas fa-sitemap"></i> Tree
+                            View</a></li>
                 </div>
 
                 <hr class="text-white">
-                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#settings-menu" aria-expanded="false">Settings <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
+                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#settings-menu"
+                    aria-expanded="false">Settings <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
                 <div class="collapse" id="settings-menu" data-bs-parent="#sidebar-accordion">
-                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.notification_settings' %}active{% endif %}" href="{{ url_for('main.notification_settings') }}"><i class="fa-fw fas fa-bell"></i> Notifications</a></li>
-                    <li class="nav-item mt-auto"><a class="nav-link" href="{{ url_for('main.logout') }}"><i class="fa-fw fas fa-sign-out-alt"></i> Logout</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint == 'main.notification_settings' %}active{% endif %}"
+                            href="{{ url_for('main.notification_settings') }}"><i class="fa-fw fas fa-bell"></i>
+                            Notifications</a></li>
+                    <li class="nav-item mt-auto"><a class="nav-link" href="{{ url_for('main.logout') }}"><i
+                                class="fa-fw fas fa-sign-out-alt"></i> Logout</a></li>
                 </div>
             </ul>
         </div>
@@ -106,14 +274,14 @@
 
     <main class="main-content">
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-                {% endfor %}
-            {% endif %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
         {% endwith %}
         {% block content %}{% endblock %}
     </main>
@@ -141,7 +309,7 @@
 
     {# ADD Global Initialization Script #}
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Find all tables with the class 'datatable'
             const tables = document.querySelectorAll('.datatable');
             tables.forEach(table => {
@@ -162,4 +330,5 @@
     </script>
     {% block scripts_extra %}{% endblock %}
 </body>
+
 </html>

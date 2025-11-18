@@ -38,6 +38,39 @@ class NotificationSetting(db.Model):
     # We'll store the days as a comma-separated string, e.g., "30,14,7"
     notify_days_before = db.Column(db.String(100), default="30,14,7")
 
+link_tags = db.Table('link_tags',
+    db.Column('link_id', db.Integer, db.ForeignKey('link.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+)
+
+class Link(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    url = db.Column(db.String(512), nullable=False) # Mandatory URL
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Propietario polimórfico (User o Group)
+    owner_id = db.Column(db.Integer)
+    owner_type = db.Column(db.String(50)) # 'User' o 'Group'
+    
+    # Relación con Software (opcional)
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
+    software = db.relationship('Software', backref='links')
+
+    # Relación con Tags (muchos a muchos)
+    tags = db.relationship('Tag', secondary=link_tags, backref=db.backref('links', lazy='dynamic'))
+
+    @property
+    def owner(self):
+        """Devuelve el objeto User o Group basado en owner_type y owner_id."""
+        from .auth import User, Group
+        if self.owner_type == 'User' and self.owner_id:
+            return User.query.get(self.owner_id)
+        if self.owner_type == 'Group' and self.owner_id:
+            return Group.query.get(self.owner_id)
+        return None
+
 documentation_tags = db.Table('documentation_tags',
     db.Column('documentation_id', db.Integer, db.ForeignKey('documentation.id'), primary_key=True),
     db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
