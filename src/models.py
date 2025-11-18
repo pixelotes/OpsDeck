@@ -1010,3 +1010,30 @@ class FrameworkControl(db.Model):
 
     def __repr__(self):
         return f'<FrameworkControl {self.id}: {self.control_id}>'
+    
+class ComplianceLink(db.Model):
+    """
+    Tabla de asociación polimórfica.
+    Vincula un control (ej. 'A.5.7') con un objeto 
+    (ej. un Asset, una Policy) y explica CÓMO lo cumple.
+    """
+    __tablename__ = 'compliance_link'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Lado 1: El control que se está cumpliendo
+    framework_control_id = db.Column(db.Integer, db.ForeignKey('framework_control.id'), nullable=False)
+    
+    # Lado 2: El objeto polimórfico que cumple el control
+    linkable_id = db.Column(db.Integer, nullable=False, index=True)
+    linkable_type = db.Column(db.String(50), nullable=False, index=True)
+
+    # El "Oro": La explicación de CÓMO se cumple
+    description = db.Column(db.Text, nullable=False)
+
+    # --- Relaciones ---
+    
+    # Back-reference para que desde FrameworkControl podamos ver los links
+    framework_control = db.relationship(
+        'FrameworkControl',
+        backref=db.backref('compliance_links', lazy='dynamic', cascade='all, delete-orphan')
+    )
