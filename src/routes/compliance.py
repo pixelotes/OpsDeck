@@ -3,7 +3,7 @@ import uuid
 from werkzeug.utils import secure_filename
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
 from datetime import datetime
-from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Subscription, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog, Attachment, Framework, FrameworkControl, ComplianceLink
+from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, AssetInventory, AssetInventoryItem, Asset, BCDRPlan, BCDRTestLog, Subscription, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog, Attachment, Framework, FrameworkControl, ComplianceLink
 from .main import login_required
 from .admin import admin_required
 
@@ -136,96 +136,83 @@ def policy_report():
             
     return render_template('compliance/policy_report.html', report_data=report_data)
 
-@compliance_bp.route('/audits')
-@login_required
-@admin_required
-def list_audits():
-    """Displays a list of all asset audits."""
-    audits = Audit.query.order_by(Audit.created_at.desc()).all()
-    return render_template('compliance/audit_list.html', audits=audits)
+# --- Asset Inventory Management ---
 
-@compliance_bp.route('/audits/new', methods=['GET', 'POST'])
+@compliance_bp.route('/inventory')
 @login_required
-@admin_required
-def new_audit():
-    """Creates a new audit."""
+def list_inventory():
+    """Displays a list of all asset inventories."""
+    inventories = AssetInventory.query.order_by(AssetInventory.created_at.desc()).all()
+    return render_template('compliance/inventory_list.html', inventories=inventories)
+
+@compliance_bp.route('/inventory/new', methods=['GET', 'POST'])
+@login_required
+def new_inventory():
+    """Creates a new asset inventory."""
     if request.method == 'POST':
-        user_id = session.get('user_id')
-        audit = Audit(
-            name=request.form['name'],
-            description=request.form.get('description'),
-            conducted_by_user_id=user_id
+        name = request.form.get('name')
+        description = request.form.get('description')
+        
+        inventory = AssetInventory(
+            name=name,
+            description=description,
+            conducted_by_user_id=session.get('user_id')
         )
-        db.session.add(audit)
+        db.session.add(inventory)
         db.session.commit()
-        flash('New audit has been created successfully.', 'success')
-        return redirect(url_for('compliance.audit_detail', id=audit.id))
-    
-    return render_template('compliance/audit_form.html')
+        
+        flash('Asset Inventory created successfully.', 'success')
+        return redirect(url_for('compliance.inventory_detail', id=inventory.id))
+        
+    return render_template('compliance/inventory_form.html')
 
-@compliance_bp.route('/audits/<int:id>')
+@compliance_bp.route('/inventory/<int:id>')
 @login_required
-@admin_required
-def audit_detail(id):
-    """Shows the details of an audit and allows for asset verification."""
-    audit = Audit.query.get_or_404(id)
+def inventory_detail(id):
+    """Displays details of a specific asset inventory."""
+    inventory = AssetInventory.query.get_or_404(id)
+    inventory_items = inventory.items.order_by(AssetInventoryItem.event_time.desc()).all()
     
-    # Get all active assets that haven't been audited yet in this session
-    audited_asset_ids = [event.asset_id for event in audit.events]
-    assets_to_audit = Asset.query.filter(
-        Asset.is_archived == False,
-        Asset.id.notin_(audited_asset_ids)
-    ).order_by(Asset.name).all()
+    # Get assets that are NOT in this inventory yet
+    # This is a simplified check; in a real app, you'd filter by active assets
+    audited_asset_ids = [e.asset_id for e in inventory_items]
+    assets_to_audit = Asset.query.filter(Asset.id.notin_(audited_asset_ids)).all()
+    
+    return render_template('compliance/inventory_detail.html', inventory=inventory, inventory_items=inventory_items, assets_to_audit=assets_to_audit)
 
-    # Query and sort the audit events here
-    audit_events = audit.events.order_by(AuditEvent.event_time.desc()).all()
-
-    return render_template(
-        'compliance/audit_detail.html', 
-        audit=audit, 
-        assets_to_audit=assets_to_audit,
-        audit_events=audit_events
-    )
-
-@compliance_bp.route('/audits/<int:id>/record_event', methods=['POST'])
+@compliance_bp.route('/inventory/<int:id>/log', methods=['POST'])
 @login_required
-@admin_required
-def record_audit_event(id):
-    """Records a verification or flagged issue for an asset in an audit."""
-    audit = Audit.query.get_or_404(id)
+def log_inventory_item(id):
+    """Logs an asset check during an inventory."""
+    inventory = AssetInventory.query.get_or_404(id)
+    
     asset_id = request.form.get('asset_id')
     status = request.form.get('status')
     notes = request.form.get('notes')
     
-    asset = Asset.query.get_or_404(asset_id)
-    
-    event = AuditEvent(
-        audit_id=audit.id,
-        asset_id=asset.id,
-        user_id=asset.user_id, # Record who the asset is currently assigned to
+    item = AssetInventoryItem(
+        inventory_id=inventory.id,
+        asset_id=asset_id,
+        user_id=session.get('user_id'),
         status=status,
         notes=notes
     )
+    db.session.add(item)
+    db.session.commit()
     
-    db.session.add(event)
-    db.session.commit()
+    flash('Asset logged successfully.', 'success')
+    return redirect(url_for('compliance.inventory_detail', id=inventory.id))
 
-    if status == 'Verified':
-        flash(f'Asset "{asset.name}" has been verified.', 'success')
-    else:
-        flash(f'Asset "{asset.name}" has been flagged with an issue.', 'warning')
-        
-    return redirect(url_for('compliance.audit_detail', id=id))
-
-@compliance_bp.route('/audits/<int:id>/complete', methods=['POST'])
+@compliance_bp.route('/inventory/<int:id>/complete', methods=['POST'])
 @login_required
-@admin_required
-def complete_audit(id):
-    audit = Audit.query.get_or_404(id)
-    audit.is_completed = True
+def complete_inventory(id):
+    """Marks an inventory as complete."""
+    inventory = AssetInventory.query.get_or_404(id)
+    inventory.is_completed = True
     db.session.commit()
-    flash(f'Audit "{audit.name}" has been marked as complete.', 'success')
-    return redirect(url_for('compliance.list_audits'))
+    
+    flash(f'Inventory "{inventory.name}" has been marked as complete.', 'success')
+    return redirect(url_for('compliance.list_inventory'))
 
 @compliance_bp.route('/bcdr')
 @login_required

@@ -61,7 +61,8 @@ class ComplianceLink(db.Model):
             'SecurityIncident': SecurityIncident,
             'SecurityAssessment': SecurityAssessment,
             'Risk': Risk,
-            'Audit': Audit
+            'Risk': Risk,
+            'AssetInventory': AssetInventory
         }
         
         model = model_map.get(self.linkable_type)
@@ -188,7 +189,7 @@ class SecurityAssessment(db.Model):
                                         "ComplianceLink.linkable_type=='SecurityAssessment')",
                             lazy='dynamic', cascade='all, delete-orphan')
 
-class Audit(db.Model):
+class AssetInventory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
@@ -196,20 +197,20 @@ class Audit(db.Model):
     conducted_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     is_completed = db.Column(db.Boolean, default=False)
 
-    # Relationship to all events in this audit
-    events = db.relationship('AuditEvent', backref='audit', lazy='dynamic', cascade='all, delete-orphan')
+    # Relationship to all items in this inventory
+    items = db.relationship('AssetInventoryItem', backref='inventory', lazy='dynamic', cascade='all, delete-orphan')
     conducted_by = db.relationship('User')
 
     compliance_links = db.relationship('ComplianceLink',
-                            primaryjoin="and_(Audit.id==foreign(ComplianceLink.linkable_id), "
-                                        "ComplianceLink.linkable_type=='Audit')",
+                            primaryjoin="and_(AssetInventory.id==foreign(ComplianceLink.linkable_id), "
+                                        "ComplianceLink.linkable_type=='AssetInventory')",
                             lazy='dynamic', cascade='all, delete-orphan')
 
-class AuditEvent(db.Model):
+class AssetInventoryItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    audit_id = db.Column(db.Integer, db.ForeignKey('audit.id'), nullable=False)
+    inventory_id = db.Column(db.Integer, db.ForeignKey('asset_inventory.id'), nullable=False)
     asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # The user assigned at time of audit
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # The user assigned at time of inventory
     status = db.Column(db.String(50), nullable=False) # e.g., 'Verified', 'Flagged'
     notes = db.Column(db.Text)
     event_time = db.Column(db.DateTime, default=datetime.utcnow)
