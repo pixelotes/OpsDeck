@@ -1,68 +1,186 @@
-{% extends "layout.html" %}
-{% set title = "Edit Risk" if risk else "New Risk" %}
-{% block title %}{{ title }} - {{ super() }}{% endblock %}
+{% extends 'layout.html' %}
+
+{% block title %}{{ 'Edit' if risk else 'New' }} Risk{% endblock %}
+
 {% block content %}
-<h2><i class="fas fa-exclamation-triangle"></i> {{ title }}</h2>
-<hr>
-<div class="card">
-    <div class="card-body">
-        <form method="POST">
-            <div class="mb-3">
-                <label for="risk_description" class="form-label">Risk Description *</label>
-                <textarea class="form-control" id="risk_description" name="risk_description" rows="3" required>{{ risk.risk_description if risk else '' }}</textarea>
-            </div>
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label for="risk_owner" class="form-label">Risk Owner</label>
-                    <input type="text" class="form-control" id="risk_owner" name="risk_owner" value="{{ risk.risk_owner if risk else '' }}" placeholder="e.g., IT Department, John Doe">
-                </div>
-                <div class="col-md-6">
-                    <label for="status" class="form-label">Status</label>
-                    <select class="form-select" id="status" name="status">
-                        {% set statuses = ['Identified', 'Assessed', 'In Treatment', 'Mitigated', 'Accepted'] %}
-                        {% for s in statuses %}
-                        <option value="{{ s }}" {% if risk and risk.status == s %}selected{% endif %}>{{ s }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label for="likelihood" class="form-label">Likelihood</label>
-                    <select class="form-select" id="likelihood" name="likelihood">
-                        {% set levels = ['Low', 'Medium', 'High'] %}
-                        {% for l in levels %}
-                        <option value="{{ l }}" {% if risk and risk.likelihood == l %}selected{% endif %}>{{ l }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label for="impact" class="form-label">Impact</label>
-                    <select class="form-select" id="impact" name="impact">
-                        {% for i in levels %}
-                        <option value="{{ i }}" {% if risk and risk.impact == i %}selected{% endif %}>{{ i }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-            <div class="mb-3">
-                <label for="mitigation_plan" class="form-label">Mitigation Plan</label>
-                <textarea class="form-control" id="mitigation_plan" name="mitigation_plan" rows="3">{{ risk.mitigation_plan if risk else '' }}</textarea>
-            </div>
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label for="iso_27001_control" class="form-label">Related ISO 27001 Control</label>
-                    <input type="text" class="form-control" id="iso_27001_control" name="iso_27001_control" value="{{ risk.iso_27001_control if risk else '' }}" placeholder="e.g., A.12.1.2">
-                </div>
-                <div class="col-md-6">
-                    <label for="link" class="form-label">Reference Link</label>
-                    <input type="url" class="form-control" id="link" name="link" value="{{ risk.link if risk else '' }}" placeholder="https://...">
-                </div>
-            </div>
-            <hr>
-            <a href="{{ url_for('risk.list_risks') }}" class="btn btn-secondary">Cancel</a>
-            <button type="submit" class="btn btn-primary">Save Risk</button>
-        </form>
-    </div>
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ 'Edit' if risk else 'New' }} Risk</h1>
 </div>
+
+<form method="POST">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="riskTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="definition-tab" data-bs-toggle="tab"
+                                data-bs-target="#definition" type="button" role="tab">Definition</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="assessment-tab" data-bs-toggle="tab"
+                                data-bs-target="#assessment" type="button" role="tab">Assessment</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="treatment-tab" data-bs-toggle="tab" data-bs-target="#treatment"
+                                type="button" role="tab">Treatment</button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="riskTabsContent">
+                        <!-- Definition Tab -->
+                        <div class="tab-pane fade show active" id="definition" role="tabpanel">
+                            <div class="mb-3">
+                                <label for="risk_description" class="form-label">Risk Description</label>
+                                <textarea class="form-control" id="risk_description" name="risk_description" rows="3"
+                                    required>{{ risk.risk_description if risk else '' }}</textarea>
+                                <div class="form-text">Describe the risk scenario clearly.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="owner_id" class="form-label">Risk Owner</label>
+                                <select class="form-select" id="owner_id" name="owner_id">
+                                    <option value="">Select Owner...</option>
+                                    {% for user in users %}
+                                    <option value="{{ user.id }}" {% if risk and risk.owner_id==user.id %}selected{%
+                                        endif %}>{{ user.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="asset_ids" class="form-label">Affected Assets</label>
+                                <select class="form-select" id="asset_ids" name="asset_ids" multiple>
+                                    {% for asset in assets %}
+                                    <option value="{{ asset.id }}" {% if risk and asset in risk.assets %}selected{%
+                                        endif %}>{{ asset.name }} ({{ asset.serial_number }})</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Hold Ctrl/Cmd to select multiple assets.</div>
+                            </div>
+                        </div>
+
+                        <!-- Assessment Tab -->
+                        <div class="tab-pane fade" id="assessment" role="tabpanel">
+                            <h5 class="mb-3">Inherent Risk (Pre-Mitigation)</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label for="inherent_likelihood" class="form-label">Likelihood (1-5)</label>
+                                    <input type="range" class="form-range" min="1" max="5" step="1"
+                                        id="inherent_likelihood" name="inherent_likelihood"
+                                        value="{{ risk.inherent_likelihood if risk else 5 }}"
+                                        oninput="updateOutput('inh_like_val', this.value)">
+                                    <div class="text-center fw-bold" id="inh_like_val">{{ risk.inherent_likelihood if
+                                        risk else 5 }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="inherent_impact" class="form-label">Impact (1-5)</label>
+                                    <input type="range" class="form-range" min="1" max="5" step="1" id="inherent_impact"
+                                        name="inherent_impact" value="{{ risk.inherent_impact if risk else 5 }}"
+                                        oninput="updateOutput('inh_imp_val', this.value)">
+                                    <div class="text-center fw-bold" id="inh_imp_val">{{ risk.inherent_impact if risk
+                                        else 5 }}</div>
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <h5 class="mb-3">Residual Risk (Post-Mitigation)</h5>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="residual_likelihood" class="form-label">Likelihood (1-5)</label>
+                                    <input type="range" class="form-range" min="1" max="5" step="1"
+                                        id="residual_likelihood" name="residual_likelihood"
+                                        value="{{ risk.residual_likelihood if risk else 5 }}"
+                                        oninput="updateOutput('res_like_val', this.value)">
+                                    <div class="text-center fw-bold" id="res_like_val">{{ risk.residual_likelihood if
+                                        risk else 5 }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="residual_impact" class="form-label">Impact (1-5)</label>
+                                    <input type="range" class="form-range" min="1" max="5" step="1" id="residual_impact"
+                                        name="residual_impact" value="{{ risk.residual_impact if risk else 5 }}"
+                                        oninput="updateOutput('res_imp_val', this.value)">
+                                    <div class="text-center fw-bold" id="res_imp_val">{{ risk.residual_impact if risk
+                                        else 5 }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Treatment Tab -->
+                        <div class="tab-pane fade" id="treatment" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="status" class="form-label">Status</label>
+                                    <select class="form-select" id="status" name="status">
+                                        <option value="Identified" {% if risk and risk.status=='Identified' %}selected{%
+                                            endif %}>Identified</option>
+                                        <option value="Assessed" {% if risk and risk.status=='Assessed' %}selected{%
+                                            endif %}>Assessed</option>
+                                        <option value="In Treatment" {% if risk and risk.status=='In Treatment'
+                                            %}selected{% endif %}>In Treatment</option>
+                                        <option value="Mitigated" {% if risk and risk.status=='Mitigated' %}selected{%
+                                            endif %}>Mitigated</option>
+                                        <option value="Accepted" {% if risk and risk.status=='Accepted' %}selected{%
+                                            endif %}>Accepted</option>
+                                        <option value="Closed" {% if risk and risk.status=='Closed' %}selected{% endif
+                                            %}>Closed</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="treatment_strategy" class="form-label">Strategy</label>
+                                    <select class="form-select" id="treatment_strategy" name="treatment_strategy">
+                                        <option value="Mitigate" {% if risk and risk.treatment_strategy=='Mitigate'
+                                            %}selected{% endif %}>Mitigate</option>
+                                        <option value="Accept" {% if risk and risk.treatment_strategy=='Accept'
+                                            %}selected{% endif %}>Accept</option>
+                                        <option value="Transfer" {% if risk and risk.treatment_strategy=='Transfer'
+                                            %}selected{% endif %}>Transfer</option>
+                                        <option value="Avoid" {% if risk and risk.treatment_strategy=='Avoid'
+                                            %}selected{% endif %}>Avoid</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="next_review_date" class="form-label">Next Review Date</label>
+                                    <input type="date" class="form-control" id="next_review_date"
+                                        name="next_review_date"
+                                        value="{{ risk.next_review_date.strftime('%Y-%m-%d') if risk and risk.next_review_date else '' }}">
+                                </div>
+                                <div class="col-12">
+                                    <label for="mitigation_plan" class="form-label">Mitigation Plan</label>
+                                    <textarea class="form-control" id="mitigation_plan" name="mitigation_plan"
+                                        rows="4">{{ risk.mitigation_plan if risk else '' }}</textarea>
+                                </div>
+                                <div class="col-12">
+                                    <label for="link" class="form-label">External Link (Jira/Ticket)</label>
+                                    <input type="url" class="form-control" id="link" name="link"
+                                        value="{{ risk.link if risk else '' }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Actions</h5>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Save Risk</button>
+                        <a href="{{ url_for('risk.list_risks') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    function updateOutput(id, value) {
+        document.getElementById(id).innerText = value;
+    }
+</script>
 {% endblock %}

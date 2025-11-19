@@ -607,6 +607,57 @@ def delete_compliance_link(link_id):
     db.session.commit()
     return jsonify({'status': 'success', 'message': 'Link deleted successfully'})
 
+@compliance_bp.route('/link/new', methods=['GET', 'POST'])
+@login_required
+def link_control():
+    """Form to link a control to an object (Risk, Asset, etc)."""
+    linkable_type = request.args.get('linkable_type') or request.form.get('linkable_type')
+    linkable_id = request.args.get('linkable_id') or request.form.get('linkable_id')
+
+    if not linkable_type or not linkable_id:
+        flash('Missing linkable object information.', 'error')
+        return redirect(url_for('main.dashboard'))
+
+    if request.method == 'POST':
+        framework_control_id = request.form.get('framework_control_id')
+        description = request.form.get('description')
+
+        if not framework_control_id or not description:
+            flash('Please select a control and provide a description.', 'error')
+        else:
+            # Check for existing link
+            existing = ComplianceLink.query.filter_by(
+                framework_control_id=framework_control_id,
+                linkable_id=linkable_id,
+                linkable_type=linkable_type
+            ).first()
+
+            if existing:
+                flash('This control is already linked.', 'warning')
+            else:
+                link = ComplianceLink(
+                    framework_control_id=framework_control_id,
+                    linkable_id=linkable_id,
+                    linkable_type=linkable_type,
+                    description=description
+                )
+                db.session.add(link)
+                db.session.commit()
+                flash('Control linked successfully.', 'success')
+                
+                # Redirect back to the object
+                if linkable_type == 'Risk':
+                    return redirect(url_for('risk.detail', id=linkable_id))
+                # Add other types as needed
+                
+                return redirect(url_for('main.dashboard'))
+
+    frameworks = Framework.query.filter_by(is_active=True).order_by(Framework.name).all()
+    return render_template('compliance/link_control.html', 
+                           frameworks=frameworks, 
+                           linkable_type=linkable_type, 
+                           linkable_id=linkable_id)
+
 @compliance_bp.route('/dashboard')
 @login_required
 def dashboard():

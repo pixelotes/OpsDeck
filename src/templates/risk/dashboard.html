@@ -1,0 +1,282 @@
+{% extends 'layout.html' %}
+
+{% block title %}Risk Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Risk Management Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('risk.list_risks') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-list-ul"></i> Risk Register
+        </a>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card text-center h-100 border-primary">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Total Risks</h6>
+                <h2 class="card-title display-4 text-primary">{{ total_risks }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center h-100 border-danger">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Critical Risks</h6>
+                <h2 class="card-title display-4 text-danger">{{ critical_risks_count }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center h-100 border-warning">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Risk Exposure</h6>
+                <h2 class="card-title display-4 text-warning">{{ risk_exposure }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center h-100 border-success">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Control Efficiency</h6>
+                <h2 class="card-title display-4 text-success">{{ avg_efficiency }}%</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="row mb-4">
+    <!-- Heatmap (Custom Grid) -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">Risk Heatmap (Residual)</div>
+            <div class="card-body d-flex justify-content-center align-items-center">
+                <div
+                    style="position: relative; width: 300px; height: 300px; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(5, 1fr); gap: 2px;">
+                    <!-- Y-Axis Label -->
+                    <div
+                        style="position: absolute; left: -30px; top: 50%; transform: rotate(-90deg) translate(0, -50%); font-weight: bold;">
+                        Impact</div>
+
+                    <!-- Grid Cells (5=High Impact (Top), 1=Low Impact (Bottom)) -->
+                    <!-- Row 5 (Impact 5) -->
+                    <div class="heatmap-cell bg-warning" data-imp="5" data-like="1"></div>
+                    <div class="heatmap-cell bg-warning" data-imp="5" data-like="2"></div>
+                    <div class="heatmap-cell bg-danger" data-imp="5" data-like="3"></div>
+                    <div class="heatmap-cell bg-danger" data-imp="5" data-like="4"></div>
+                    <div class="heatmap-cell bg-danger" data-imp="5" data-like="5"></div>
+
+                    <!-- Row 4 (Impact 4) -->
+                    <div class="heatmap-cell bg-success" data-imp="4" data-like="1"></div>
+                    <div class="heatmap-cell bg-warning" data-imp="4" data-like="2"></div>
+                    <div class="heatmap-cell bg-warning" data-imp="4" data-like="3"></div>
+                    <div class="heatmap-cell bg-danger" data-imp="4" data-like="4"></div>
+                    <div class="heatmap-cell bg-danger" data-imp="4" data-like="5"></div>
+
+                    <!-- Row 3 (Impact 3) -->
+                    <div class="heatmap-cell bg-success" data-imp="3" data-like="1"></div>
+                    <div class="heatmap-cell bg-success" data-imp="3" data-like="2"></div>
+                    <div class="heatmap-cell bg-warning" data-imp="3" data-like="3"></div>
+                    <div class="heatmap-cell bg-warning" data-imp="3" data-like="4"></div>
+                    <div class="heatmap-cell bg-danger" data-imp="3" data-like="5"></div>
+
+                    <!-- Row 2 (Impact 2) -->
+                    <div class="heatmap-cell bg-success" data-imp="2" data-like="1"></div>
+                    <div class="heatmap-cell bg-success" data-imp="2" data-like="2"></div>
+                    <div class="heatmap-cell bg-success" data-imp="2" data-like="3"></div>
+                    <div class="heatmap-cell bg-warning" data-imp="2" data-like="4"></div>
+                    <div class="heatmap-cell bg-warning" data-imp="2" data-like="5"></div>
+
+                    <!-- Row 1 (Impact 1) -->
+                    <div class="heatmap-cell bg-success" data-imp="1" data-like="1"></div>
+                    <div class="heatmap-cell bg-success" data-imp="1" data-like="2"></div>
+                    <div class="heatmap-cell bg-success" data-imp="1" data-like="3"></div>
+                    <div class="heatmap-cell bg-success" data-imp="1" data-like="4"></div>
+                    <div class="heatmap-cell bg-warning" data-imp="1" data-like="5"></div>
+
+                    <!-- X-Axis Label -->
+                    <div
+                        style="position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%); font-weight: bold;">
+                        Likelihood</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Strategy Chart -->
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-header">Treatment Strategy</div>
+            <div class="card-body">
+                <canvas id="strategyChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Owners Chart -->
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-header">Top Risk Owners</div>
+            <div class="card-body">
+                <canvas id="ownerChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tables Row -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-danger text-white">Top Critical Risks</div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Risk</th>
+                            <th>Score</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for risk in top_critical_risks %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-truncate" style="max-width: 250px;">{{ risk.risk_description }}
+                                </div>
+                                <small class="text-muted">{{ risk.owner.name if risk.owner else 'Unassigned' }}</small>
+                            </td>
+                            <td><span class="badge bg-danger">{{ risk.residual_score }}</span></td>
+                            <td><a href="{{ url_for('risk.detail', id=risk.id) }}"
+                                    class="btn btn-sm btn-outline-secondary">View</a></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">No critical risks found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Accepted Risks</div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Risk</th>
+                            <th>Score</th>
+                            <th>Review Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for risk in accepted_risks %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-truncate" style="max-width: 250px;">{{ risk.risk_description }}
+                                </div>
+                            </td>
+                            <td><span class="badge bg-warning text-dark">{{ risk.residual_score }}</span></td>
+                            <td>{{ risk.next_review_date.strftime('%Y-%m-%d') if risk.next_review_date else '-' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">No accepted risks.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="{{ url_for('static', filename='vendor/chart.js/chart.js') }}"></script>
+<script>
+    // Pass data from Flask
+    const strategyLabels = {{ strategy_labels | tojson }};
+    const strategyData = {{ strategy_data | tojson }};
+    const ownerLabels = {{ owner_labels | tojson }};
+    const ownerData = {{ owner_data | tojson }};
+    const heatmapData = {{ heatmap_data | tojson }};
+
+    // Strategy Chart (Doughnut)
+    new Chart(document.getElementById('strategyChart'), {
+        type: 'doughnut',
+        data: {
+            labels: strategyLabels,
+            datasets: [{
+                data: strategyData,
+                backgroundColor: ['#0d6efd', '#ffc107', '#198754', '#dc3545'],
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // Owner Chart (Bar)
+    new Chart(document.getElementById('ownerChart'), {
+        type: 'bar',
+        data: {
+            labels: ownerLabels,
+            datasets: [{
+                label: 'Risks',
+                data: ownerData,
+                backgroundColor: '#0d6efd'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+
+    // Heatmap Logic (Populate Grid)
+    // We iterate through heatmapData and add counts/dots to the corresponding cells
+    heatmapData.forEach(point => {
+        // Find cell with data-imp == point.y and data-like == point.x
+        const cell = document.querySelector(`.heatmap-cell[data-imp="${point.y}"][data-like="${point.x}"]`);
+        if (cell) {
+            // Create a dot or increment counter
+            let dot = document.createElement('div');
+            dot.style.width = '10px';
+            dot.style.height = '10px';
+            dot.style.backgroundColor = 'rgba(0,0,0,0.5)';
+            dot.style.borderRadius = '50%';
+            dot.style.margin = '1px';
+            dot.title = point.title;
+
+            // Use flex layout in CSS for cells to hold multiple dots
+            cell.style.display = 'flex';
+            cell.style.flexWrap = 'wrap';
+            cell.style.justifyContent = 'center';
+            cell.style.alignItems = 'center';
+
+            cell.appendChild(dot);
+        }
+    });
+</script>
+
+<style>
+    .heatmap-cell {
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        transition: transform 0.2s;
+    }
+
+    .heatmap-cell:hover {
+        transform: scale(1.05);
+        z-index: 10;
+        border-color: #000;
+    }
+</style>
+{% endblock %}

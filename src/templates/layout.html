@@ -205,7 +205,11 @@
                             href="{{ url_for('policies.list_policies') }}"><i class="fa-fw fas fa-file-contract"></i>
                             Policies</a></li>
                     <li class="nav-item"><a
-                            class="nav-link {% if request.endpoint.startswith('risk.') %}active{% endif %}"
+                            class="nav-link {% if request.endpoint == 'risk.dashboard' %}active{% endif %}"
+                            href="{{ url_for('risk.dashboard') }}"><i class="fa-fw fas fa-chart-pie"></i>
+                            Risk Dashboard</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint.startswith('risk.') and request.endpoint != 'risk.dashboard' %}active{% endif %}"
                             href="{{ url_for('risk.list_risks') }}"><i class="fa-fw fas fa-exclamation-triangle"></i>
                             Risk Register</a></li>
                     <li class="nav-item"><a class="nav-link {% if 'incident' in request.endpoint %}active{% endif %}"

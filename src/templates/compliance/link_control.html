@@ -1,0 +1,87 @@
+{% extends 'layout.html' %}
+
+{% block title %}Link Control{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Link Control to {{ linkable_type }} #{{ linkable_id }}</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="linkable_type" value="{{ linkable_type }}">
+                    <input type="hidden" name="linkable_id" value="{{ linkable_id }}">
+
+                    <div class="mb-3">
+                        <label for="framework_id" class="form-label">Framework</label>
+                        <select class="form-select" id="framework_id" name="framework_id" required
+                            onchange="loadControls()">
+                            <option value="">Select Framework...</option>
+                            {% for framework in frameworks %}
+                            <option value="{{ framework.id }}">{{ framework.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="framework_control_id" class="form-label">Control</label>
+                        <select class="form-select" id="framework_control_id" name="framework_control_id" required
+                            disabled>
+                            <option value="">Select Framework first...</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description / Justification</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+                        <div class="form-text">Explain how this control mitigates the risk or applies to this item.
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ request.referrer or url_for('main.dashboard') }}"
+                            class="btn btn-outline-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Link Control</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadControls() {
+        const frameworkId = document.getElementById('framework_id').value;
+        const controlSelect = document.getElementById('framework_control_id');
+
+        if (!frameworkId) {
+            controlSelect.innerHTML = '<option value="">Select Framework first...</option>';
+            controlSelect.disabled = true;
+            return;
+        }
+
+        controlSelect.disabled = true;
+        controlSelect.innerHTML = '<option value="">Loading...</option>';
+
+        try {
+            const response = await fetch(`/compliance/frameworks/${frameworkId}/controls`);
+            const controls = await response.json();
+
+            controlSelect.innerHTML = '<option value="">Select Control...</option>';
+            controls.forEach(control => {
+                const option = document.createElement('option');
+                option.value = control.id;
+                option.text = `${control.control_id} - ${control.name}`;
+                controlSelect.appendChild(option);
+            });
+            controlSelect.disabled = false;
+        } catch (error) {
+            console.error('Error loading controls:', error);
+            controlSelect.innerHTML = '<option value="">Error loading controls</option>';
+        }
+    }
+</script>
+{% endblock %}

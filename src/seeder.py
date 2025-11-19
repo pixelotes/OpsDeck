@@ -173,12 +173,117 @@ def seed_data():
         # 7. Create Compliance & Governance Entities
         print("Creating compliance and governance entities...")
         risks = [
-            Risk(risk_description="Unauthorized access to cloud infrastructure due to weak passwords", status="Assessed", likelihood="Medium", impact="High", risk_owner="Alice Johnson", iso_27001_control="A.5.15"),
-            Risk(risk_description="Data loss due to hardware failure of primary database server", status="In Treatment", likelihood="Low", impact="Significant", mitigation_plan="Implement daily backups to a secondary location.", iso_27001_control="A.12.3.1"),
-            Risk(risk_description="Malware infection on end-user devices", status="Identified", likelihood="High", impact="Moderate", iso_27001_control="A.8.7"),
-            Risk(risk_description="Third-party supplier fails to meet security obligations", status="Assessed", likelihood="Medium", impact="High", iso_27001_control="A.15.2.1"),
-            Risk(risk_description="Sensitive data leakage via email", status="Identified", likelihood="Medium", impact="Significant", iso_27001_control="A.8.2.3"),
-            Risk(risk_description="Lack of regular access control reviews", status="In Treatment", likelihood="Medium", impact="Moderate", iso_27001_control="A.5.18"),
+            Risk(
+                risk_description="Unauthorized access to cloud infrastructure due to weak passwords", 
+                status="Assessed", 
+                inherent_likelihood=4, inherent_impact=5, 
+                residual_likelihood=2, residual_impact=5,
+                treatment_strategy="Mitigate",
+                owner=users[0], # Alice
+                next_review_date=date.today() + timedelta(days=90),
+                mitigation_plan="Enforce MFA and rotate keys quarterly."
+            ),
+            Risk(
+                risk_description="Data loss due to hardware failure of primary database server", 
+                status="In Treatment", 
+                inherent_likelihood=2, inherent_impact=4, 
+                residual_likelihood=1, residual_impact=4,
+                treatment_strategy="Mitigate",
+                owner=users[5], # Fiona
+                next_review_date=date.today() + timedelta(days=30),
+                mitigation_plan="Implement daily backups to a secondary location."
+            ),
+            Risk(
+                risk_description="Malware infection on end-user devices", 
+                status="Identified", 
+                inherent_likelihood=5, inherent_impact=3, 
+                residual_likelihood=3, residual_impact=3,
+                treatment_strategy="Mitigate",
+                owner=users[0], # Alice
+                next_review_date=date.today() + timedelta(days=60),
+                mitigation_plan="Deploy EDR solution."
+            ),
+            Risk(
+                risk_description="Third-party supplier fails to meet security obligations", 
+                status="Assessed", 
+                inherent_likelihood=3, inherent_impact=5, 
+                residual_likelihood=2, residual_impact=4,
+                treatment_strategy="Transfer",
+                owner=users[6], # George (Sales/Vendor Mgmt)
+                next_review_date=date.today() + timedelta(days=180),
+                mitigation_plan="Include strict SLAs and penalties in contracts."
+            ),
+            Risk(
+                risk_description="Sensitive data leakage via email", 
+                status="Identified", 
+                inherent_likelihood=4, inherent_impact=4, 
+                residual_likelihood=3, residual_impact=4,
+                treatment_strategy="Mitigate",
+                owner=users[1], # Bob
+                next_review_date=date.today() + timedelta(days=45),
+                mitigation_plan="Implement DLP rules for email."
+            ),
+            Risk(
+                risk_description="Lack of regular access control reviews", 
+                status="In Treatment", 
+                inherent_likelihood=3, inherent_impact=3, 
+                residual_likelihood=1, residual_impact=3,
+                treatment_strategy="Mitigate",
+                owner=users[0], # Alice
+                next_review_date=date.today() + timedelta(days=90),
+                mitigation_plan="Quarterly access reviews."
+            ),
+            # New Risks for Dashboard Variety
+            Risk(
+                risk_description="Legacy system vulnerability exploitation", 
+                status="Accepted", 
+                inherent_likelihood=2, inherent_impact=3, 
+                residual_likelihood=2, residual_impact=3,
+                treatment_strategy="Accept",
+                owner=users[0], # Alice
+                next_review_date=date.today() + timedelta(days=180),
+                mitigation_plan="System is air-gapped; risk accepted until decommissioning in 2026."
+            ),
+            Risk(
+                risk_description="Insider threat (disgruntled employee)", 
+                status="Assessed", 
+                inherent_likelihood=2, inherent_impact=5, 
+                residual_likelihood=1, residual_impact=5,
+                treatment_strategy="Mitigate",
+                owner=users[2], # Charlie
+                next_review_date=date.today() + timedelta(days=120),
+                mitigation_plan="Background checks and least privilege access."
+            ),
+            Risk(
+                risk_description="DDoS attack on public website", 
+                status="Mitigated", 
+                inherent_likelihood=4, inherent_impact=4, 
+                residual_likelihood=1, residual_impact=2,
+                treatment_strategy="Transfer",
+                owner=users[5], # Fiona
+                next_review_date=date.today() + timedelta(days=365),
+                mitigation_plan="Use Cloudflare DDoS protection."
+            ),
+            Risk(
+                risk_description="Regulatory non-compliance (GDPR)", 
+                status="Assessed", 
+                inherent_likelihood=3, inherent_impact=5, 
+                residual_likelihood=2, residual_impact=5,
+                treatment_strategy="Avoid",
+                owner=users[1], # Bob
+                next_review_date=date.today() + timedelta(days=60),
+                mitigation_plan="Do not process data of EU citizens until compliant."
+            ),
+             Risk(
+                risk_description="Critical API Key Exposure", 
+                status="Assessed", 
+                inherent_likelihood=5, inherent_impact=5, 
+                residual_likelihood=5, residual_impact=5,
+                treatment_strategy="Mitigate",
+                owner=users[0], # Alice
+                next_review_date=date.today() + timedelta(days=1),
+                mitigation_plan="Immediate rotation and secrets management implementation."
+            )
         ]
         db.session.add_all(risks)
 
