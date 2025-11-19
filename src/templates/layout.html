@@ -166,9 +166,12 @@
                     <li class="nav-item"><a class="nav-link {% if request.blueprint == 'frameworks' %}active{% endif %}"
                             href="{{ url_for('frameworks.list') }}"><i class="fa-fw fas fa-layer-group"></i>
                             Frameworks</a></li>
-                    <li class="nav-item"><a class="nav-link {% if 'audit' in request.endpoint %}active{% endif %}"
-                            href="{{ url_for('compliance.list_audits') }}"><i class="fa-fw fas fa-clipboard-check"></i>
-                            Asset Audits</a></li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ 'active' if request.endpoint and request.endpoint.startswith('compliance.list_inventory') }}"
+                            href="{{ url_for('compliance.list_inventory') }}"><i
+                                class="fa-fw fas fa-clipboard-check"></i>
+                            Asset Inventory</a>
+                    </li>
                     <li class="nav-item"><a class="nav-link {% if 'assessment' in request.endpoint %}active{% endif %}"
                             href="{{ url_for('compliance.list_assessments') }}"><i
                                 class="fa-fw fas fa-clipboard-list"></i>

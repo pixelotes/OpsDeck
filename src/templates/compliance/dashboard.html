@@ -28,8 +28,8 @@
 {% elif type == 'SecurityAssessment' %}
 <a href="{{ url_for('compliance.assessment_detail', id=obj.id) }}">{{ obj.supplier.name }} Assessment ({{
     obj.assessment_date }})</a>
-{% elif type == 'Audit' %}
-<a href="{{ url_for('compliance.audit_detail', id=obj.id) }}">{{ obj.name }}</a>
+{% elif type == 'AssetInventory' %}
+<a href="{{ url_for('compliance.inventory_detail', id=obj.id) }}">{{ obj.name }}</a>
 {% elif type == 'BCDRPlan' %}
 <a href="{{ url_for('compliance.bcdr_detail', id=obj.id) }}">{{ obj.name }}</a>
 {% elif type == 'SecurityIncident' %}
