@@ -30,6 +30,14 @@ class Policy(db.Model):
                                         "Attachment.linkable_type=='Policy')",
                             lazy=True, cascade='all, delete-orphan')
 
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Policy.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Policy'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
+
 class PolicyVersion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     version_number = db.Column(db.String(50), nullable=False) # e.g., '1.0', '1.1', '2.0'

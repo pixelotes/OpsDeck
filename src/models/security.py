@@ -5,6 +5,32 @@ from ..extensions import db
 from .core import Attachment
 from .auth import User
 
+class ComplianceLink(db.Model):
+    """
+    Tabla de asociación polimórfica.
+    Vincula un control (ej. 'A.5.7') con un objeto 
+    (ej. un Asset, una Policy) y explica CÓMO lo cumple.
+    """
+    __tablename__ = 'compliance_link'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Lado 1: El control que se está cumpliendo
+    framework_control_id = db.Column(db.Integer, db.ForeignKey('framework_control.id'), nullable=False)
+    
+    # Lado 2: El objeto polimórfico que cumple el control
+    linkable_id = db.Column(db.Integer, nullable=False, index=True)
+    linkable_type = db.Column(db.String(50), nullable=False, index=True)
+
+    description = db.Column(db.Text, nullable=False)
+
+    # --- Relaciones ---
+    
+    # Back-reference para que desde FrameworkControl podamos ver los links
+    framework_control = db.relationship(
+        'FrameworkControl',
+        backref=db.backref('compliance_links', lazy='dynamic', cascade='all, delete-orphan')
+    )
+
 incident_assets = db.Table('incident_assets',
     db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
     db.Column('asset_id', db.Integer, db.ForeignKey('asset.id'), primary_key=True)
@@ -55,6 +81,11 @@ class SecurityIncident(db.Model):
                             primaryjoin="and_(SecurityIncident.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='SecurityIncident')",
                             lazy=True, cascade='all, delete-orphan')
+    
+    compliance_links = db.relationship('ComplianceLink',
+                            primaryjoin="and_(SecurityIncident.id==foreign(ComplianceLink.linkable_id), "
+                                        "ComplianceLink.linkable_type=='SecurityIncident')",
+                            lazy='dynamic', cascade='all, delete-orphan')
 
 class PostIncidentReview(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -96,6 +127,11 @@ class Risk(db.Model):
                                         "Attachment.linkable_type=='Risk')",
                             lazy=True, cascade='all, delete-orphan')
 
+    compliance_links = db.relationship('ComplianceLink',
+                            primaryjoin="and_(Risk.id==foreign(ComplianceLink.linkable_id), "
+                                        "ComplianceLink.linkable_type=='Risk')",
+                            lazy='dynamic', cascade='all, delete-orphan')
+
 class SecurityAssessment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     assessment_date = db.Column(db.Date, nullable=False, default=date.today)
@@ -109,6 +145,11 @@ class SecurityAssessment(db.Model):
                                         "Attachment.linkable_type=='SecurityAssessment')",
                             lazy=True, cascade='all, delete-orphan')
 
+    compliance_links = db.relationship('ComplianceLink',
+                            primaryjoin="and_(SecurityAssessment.id==foreign(ComplianceLink.linkable_id), "
+                                        "ComplianceLink.linkable_type=='SecurityAssessment')",
+                            lazy='dynamic', cascade='all, delete-orphan')
+
 class Audit(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
@@ -120,6 +161,11 @@ class Audit(db.Model):
     # Relationship to all events in this audit
     events = db.relationship('AuditEvent', backref='audit', lazy='dynamic', cascade='all, delete-orphan')
     conducted_by = db.relationship('User')
+
+    compliance_links = db.relationship('ComplianceLink',
+                            primaryjoin="and_(Audit.id==foreign(ComplianceLink.linkable_id), "
+                                        "ComplianceLink.linkable_type=='Audit')",
+                            lazy='dynamic', cascade='all, delete-orphan')
 
 class AuditEvent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -212,28 +258,4 @@ class FrameworkControl(db.Model):
     def __repr__(self):
         return f'<FrameworkControl {self.id}: {self.control_id}>'
     
-class ComplianceLink(db.Model):
-    """
-    Tabla de asociación polimórfica.
-    Vincula un control (ej. 'A.5.7') con un objeto 
-    (ej. un Asset, una Policy) y explica CÓMO lo cumple.
-    """
-    __tablename__ = 'compliance_link'
-    id = db.Column(db.Integer, primary_key=True)
-    
-    # Lado 1: El control que se está cumpliendo
-    framework_control_id = db.Column(db.Integer, db.ForeignKey('framework_control.id'), nullable=False)
-    
-    # Lado 2: El objeto polimórfico que cumple el control
-    linkable_id = db.Column(db.Integer, nullable=False, index=True)
-    linkable_type = db.Column(db.String(50), nullable=False, index=True)
 
-    description = db.Column(db.Text, nullable=False)
-
-    # --- Relaciones ---
-    
-    # Back-reference para que desde FrameworkControl podamos ver los links
-    framework_control = db.relationship(
-        'FrameworkControl',
-        backref=db.backref('compliance_links', lazy='dynamic', cascade='all, delete-orphan')
-    )

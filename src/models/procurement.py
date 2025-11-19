@@ -53,6 +53,14 @@ class Supplier(db.Model):
         "Attachment.linkable_type=='Supplier')",
         lazy=True, cascade='all, delete-orphan')
 
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Supplier.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Supplier'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
+
     contacts = db.relationship('Contact', backref='supplier', lazy=True, cascade='all, delete-orphan')
     subscriptions = db.relationship('Subscription', backref='supplier', lazy=True)
     purchases = db.relationship('Purchase', backref='supplier', lazy=True)
@@ -105,6 +113,14 @@ class Purchase(db.Model):
                             primaryjoin="and_(Purchase.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Purchase')",
                             lazy=True, cascade='all, delete-orphan')
+
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Purchase.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Purchase'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
     assets = db.relationship('Asset', backref='purchase', lazy=True)
     peripherals = db.relationship('Peripheral', backref='purchase', lazy=True)
     licenses = db.relationship('License', backref='purchase', lazy=True) # Added relationship
@@ -154,6 +170,14 @@ class Budget(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     purchases = db.relationship('Purchase', backref='budget', lazy=True)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
+
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Budget.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Budget'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
 
     @property
     def remaining(self):
@@ -215,6 +239,14 @@ class Subscription(db.Model):
                             primaryjoin="and_(Subscription.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Subscription')",
                             lazy=True, cascade='all, delete-orphan')
+
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Subscription.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Subscription'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
     cost_history = db.relationship('CostHistory', backref='subscription', lazy=True, cascade='all, delete-orphan', order_by='CostHistory.changed_date')
     tags = db.relationship('Tag', secondary=subscription_tags, backref=db.backref('subscriptions', lazy='dynamic'))
     

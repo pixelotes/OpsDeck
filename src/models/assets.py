@@ -40,6 +40,14 @@ class Asset(db.Model):
                             primaryjoin="and_(Asset.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Asset')",
                             lazy=True, cascade='all, delete-orphan')
+    
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Asset.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Asset'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
     history = db.relationship('AssetHistory', backref='asset', lazy=True, cascade='all, delete-orphan', order_by='AssetHistory.changed_at.desc()')
     peripherals = db.relationship('Peripheral', backref='asset', lazy=True)
     assignments = db.relationship('AssetAssignment', backref='asset', lazy=True, cascade='all, delete-orphan', order_by='AssetAssignment.checked_out_date.desc()')
@@ -111,6 +119,14 @@ class Peripheral(db.Model):
                             primaryjoin="and_(Peripheral.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Peripheral')",
                             lazy=True, cascade='all, delete-orphan')
+
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Peripheral.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Peripheral'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -149,6 +165,14 @@ class License(db.Model):
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == License.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'License'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
+
     @property
     def status(self):
         today = date.today()
@@ -182,6 +206,14 @@ class Software(db.Model):
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Software.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Software'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
+
     @property
     def owner(self):
         if self.owner_type == 'user' and self.owner_id:
@@ -209,6 +241,14 @@ class MaintenanceLog(db.Model):
                             primaryjoin="and_(MaintenanceLog.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='MaintenanceLog')",
                             lazy=True, cascade='all, delete-orphan')
+
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == MaintenanceLog.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'MaintenanceLog'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
 
 class DisposalHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)

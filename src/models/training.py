@@ -15,6 +15,14 @@ class Course(db.Model):
     
     assignments = db.relationship('CourseAssignment', backref='course', lazy=True, cascade='all, delete-orphan')
 
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Course.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Course'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
+
 class CourseAssignment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     assigned_date = db.Column(db.Date, nullable=False, default=date.today)

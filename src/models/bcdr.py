@@ -27,6 +27,14 @@ class BCDRPlan(db.Model):
     assets = db.relationship('Asset', secondary=bcdr_plan_assets, backref='bcdr_plans')
     test_logs = db.relationship('BCDRTestLog', backref='plan', lazy='dynamic', cascade='all, delete-orphan', order_by='BCDRTestLog.test_date.desc()')
 
+    compliance_links = db.relationship('ComplianceLink',
+        primaryjoin=lambda: and_(
+            foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == BCDRPlan.id,
+            __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'BCDRPlan'
+        ),
+        lazy='dynamic', cascade='all, delete-orphan'
+    )
+
 class BCDRTestLog(db.Model):
     __tablename__ = 'bcdr_test_log'
     id = db.Column(db.Integer, primary_key=True)
