@@ -121,7 +121,7 @@
             <ul class="list-group list-group-flush">
                 {% for asset in risk.assets %}
                 <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <a href="{{ url_for('assets.view_asset', id=asset.id) }}">{{ asset.name }}</a>
+                    <a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a>
                     <span class="badge bg-secondary">{{ asset.status }}</span>
                 </li>
                 {% else %}

@@ -11,7 +11,27 @@ risk_bp = Blueprint('risk', __name__)
 @risk_bp.route('/')
 @login_required
 def list_risks():
-    risks = Risk.query.order_by(Risk.created_at.desc()).all()
+    query = Risk.query
+
+    # Filters
+    status = request.args.get('status')
+    if status:
+        query = query.filter(Risk.status == status)
+
+    strategy = request.args.get('strategy')
+    if strategy:
+        query = query.filter(Risk.treatment_strategy == strategy)
+
+    owner_id = request.args.get('owner_id')
+    if owner_id:
+        query = query.filter(Risk.owner_id == owner_id)
+
+    min_score = request.args.get('min_score', type=int)
+    if min_score:
+        query = query.filter((Risk.residual_impact * Risk.residual_likelihood) >= min_score)
+
+    risks = query.order_by((Risk.residual_impact * Risk.residual_likelihood).desc(), Risk.created_at.desc()).all()
+    
     return render_template('risk/list.html', risks=risks)
 
 @risk_bp.route('/dashboard')
@@ -83,6 +103,67 @@ def dashboard():
                            heatmap_data=heatmap_data,
                            top_critical_risks=top_critical_risks,
                            accepted_risks=accepted_risks)
+
+@risk_bp.route('/dashboard/pdf')
+@login_required
+def dashboard_pdf():
+    from weasyprint import HTML
+    from flask import make_response
+    
+    # Re-fetch data for PDF (similar to dashboard but optimized for print)
+    all_risks = Risk.query.all()
+    total_risks = len(all_risks)
+    
+    critical_risks_count = sum(1 for r in all_risks if r.residual_score >= 20)
+    risk_exposure = sum(r.residual_score for r in all_risks)
+    
+    total_reduction = sum(r.risk_reduction_percentage for r in all_risks)
+    avg_efficiency = round(total_reduction / total_risks, 1) if total_risks > 0 else 0.0
+
+    # Strategy Data for PDF (Dictionary for loop)
+    strategies = {}
+    for r in all_risks:
+        s = r.treatment_strategy or 'Undefined'
+        strategies[s] = strategies.get(s, 0) + 1
+
+    # Heatmap Counts for Grid (x, y) -> count
+    heatmap_counts = {}
+    for r in all_risks:
+        coord = (r.residual_likelihood, r.residual_impact)
+        heatmap_counts[coord] = heatmap_counts.get(coord, 0) + 1
+
+    # Tables
+    top_critical_risks = sorted(
+        [r for r in all_risks if r.residual_score >= 15],
+        key=lambda x: x.residual_score,
+        reverse=True
+    )[:10] # Top 10 for PDF
+
+    accepted_risks = [r for r in all_risks if r.treatment_strategy == 'Accept']
+
+    user = User.query.get(session.get('user_id'))
+
+    html_content = render_template(
+        'risk/dashboard_pdf.html',
+        total_risks=total_risks,
+        critical_risks_count=critical_risks_count,
+        risk_exposure=risk_exposure,
+        avg_efficiency=avg_efficiency,
+        strategies=strategies,
+        heatmap_counts=heatmap_counts,
+        top_critical_risks=top_critical_risks,
+        accepted_risks=accepted_risks,
+        generated_at=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+        generated_by=user.name if user else 'System'
+    )
+    
+    pdf_file = HTML(string=html_content).write_pdf()
+    
+    response = make_response(pdf_file)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = 'attachment; filename=risk_report.pdf'
+    
+    return response
 
 @risk_bp.route('/<int:id>')
 @login_required
