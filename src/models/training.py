@@ -20,7 +20,8 @@ class Course(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Course.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Course'
         ),
-        lazy='dynamic', cascade='all, delete-orphan'
+        lazy='dynamic', cascade='all, delete-orphan',
+        overlaps="compliance_links"
     )
 
 class CourseAssignment(db.Model):
@@ -42,4 +43,5 @@ class CourseCompletion(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(CourseCompletion.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='CourseCompletion')",
-                            lazy=True, cascade='all, delete-orphan')
+                            lazy=True, cascade='all, delete-orphan',
+                            overlaps="attachments")

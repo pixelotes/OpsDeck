@@ -119,12 +119,14 @@ class SecurityIncident(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(SecurityIncident.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='SecurityIncident')",
-                            lazy=True, cascade='all, delete-orphan')
+                            lazy=True, cascade='all, delete-orphan',
+                            overlaps="attachments")
     
     compliance_links = db.relationship('ComplianceLink',
                             primaryjoin="and_(SecurityIncident.id==foreign(ComplianceLink.linkable_id), "
                                         "ComplianceLink.linkable_type=='SecurityIncident')",
-                            lazy='dynamic', cascade='all, delete-orphan')
+                            lazy='dynamic', cascade='all, delete-orphan',
+                            overlaps="compliance_links")
 
 class PostIncidentReview(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -185,12 +187,14 @@ class Risk(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Risk.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Risk')",
-                            lazy=True, cascade='all, delete-orphan')
+                            lazy=True, cascade='all, delete-orphan',
+                            overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
                             primaryjoin="and_(Risk.id==foreign(ComplianceLink.linkable_id), "
                                         "ComplianceLink.linkable_type=='Risk')",
-                            lazy='dynamic', cascade='all, delete-orphan')
+                            lazy='dynamic', cascade='all, delete-orphan',
+                            overlaps="compliance_links")
 
     @property
     def inherent_score(self):
@@ -235,12 +239,14 @@ class SecurityAssessment(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(SecurityAssessment.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='SecurityAssessment')",
-                            lazy=True, cascade='all, delete-orphan')
+                            lazy=True, cascade='all, delete-orphan',
+                            overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
                             primaryjoin="and_(SecurityAssessment.id==foreign(ComplianceLink.linkable_id), "
                                         "ComplianceLink.linkable_type=='SecurityAssessment')",
-                            lazy='dynamic', cascade='all, delete-orphan')
+                            lazy='dynamic', cascade='all, delete-orphan',
+                            overlaps="compliance_links")
 
 class AssetInventory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -257,7 +263,8 @@ class AssetInventory(db.Model):
     compliance_links = db.relationship('ComplianceLink',
                             primaryjoin="and_(AssetInventory.id==foreign(ComplianceLink.linkable_id), "
                                         "ComplianceLink.linkable_type=='AssetInventory')",
-                            lazy='dynamic', cascade='all, delete-orphan')
+                            lazy='dynamic', cascade='all, delete-orphan',
+                            overlaps="compliance_links")
 
 class AssetInventoryItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)

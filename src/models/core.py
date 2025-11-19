@@ -66,7 +66,8 @@ class Link(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Link.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Link'
         ),
-        lazy='dynamic', cascade='all, delete-orphan'
+        lazy='dynamic', cascade='all, delete-orphan',
+        overlaps="compliance_links"
     )
 
     @property
@@ -106,14 +107,16 @@ class Documentation(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Documentation.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Documentation')",
-                            lazy=True, cascade='all, delete-orphan')
+                            lazy=True, cascade='all, delete-orphan',
+                            overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
         primaryjoin=lambda: and_(
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Documentation.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Documentation'
         ),
-        lazy='dynamic', cascade='all, delete-orphan'
+        lazy='dynamic', cascade='all, delete-orphan',
+        overlaps="compliance_links"
     )
 
     @property

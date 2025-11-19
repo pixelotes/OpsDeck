@@ -28,14 +28,16 @@ class Policy(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Policy.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Policy')",
-                            lazy=True, cascade='all, delete-orphan')
+                            lazy=True, cascade='all, delete-orphan',
+                            overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
         primaryjoin=lambda: and_(
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Policy.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Policy'
         ),
-        lazy='dynamic', cascade='all, delete-orphan'
+        lazy='dynamic', cascade='all, delete-orphan',
+        overlaps="compliance_links"
     )
 
 class PolicyVersion(db.Model):
@@ -54,7 +56,8 @@ class PolicyVersion(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(PolicyVersion.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='PolicyVersion')",
-                            lazy=True, cascade='all, delete-orphan')
+                            lazy=True, cascade='all, delete-orphan',
+                            overlaps="attachments")
 
 class PolicyAcknowledgement(db.Model):
     id = db.Column(db.Integer, primary_key=True)

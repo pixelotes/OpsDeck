@@ -44,7 +44,8 @@ class User(db.Model): # Add UserMixin here if using Flask-Login
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(User.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='User')",
-                            lazy=True, cascade='all, delete-orphan')
+                            lazy=True, cascade='all, delete-orphan',
+                            overlaps="attachments")
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

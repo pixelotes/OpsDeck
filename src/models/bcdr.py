@@ -32,7 +32,8 @@ class BCDRPlan(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == BCDRPlan.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'BCDRPlan'
         ),
-        lazy='dynamic', cascade='all, delete-orphan'
+        lazy='dynamic', cascade='all, delete-orphan',
+        overlaps="compliance_links"
     )
 
 class BCDRTestLog(db.Model):
@@ -47,4 +48,5 @@ class BCDRTestLog(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(BCDRTestLog.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='BCDRTestLog')",
-                            lazy=True, cascade='all, delete-orphan')
+                            lazy=True, cascade='all, delete-orphan',
+                            overlaps="attachments")
