@@ -3,7 +3,7 @@ import uuid
 from werkzeug.utils import secure_filename
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
 from datetime import datetime
-from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Subscription, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog, Attachment
+from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Subscription, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog, Attachment, Framework, FrameworkControl, ComplianceLink
 from .main import login_required
 from .admin import admin_required
 
@@ -527,3 +527,88 @@ def list_erasures():
     """Displays a filtered list of all data erasure maintenance events for audit purposes."""
     erasure_logs = MaintenanceLog.query.filter_by(event_type='Data Erasure').order_by(MaintenanceLog.event_date.desc()).all()
     return render_template('compliance/erasure_list.html', logs=erasure_logs)
+
+# --- API Routes for Compliance Linking ---
+
+@compliance_bp.route('/frameworks', methods=['GET'])
+@login_required
+def get_frameworks():
+    """Returns a JSON list of active frameworks."""
+    frameworks = Framework.query.filter_by(is_active=True).order_by(Framework.name).all()
+    return jsonify([{
+        'id': f.id,
+        'name': f.name,
+        'description': f.description
+    } for f in frameworks])
+
+@compliance_bp.route('/frameworks/<int:framework_id>/controls', methods=['GET'])
+@login_required
+def get_framework_controls(framework_id):
+    """Returns a JSON list of controls for a specific framework."""
+    framework = Framework.query.get_or_404(framework_id)
+    if not framework.is_active:
+        return jsonify({'error': 'Framework is disabled'}), 400
+        
+    controls = framework.framework_controls.order_by(FrameworkControl.control_id).all()
+    return jsonify([{
+        'id': c.id,
+        'control_id': c.control_id,
+        'name': c.name,
+        'description': c.description
+    } for c in controls])
+
+@compliance_bp.route('/link', methods=['POST'])
+@login_required
+def create_compliance_link():
+    """Creates a new compliance link."""
+    data = request.json
+    framework_control_id = data.get('framework_control_id')
+    linkable_id = data.get('linkable_id')
+    linkable_type = data.get('linkable_type')
+    description = data.get('description')
+
+    if not all([framework_control_id, linkable_id, linkable_type, description]):
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    # Validate control exists
+    control = FrameworkControl.query.get(framework_control_id)
+    if not control:
+        return jsonify({'error': 'Control not found'}), 404
+        
+    # Validate framework is active
+    if not control.framework.is_active:
+        return jsonify({'error': 'Framework is disabled'}), 400
+
+    # Check for existing link to avoid duplicates
+    existing_link = ComplianceLink.query.filter_by(
+        framework_control_id=framework_control_id,
+        linkable_id=linkable_id,
+        linkable_type=linkable_type
+    ).first()
+
+    if existing_link:
+        return jsonify({'error': 'Link already exists'}), 409
+
+    link = ComplianceLink(
+        framework_control_id=framework_control_id,
+        linkable_id=linkable_id,
+        linkable_type=linkable_type,
+        description=description
+    )
+    db.session.add(link)
+    db.session.commit()
+
+    return jsonify({
+        'id': link.id,
+        'status': 'success',
+        'message': 'Link created successfully'
+    }), 201
+
+@compliance_bp.route('/link/<int:link_id>', methods=['DELETE'])
+@login_required
+def delete_compliance_link(link_id):
+    """Deletes a compliance link."""
+    link = ComplianceLink.query.get_or_404(link_id)
+    db.session.delete(link)
+    db.session.commit()
+    return jsonify({'status': 'success', 'message': 'Link deleted successfully'})

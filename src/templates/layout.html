@@ -10,6 +10,7 @@
     <link href="{{ url_for('static', filename='vendor/simple-datatables/css/simple-datatables.css') }}" rel="stylesheet"
         type="text/css">
     <link href="{{ url_for('static', filename='vendor/font-awesome/css/all.min.css') }}" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
     {% block head_extra %}{% endblock %}
     <style>
         .sidebar {
@@ -306,6 +307,7 @@
     <script src="{{ url_for('static', filename='js/export.js') }}"></script>
     <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ url_for('static', filename='vendor/simple-datatables/js/simple-datatables.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 
     {# ADD Global Initialization Script #}
     <script>
@@ -323,6 +325,23 @@
                         perPage: " entries per page",
                         noRows: "No entries found",
                         info: "Showing {start} to {end} of {rows} entries",
+                    }
+                });
+            });
+
+            // Initialize Tom Select
+            document.querySelectorAll('select[multiple], .tom-select').forEach((el) => {
+                if (el.tomselect || el.classList.contains('no-tom')) return;
+                new TomSelect(el, {
+                    plugins: {
+                        remove_button: {
+                            title: 'Remove this item',
+                        }
+                    },
+                    create: false,
+                    sortField: {
+                        field: "text",
+                        direction: "asc"
                     }
                 });
             });

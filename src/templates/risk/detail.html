@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "components/compliance_link_macro.html" import compliance_links %}
 {% block title %}Risk Details - {{ super() }}{% endblock %}
 
 {% block content %}
@@ -33,9 +34,9 @@
             </div>
         </div>
         {% if risk.mitigation_plan %}
-            <hr>
-            <p><strong>Mitigation Plan:</strong></p>
-            <p>{{ risk.mitigation_plan|nl2br }}</p>
+        <hr>
+        <p><strong>Mitigation Plan:</strong></p>
+        <p>{{ risk.mitigation_plan|nl2br }}</p>
         {% endif %}
     </div>
 </div>
@@ -46,7 +47,8 @@
         {% for att in risk.attachments %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
             <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
-            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST"
+                onsubmit="return confirm('Are you sure?');">
                 <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
             </form>
         </li>
@@ -64,4 +66,7 @@
         </form>
     </div>
 </div>
+
+{{ compliance_links(risk, 'Risk') }}
+
 {% endblock %}

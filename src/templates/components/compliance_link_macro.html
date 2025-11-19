@@ -1,0 +1,180 @@
+{% macro compliance_links(object, object_type) %}
+<div class="card mt-4 shadow-sm">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-shield-alt me-2"></i>Compliance Links</h5>
+        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse"
+            data-bs-target="#addComplianceLinkCollapse" aria-expanded="false" aria-controls="addComplianceLinkCollapse">
+            <i class="fas fa-plus"></i> Add Link
+        </button>
+    </div>
+    <div class="card-body">
+        <!-- List of existing links -->
+        <div id="compliance-links-list-{{ object.id }}" class="list-group mb-3">
+            {% for link in object.compliance_links %}
+            <div class="list-group-item d-flex justify-content-between align-items-start"
+                id="compliance-link-{{ link.id }}">
+                <div class="ms-2 me-auto">
+                    <div class="fw-bold">
+                        <span class="badge bg-info text-dark">{{ link.framework_control.framework.name }}</span>
+                        <span class="badge bg-secondary">{{ link.framework_control.control_id }}</span>
+                        {{ link.framework_control.name }}
+                    </div>
+                    <small class="text-muted">{{ link.description }}</small>
+                </div>
+                <button class="btn btn-outline-danger btn-sm delete-compliance-link" data-link-id="{{ link.id }}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            {% else %}
+            <p class="text-muted text-center mb-0" id="no-links-message-{{ object.id }}">No compliance links associated.
+            </p>
+            {% endfor %}
+        </div>
+
+        <!-- Add Link Form -->
+        <div class="collapse" id="addComplianceLinkCollapse">
+            <div class="card card-body bg-light">
+                <form id="add-compliance-link-form-{{ object.id }}" class="add-compliance-link-form"
+                    data-object-id="{{ object.id }}" data-object-type="{{ object_type }}">
+                    <div class="mb-3">
+                        <label for="framework-select-{{ object.id }}" class="form-label">Framework</label>
+                        <select class="form-select framework-select" id="framework-select-{{ object.id }}" required>
+                            <option value="" selected disabled>Select Framework...</option>
+                            <!-- Populated via JS -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="control-select-{{ object.id }}" class="form-label">Control</label>
+                        <select class="form-select control-select" id="control-select-{{ object.id }}" disabled
+                            required>
+                            <option value="" selected disabled>Select Framework First...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="link-description-{{ object.id }}" class="form-label">Description /
+                            Justification</label>
+                        <textarea class="form-control" id="link-description-{{ object.id }}" rows="2" required
+                            placeholder="Explain how this object satisfies the control..."></textarea>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success">Link Control</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const objectId = "{{ object.id }}";
+        const objectType = "{{ object_type }}";
+        const frameworkSelect = document.getElementById(`framework-select-${objectId}`);
+        const controlSelect = document.getElementById(`control-select-${objectId}`);
+        const form = document.getElementById(`add-compliance-link-form-${objectId}`);
+        const linksList = document.getElementById(`compliance-links-list-${objectId}`);
+
+        // Load Frameworks
+        fetch('/compliance/frameworks')
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(fw => {
+                    const option = document.createElement('option');
+                    option.value = fw.id;
+                    option.textContent = fw.name;
+                    frameworkSelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading frameworks:', error));
+
+        // Load Controls on Framework Change
+        frameworkSelect.addEventListener('change', function () {
+            const fwId = this.value;
+            controlSelect.innerHTML = '<option value="" selected disabled>Loading...</option>';
+            controlSelect.disabled = true;
+
+            if (fwId) {
+                fetch(`/compliance/frameworks/${fwId}/controls`)
+                    .then(response => response.json())
+                    .then(data => {
+                        controlSelect.innerHTML = '<option value="" selected disabled>Select Control...</option>';
+                        data.forEach(ctrl => {
+                            // Check if already linked (simple client-side check if possible, otherwise server handles it)
+                            const option = document.createElement('option');
+                            option.value = ctrl.id;
+                            option.textContent = `${ctrl.control_id} - ${ctrl.name}`;
+                            controlSelect.appendChild(option);
+                        });
+                        controlSelect.disabled = false;
+                    })
+                    .catch(error => {
+                        console.error('Error loading controls:', error);
+                        controlSelect.innerHTML = '<option value="" selected disabled>Error loading controls</option>';
+                    });
+            }
+        });
+
+        // Handle Form Submit
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const controlId = controlSelect.value;
+            const description = document.getElementById(`link-description-${objectId}`).value;
+
+            fetch('/compliance/link', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': "{{ csrf_token() if csrf_token else '' }}" // Handle CSRF if available
+                },
+                body: JSON.stringify({
+                    framework_control_id: controlId,
+                    linkable_id: objectId,
+                    linkable_type: objectType,
+                    description: description
+                })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw new Error(err.error || 'Failed to create link'); });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Reload page to show new link (simplest approach for now)
+                    window.location.reload();
+                })
+                .catch(error => {
+                    alert(error.message);
+                });
+        });
+
+        // Handle Delete
+        linksList.addEventListener('click', function (e) {
+            if (e.target.closest('.delete-compliance-link')) {
+                if (!confirm('Are you sure you want to remove this compliance link?')) return;
+
+                const btn = e.target.closest('.delete-compliance-link');
+                const linkId = btn.dataset.linkId;
+
+                fetch(`/compliance/link/${linkId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': "{{ csrf_token() if csrf_token else '' }}"
+                    }
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            document.getElementById(`compliance-link-${linkId}`).remove();
+                            if (linksList.children.length === 0 || (linksList.children.length === 1 && linksList.children[0].id.startsWith('no-links'))) {
+                                // Optional: Show "no links" message again if empty
+                                window.location.reload();
+                            }
+                        } else {
+                            alert('Failed to delete link');
+                        }
+                    });
+            }
+        });
+    });
+</script>
+{% endmacro %}

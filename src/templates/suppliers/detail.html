@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "components/compliance_link_macro.html" import compliance_links %}
 
 {% block title %}{{ supplier.name }} - {{ super() }}{% endblock %}
 
@@ -24,19 +25,20 @@
     <div class="card-body">
         <p><strong>Status:</strong>
             {% if supplier.compliance_status == 'Compliant' %}
-                <span class="badge bg-success">{{ supplier.compliance_status }}</span>
+            <span class="badge bg-success">{{ supplier.compliance_status }}</span>
             {% elif supplier.compliance_status == 'Non-Compliant' %}
-                <span class="badge bg-danger">{{ supplier.compliance_status }}</span>
+            <span class="badge bg-danger">{{ supplier.compliance_status }}</span>
             {% else %}
-                <span class="badge bg-warning">{{ supplier.compliance_status }}</span>
+            <span class="badge bg-warning">{{ supplier.compliance_status }}</span>
             {% endif %}
         </p>
         <p><strong>Data Storage Region:</strong> {{ supplier.data_storage_region or 'N/A' }}</p>
-        <p><strong>GDPR DPA Signed:</strong> {{ supplier.gdpr_dpa_signed.strftime('%Y-%m-%d') if supplier.gdpr_dpa_signed else 'N/A' }}</p>
+        <p><strong>GDPR DPA Signed:</strong> {{ supplier.gdpr_dpa_signed.strftime('%Y-%m-%d') if
+            supplier.gdpr_dpa_signed else 'N/A' }}</p>
         {% if supplier.compliance_notes %}
-            <hr>
-            <p class="mb-1"><strong>Notes:</strong></p>
-            <p class="mb-0 text-muted">{{ supplier.compliance_notes|nl2br }}</p>
+        <hr>
+        <p class="mb-1"><strong>Notes:</strong></p>
+        <p class="mb-0 text-muted">{{ supplier.compliance_notes|nl2br }}</p>
         {% endif %}
     </div>
 </div>
@@ -50,26 +52,29 @@
     </div>
     <ul class="list-group list-group-flush">
         {% for assessment in supplier.security_assessments|sort(attribute='assessment_date', reverse=True) %}
-            <li class="list-group-item">
-                <div class="d-flex justify-content-between align-items-center">
-                    <a href="{{ url_for('compliance.assessment_detail', id=assessment.id) }}">
-                        <strong>{{ assessment.assessment_date.strftime('%Y-%m-%d') }}</strong>
+        <li class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('compliance.assessment_detail', id=assessment.id) }}">
+                    <strong>{{ assessment.assessment_date.strftime('%Y-%m-%d') }}</strong>
+                </a>
+                <span>
+                    {% if assessment.status == 'Approved' %}<span class="badge bg-success">{{ assessment.status
+                        }}</span>
+                    {% elif assessment.status == 'Rejected' %}<span class="badge bg-danger">{{ assessment.status
+                        }}</span>
+                    {% else %}<span class="badge bg-warning">{{ assessment.status }}</span>{% endif %}
+                    <a href="{{ url_for('compliance.edit_assessment', id=assessment.id) }}"
+                        class="btn btn-sm btn-outline-secondary ms-2">
+                        <i class="fas fa-edit"></i>
                     </a>
-                    <span>
-                        {% if assessment.status == 'Approved' %}<span class="badge bg-success">{{ assessment.status }}</span>
-                        {% elif assessment.status == 'Rejected' %}<span class="badge bg-danger">{{ assessment.status }}</span>
-                        {% else %}<span class="badge bg-warning">{{ assessment.status }}</span>{% endif %}
-                        <a href="{{ url_for('compliance.edit_assessment', id=assessment.id) }}" class="btn btn-sm btn-outline-secondary ms-2">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                    </span>
-                </div>
-                {% if assessment.notes %}
-                <p class="mb-1 mt-2 text-muted">{{ assessment.notes|truncate(150)|nl2br }}</p>
-                {% endif %}
-            </li>
+                </span>
+            </div>
+            {% if assessment.notes %}
+            <p class="mb-1 mt-2 text-muted">{{ assessment.notes|truncate(150)|nl2br }}</p>
+            {% endif %}
+        </li>
         {% else %}
-            <li class="list-group-item text-muted">No security assessments logged for this supplier.</li>
+        <li class="list-group-item text-muted">No security assessments logged for this supplier.</li>
         {% endfor %}
     </ul>
 </div>
@@ -82,12 +87,13 @@
             </div>
             <ul class="list-group list-group-flush">
                 {% for subscription in supplier.subscriptions %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{ subscription.name }}</a>
-                        <span class="badge bg-secondary">{{ subscription.subscription_type }}</span>
-                    </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{
+                        subscription.name }}</a>
+                    <span class="badge bg-secondary">{{ subscription.subscription_type }}</span>
+                </li>
                 {% else %}
-                    <li class="list-group-item text-muted">No subscriptions associated with this supplier.</li>
+                <li class="list-group-item text-muted">No subscriptions associated with this supplier.</li>
                 {% endfor %}
             </ul>
         </div>
@@ -100,12 +106,12 @@
             </div>
             <ul class="list-group list-group-flush">
                 {% for contact in supplier.contacts %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                         <a href="{{ url_for('contacts.contact_detail', id=contact.id) }}">{{ contact.name }}</a>
-                        <span class="text-muted small">{{ contact.role or 'No role' }}</span>
-                    </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('contacts.contact_detail', id=contact.id) }}">{{ contact.name }}</a>
+                    <span class="text-muted small">{{ contact.role or 'No role' }}</span>
+                </li>
                 {% else %}
-                    <li class="list-group-item text-muted">No contacts associated with this supplier.</li>
+                <li class="list-group-item text-muted">No contacts associated with this supplier.</li>
                 {% endfor %}
             </ul>
         </div>
@@ -120,12 +126,12 @@
             </div>
             <ul class="list-group list-group-flush">
                 {% for asset in supplier.assets %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a>
-                        <span class="badge bg-success">{{ asset.status }}</span>
-                    </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a>
+                    <span class="badge bg-success">{{ asset.status }}</span>
+                </li>
                 {% else %}
-                    <li class="list-group-item text-muted">No assets associated with this supplier.</li>
+                <li class="list-group-item text-muted">No assets associated with this supplier.</li>
                 {% endfor %}
             </ul>
         </div>
@@ -138,12 +144,12 @@
             </div>
             <ul class="list-group list-group-flush">
                 {% for peripheral in supplier.peripherals %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <a href="{{ url_for('peripherals.peripheral_detail', id=peripheral.id) }}">{{ peripheral.name }}</a>
-                        <span class="text-muted small">{{ peripheral.type or 'N/A' }}</span>
-                    </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('peripherals.peripheral_detail', id=peripheral.id) }}">{{ peripheral.name }}</a>
+                    <span class="text-muted small">{{ peripheral.type or 'N/A' }}</span>
+                </li>
                 {% else %}
-                    <li class="list-group-item text-muted">No peripherals associated with this supplier.</li>
+                <li class="list-group-item text-muted">No peripherals associated with this supplier.</li>
                 {% endfor %}
             </ul>
         </div>
@@ -156,7 +162,8 @@
         {% for att in supplier.attachments %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
             <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
-            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST"
+                onsubmit="return confirm('Are you sure?');">
                 <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
             </form>
         </li>
@@ -174,4 +181,7 @@
         </form>
     </div>
 </div>
+
+{{ compliance_links(supplier, 'Supplier') }}
+
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "components/compliance_link_macro.html" import compliance_links %}
 {% block title %}{{ software.name }} - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -12,7 +13,8 @@
         <div class="row">
             <div class="col-md-6">
                 <p><strong>Category:</strong> {{ software.category or 'N/A' }}</p>
-                <p><strong>Owner:</strong> {{ software.owner.name if software.owner else 'N/A' }} ({{ software.owner_type }})</p>
+                <p><strong>Owner:</strong> {{ software.owner.name if software.owner else 'N/A' }} ({{
+                    software.owner_type }})</p>
                 <p><strong>Supplier:</strong> {{ software.supplier.name if software.supplier else 'N/A' }}</p>
             </div>
             <div class="col-md-6">
@@ -41,7 +43,8 @@
                 <tbody>
                     {% for sub in software.subscriptions %}
                     <tr>
-                        <td><a href="{{ url_for('subscriptions.subscription_detail', id=sub.id) }}">{{ sub.name }}</a></td>
+                        <td><a href="{{ url_for('subscriptions.subscription_detail', id=sub.id) }}">{{ sub.name }}</a>
+                        </td>
                         <td>{{ sub.supplier.name }}</td>
                         <td>€{{ "%.2f"|format(sub.cost_eur) }}</td>
                     </tr>
@@ -74,14 +77,16 @@
                 <tbody>
                     {% for item in combined_licenses %}
                     <tr>
-                        <td><a href="{{ url_for('licenses.detail', id=item.license.id) }}">{{ item.license.name }}</a></td>
+                        <td><a href="{{ url_for('licenses.detail', id=item.license.id) }}">{{ item.license.name }}</a>
+                        </td>
                         <td>{{ item.license.user.name if item.license.user else 'Unassigned' }}</td>
                         <td><span class="badge bg-secondary">{{ item.license.status }}</span></td>
                         <td>{{ item.origin }}</td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" class="text-center">No licenses found for this software or its subscriptions.</td>
+                        <td colspan="4" class="text-center">No licenses found for this software or its subscriptions.
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -89,4 +94,7 @@
         </div>
     </div>
 </div>
+
+{{ compliance_links(software, 'Software') }}
+
 {% endblock %}

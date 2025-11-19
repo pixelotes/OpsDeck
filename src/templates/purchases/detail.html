@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "components/compliance_link_macro.html" import compliance_links %}
 
 {% block title %}{{ purchase.description }} - {{ super() }}{% endblock %}
 
@@ -15,17 +16,18 @@
         <span>Purchase Details</span>
         <div>
             {% if purchase.validated_cost is not none %}
-                <form action="{{ url_for('purchases.unvalidate_cost', id=purchase.id) }}" method="POST" class="d-inline">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Revert to dynamic cost calculation">
-                        <i class="fas fa-unlock"></i> Un-validate Cost
-                    </button>
-                </form>
+            <form action="{{ url_for('purchases.unvalidate_cost', id=purchase.id) }}" method="POST" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-outline-secondary"
+                    title="Revert to dynamic cost calculation">
+                    <i class="fas fa-unlock"></i> Un-validate Cost
+                </button>
+            </form>
             {% else %}
-                <form action="{{ url_for('purchases.validate_cost', id=purchase.id) }}" method="POST" class="d-inline">
-                    <button type="submit" class="btn btn-sm btn-success">
-                        <i class="fas fa-check-circle"></i> Validate Cost
-                    </button>
-                </form>
+            <form action="{{ url_for('purchases.validate_cost', id=purchase.id) }}" method="POST" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-success">
+                    <i class="fas fa-check-circle"></i> Validate Cost
+                </button>
+            </form>
             {% endif %}
         </div>
     </div>
@@ -33,28 +35,33 @@
         <div class="row">
             <div class="col-md-6">
                 <p><strong>Purchase Date:</strong> {{ purchase.purchase_date.strftime('%Y-%m-%d') }}</p>
-                <p><strong>Total Cost:</strong> EUR {{ "%.2f"|format(purchase.total_cost) }} {# Assumes total_cost property returns a number #}
+                <p><strong>Total Cost:</strong> EUR {{ "%.2f"|format(purchase.total_cost) }} {# Assumes total_cost
+                    property returns a number #}
                     {% if purchase.validated_cost is none %}
-                        <span class="badge bg-info">Calculated</span>
+                    <span class="badge bg-info">Calculated</span>
                     {% else %}
-                        <span class="badge bg-success">Validated</span>
+                    <span class="badge bg-success">Validated</span>
                     {% endif %}
                 </p>
                 <p><strong>Supplier:</strong>
                     {% if purchase.supplier %}
-                        <a href="{{ url_for('suppliers.supplier_detail', id=purchase.supplier.id) }}">{{ purchase.supplier.name }}</a>
+                    <a href="{{ url_for('suppliers.supplier_detail', id=purchase.supplier.id) }}">{{
+                        purchase.supplier.name }}</a>
                     {% else %}
-                        N/A
+                    N/A
                     {% endif %}
                 </p>
             </div>
             <div class="col-md-6">
                 <p><strong>Invoice Number:</strong> {{ purchase.invoice_number or 'N/A' }}</p>
-                <p><strong>Payment Method:</strong> {{ purchase.payment_method.name if purchase.payment_method else 'N/A' }}</p>
-                 {% if purchase.validated_cost is not none %}
-                    <p class="text-muted small">
-                        Cost validated on {{ purchase.cost_validated_at.strftime('%Y-%m-%d %H:%M') if purchase.cost_validated_at else 'N/A' }} by {{ purchase.cost_validated_by.name if purchase.cost_validated_by else 'N/A' }}.
-                    </p>
+                <p><strong>Payment Method:</strong> {{ purchase.payment_method.name if purchase.payment_method else
+                    'N/A' }}</p>
+                {% if purchase.validated_cost is not none %}
+                <p class="text-muted small">
+                    Cost validated on {{ purchase.cost_validated_at.strftime('%Y-%m-%d %H:%M') if
+                    purchase.cost_validated_at else 'N/A' }} by {{ purchase.cost_validated_by.name if
+                    purchase.cost_validated_by else 'N/A' }}.
+                </p>
                 {% endif %}
             </div>
         </div>
@@ -70,7 +77,8 @@
                 {% for asset in purchase.assets %}
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                     <a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a>
-                    <span>{{ asset.currency }} {{ "%.2f"|format(asset.cost) if asset.cost is not none else 'N/A' }}</span>
+                    <span>{{ asset.currency }} {{ "%.2f"|format(asset.cost) if asset.cost is not none else 'N/A'
+                        }}</span>
                 </li>
                 {% else %}
                 <li class="list-group-item text-muted">No assets in this purchase.</li>
@@ -85,7 +93,8 @@
                 {% for peripheral in purchase.peripherals %}
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                     <a href="{{ url_for('peripherals.peripheral_detail', id=peripheral.id) }}">{{ peripheral.name }}</a>
-                    <span>{{ peripheral.currency }} {{ "%.2f"|format(peripheral.cost) if peripheral.cost is not none else 'N/A' }}</span>
+                    <span>{{ peripheral.currency }} {{ "%.2f"|format(peripheral.cost) if peripheral.cost is not none
+                        else 'N/A' }}</span>
                 </li>
                 {% else %}
                 <li class="list-group-item text-muted">No peripherals in this purchase.</li>
@@ -103,18 +112,18 @@
             <div> {# Wrap link and user in a div for better alignment #}
                 <a href="{{ url_for('licenses.detail', id=license.id) }}">{{ license.name }}</a>
                 {% if license.user %}
-                    <small class="text-muted d-block">Assigned to: {{ license.user.name }}</small>
+                <small class="text-muted d-block">Assigned to: {{ license.user.name }}</small>
                 {% endif %}
             </div>
             {# --- ADDED COST DISPLAY --- #}
             <span>
                 {% if license.subscription_id is none and license.cost is not none %}
-                     {{ license.currency }} {{ "%.2f"|format(license.cost) }}
+                {{ license.currency }} {{ "%.2f"|format(license.cost) }}
                 {% elif license.subscription_id %}
-                     <span class="badge bg-secondary">Subscription Seat</span>
+                <span class="badge bg-secondary">Subscription Seat</span>
                 {% else %}
-                    {# Cost is None #}
-                    <span class="text-muted">N/A</span>
+                {# Cost is None #}
+                <span class="text-muted">N/A</span>
                 {% endif %}
             </span>
             {# --- END COST DISPLAY --- #}
@@ -132,7 +141,8 @@
         {% for att in purchase.attachments %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
             <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
-            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST"
+                onsubmit="return confirm('Are you sure?');">
                 <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
             </form>
         </li>
@@ -169,12 +179,12 @@
                     <td>{{ entry.timestamp.strftime('%Y-%m-%d %H:%M') if entry.timestamp else 'N/A' }}</td>
                     <td>
                         {% if entry.action == 'Validated' %}
-                            <span class="badge bg-success">Validated</span>
+                        <span class="badge bg-success">Validated</span>
                         {% else %}
-                            <span class="badge bg-secondary">Un-validated</span>
+                        <span class="badge bg-secondary">Un-validated</span>
                         {% endif %}
                     </td>
-                     <td>{{ "%.2f"|format(entry.cost) if entry.cost is not none else 'N/A' }}</td>
+                    <td>{{ "%.2f"|format(entry.cost) if entry.cost is not none else 'N/A' }}</td>
                     <td>{{ entry.user.name if entry.user else 'N/A' }}</td>
                 </tr>
                 {% else %}
@@ -186,4 +196,7 @@
         </table>
     </div>
 </div>
+
+{{ compliance_links(purchase, 'Purchase') }}
+
 {% endblock %}

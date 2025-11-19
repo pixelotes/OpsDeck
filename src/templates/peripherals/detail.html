@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "components/compliance_link_macro.html" import compliance_links %}
 
 {% block title %}{{ peripheral.name }} - {{ super() }}{% endblock %}
 
@@ -7,10 +8,11 @@
     <h2><i class="fas fa-keyboard"></i> {{ peripheral.name }}</h2>
     <div>
         <a href="{{ url_for('maintenance.new_log', peripheral_id=peripheral.id) }}" class="btn btn-info me-2">
-             <i class="fas fa-plus"></i> Add Maintenance Log
+            <i class="fas fa-plus"></i> Add Maintenance Log
         </a>
         {% if peripheral.user_id %}
-        <form action="{{ url_for('peripherals.checkin_peripheral', id=peripheral.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to check in this peripheral?');">
+        <form action="{{ url_for('peripherals.checkin_peripheral', id=peripheral.id) }}" method="POST" class="d-inline"
+            onsubmit="return confirm('Are you sure you want to check in this peripheral?');">
             <button type="submit" class="btn btn-warning"><i class="fas fa-sign-in-alt"></i> Check In</button>
         </form>
         {% else %}
@@ -22,13 +24,20 @@
             <a href="{{ url_for('peripherals.edit_peripheral', id=peripheral.id) }}" class="btn btn-outline-primary">
                 <i class="fas fa-edit"></i> Edit
             </a>
-            <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split"
+                data-bs-toggle="dropdown" aria-expanded="false">
                 <span class="visually-hidden">Toggle Dropdown</span>
             </button>
             <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="{{ url_for('maintenance.new_log', peripheral_id=peripheral.id, event_type='Data Erasure') }}">Log Data Erasure</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="{{ url_for('disposal.record_disposal', peripheral_id=peripheral.id) }}">Record Disposal</a></li>
+                <li><a class="dropdown-item"
+                        href="{{ url_for('maintenance.new_log', peripheral_id=peripheral.id, event_type='Data Erasure') }}">Log
+                        Data Erasure</a></li>
+                <li>
+                    <hr class="dropdown-divider">
+                </li>
+                <li><a class="dropdown-item text-danger"
+                        href="{{ url_for('disposal.record_disposal', peripheral_id=peripheral.id) }}">Record
+                        Disposal</a></li>
             </ul>
         </div>
     </div>
@@ -42,31 +51,35 @@
                 <p><strong>Type:</strong> {{ peripheral.type or 'N/A' }}</p>
                 <p><strong>Brand:</strong> {{ peripheral.brand or 'N/A' }}</p>
                 <p><strong>Serial Number:</strong> {{ peripheral.serial_number or 'N/A' }}</p>
-                <p><strong>Status:</strong> 
+                <p><strong>Status:</strong>
                     <span class="badge bg-info">{{ peripheral.status }}</span>
                     {% if peripheral.disposal_record %}
-                        (<a href="{{ url_for('disposal.disposal_detail', id=peripheral.disposal_record.id) }}">View Disposal Record</a>)
+                    (<a href="{{ url_for('disposal.disposal_detail', id=peripheral.disposal_record.id) }}">View Disposal
+                        Record</a>)
                     {% endif %}
                 </p>
             </div>
             <div class="col-md-6">
-                <p><strong>Assigned To:</strong> 
+                <p><strong>Assigned To:</strong>
                     {% if peripheral.user %}
-                        <a href="{{ url_for('users.user_detail', id=peripheral.user.id) }}">{{ peripheral.user.name }}</a>
+                    <a href="{{ url_for('users.user_detail', id=peripheral.user.id) }}">{{ peripheral.user.name }}</a>
                     {% else %}
-                        <span class="text-muted">Not Assigned</span>
+                    <span class="text-muted">Not Assigned</span>
                     {% endif %}
                 </p>
-                <p><strong>Attached to Asset:</strong> 
+                <p><strong>Attached to Asset:</strong>
                     {% if peripheral.asset %}
-                        <a href="{{ url_for('assets.asset_detail', id=peripheral.asset.id) }}">{{ peripheral.asset.name }}</a>
+                    <a href="{{ url_for('assets.asset_detail', id=peripheral.asset.id) }}">{{ peripheral.asset.name
+                        }}</a>
                     {% else %}
-                        N/A
+                    N/A
                     {% endif %}
                 </p>
                 <p><strong>Supplier:</strong> {{ peripheral.supplier.name if peripheral.supplier else 'N/A' }}</p>
-                <p><strong>Cost:</strong> {{ peripheral.currency }} {{ "%.2f"|format(peripheral.cost) if peripheral.cost is not none else 'N/A' }}</p>
-                <p><strong>Warranty End:</strong> {{ peripheral.warranty_end_date.strftime('%Y-%m-%d') if peripheral.warranty_end_date else 'N/A' }}</p>
+                <p><strong>Cost:</strong> {{ peripheral.currency }} {{ "%.2f"|format(peripheral.cost) if peripheral.cost
+                    is not none else 'N/A' }}</p>
+                <p><strong>Warranty End:</strong> {{ peripheral.warranty_end_date.strftime('%Y-%m-%d') if
+                    peripheral.warranty_end_date else 'N/A' }}</p>
             </div>
         </div>
     </div>
@@ -89,7 +102,8 @@
                 <tr>
                     <td>{{ entry.user.name if entry.user else 'N/A' }}</td>
                     <td>{{ entry.checked_out_date.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td>{{ entry.checked_in_date.strftime('%Y-%m-%d %H:%M') if entry.checked_in_date else 'Currently Checked Out' }}</td>
+                    <td>{{ entry.checked_in_date.strftime('%Y-%m-%d %H:%M') if entry.checked_in_date else 'Currently
+                        Checked Out' }}</td>
                     <td>{{ entry.notes or '' }}</td>
                 </tr>
                 {% else %}
@@ -123,7 +137,8 @@
                     <td>{{ log.description|truncate(70) }}</td>
                     <td><span class="badge bg-info">{{ log.status }}</span></td>
                     <td>
-                        <a href="{{ url_for('maintenance.edit_log', id=log.id) }}" class="btn btn-sm btn-outline-secondary">Details</a>
+                        <a href="{{ url_for('maintenance.edit_log', id=log.id) }}"
+                            class="btn btn-sm btn-outline-secondary">Details</a>
                     </td>
                 </tr>
                 {% else %}
@@ -142,7 +157,8 @@
         {% for att in peripheral.attachments %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
             <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
-            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST"
+                onsubmit="return confirm('Are you sure?');">
                 <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
             </form>
         </li>
@@ -160,4 +176,7 @@
         </form>
     </div>
 </div>
+
+{{ compliance_links(peripheral, 'Peripheral') }}
+
 {% endblock %}

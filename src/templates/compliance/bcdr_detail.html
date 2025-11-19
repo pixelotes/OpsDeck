@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "components/compliance_link_macro.html" import compliance_links %}
 {% block title %}{{ plan.name }} - {{ super() }}{% endblock %}
 
 {% block content %}
@@ -27,7 +28,8 @@
             <div class="card-header">Associated Assets</div>
             <ul class="list-group list-group-flush">
                 {% for asset in plan.assets %}
-                <li class="list-group-item"><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a></li>
+                <li class="list-group-item"><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name
+                        }}</a></li>
                 {% else %}
                 <li class="list-group-item text-muted">No assets linked to this plan.</li>
                 {% endfor %}
@@ -39,7 +41,9 @@
             <div class="card-header">Associated Subscriptions</div>
             <ul class="list-group list-group-flush">
                 {% for subscription in plan.subscriptions %}
-                <li class="list-group-item"><a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{ subscription.name }}</a></li>
+                <li class="list-group-item"><a
+                        href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{
+                        subscription.name }}</a></li>
                 {% else %}
                 <li class="list-group-item text-muted">No subscriptions linked to this plan.</li>
                 {% endfor %}
@@ -66,21 +70,23 @@
                     <td>{{ log.test_date.strftime('%Y-%m-%d') }}</td>
                     <td>
                         {% if log.status == 'Passed' %}
-                            <span class="badge bg-success">Passed</span>
+                        <span class="badge bg-success">Passed</span>
                         {% elif log.status == 'Failed' %}
-                            <span class="badge bg-danger">Failed</span>
+                        <span class="badge bg-danger">Failed</span>
                         {% else %}
-                            <span class="badge bg-warning text-dark">In Progress</span>
+                        <span class="badge bg-warning text-dark">In Progress</span>
                         {% endif %}
                     </td>
                     <td>{{ log.notes|truncate(100) }}</td>
                     <td>
                         <!-- --- ENLACES ACTUALIZADOS --- -->
                         <div class="btn-group">
-                            <a href="{{ url_for('compliance.bcdr_test_log_detail', test_id=log.id) }}" class="btn btn-sm btn-outline-primary">
+                            <a href="{{ url_for('compliance.bcdr_test_log_detail', test_id=log.id) }}"
+                                class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-eye"></i> Details
                             </a>
-                            <a href="{{ url_for('compliance.edit_bcdr_test', test_id=log.id) }}" class="btn btn-sm btn-outline-secondary">
+                            <a href="{{ url_for('compliance.edit_bcdr_test', test_id=log.id) }}"
+                                class="btn btn-sm btn-outline-secondary">
                                 <i class="fas fa-edit"></i> Edit
                             </a>
                         </div>
@@ -96,6 +102,9 @@
         </table>
     </div>
 </div>
+
+{{ compliance_links(plan, 'BCDRPlan') }}
+
 {% endblock %}
 
 {% block scripts_extra %}
