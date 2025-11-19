@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "components/compliance_link_macro.html" import compliance_links %}
 {% block title %}Incident: {{ incident.title }} - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -42,7 +43,8 @@
             <div class="card-header">Affected Assets</div>
             <ul class="list-group list-group-flush">
                 {% for asset in incident.affected_assets %}
-                <li class="list-group-item"><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a></li>
+                <li class="list-group-item"><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name
+                        }}</a></li>
                 {% else %}
                 <li class="list-group-item text-muted">No assets linked to this incident.</li>
                 {% endfor %}
@@ -54,7 +56,8 @@
             <div class="card-header">Affected Users</div>
             <ul class="list-group list-group-flush">
                 {% for user in incident.affected_users %}
-                <li class="list-group-item"><a href="{{ url_for('users.user_detail', id=user.id) }}">{{ user.name }}</a></li>
+                <li class="list-group-item"><a href="{{ url_for('users.user_detail', id=user.id) }}">{{ user.name }}</a>
+                </li>
                 {% else %}
                 <li class="list-group-item text-muted">No users linked to this incident.</li>
                 {% endfor %}
@@ -68,7 +71,9 @@
             <div class="card-header">Affected Subscriptions</div>
             <ul class="list-group list-group-flush">
                 {% for subscription in incident.affected_subscriptions %}
-                <li class="list-group-item"><a href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{ subscription.name }}</a></li>
+                <li class="list-group-item"><a
+                        href="{{ url_for('subscriptions.subscription_detail', id=subscription.id) }}">{{
+                        subscription.name }}</a></li>
                 {% else %}
                 <li class="list-group-item text-muted">No subscriptions linked to this incident.</li>
                 {% endfor %}
@@ -80,7 +85,8 @@
             <div class="card-header">Affected Suppliers</div>
             <ul class="list-group list-group-flush">
                 {% for supplier in incident.affected_suppliers %}
-                <li class="list-group-item"><a href="{{ url_for('suppliers.supplier_detail', id=supplier.id) }}">{{ supplier.name }}</a></li>
+                <li class="list-group-item"><a href="{{ url_for('suppliers.supplier_detail', id=supplier.id) }}">{{
+                        supplier.name }}</a></li>
                 {% else %}
                 <li class="list-group-item text-muted">No suppliers linked to this incident.</li>
                 {% endfor %}
@@ -95,7 +101,8 @@
         {% for att in incident.attachments %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
             <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}">{{ att.filename }}</a>
-            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+            <form action="{{ url_for('attachments.delete_attachment', attachment_id=att.id) }}" method="POST"
+                onsubmit="return confirm('Are you sure?');">
                 <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
             </form>
         </li>
@@ -113,4 +120,7 @@
         </form>
     </div>
 </div>
+
+{{ compliance_links(incident, 'SecurityIncident') }}
+
 {% endblock %}

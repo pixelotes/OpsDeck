@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if link %}Edit Link{% else %}New Link{% endif %} - OpsDeck{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{% if link %}Edit Link{% else %}New Link{% endif %}</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <form method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="name" class="form-label">Name</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ link.name if link else '' }}"
+                    required>
+            </div>
+
+            <div class="mb-3">
+                <label for="url" class="form-label">URL</label>
+                <input type="url" class="form-control" id="url" name="url" value="{{ link.url if link else '' }}"
+                    required>
+                <div class="form-text">Mandatory URL for the resource.</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description"
+                    rows="3">{{ link.description if link else '' }}</textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="owner" class="form-label">Owner</label>
+                <select class="form-select" id="owner" name="owner">
+                    <option value="">-- Select Owner --</option>
+                    <optgroup label="Users">
+                        {% for user in users %}
+                        <option value="User-{{ user.id }}" {% if link and link.owner_type=='User' and
+                            link.owner_id==user.id %}selected{% endif %}>{{ user.name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                    <optgroup label="Groups">
+                        {% for group in groups %}
+                        <option value="Group-{{ group.id }}" {% if link and link.owner_type=='Group' and
+                            link.owner_id==group.id %}selected{% endif %}>{{ group.name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="software_id" class="form-label">Related Software</label>
+                <select class="form-select" id="software_id" name="software_id">
+                    <option value="">-- Select Software --</option>
+                    {% for sw in software %}
+                    <option value="{{ sw.id }}" {% if link and link.software_id==sw.id %}selected{% endif %}>{{ sw.name
+                        }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="tags" class="form-label">Tags</label>
+                <select class="form-select" id="tags" name="tags" multiple>
+                    {% for tag in tags %}
+                    <option value="{{ tag.id }}" {% if link and tag in link.tags %}selected{% endif %}>{{ tag.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Hold Ctrl/Cmd to select multiple tags.</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="{{ url_for('links.list_links') }}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

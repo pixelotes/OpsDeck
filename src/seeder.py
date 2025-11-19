@@ -5,7 +5,8 @@ from .models import (
     db, Supplier, Contact, User, Location, PaymentMethod, Tag, Budget, Purchase,
     Asset, Peripheral, Subscription, CostHistory, Risk, SecurityIncident,
     PostIncidentReview, IncidentTimelineEvent, MaintenanceLog, DisposalRecord,
-    BCDRPlan, BCDRTestLog, Course, CourseAssignment, Group, Policy, PolicyVersion, Opportunity
+    BCDRPlan, BCDRTestLog, Course, CourseAssignment, Group, Policy, PolicyVersion, Opportunity,
+    Documentation, Link, Software, License, Framework, FrameworkControl, ComplianceLink
 )
 from . import create_app
 
@@ -205,4 +206,66 @@ def seed_data():
         db.session.add(disposal)
 
         db.session.commit()
+
+        # 9. Create Documentation, Links, Software, Licenses
+        print("Creating documentation, links, software, and licenses...")
+        
+        docs = [
+            Documentation(name="Employee Handbook 2025", description="General company policies and guidelines.", external_link="https://docs.example.com/handbook", owner_id=users[1].id, owner_type='User'),
+            Documentation(name="IT Security Policy", description="Comprehensive security policy for all staff.", external_link="https://docs.example.com/security", owner_id=users[0].id, owner_type='User'),
+            Documentation(name="Onboarding Guide", description="Guide for new hires.", external_link="https://docs.example.com/onboarding", owner_id=users[7].id, owner_type='User')
+        ]
+        db.session.add_all(docs)
+
+        links = [
+            Link(name="Jira", url="https://jira.example.com", description="Issue tracking", owner_id=group_engineering.id, owner_type='Group'),
+            Link(name="Confluence", url="https://confluence.example.com", description="Knowledge base", owner_id=group_engineering.id, owner_type='Group'),
+            Link(name="Figma", url="https://figma.com/files/team/example", description="Design files", owner_id=group_design.id, owner_type='Group'),
+            Link(name="Salesforce", url="https://salesforce.com", description="CRM", owner_id=group_sales.id, owner_type='Group')
+        ]
+        db.session.add_all(links)
+
+        software_list = [
+            Software(name="Visual Studio Code 1.85", description="Code editor by Microsoft", category="Development"),
+            Software(name="Slack 4.36", description="Communication tool by Slack Technologies", category="Communication"),
+            Software(name="Zoom 5.17", description="Video conferencing by Zoom Video Communications", category="Communication"),
+            Software(name="Adobe Photoshop 2024", description="Image editing by Adobe", category="Design")
+        ]
+        db.session.add_all(software_list)
+        db.session.commit() # Commit to get IDs
+
+        licenses = [
+            License(name="VS Code Enterprise", license_key="FREE-LICENSE", expiry_date=date(2099, 12, 31), software_id=software_list[0].id, user_id=users[0].id),
+            License(name="Slack Business Plus", license_key="SLACK-KEY-123", expiry_date=date(2025, 1, 10), software_id=software_list[1].id, user_id=users[1].id),
+            License(name="Adobe Creative Cloud All Apps", license_key="ADOBE-KEY-456", expiry_date=date(2025, 11, 1), software_id=software_list[3].id, user_id=users[3].id)
+        ]
+        db.session.add_all(licenses)
+        db.session.commit()
+
+        # 10. Create Fake Framework & Compliance Links
+        print("Creating fake framework and compliance links...")
+        
+        fake_framework = Framework(name="Galactic Security Standard (GSS)", description="Standard for security across the galaxy.", is_active=True, is_custom=True)
+        db.session.add(fake_framework)
+        db.session.commit()
+
+        fake_controls = [
+            FrameworkControl(framework_id=fake_framework.id, control_id="GSS.1.1", name="Planetary Defense", description="Ensure planetary shields are active."),
+            FrameworkControl(framework_id=fake_framework.id, control_id="GSS.1.2", name="Droid Security", description="Prevent unauthorized droid hacking."),
+            FrameworkControl(framework_id=fake_framework.id, control_id="GSS.2.1", name="Hologram Encryption", description="Encrypt all holographic communications."),
+            FrameworkControl(framework_id=fake_framework.id, control_id="GSS.3.1", name="Warp Drive Safety", description="Regular maintenance of warp cores.")
+        ]
+        db.session.add_all(fake_controls)
+        db.session.commit()
+
+        # Link controls to assets/docs
+        compliance_links = [
+            ComplianceLink(framework_control_id=fake_controls[0].id, linkable_id=assets[6].id, linkable_type='Asset', description="Firewall protects the planetary network."),
+            ComplianceLink(framework_control_id=fake_controls[1].id, linkable_id=docs[1].id, linkable_type='Documentation', description="Policy outlines droid security protocols."),
+            ComplianceLink(framework_control_id=fake_controls[2].id, linkable_id=software_list[1].id, linkable_type='Software', description="Slack used for encrypted comms (close enough)."),
+            ComplianceLink(framework_control_id=fake_controls[3].id, linkable_id=maintenance_log.id, linkable_type='MaintenanceLog', description="Regular maintenance performed on core systems.")
+        ]
+        db.session.add_all(compliance_links)
+        db.session.commit()
+
         print("Database seeding complete!")

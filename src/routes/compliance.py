@@ -3,7 +3,7 @@ import uuid
 from werkzeug.utils import secure_filename
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
 from datetime import datetime
-from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, Audit, AuditEvent, Asset, BCDRPlan, BCDRTestLog, Subscription, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog, Attachment
+from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, AssetInventory, AssetInventoryItem, Asset, BCDRPlan, BCDRTestLog, Subscription, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog, Attachment, Framework, FrameworkControl, ComplianceLink
 from .main import login_required
 from .admin import admin_required
 
@@ -15,6 +15,13 @@ def vendor_compliance():
     """Displays a list of all suppliers and their compliance status."""
     suppliers = Supplier.query.order_by(Supplier.name).all()
     return render_template('compliance/vendor_list.html', suppliers=suppliers)
+
+@compliance_bp.route('/assessments')
+@login_required
+def list_assessments():
+    """Displays a list of all security assessments."""
+    assessments = SecurityAssessment.query.order_by(SecurityAssessment.assessment_date.desc()).all()
+    return render_template('compliance/assessment_list.html', assessments=assessments)
 
 @compliance_bp.route('/<int:supplier_id>/new_assessment', methods=['GET', 'POST'])
 @login_required
@@ -129,96 +136,83 @@ def policy_report():
             
     return render_template('compliance/policy_report.html', report_data=report_data)
 
-@compliance_bp.route('/audits')
-@login_required
-@admin_required
-def list_audits():
-    """Displays a list of all asset audits."""
-    audits = Audit.query.order_by(Audit.created_at.desc()).all()
-    return render_template('compliance/audit_list.html', audits=audits)
+# --- Asset Inventory Management ---
 
-@compliance_bp.route('/audits/new', methods=['GET', 'POST'])
+@compliance_bp.route('/inventory')
 @login_required
-@admin_required
-def new_audit():
-    """Creates a new audit."""
+def list_inventory():
+    """Displays a list of all asset inventories."""
+    inventories = AssetInventory.query.order_by(AssetInventory.created_at.desc()).all()
+    return render_template('compliance/inventory_list.html', inventories=inventories)
+
+@compliance_bp.route('/inventory/new', methods=['GET', 'POST'])
+@login_required
+def new_inventory():
+    """Creates a new asset inventory."""
     if request.method == 'POST':
-        user_id = session.get('user_id')
-        audit = Audit(
-            name=request.form['name'],
-            description=request.form.get('description'),
-            conducted_by_user_id=user_id
+        name = request.form.get('name')
+        description = request.form.get('description')
+        
+        inventory = AssetInventory(
+            name=name,
+            description=description,
+            conducted_by_user_id=session.get('user_id')
         )
-        db.session.add(audit)
+        db.session.add(inventory)
         db.session.commit()
-        flash('New audit has been created successfully.', 'success')
-        return redirect(url_for('compliance.audit_detail', id=audit.id))
-    
-    return render_template('compliance/audit_form.html')
+        
+        flash('Asset Inventory created successfully.', 'success')
+        return redirect(url_for('compliance.inventory_detail', id=inventory.id))
+        
+    return render_template('compliance/inventory_form.html')
 
-@compliance_bp.route('/audits/<int:id>')
+@compliance_bp.route('/inventory/<int:id>')
 @login_required
-@admin_required
-def audit_detail(id):
-    """Shows the details of an audit and allows for asset verification."""
-    audit = Audit.query.get_or_404(id)
+def inventory_detail(id):
+    """Displays details of a specific asset inventory."""
+    inventory = AssetInventory.query.get_or_404(id)
+    inventory_items = inventory.items.order_by(AssetInventoryItem.event_time.desc()).all()
     
-    # Get all active assets that haven't been audited yet in this session
-    audited_asset_ids = [event.asset_id for event in audit.events]
-    assets_to_audit = Asset.query.filter(
-        Asset.is_archived == False,
-        Asset.id.notin_(audited_asset_ids)
-    ).order_by(Asset.name).all()
+    # Get assets that are NOT in this inventory yet
+    # This is a simplified check; in a real app, you'd filter by active assets
+    audited_asset_ids = [e.asset_id for e in inventory_items]
+    assets_to_audit = Asset.query.filter(Asset.id.notin_(audited_asset_ids)).all()
+    
+    return render_template('compliance/inventory_detail.html', inventory=inventory, inventory_items=inventory_items, assets_to_audit=assets_to_audit)
 
-    # Query and sort the audit events here
-    audit_events = audit.events.order_by(AuditEvent.event_time.desc()).all()
-
-    return render_template(
-        'compliance/audit_detail.html', 
-        audit=audit, 
-        assets_to_audit=assets_to_audit,
-        audit_events=audit_events
-    )
-
-@compliance_bp.route('/audits/<int:id>/record_event', methods=['POST'])
+@compliance_bp.route('/inventory/<int:id>/log', methods=['POST'])
 @login_required
-@admin_required
-def record_audit_event(id):
-    """Records a verification or flagged issue for an asset in an audit."""
-    audit = Audit.query.get_or_404(id)
+def log_inventory_item(id):
+    """Logs an asset check during an inventory."""
+    inventory = AssetInventory.query.get_or_404(id)
+    
     asset_id = request.form.get('asset_id')
     status = request.form.get('status')
     notes = request.form.get('notes')
     
-    asset = Asset.query.get_or_404(asset_id)
-    
-    event = AuditEvent(
-        audit_id=audit.id,
-        asset_id=asset.id,
-        user_id=asset.user_id, # Record who the asset is currently assigned to
+    item = AssetInventoryItem(
+        inventory_id=inventory.id,
+        asset_id=asset_id,
+        user_id=session.get('user_id'),
         status=status,
         notes=notes
     )
+    db.session.add(item)
+    db.session.commit()
     
-    db.session.add(event)
-    db.session.commit()
+    flash('Asset logged successfully.', 'success')
+    return redirect(url_for('compliance.inventory_detail', id=inventory.id))
 
-    if status == 'Verified':
-        flash(f'Asset "{asset.name}" has been verified.', 'success')
-    else:
-        flash(f'Asset "{asset.name}" has been flagged with an issue.', 'warning')
-        
-    return redirect(url_for('compliance.audit_detail', id=id))
-
-@compliance_bp.route('/audits/<int:id>/complete', methods=['POST'])
+@compliance_bp.route('/inventory/<int:id>/complete', methods=['POST'])
 @login_required
-@admin_required
-def complete_audit(id):
-    audit = Audit.query.get_or_404(id)
-    audit.is_completed = True
+def complete_inventory(id):
+    """Marks an inventory as complete."""
+    inventory = AssetInventory.query.get_or_404(id)
+    inventory.is_completed = True
     db.session.commit()
-    flash(f'Audit "{audit.name}" has been marked as complete.', 'success')
-    return redirect(url_for('compliance.list_audits'))
+    
+    flash(f'Inventory "{inventory.name}" has been marked as complete.', 'success')
+    return redirect(url_for('compliance.list_inventory'))
 
 @compliance_bp.route('/bcdr')
 @login_required
@@ -527,3 +521,121 @@ def list_erasures():
     """Displays a filtered list of all data erasure maintenance events for audit purposes."""
     erasure_logs = MaintenanceLog.query.filter_by(event_type='Data Erasure').order_by(MaintenanceLog.event_date.desc()).all()
     return render_template('compliance/erasure_list.html', logs=erasure_logs)
+
+# --- API Routes for Compliance Linking ---
+
+@compliance_bp.route('/frameworks', methods=['GET'])
+@login_required
+def get_frameworks():
+    """Returns a JSON list of active frameworks."""
+    frameworks = Framework.query.filter_by(is_active=True).order_by(Framework.name).all()
+    return jsonify([{
+        'id': f.id,
+        'name': f.name,
+        'description': f.description
+    } for f in frameworks])
+
+@compliance_bp.route('/frameworks/<int:framework_id>/controls', methods=['GET'])
+@login_required
+def get_framework_controls(framework_id):
+    """Returns a JSON list of controls for a specific framework."""
+    framework = Framework.query.get_or_404(framework_id)
+    if not framework.is_active:
+        return jsonify({'error': 'Framework is disabled'}), 400
+        
+    controls = framework.framework_controls.order_by(FrameworkControl.control_id).all()
+    return jsonify([{
+        'id': c.id,
+        'control_id': c.control_id,
+        'name': c.name,
+        'description': c.description
+    } for c in controls])
+
+@compliance_bp.route('/link', methods=['POST'])
+@login_required
+def create_compliance_link():
+    """Creates a new compliance link."""
+    data = request.json
+    framework_control_id = data.get('framework_control_id')
+    linkable_id = data.get('linkable_id')
+    linkable_type = data.get('linkable_type')
+    description = data.get('description')
+
+    if not all([framework_control_id, linkable_id, linkable_type, description]):
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    # Validate control exists
+    control = FrameworkControl.query.get(framework_control_id)
+    if not control:
+        return jsonify({'error': 'Control not found'}), 404
+        
+    # Validate framework is active
+    if not control.framework.is_active:
+        return jsonify({'error': 'Framework is disabled'}), 400
+
+    # Check for existing link to avoid duplicates
+    existing_link = ComplianceLink.query.filter_by(
+        framework_control_id=framework_control_id,
+        linkable_id=linkable_id,
+        linkable_type=linkable_type
+    ).first()
+
+    if existing_link:
+        return jsonify({'error': 'Link already exists'}), 409
+
+    link = ComplianceLink(
+        framework_control_id=framework_control_id,
+        linkable_id=linkable_id,
+        linkable_type=linkable_type,
+        description=description
+    )
+    db.session.add(link)
+    db.session.commit()
+
+    return jsonify({
+        'id': link.id,
+        'status': 'success',
+        'message': 'Link created successfully'
+    }), 201
+
+@compliance_bp.route('/link/<int:link_id>', methods=['DELETE'])
+@login_required
+def delete_compliance_link(link_id):
+    """Deletes a compliance link."""
+    link = ComplianceLink.query.get_or_404(link_id)
+    db.session.delete(link)
+    db.session.commit()
+    return jsonify({'status': 'success', 'message': 'Link deleted successfully'})
+
+@compliance_bp.route('/dashboard')
+@login_required
+def dashboard():
+    """Displays the compliance dashboard."""
+    frameworks = Framework.query.filter_by(is_active=True).order_by(Framework.name).all()
+    return render_template('compliance/dashboard.html', frameworks=frameworks)
+
+@compliance_bp.route('/dashboard/pdf')
+@login_required
+def export_dashboard_pdf():
+    """Exports the compliance dashboard to PDF."""
+    from weasyprint import HTML
+    from io import BytesIO
+    from flask import make_response
+
+    frameworks = Framework.query.filter_by(is_active=True).order_by(Framework.name).all()
+    user = User.query.get(session.get('user_id'))
+    
+    html_content = render_template(
+        'compliance/dashboard_pdf.html', 
+        frameworks=frameworks,
+        generated_at=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+        generated_by=user.name if user else 'System'
+    )
+    
+    pdf_file = HTML(string=html_content).write_pdf()
+    
+    response = make_response(pdf_file)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = 'attachment; filename=compliance_report.pdf'
+    
+    return response

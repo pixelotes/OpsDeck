@@ -18,6 +18,8 @@ if [ ! -f "$DB_FILE" ]; then
     # Create the default admin user
     flask init-db
     echo "Database initialized."
+    # Add initial frameworks and controls
+    flask seed-db-prod
 else
     echo "Database found. Applying any pending migrations..."
     # If the database already exists, just apply any new migrations

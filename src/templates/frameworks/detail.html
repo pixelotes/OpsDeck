@@ -1,0 +1,86 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ framework.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-sm-8">
+        <h1 class="mb-0">{{ framework.name }}</h1>
+    </div>
+    <div class="col-sm-4 text-end">
+        <a href="{{ url_for('frameworks.edit', id=framework.id) }}" class="btn btn-primary">
+            <i class="fa-solid fa-pencil"></i> Editar
+        </a>
+    </div>
+</div>
+<hr>
+
+<div class="row">
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Detalles</h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    <strong>Descripción:</strong><br>
+                    {{ framework.description | default('N/A', true) }}
+                </p>
+                <p>
+                    <strong>Enlace:</strong><br>
+                    {% if framework.link %}
+                        <a href="{{ framework.link }}" target="_blank">{{ framework.link }}</a>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </p>
+                <p>
+                    <strong>Estado:</strong>
+                    {% if framework.is_active %}
+                        <span class="badge bg-success">Activo</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactivo</span>
+                    {% endif %}
+                </p>
+                <p>
+                    <strong>Tipo:</strong>
+                    {% if framework.is_custom %}
+                        <span class="badge bg-info">Personalizado</span>
+                    {% else %}
+                        <span class="badge bg-light text-dark">Incorporado</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    Controles ({{ controls|length }})
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for control in controls %}
+                    <li class="list-group-item">
+                        <strong class="text-primary">{{ control.control_id }}</strong> - {{ control.name }}
+                        {% if control.description %}
+                        <p class="text-muted small mb-0">{{ control.description }}</p>
+                        {% endif %}
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-center">
+                        Este framework aún no tiene controles.
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
