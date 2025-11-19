@@ -31,6 +31,44 @@ class ComplianceLink(db.Model):
         backref=db.backref('compliance_links', lazy='dynamic', cascade='all, delete-orphan')
     )
 
+    @property
+    def linked_object(self):
+        """Resolves the polymorphic relationship to the linked object."""
+        # Import models inside the method to avoid circular imports
+        from .assets import Asset, Peripheral, Software, License, MaintenanceLog
+        from .procurement import Supplier, Purchase, Budget, Subscription
+        from .core import Link, Documentation
+        from .policy import Policy
+        from .training import Course
+        from .bcdr import BCDRPlan
+        
+        # Map types to models
+        model_map = {
+            'Asset': Asset,
+            'Peripheral': Peripheral,
+            'Software': Software,
+            'License': License,
+            'MaintenanceLog': MaintenanceLog,
+            'Supplier': Supplier,
+            'Purchase': Purchase,
+            'Budget': Budget,
+            'Subscription': Subscription,
+            'Link': Link,
+            'Documentation': Documentation,
+            'Policy': Policy,
+            'Course': Course,
+            'BCDRPlan': BCDRPlan,
+            'SecurityIncident': SecurityIncident,
+            'SecurityAssessment': SecurityAssessment,
+            'Risk': Risk,
+            'Audit': Audit
+        }
+        
+        model = model_map.get(self.linkable_type)
+        if model:
+            return model.query.get(self.linkable_id)
+        return None
+
 incident_assets = db.Table('incident_assets',
     db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
     db.Column('asset_id', db.Integer, db.ForeignKey('asset.id'), primary_key=True)

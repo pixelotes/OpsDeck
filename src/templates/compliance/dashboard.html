@@ -1,0 +1,169 @@
+{% extends "layout.html" %}
+
+{% block title %}Compliance Dashboard - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Compliance Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('compliance.export_dashboard_pdf') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-file-pdf"></i> Export PDF
+            </a>
+        </div>
+    </div>
+</div>
+
+{% macro object_link(obj, type) %}
+{% if type == 'Asset' %}
+<a href="{{ url_for('assets.asset_detail', id=obj.id) }}">{{ obj.name }}</a>
+{% elif type == 'Peripheral' %}
+<a href="{{ url_for('peripherals.peripheral_detail', id=obj.id) }}">{{ obj.name }}</a>
+{% elif type == 'Software' %}
+<a href="{{ url_for('software.detail', id=obj.id) }}">{{ obj.name }}</a>
+{% elif type == 'License' %}
+<a href="{{ url_for('licenses.detail', id=obj.id) }}">{{ obj.name }}</a>
+{% elif type == 'MaintenanceLog' %}
+<a href="{{ url_for('maintenance.log_detail', id=obj.id) }}">{{ obj.description | truncate(50) }}</a>
+{% elif type == 'SecurityAssessment' %}
+<a href="{{ url_for('compliance.assessment_detail', id=obj.id) }}">{{ obj.supplier.name }} Assessment ({{
+    obj.assessment_date }})</a>
+{% elif type == 'Audit' %}
+<a href="{{ url_for('compliance.audit_detail', id=obj.id) }}">{{ obj.name }}</a>
+{% elif type == 'BCDRPlan' %}
+<a href="{{ url_for('compliance.bcdr_detail', id=obj.id) }}">{{ obj.name }}</a>
+{% elif type == 'SecurityIncident' %}
+<a href="{{ url_for('compliance.incident_detail', id=obj.id) }}">{{ obj.title }}</a>
+{% elif type == 'Risk' %}
+<a href="{{ url_for('risk.detail', id=obj.id) }}">{{ obj.description | truncate(50) }}</a>
+{% elif type == 'Supplier' %}
+<a href="{{ url_for('suppliers.supplier_detail', id=obj.id) }}">{{ obj.name }}</a>
+{% elif type == 'Purchase' %}
+<a href="{{ url_for('purchases.purchase_detail', id=obj.id) }}">{{ obj.description | truncate(50) }}</a>
+{% elif type == 'Budget' %}
+<a href="{{ url_for('budgets.budget_detail', id=obj.id) }}">{{ obj.name }}</a>
+{% elif type == 'Subscription' %}
+<a href="{{ url_for('subscriptions.subscription_detail', id=obj.id) }}">{{ obj.name }}</a>
+{% elif type == 'Link' %}
+<a href="{{ url_for('links.detail', id=obj.id) }}">{{ obj.title }}</a>
+{% elif type == 'Documentation' %}
+<a href="{{ url_for('documentation.detail', id=obj.id) }}">{{ obj.title }}</a>
+{% elif type == 'Course' %}
+<a href="{{ url_for('training.course_detail', id=obj.id) }}">{{ obj.title }}</a>
+{% elif type == 'Policy' %}
+<a href="{{ url_for('policies.detail', id=obj.id) }}">{{ obj.title }}</a>
+{% else %}
+{{ obj.name or obj.title or obj.description or 'Unknown' }}
+{% endif %}
+{% endmacro %}
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <input type="text" id="controlSearch" class="form-control"
+            placeholder="Search controls (ID, name, description)...">
+    </div>
+</div>
+
+{% for framework in frameworks %}
+<div class="card mb-4 shadow-sm">
+    <div class="card-header bg-light">
+        <h4 class="my-0 font-weight-normal">{{ framework.name }}</h4>
+        {% if framework.description %}
+        <small class="text-muted">{{ framework.description }}</small>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="accordion" id="accordion-{{ framework.id }}">
+            {% for control in framework.framework_controls %}
+            <div class="accordion-item control-item"
+                data-search-content="{{ control.control_id }} {{ control.name }} {{ control.description }}">
+                <h2 class="accordion-header" id="heading-{{ control.id }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#collapse-{{ control.id }}" aria-expanded="false"
+                        aria-controls="collapse-{{ control.id }}">
+                        <span class="badge bg-secondary me-2">{{ control.control_id }}</span>
+                        <span class="me-auto">{{ control.name }}</span>
+                        {% if control.compliance_links.count() > 0 %}
+                        <span class="badge bg-success">{{ control.compliance_links.count() }} Links</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">No Evidence</span>
+                        {% endif %}
+                    </button>
+                </h2>
+                <div id="collapse-{{ control.id }}" class="accordion-collapse collapse"
+                    aria-labelledby="heading-{{ control.id }}" data-bs-parent="#accordion-{{ framework.id }}">
+                    <div class="accordion-body">
+                        {% if control.description %}
+                        <p class="text-muted mb-3"><em>{{ control.description }}</em></p>
+                        {% endif %}
+
+                        {% if control.compliance_links.count() > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Object</th>
+                                        <th>Justification</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for link in control.compliance_links %}
+                                    <tr>
+                                        <td><span class="badge bg-info text-dark">{{ link.linkable_type }}</span></td>
+                                        <td>
+                                            {% if link.linked_object %}
+                                            <strong>{{ object_link(link.linked_object, link.linkable_type) }}</strong>
+                                            {% else %}
+                                            <span class="text-danger">Object Deleted (ID: {{ link.linkable_id }})</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ link.description }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-light border" role="alert">
+                            <i class="fas fa-exclamation-circle text-warning"></i> No evidence linked to this control
+                            yet.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    No active frameworks found. Please enable a framework in the settings.
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('controlSearch');
+        if (searchInput) {
+            searchInput.addEventListener('keyup', function () {
+                const searchTerm = this.value.toLowerCase();
+                const controlItems = document.querySelectorAll('.control-item');
+
+                controlItems.forEach(item => {
+                    const content = item.getAttribute('data-search-content').toLowerCase();
+                    if (content.includes(searchTerm)) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

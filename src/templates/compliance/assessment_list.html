@@ -1,0 +1,61 @@
+{% extends "layout.html" %}
+{% block title %}Security Assessments - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-clipboard-list"></i> Security Assessments</h2>
+    <div>
+        <button class="btn btn-success" onclick="exportTableToCSV('assessments-table', 'security-assessments.csv')">
+            <i class="fas fa-file-csv"></i> Export to CSV
+        </button>
+        {# Note: New assessments are typically created from the Supplier detail page #}
+        <a href="{{ url_for('suppliers.suppliers') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> New Assessment via Supplier
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped datatable" id="assessments-table">
+            <thead>
+                <tr>
+                    <th>Supplier</th>
+                    <th>Assessment Date</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for assessment in assessments %}
+                <tr>
+                    <td><a href="{{ url_for('suppliers.supplier_detail', id=assessment.supplier.id) }}">{{
+                            assessment.supplier.name }}</a></td>
+                    <td>{{ assessment.assessment_date.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        {% if assessment.status == 'Compliant' %}
+                        <span class="badge bg-success">Compliant</span>
+                        {% elif assessment.status == 'Non-Compliant' %}
+                        <span class="badge bg-danger">Non-Compliant</span>
+                        {% elif assessment.status == 'Pending Review' %}
+                        <span class="badge bg-warning">Pending Review</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ assessment.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ assessment.notes or '' }}</td>
+                    <td>
+                        <a href="{{ url_for('compliance.assessment_detail', id=assessment.id) }}"
+                            class="btn btn-sm btn-outline-primary">View</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">No assessments found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

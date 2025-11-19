@@ -16,6 +16,13 @@ def vendor_compliance():
     suppliers = Supplier.query.order_by(Supplier.name).all()
     return render_template('compliance/vendor_list.html', suppliers=suppliers)
 
+@compliance_bp.route('/assessments')
+@login_required
+def list_assessments():
+    """Displays a list of all security assessments."""
+    assessments = SecurityAssessment.query.order_by(SecurityAssessment.assessment_date.desc()).all()
+    return render_template('compliance/assessment_list.html', assessments=assessments)
+
 @compliance_bp.route('/<int:supplier_id>/new_assessment', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -612,3 +619,36 @@ def delete_compliance_link(link_id):
     db.session.delete(link)
     db.session.commit()
     return jsonify({'status': 'success', 'message': 'Link deleted successfully'})
+
+@compliance_bp.route('/dashboard')
+@login_required
+def dashboard():
+    """Displays the compliance dashboard."""
+    frameworks = Framework.query.filter_by(is_active=True).order_by(Framework.name).all()
+    return render_template('compliance/dashboard.html', frameworks=frameworks)
+
+@compliance_bp.route('/dashboard/pdf')
+@login_required
+def export_dashboard_pdf():
+    """Exports the compliance dashboard to PDF."""
+    from weasyprint import HTML
+    from io import BytesIO
+    from flask import make_response
+
+    frameworks = Framework.query.filter_by(is_active=True).order_by(Framework.name).all()
+    user = User.query.get(session.get('user_id'))
+    
+    html_content = render_template(
+        'compliance/dashboard_pdf.html', 
+        frameworks=frameworks,
+        generated_at=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+        generated_by=user.name if user else 'System'
+    )
+    
+    pdf_file = HTML(string=html_content).write_pdf()
+    
+    response = make_response(pdf_file)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = 'attachment; filename=compliance_report.pdf'
+    
+    return response
