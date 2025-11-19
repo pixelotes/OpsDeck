@@ -85,11 +85,14 @@ def test_non_admin_cannot_post(user_client, app):
     """
     # ... (la parte de 'with app.app_context()' se queda igual) ...
     with app.app_context():
-        user_to_edit = db.session.get(User, 2)
+        # Buscar el usuario por email en lugar de ID fijo
+        user_to_edit = User.query.filter_by(email='user@test.com').first()
+        assert user_to_edit is not None
         assert user_to_edit.name == 'Test User'
+        user_id = user_to_edit.id
 
     # 1. Intentar editar un usuario (ruta /edit)
-    response = user_client.post('/users/2/edit', data={
+    response = user_client.post(f'/users/{user_id}/edit', data={
         'name': 'Hacked Name',
         'email': 'user@test.com'
     }, follow_redirects=False)
@@ -101,7 +104,7 @@ def test_non_admin_cannot_post(user_client, app):
     assert '/login' not in response.headers['Location'] # No es un redirect de "no logueado"
 
     # 2. Intentar archivar un usuario (ruta /archive)
-    response = user_client.post('/users/2/archive', follow_redirects=False)
+    response = user_client.post(f'/users/{user_id}/archive', follow_redirects=False)
     
     # Comprobar que la respuesta es 302 (Redirección)
     assert response.status_code == 302
