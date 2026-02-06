@@ -999,11 +999,15 @@ def ops_finance_dashboard():
         forecast_costs[year_month_key] = 0
 
     for subscription in all_active_subscriptions:
+        # Only include subscriptions with auto_renew enabled in the forecast
+        if not subscription.auto_renew:
+            continue
+
         renewal = subscription.renewal_date
         # Find first renewal within or after forecast start
         while renewal < forecast_start_date:
             renewal = subscription.get_renewal_date_after(renewal)
-        
+
         while renewal < end_of_forecast_period:
             year_month_key = renewal.strftime('%Y-%m')
             if year_month_key in forecast_costs:

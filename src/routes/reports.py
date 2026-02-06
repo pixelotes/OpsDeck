@@ -28,6 +28,10 @@ def subscription_reports():
     year_end = date(selected_year, 12, 31)
 
     for subscription in all_active_subscriptions:
+        # Only include subscriptions with auto_renew enabled
+        if not subscription.auto_renew:
+            continue
+
         renewal = subscription.renewal_date
         # Ensure initial renewal is correctly handled if before year_start
         while renewal < year_start:
@@ -69,6 +73,10 @@ def subscription_reports():
         yearly_costs[year_date.strftime('%Y')] = 0
 
     for subscription in all_active_subscriptions:
+        # Only include subscriptions with auto_renew enabled
+        if not subscription.auto_renew:
+            continue
+
         renewal = subscription.renewal_date
         # Ensure initial renewal is correctly handled if before start dates
         while renewal < yearly_start_date:
@@ -100,6 +108,10 @@ def subscription_reports():
         forecast_costs[year_month_key] = 0
 
     for subscription in all_active_subscriptions:
+        # Only include subscriptions with auto_renew enabled in the forecast
+        if not subscription.auto_renew:
+            continue
+
         renewal = subscription.renewal_date # Start from original renewal
         while renewal < forecast_start_date: # Find first renewal within or after forecast start
             renewal = subscription.get_renewal_date_after(renewal)

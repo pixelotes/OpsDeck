@@ -249,12 +249,20 @@ class Budget(db.Model):
             rate = get_conversion_rate(subscription.currency)
             cost_in_budget_currency = subscription.cost * rate
 
-            # Count renewals within budget validity period
-            renewal_count = self._count_renewals_in_period(
-                subscription.renewal_date,
-                subscription.renewal_period_type,
-                subscription.renewal_period_value
-            )
+            # Only count renewals for subscriptions with auto_renew enabled
+            if subscription.auto_renew:
+                # Count renewals within budget validity period
+                renewal_count = self._count_renewals_in_period(
+                    subscription.renewal_date,
+                    subscription.renewal_period_type,
+                    subscription.renewal_period_value
+                )
+            else:
+                # For non-renewable subscriptions, only count once if renewal_date falls within budget period
+                if self.valid_from <= subscription.renewal_date <= self.valid_until:
+                    renewal_count = 1
+                else:
+                    renewal_count = 0
 
             spent += cost_in_budget_currency * renewal_count
 

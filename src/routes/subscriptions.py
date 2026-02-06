@@ -432,22 +432,40 @@ def calendar_events():
     events = []
 
     for subscription in all_active_subscriptions:
-        next_renewal = subscription.next_renewal_date
-        while next_renewal < end_date:
-            if next_renewal >= start_date:
+        if subscription.auto_renew:
+            # For auto-renewing subscriptions, show all future renewals in the date range
+            next_renewal = subscription.next_renewal_date
+            while next_renewal and next_renewal < end_date:
+                if next_renewal >= start_date:
+                    events.append({
+                        'id': subscription.id,
+                        'title': subscription.name,
+                        'start': next_renewal.isoformat(),
+                        'backgroundColor': '#007bff',
+                        'borderColor': '#007bff',
+                        'url': url_for('subscriptions.subscription_detail', id=subscription.id),
+                        'extendedProps': {
+                            'subscription_name': subscription.name,
+                            'cost_eur': f"€{subscription.cost_eur:.2f}"
+                        }
+                    })
+                next_renewal = subscription.get_renewal_date_after(next_renewal)
+        else:
+            # For non-renewing subscriptions, show only the initial renewal_date (expiration date)
+            renewal_date = subscription.renewal_date
+            if start_date <= renewal_date < end_date:
                 events.append({
                     'id': subscription.id,
-                    'title': subscription.name,
-                    'start': next_renewal.isoformat(),
-                    'backgroundColor': '#007bff' if subscription.auto_renew else '#ffc107',
-                    'borderColor': '#007bff' if subscription.auto_renew else '#ffc107',
+                    'title': f"{subscription.name} (Expira)",
+                    'start': renewal_date.isoformat(),
+                    'backgroundColor': '#ffc107',
+                    'borderColor': '#ffc107',
                     'url': url_for('subscriptions.subscription_detail', id=subscription.id),
                     'extendedProps': {
                         'subscription_name': subscription.name,
                         'cost_eur': f"€{subscription.cost_eur:.2f}"
                     }
                 })
-            next_renewal = subscription.get_renewal_date_after(next_renewal)
 
     return jsonify(events)
 
