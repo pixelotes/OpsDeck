@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-02-20
+
+### Added
+- **SOA at Framework Level**: SOA applicability fields on controls, inherited by new audits, with change visualization in framework reports
+- **Status Filters**: Dropdown filters for Change Management (Draft, Pending Approval, Approved, In Progress, Completed) and Security Incidents (Investigating, Contained, Resolved, Closed)
+- **API Upsert Endpoints**: POST endpoints with `external_ref` support for external integrations
+- **Org Chart**: Replaced Mermaid.js with orgchart.js for better organizational rendering
+- **Client-side Pagination**: Added to several tables that were missing it
+- **Skeleton Loaders**: Deployed across additional pages
+
+### Changed
+- Gunicorn configured as production WSGI server
+- SQLAlchemy `pool_pre_ping` enabled for connection resilience
+- EasyMDE removed from global load (lazy-loaded where needed)
+- Back button added to custom error pages
+- Database indexes added for query performance
+- Replaced bare `except:` clauses with `except Exception:`
+
+### Fixed
+- Slow queries on health dashboard
+- Menu losing active state when browsing
+- Dark mode: owner badges and change title text now readable
+- Mobile sidebar auto-hide behavior
+- Archived items filter not working correctly
+- Internal routes exposed without authentication
+- Empty manager/buddy fields on new user creation
+- Duplicate blueprint registration in admin module
+- Flash message severity types
+- Debug-level log messages corrected to info level
+- Translated remaining Spanish strings to English
+- Test assertions updated to match current flash messages
+
+## [0.6.7] - 2026-02-10
+
+### Added
+- **Audit Log**: Comprehensive audit trail for security-relevant actions
+- **Defense Packs**: Improved defense pack templates and management
+- **Procurement Module Overhaul**: Redesigned subscription and procurement workflows
+
+### Fixed
+- Write permissions for core inventory module
+- Subscription cost calculations and validation
+- Simple Datatables JS path resolution
+
 ## [0.6.6] - 2026-02-05
 
 ### Added
@@ -251,7 +295,9 @@ We follow [Semantic Versioning](https://semver.org/):
 
 ---
 
-[Unreleased]: https://github.com/pixelotes/opsdeck/compare/v0.6.5...HEAD
+[Unreleased]: https://github.com/pixelotes/opsdeck/compare/v0.6.8...HEAD
+[0.6.8]: https://github.com/pixelotes/opsdeck/compare/v0.6.7...v0.6.8
+[0.6.7]: https://github.com/pixelotes/opsdeck/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/pixelotes/opsdeck/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/pixelotes/opsdeck/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/pixelotes/opsdeck/compare/v0.6.3-4...v0.6.4
