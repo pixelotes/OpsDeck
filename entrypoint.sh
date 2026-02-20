@@ -52,6 +52,10 @@ if [ "$ENTERPRISE_ENABLED" = "True" ]; then
         # We assume plugin was installed at the beginning of the script
         flask seed-connectors
         flask seed-ai-profiles
+        if [ "$SEED_DEMO_DATA" = "True" ]; then
+            flask seed-kpis
+            flask seed-demo-reports
+        fi
         echo "✓ Enterprise plugin configured and seeded"
     fi
 else
