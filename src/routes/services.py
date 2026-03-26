@@ -508,13 +508,22 @@ def upload_attachment(id):
     # Secure the filename and generate a unique stored name
     original_filename = file.filename
     ext = os.path.splitext(original_filename)[1]
+    # Sanitize extension to avoid unexpected characters in the stored filename
+    if not ext or any(c in ext for c in ('/', '\\')) or len(ext) > 20:
+        ext = ''
     stored_filename = f"{uuid.uuid4().hex}{ext}"
     
     # Save to uploads directory
     upload_dir = os.path.join(current_app.root_path, '..', 'data', 'uploads')
     os.makedirs(upload_dir, exist_ok=True)
     file_path = os.path.join(upload_dir, stored_filename)
-    file.save(file_path)
+    # Normalize and ensure the final path stays within the upload directory
+    upload_dir_abs = os.path.abspath(upload_dir)
+    safe_path = os.path.normpath(file_path)
+    if not safe_path.startswith(upload_dir_abs + os.sep) and safe_path != upload_dir_abs:
+        flash('Invalid file path.', 'danger')
+        return redirect(url_for('services.detail', id=id) + '#context')
+    file.save(safe_path)
     
     # Create attachment record
     attachment = Attachment(
