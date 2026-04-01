@@ -18,7 +18,7 @@
         "orgchart.js": "^0.0.4",
         "simple-datatables": "^10.2.0",
         "sortablejs": "^1.15.7",
-        "suneditor": "^2.47.8",
+        "suneditor": "^3.0.0",
         "swagger-ui-dist": "5.32.1",
         "tom-select": "^2.5.2"
     }
