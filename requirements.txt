@@ -22,5 +22,5 @@ psycopg2-binary==2.9.11
 deepdiff==8.6.2
 slack_sdk==3.41.0
 PyJWT==2.12.1
-cryptography==46.0.6
+cryptography==46.0.7
 boto3==1.42.80
