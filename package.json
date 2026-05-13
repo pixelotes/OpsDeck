@@ -20,6 +20,6 @@
         "sortablejs": "^1.15.7",
         "suneditor": "^3.1.2",
         "swagger-ui-dist": "5.32.5",
-        "tom-select": "^2.6.0"
+        "tom-select": "^2.6.1"
     }
 }
