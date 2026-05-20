@@ -4,7 +4,7 @@
 # Bundles pg_dump (postgresql-client) and restic so the CronJob script can
 # dump the DB and push it together with the attachments PVC to an S3 repo.
 # ============================================
-FROM alpine:3.20
+FROM alpine:3.23
 
 RUN apk add --no-cache \
         ca-certificates \
