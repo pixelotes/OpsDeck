@@ -19,7 +19,7 @@ flask-talisman==1.1.0
 flask-smorest==0.46.2
 marshmallow-sqlalchemy==1.4.2
 psycopg2-binary==2.9.12
-deepdiff==8.6.2
+deepdiff==9.1.0
 slack_sdk==3.42.0
 PyJWT==2.13.0
 cryptography==48.0.0
