@@ -419,6 +419,19 @@ def create_app(test_config=None):
             'is_impersonating': False
         }
 
+    # --- Action Required alerts (global navbar bell) ---
+    @app.context_processor
+    def inject_action_alerts():
+        user_id = session.get('user_id')
+        if not user_id:
+            return {'action_alerts': [], 'action_alerts_count': 0}
+        user = db.session.get(User, user_id)
+        if not user:
+            return {'action_alerts': [], 'action_alerts_count': 0}
+        from .routes.main import get_action_required_alerts
+        alerts = get_action_required_alerts(user)
+        return {'action_alerts': alerts, 'action_alerts_count': len(alerts)}
+
     # --- Permissions Context Processor ---
     @app.context_processor
     def inject_permissions():

@@ -10,59 +10,23 @@
     justify-content: space-between;
     align-items: center;
     padding: 2rem 0 1rem;
-    border-bottom: 2px solid #e9ecef;
+    border-bottom: 1px solid var(--bs-border-color);
     margin-bottom: 2rem;
 }
 
 .greeting h1 {
     font-size: 2rem;
     font-weight: 700;
-    color: #212529;
+    color: var(--bs-emphasis-color);
     margin-bottom: 0.25rem;
 }
 
 .greeting p {
     margin: 0;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
 }
 
-.header-actions {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-}
-
-.notification-bell {
-    position: relative;
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0.5rem;
-}
-
-.notification-bell .badge {
-    position: absolute;
-    top: 0;
-    right: 0;
-    background: #dc3545;
-    color: white;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-}
-
-/* Alert Banner */
-.alert-banner {
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    display: flex;
-    gap: 1rem;
-    animation: slideIn 0.3s ease-out;
-}
+/* Action Required alerts now live in the global navbar bell (see layout.html) */
 
 @keyframes slideIn {
     from {
@@ -73,57 +37,6 @@
         transform: translateY(0);
         opacity: 1;
     }
-}
-
-.alert-icon {
-    font-size: 2rem;
-    flex-shrink: 0;
-}
-
-.alert-content {
-    flex: 1;
-}
-
-.alert-content h5 {
-    margin-top: 0;
-    margin-bottom: 0.5rem;
-    font-weight: 700;
-}
-
-.alert-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.alert-list li {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(255,255,255,0.2);
-}
-
-.alert-list li:last-child {
-    border-bottom: none;
-}
-
-.alert-action {
-    color: inherit;
-    text-decoration: underline;
-    font-weight: 600;
-    margin-left: 0.5rem;
-}
-
-.alert-dismiss {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    color: inherit;
-    cursor: pointer;
-    opacity: 0.7;
-    flex-shrink: 0;
-}
-
-.alert-dismiss:hover {
-    opacity: 1;
 }
 
 /* Quick Actions Hero */
@@ -145,12 +58,13 @@
 
 .action-card {
     position: relative;
-    background: white;
+    background: var(--od-card-bg);
     border-radius: 12px;
     padding: 1.5rem;
     text-align: center;
     transition: all 0.3s ease;
-    border: 2px solid #e9ecef;
+    border: 1px solid var(--od-card-border);
+    box-shadow: var(--od-card-shadow);
     text-decoration: none;
     color: inherit;
     display: flex;
@@ -160,20 +74,32 @@
 
 .action-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    border-color: #0d6efd;
-    color: inherit;
+    box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,0.18);
+    border-color: var(--od-brand-primary);
+    color: var(--bs-body-color);
     text-decoration: none;
 }
 
+.action-card.primary:hover,
+.action-card.secondary:hover,
+.action-card.success:hover {
+    color: #fff;
+}
+
 .action-card.primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--od-brand-gradient);
     color: white;
     border: none;
 }
 
 .action-card.secondary {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border: none;
+}
+
+.action-card.success {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
     color: white;
     border: none;
 }
@@ -210,6 +136,26 @@
     color: #000;
 }
 
+/* Not-yet-implemented action card */
+.action-card.coming-soon {
+    cursor: default;
+}
+
+.action-soon {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #fff;
+    color: #6c757d;
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
 /* Stats Section */
 .stats-section {
     margin-bottom: 2rem;
@@ -228,10 +174,11 @@
 }
 
 .stat-card {
-    background: white;
+    background: var(--od-card-bg);
     border-radius: 12px;
     padding: 1.5rem;
-    border: 2px solid #e9ecef;
+    border: 1px solid var(--od-card-border);
+    box-shadow: var(--od-card-shadow);
     transition: all 0.3s ease;
 }
 
@@ -241,8 +188,8 @@
 }
 
 .stat-card.stat-warning {
-    border-color: #ffc107;
-    background: #fff8e1;
+    border-color: var(--bs-warning-border-subtle);
+    background: var(--bs-warning-bg-subtle);
 }
 
 .stat-icon {
@@ -256,28 +203,28 @@
     margin-bottom: 1rem;
 }
 
-.stat-icon.bg-blue { background: #e3f2fd; }
-.stat-icon.bg-purple { background: #f3e5f5; }
-.stat-icon.bg-green { background: #e8f5e9; }
-.stat-icon.bg-orange { background: #fff3e0; }
-.stat-icon.bg-gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.stat-icon.bg-blue { background: var(--bs-primary-bg-subtle); }
+.stat-icon.bg-purple { background: rgba(111, 66, 193, 0.18); }
+.stat-icon.bg-green { background: var(--bs-success-bg-subtle); }
+.stat-icon.bg-orange { background: var(--bs-warning-bg-subtle); }
+.stat-icon.bg-gradient { background: var(--od-brand-gradient); }
 
 .stat-value {
     font-size: 2rem;
     font-weight: 700;
-    color: #212529;
+    color: var(--bs-emphasis-color);
     margin-bottom: 0.25rem;
 }
 
 .stat-label {
     font-size: 0.9rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     margin-bottom: 0.5rem;
 }
 
 .stat-alert {
-    background: #fff3cd;
-    color: #856404;
+    background: var(--bs-warning-bg-subtle);
+    color: var(--bs-warning-text-emphasis);
     padding: 0.5rem;
     border-radius: 6px;
     font-size: 0.85rem;
@@ -288,7 +235,7 @@
     display: inline-block;
     margin-top: 0.5rem;
     font-size: 0.85rem;
-    color: #0d6efd;
+    color: var(--bs-link-color);
     text-decoration: none;
 }
 
@@ -299,7 +246,7 @@
 .progress-bar {
     width: 100%;
     height: 8px;
-    background: #e9ecef;
+    background: var(--bs-secondary-bg);
     border-radius: 4px;
     margin-top: 0.5rem;
     overflow: hidden;
@@ -307,7 +254,7 @@
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    background: var(--od-brand-gradient);
     border-radius: 4px;
     transition: width 0.5s ease;
 }
@@ -331,23 +278,27 @@
 }
 
 .view-all {
-    color: #0d6efd;
+    color: var(--bs-link-color);
     text-decoration: none;
     font-size: 0.9rem;
 }
 
 .timeline-list {
-    background: white;
+    background: var(--od-card-bg);
     border-radius: 12px;
     padding: 1.5rem;
-    border: 2px solid #e9ecef;
+    border: 1px solid var(--od-card-border);
+    box-shadow: var(--od-card-shadow);
+    /* Show ~5-6 tasks, then scroll within the card */
+    max-height: 38rem;
+    overflow-y: auto;
 }
 
 .timeline-item {
     display: flex;
     gap: 1rem;
     padding: 1rem 0;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--bs-border-color);
 }
 
 .timeline-item:last-child {
@@ -358,7 +309,7 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: #6c757d;
+    background: var(--bs-secondary-color);
     margin-top: 0.5rem;
     flex-shrink: 0;
 }
@@ -406,7 +357,7 @@
 
 .task-due {
     font-size: 0.85rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
 }
 
 .task-title {
@@ -417,7 +368,7 @@
 
 .task-description {
     font-size: 0.9rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     margin: 0 0 0.75rem 0;
 }
 
@@ -438,12 +389,12 @@
 }
 
 .empty-state h4 {
-    color: #212529;
+    color: var(--bs-emphasis-color);
     margin-bottom: 0.5rem;
 }
 
 .empty-state p {
-    color: #6c757d;
+    color: var(--bs-secondary-color);
 }
 
 /* Tabs */
@@ -458,14 +409,14 @@
 }
 
 .custom-tabs {
-    border-bottom: 2px solid #e9ecef;
+    border-bottom: 1px solid var(--bs-border-color);
     margin-bottom: 1.5rem;
 }
 
 .custom-tabs .nav-link {
     border: none;
     border-bottom: 3px solid transparent;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     font-weight: 600;
     padding: 0.75rem 1.5rem;
     display: flex;
@@ -474,13 +425,13 @@
 }
 
 .custom-tabs .nav-link:hover {
-    color: #0d6efd;
-    border-bottom-color: #0d6efd;
+    color: var(--bs-link-color);
+    border-bottom-color: var(--od-brand-primary);
 }
 
 .custom-tabs .nav-link.active {
-    color: #0d6efd;
-    border-bottom-color: #0d6efd;
+    color: var(--bs-link-color);
+    border-bottom-color: var(--od-brand-primary);
     background: none;
 }
 
@@ -489,8 +440,8 @@
 }
 
 .tab-count {
-    background: #e9ecef;
-    color: #495057;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
     padding: 0.1rem 0.5rem;
     border-radius: 12px;
     font-size: 0.75rem;
@@ -510,10 +461,11 @@
 }
 
 .equipment-card {
-    background: white;
+    background: var(--od-card-bg);
     border-radius: 12px;
     overflow: hidden;
-    border: 2px solid #e9ecef;
+    border: 1px solid var(--od-card-border);
+    box-shadow: var(--od-card-shadow);
     transition: all 0.3s ease;
 }
 
@@ -525,7 +477,7 @@
 .equipment-image {
     position: relative;
     height: 180px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--od-brand-gradient);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -545,8 +497,8 @@
     border-radius: 20px;
     font-size: 0.75rem;
     font-weight: 600;
-    background: white;
-    color: #212529;
+    background: var(--od-card-bg);
+    color: var(--bs-emphasis-color);
 }
 
 .equipment-info {
@@ -564,7 +516,7 @@
     flex-direction: column;
     gap: 0.25rem;
     font-size: 0.85rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     margin: 0.75rem 0;
 }
 
@@ -572,7 +524,7 @@
     font-size: 0.85rem;
     margin: 0.5rem 0;
     padding: 0.5rem;
-    background: #f8f9fa;
+    background: var(--bs-tertiary-bg);
     border-radius: 6px;
 }
 
@@ -594,19 +546,20 @@
 }
 
 .achievement {
-    background: white;
+    background: var(--od-card-bg);
     border-radius: 12px;
     padding: 1.5rem;
     text-align: center;
-    border: 2px solid #e9ecef;
+    border: 1px solid var(--od-card-border);
+    box-shadow: var(--od-card-shadow);
     opacity: 0.5;
     transition: all 0.3s ease;
 }
 
 .achievement.unlocked {
     opacity: 1;
-    border-color: #ffc107;
-    background: linear-gradient(135deg, #fff8e1 0%, #fffde7 100%);
+    border-color: var(--bs-warning-border-subtle);
+    background: var(--bs-warning-bg-subtle);
 }
 
 .achievement-icon {
@@ -621,14 +574,14 @@
 
 .achievement-desc {
     font-size: 0.85rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     margin-bottom: 0.5rem;
 }
 
 .achievement-progress {
     font-size: 0.9rem;
     font-weight: 600;
-    color: #0d6efd;
+    color: var(--bs-link-color);
 }
 
 @media (max-width: 768px) {
@@ -655,48 +608,27 @@
             <h1>👋 Hello, {{ user.name.split()[0] }}</h1>
             <p class="text-muted">{{ greeting_time }} • {{ current_date_pretty }}</p>
         </div>
-        <div class="header-actions">
-            <div class="notification-bell" title="Notifications">
-                <i class="fas fa-bell"></i>
-                {% if notification_count > 0 %}
-                <span class="badge">{{ notification_count }}</span>
-                {% endif %}
-            </div>
-        </div>
     </div>
 
-    <!-- Critical Alerts Banner -->
-    {% if critical_alerts %}
-    <div class="alert-banner alert-danger">
-        <div class="alert-icon">⚠️</div>
-        <div class="alert-content">
-            <h5>ACTION REQUIRED</h5>
-            <ul class="alert-list">
-                {% for alert in critical_alerts[:3] %}
-                <li>
-                    {{ alert.icon }} {{ alert.message }}
-                    <a href="{{ alert.link }}" class="alert-action">{{ alert.action_text }} →</a>
-                </li>
-                {% endfor %}
-                {% if critical_alerts|length > 3 %}
-                <li class="text-muted">... and {{ critical_alerts|length - 3 }} more</li>
-                {% endif %}
-            </ul>
-        </div>
-        <button class="alert-dismiss" onclick="this.parentElement.style.display='none'">×</button>
-    </div>
-    {% endif %}
+    <!-- Action Required alerts live in the global navbar bell (top bar) -->
 
     <!-- Quick Actions Hero -->
     <div class="quick-actions-hero">
         <h3>🎯 Quick Actions</h3>
         <div class="action-grid">
-            <a href="{{ url_for('compliance.new_incident') }}" class="action-card primary">
-                <div class="action-icon">🎫</div>
-                <div class="action-label">Report<br>Incident</div>
+            <a href="#" class="action-card primary coming-soon"
+                onclick="event.preventDefault();" title="Coming soon — requests are not available yet">
+                <div class="action-icon">🙋</div>
+                <div class="action-label">Create a<br>Request</div>
+                <div class="action-soon">Soon</div>
             </a>
 
-            <a href="{{ url_for('changes.new_change') }}" class="action-card secondary">
+            <a href="{{ url_for('compliance.new_incident') }}" class="action-card secondary">
+                <div class="action-icon">🎫</div>
+                <div class="action-label">Report Security<br>Incident</div>
+            </a>
+
+            <a href="{{ url_for('changes.new_change') }}" class="action-card success">
                 <div class="action-icon">🔄</div>
                 <div class="action-label">Request<br>Change</div>
             </a>
@@ -704,8 +636,8 @@
             <a href="#tareas" class="action-card">
                 <div class="action-icon">📋</div>
                 <div class="action-label">My<br>Tasks</div>
-                {% if pending_tasks > 0 %}
-                <div class="action-counter">{{ pending_tasks }}</div>
+                {% if total_tasks > 0 %}
+                <div class="action-counter">{{ total_tasks }}</div>
                 {% endif %}
             </a>
 
@@ -715,11 +647,6 @@
                 {% if courses_pending > 0 %}
                 <div class="action-counter warning">{{ courses_pending }}</div>
                 {% endif %}
-            </a>
-
-            <a href="#recursos" class="action-card">
-                <div class="action-icon">💼</div>
-                <div class="action-label">My<br>Resources</div>
             </a>
         </div>
     </div>
@@ -769,15 +696,6 @@
                 {% endif %}
             </div>
 
-            <!-- Health Score -->
-            <div class="stat-card">
-                <div class="stat-icon bg-gradient">✨</div>
-                <div class="stat-value">{{ personal_health_score }}%</div>
-                <div class="stat-label">Your Compliance Score</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: {{ personal_health_score }}%"></div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -789,7 +707,7 @@
 
         <div class="timeline-list">
             {% if total_tasks > 0 %}
-                {% for task in prioritized_tasks[:5] %}
+                {% for task in prioritized_tasks %}
                 <div class="timeline-item priority-{{ task.priority }}">
                     <div class="timeline-dot"></div>
                     <div class="timeline-content">
@@ -843,6 +761,13 @@
                     <span class="tab-icon">🌐</span>
                     Services
                     <span class="tab-count">{{ my_services_count }}</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-subscriptions">
+                    <span class="tab-icon">📦</span>
+                    Subscriptions
+                    <span class="tab-count">{{ my_subscriptions_count }}</span>
                 </a>
             </li>
             <li class="nav-item">
@@ -1007,6 +932,41 @@
                         <div class="empty-state">
                             <div class="empty-icon">🌐</div>
                             <h4>No services assigned</h4>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tab: Subscriptions -->
+            <div class="tab-pane fade" id="tab-subscriptions">
+                <div class="row">
+                    {% for sub in my_subscriptions %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ sub.name }}</h5>
+                                <p class="card-text text-muted">{{ sub.description[:100] if sub.description else 'No description' }}</p>
+                                <div class="equipment-meta mb-2">
+                                    <span>🔄 Renews {{ sub.renewal_date.strftime('%d/%m/%Y') if sub.renewal_date else 'N/A' }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-info">{{ sub.subscription_type }}</span>
+                                    <a href="{{ url_for('subscriptions.subscription_detail', id=sub.id) }}" class="btn btn-sm btn-primary">
+                                        View details →
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    {% if my_subscriptions_count == 0 %}
+                    <div class="col-12">
+                        <div class="empty-state">
+                            <div class="empty-icon">📦</div>
+                            <h4>No subscriptions assigned</h4>
+                            <p>You don't have access to any subscription currently</p>
                         </div>
                     </div>
                     {% endif %}
