@@ -86,6 +86,21 @@ def test_effective_cost_falls_back_to_current(init_database):
     assert currency == "EUR"
 
 
+def test_effective_cost_same_day_uses_last_change(init_database):
+    """Multiple seat changes on the same day: the last one recorded wins."""
+    db = init_database
+    sub = _make_sub(cost=0.0, pricing_model="per_user", cost_per_user=5.0)
+    same_day = today() - relativedelta(days=10)
+    # Three changes the same day: 3 seats -> 7 seats -> 4 seats (final)
+    for seats in (3, 7, 4):
+        db.session.add(CostHistory(subscription_id=sub.id, cost=0.0, currency="EUR",
+                                   pricing_model="per_user", cost_per_user=5.0, user_count=seats,
+                                   changed_date=same_day, reason="user_added"))
+        db.session.commit()  # commit each so ids increment in order
+    amount, _, _ = subscription_effective_cost_at(sub, today())
+    assert amount == 20.0  # 5.0 * 4 (the last change that day)
+
+
 def test_effective_cost_per_user_uses_seat_count(init_database):
     db = init_database
     sub = _make_sub(cost=0.0, pricing_model="per_user", cost_per_user=5.0)

@@ -196,8 +196,12 @@ def subscription_effective_cost_at(subscription, on_date):
     date (capturing price and seat changes); falls back to the subscription's
     current cost if no history precedes the date.
     """
+    # Pick the most recent entry effective on/before the date. changed_date has
+    # day granularity, so several changes can share a day (you may add/remove
+    # many users the same day); break ties by id so the LAST change recorded
+    # that day wins — the state that stood at the billing date.
     chosen = None
-    for h in sorted(subscription.cost_history, key=lambda x: x.changed_date):
+    for h in sorted(subscription.cost_history, key=lambda x: (x.changed_date, x.id or 0)):
         if h.changed_date <= on_date:
             chosen = h
         else:
