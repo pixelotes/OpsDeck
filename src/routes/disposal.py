@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from datetime import datetime
-from ..models import db, Asset, Peripheral, DisposalRecord, DisposalHistory
+from ..models import db, Asset, Peripheral, DisposalRecord, DisposalHistory, Supplier
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
 
@@ -45,7 +45,7 @@ def record_disposal():
         record = DisposalRecord(
             disposal_date=datetime.strptime(request.form['disposal_date'], '%Y-%m-%d').date(),
             disposal_method=request.form['disposal_method'],
-            disposal_partner=request.form.get('disposal_partner'),
+            disposal_partner_id=request.form.get('disposal_partner_id') or None,
             notes=request.form.get('notes')
         )
         
@@ -72,7 +72,8 @@ def record_disposal():
         else:
             return redirect(url_for('peripherals.peripherals'))
 
-    return render_template('disposal/form.html', item=item)
+    suppliers = Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all()
+    return render_template('disposal/form.html', item=item, suppliers=suppliers)
 
 @disposal_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -90,7 +91,8 @@ def edit_disposal(id):
 
         if not reason:
             flash('A reason for the change is required.', 'danger')
-            return render_template('disposal/edit_form.html', record=record, item=item)
+            return render_template('disposal/edit_form.html', record=record, item=item,
+                               suppliers=Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all())
 
         changes = []
         
@@ -104,9 +106,13 @@ def edit_disposal(id):
             changes.append(('Method', record.disposal_method, request.form['disposal_method']))
             record.disposal_method = request.form['disposal_method']
 
-        if record.disposal_partner != request.form.get('disposal_partner'):
-            changes.append(('Partner', record.disposal_partner, request.form.get('disposal_partner')))
-            record.disposal_partner = request.form.get('disposal_partner')
+        new_partner_id = request.form.get('disposal_partner_id') or None
+        new_partner_id = int(new_partner_id) if new_partner_id else None
+        if record.disposal_partner_id != new_partner_id:
+            old_name = record.disposal_partner.name if record.disposal_partner else None
+            new_supplier = db.session.get(Supplier, new_partner_id) if new_partner_id else None
+            changes.append(('Partner', old_name, new_supplier.name if new_supplier else None))
+            record.disposal_partner_id = new_partner_id
             
         if record.notes != request.form.get('notes'):
             changes.append(('Notes', record.notes, request.form.get('notes')))

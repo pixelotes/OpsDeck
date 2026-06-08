@@ -476,7 +476,7 @@ def asset_history(id):
         rec = asset.disposal_record
         desc = f'Method: {rec.disposal_method}'
         if rec.disposal_partner:
-            desc += f' — Partner: {rec.disposal_partner}'
+            desc += f' — Partner: {rec.disposal_partner.name}'
         if rec.notes:
             desc += f' — {rec.notes}'
         timeline_events.append({

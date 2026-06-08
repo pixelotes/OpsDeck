@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **My Dashboard "Your Pending Tasks"** now lists only items assigned to you; the notification bell and the My Tasks counter likewise show only assigned items (incidents, changes, requests) — never tickets you opened
 - Grouped the three ticket types (Changes, Requests, Incidents) together in the sidebar
 - Cache static assets aggressively with mtime-based cache busting, and relaxed API rate limits
+- Disposal records now link their disposal partner to a Supplier record (previously free text), shown as a link on disposal/asset/peripheral detail. Migration backfills the link by matching the existing text to a supplier name; unmatched values are not preserved
 
 ### Fixed
 - Evidence download links on change and request detail pages (used the filename instead of the attachment id, causing a routing error)

@@ -452,7 +452,10 @@ def seed_data(app=None):
         erasure_log = MaintenanceLog(event_type="Data Erasure", description="NIST 800-88 3-pass wipe performed.", status="Completed", asset=assets[5], assigned_to=users[0])
         db.session.add(erasure_log)
 
-        disposal = DisposalRecord(disposal_method="Recycled", disposal_partner="eWaste Inc.", asset=assets[5])
+        ewaste_supplier = Supplier(name="eWaste Inc.", email="contact@ewasteinc.com", compliance_status="Compliant")
+        db.session.add(ewaste_supplier)
+        db.session.flush()
+        disposal = DisposalRecord(disposal_method="Recycled", disposal_partner=ewaste_supplier, asset=assets[5])
         db.session.add(disposal)
 
         # More Maintenances for Asset 0

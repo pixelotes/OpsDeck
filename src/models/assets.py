@@ -515,8 +515,10 @@ class DisposalRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     disposal_date = db.Column(db.Date, nullable=False, default=lambda: today())
     disposal_method = db.Column(db.String(100), nullable=False) # e.g., Recycled, Destroyed, Sold
-    disposal_partner = db.Column(db.String(255))
+    disposal_partner_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=True, index=True)
     notes = db.Column(db.Text)
+
+    disposal_partner = db.relationship('Supplier', backref='disposal_records')
 
     # Can only be linked to one item
     asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), unique=True)
