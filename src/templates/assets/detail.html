@@ -30,7 +30,7 @@
             <i class="fas fa-sign-out-alt"></i> Check Out
         </a>
         {% endif %}
-        <div class="btn-group">
+        <div class="btn-group d-inline">
             <a href="{{ url_for('assets.edit_asset', id=asset.id) }}" class="btn btn-outline-primary">
                 <i class="fas fa-edit"></i> Edit
             </a>
@@ -38,7 +38,7 @@
                 data-bs-toggle="dropdown" aria-expanded="false">
                 <span class="visually-hidden">Toggle Dropdown</span>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end">
+            <ul class="dropdown-menu">
                 <li><a class="dropdown-item"
                         href="{{ url_for('maintenance.new_log', asset_id=asset.id, event_type='Data Erasure') }}">Log
                         Data Erasure</a></li>
