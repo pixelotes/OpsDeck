@@ -479,7 +479,7 @@ def organizational_health():
     overdue_logs = MaintenanceLog.query.options(
         joinedload(MaintenanceLog.asset)
     ).filter(
-        MaintenanceLog.status == 'Pending',
+        MaintenanceLog.status.in_(['Open', 'In Progress']),
         MaintenanceLog.event_date < today()
     ).limit(5).all()
     for log in overdue_logs:
@@ -756,6 +756,73 @@ def organizational_health():
     )
 
 
+def get_action_required_alerts(user):
+    """Build the 'Action Required' alert list for a user.
+
+    Shared by the global navbar bell (via context processor) and the personal
+    dashboard. Risks are intentionally excluded: they follow a periodic (annual)
+    review cadence rather than being immediate-action items.
+    """
+    from ..models.policy import PolicyVersion
+    from ..models.training import CourseAssignment
+
+    alerts = []
+    if not user:
+        return alerts
+
+    current_date = today()
+
+    # Overdue policy acknowledgements (Active versions the user must acknowledge)
+    pending_policies = PolicyVersion.query.filter(
+        PolicyVersion.users_to_acknowledge.contains(user),
+        PolicyVersion.status == 'Active'
+    ).all()
+    for policy in pending_policies:
+        deadline = getattr(policy, 'acknowledgement_deadline', None)
+        if deadline and (deadline - current_date).days <= 0:
+            alerts.append({
+                'icon': '📋',
+                'message': f'Policy "{policy.policy.title}" requires urgent approval',
+                'link': url_for('policies.acknowledge_version', id=policy.id),
+                'action_text': 'Approve now'
+            })
+
+    # Courses due within the next 3 days (and not yet completed)
+    for ca in CourseAssignment.query.filter_by(user_id=user.id).all():
+        if ca.completion is None and ca.due_date:
+            days_left = (ca.due_date - current_date).days
+            if 0 <= days_left <= 3:
+                alerts.append({
+                    'icon': '📚',
+                    'message': f'Course "{ca.course.title}" due in {days_left} day(s)',
+                    'link': url_for('training.course_detail', id=ca.course_id),
+                    'action_text': 'Continue course'
+                })
+
+    # Overdue maintenance on the user's assets (single grouped query, no N+1)
+    my_assets = Asset.query.filter_by(user_id=user.id, is_archived=False).all()
+    if my_assets:
+        asset_by_id = {a.id: a for a in my_assets}
+        overdue_logs = MaintenanceLog.query.filter(
+            MaintenanceLog.asset_id.in_(list(asset_by_id.keys())),
+            MaintenanceLog.status.in_(['Open', 'In Progress']),
+            MaintenanceLog.event_date < current_date
+        ).all()
+        counts = {}
+        for log in overdue_logs:
+            counts[log.asset_id] = counts.get(log.asset_id, 0) + 1
+        for asset_id, count in counts.items():
+            asset = asset_by_id[asset_id]
+            alerts.append({
+                'icon': '🔧',
+                'message': f'{asset.name} has {count} overdue maintenance(s)',
+                'link': url_for('assets.asset_detail', id=asset.id),
+                'action_text': 'View details'
+            })
+
+    return alerts
+
+
 @main_bp.route('/my-dashboard')
 @login_required
 def my_dashboard():
@@ -789,7 +856,7 @@ def my_dashboard():
     for asset in my_assets:
         overdue_logs = MaintenanceLog.query.filter(
             MaintenanceLog.asset_id == asset.id,
-            MaintenanceLog.status == 'Pending',
+            MaintenanceLog.status.in_(['Open', 'In Progress']),
             MaintenanceLog.event_date < current_date
         ).all()
         if overdue_logs:
@@ -809,13 +876,13 @@ def my_dashboard():
 
     # ----- MY COURSES -----
     my_course_assignments = CourseAssignment.query.filter_by(user_id=user_id).all()
-    courses_completed = sum(1 for ca in my_course_assignments if ca.status == 'completed')
+    courses_completed = sum(1 for ca in my_course_assignments if ca.completion is not None)
     courses_total = len(my_course_assignments)
     course_completion_pct = int((courses_completed / courses_total * 100) if courses_total > 0 else 0)
 
     overdue_courses = [
         ca for ca in my_course_assignments
-        if ca.status != 'completed' and ca.due_date and ca.due_date < current_date
+        if ca.completion is None and ca.due_date and ca.due_date < current_date
     ]
 
     # ----- MY RISKS -----
@@ -831,10 +898,14 @@ def my_dashboard():
     ).all()
     my_services_count = len(my_services)
 
+    # ----- MY SUBSCRIPTIONS (subscriptions the user has access to) -----
+    my_subscriptions = [s for s in user.access_subscriptions if not s.is_archived]
+    my_subscriptions_count = len(my_subscriptions)
+
     # ----- PENDING POLICIES -----
     pending_policies = PolicyVersion.query.filter(
         PolicyVersion.users_to_acknowledge.contains(user),
-        PolicyVersion.status == 'published'
+        PolicyVersion.status == 'Active'
     ).all()
 
     # ----- PENDING CREDENTIALS (those expiring soon shared with me) -----
@@ -872,50 +943,8 @@ def my_dashboard():
     personal_health_score = max(0, personal_health_score)
 
     # ----- CRITICAL ALERTS -----
-    critical_alerts = []
-
-    # Policies expiring current_date or overdue
-    for policy in pending_policies:
-        if policy.acknowledgement_deadline:
-            days_left = (policy.acknowledgement_deadline - current_date).days
-            if days_left <= 0:
-                critical_alerts.append({
-                    'icon': '📋',
-                    'message': f'Policy "{policy.policy.name}" requires urgent approval',
-                    'link': url_for('policies.acknowledge', id=policy.id),
-                    'action_text': 'Approve now'
-                })
-
-    # Courses expiring soon
-    for ca in my_course_assignments:
-        if ca.status != 'completed' and ca.due_date:
-            days_left = (ca.due_date - current_date).days
-            if 0 <= days_left <= 3:
-                critical_alerts.append({
-                    'icon': '📚',
-                    'message': f'Course "{ca.course.title}" due in {days_left} day(s)',
-                    'link': url_for('training.course_detail', id=ca.course_id),
-                    'action_text': 'Continue course'
-                })
-
-    # Maintenance issues
-    for issue in maintenance_issues:
-        critical_alerts.append({
-            'icon': '🔧',
-            'message': f'{issue["asset"].name} has {issue["count"]} overdue maintenance(s)',
-            'link': url_for('assets.asset_detail', id=issue['asset'].id),
-            'action_text': 'View details'
-        })
-
-    # Critical risks
-    for risk in my_risks:
-        if risk.residual_likelihood >= 4 and risk.residual_impact >= 4:
-            critical_alerts.append({
-                'icon': '⚠️',
-                'message': f'Critical risk: {risk.risk_description[:50]}...',
-                'link': url_for('risk.detail', id=risk.id),
-                'action_text': 'Review'
-            })
+    # Same data as the global navbar bell — see get_action_required_alerts().
+    critical_alerts = get_action_required_alerts(user)
 
     # ----- PRIORITIZED TASKS -----
     prioritized_tasks = []
@@ -923,8 +952,9 @@ def my_dashboard():
     # 1. Pending policies (highest priority)
     for policy in pending_policies:
         days_left = 999
-        if policy.acknowledgement_deadline:
-            days_left = (policy.acknowledgement_deadline - current_date).days
+        deadline = getattr(policy, 'acknowledgement_deadline', None)
+        if deadline:
+            days_left = (deadline - current_date).days
 
         urgency_class = 'urgent' if days_left <= 1 else ('warning' if days_left <= 7 else 'normal')
         urgency_icon = '🔴' if days_left == 0 else ('🟡' if days_left <= 7 else '🟢')
@@ -936,16 +966,16 @@ def my_dashboard():
             'urgency_icon': urgency_icon,
             'urgency_label': urgency_label,
             'due_text': 'Due today' if days_left == 0 else (f'Due in {days_left} days' if days_left < 999 else 'No deadline'),
-            'title': f'Approve Policy: {policy.policy.name}',
-            'description': policy.summary or 'Requires your approval',
-            'action_url': url_for('policies.acknowledge', id=policy.id),
+            'title': f'Approve Policy: {policy.policy.title}',
+            'description': policy.policy.description or 'Requires your approval',
+            'action_url': url_for('policies.acknowledge_version', id=policy.id),
             'action_text': 'Review & Approve',
             'can_dismiss': False
         })
 
     # 2. Overdue/expiring courses
     for ca in my_course_assignments:
-        if ca.status != 'completed' and ca.due_date:
+        if ca.completion is None and ca.due_date:
             days_left = (ca.due_date - current_date).days
             if days_left <= 30:  # Only show if due within 30 days
                 urgency_class = 'urgent' if days_left < 0 else ('warning' if days_left <= 7 else 'normal')
@@ -959,7 +989,7 @@ def my_dashboard():
                     'urgency_label': urgency_label,
                     'due_text': f'Overdue by {abs(days_left)} days' if days_left < 0 else f'Due in {days_left} days',
                     'title': f'Complete Course: {ca.course.title}',
-                    'description': f'Current progress: {ca.progress or 0}%',
+                    'description': f'Not completed yet · assigned {ca.assigned_date}',
                     'action_url': url_for('training.course_detail', id=ca.course_id),
                     'action_text': 'Continue course',
                     'can_dismiss': True
@@ -997,6 +1027,7 @@ def my_dashboard():
     return render_template(
         'my_dashboard.html',
         user=user,
+        timedelta=timedelta,
         greeting_time=greeting_time,
         current_date=current_date,
         current_date_pretty=current_date.strftime('%d de %B, %Y'),
@@ -1013,6 +1044,7 @@ def my_dashboard():
         my_risks_count=my_risks_count,
         critical_risks=critical_risks,
         my_services_count=my_services_count,
+        my_subscriptions_count=my_subscriptions_count,
         personal_health_score=personal_health_score,
 
         # Alerts & Tasks
@@ -1027,11 +1059,12 @@ def my_dashboard():
         my_peripherals=my_peripherals,
         my_licenses=my_licenses,
         my_services=my_services,
+        my_subscriptions=my_subscriptions,
         my_risks=my_risks,
         maintenance_issues=maintenance_issues,
 
         # Counts for quick actions
-        courses_pending=len([ca for ca in my_course_assignments if ca.status != 'completed']),
+        courses_pending=len([ca for ca in my_course_assignments if ca.completion is None]),
 
         # Achievements
         incident_free_days=incident_free_days

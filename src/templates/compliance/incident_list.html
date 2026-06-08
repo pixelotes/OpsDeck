@@ -21,7 +21,7 @@
         <button class="btn btn-outline-success" onclick="exportTableToCSV('incidents-table', 'incidents.csv')">
             <i class="fas fa-file-csv"></i> Export to CSV
         </button>
-        {% if can_write('compliance') %}
+        {% if can_write('operations') %}
         <a href="{{ url_for('compliance.new_incident') }}" class="btn btn-primary">
             <i class="fas fa-plus"></i> Log New Incident
         </a>
@@ -65,7 +65,7 @@
                     <td>
                         <a href="{{ url_for('compliance.incident_detail', id=incident.id) }}"
                             class="btn btn-sm btn-outline-primary me-1" title="View"><i class="fas fa-eye"></i></a>
-                        {% if can_write('compliance') %}
+                        {% if can_write('operations') %}
                         <a href="{{ url_for('compliance.edit_incident', id=incident.id) }}"
                             class="btn btn-sm btn-outline-primary" title="Edit"><i class="fas fa-edit"></i></a>
                         {% endif %}
@@ -78,7 +78,7 @@
         {% set icon = '⚠️' %}
         {% set title = 'No Security Incidents Logged' %}
         {% set message = 'Track and manage security incidents for compliance and reporting.' %}
-        {% set action_url = url_for('compliance.new_incident') if can_write('compliance') else none %}
+        {% set action_url = url_for('compliance.new_incident') if can_write('operations') else none %}
         {% set action_text = 'Log First Incident' %}
         {% include 'components/empty_state.html' %}
         {% endif %}

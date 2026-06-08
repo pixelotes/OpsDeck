@@ -764,16 +764,16 @@ def complete_inventory(id):
     return redirect(url_for('compliance.list_inventory'))
 
 @compliance_bp.route('/bcdr')
-@requires_permission('compliance')
+@requires_permission('operations')
 def list_bcdr_plans():
     """Displays a list of all BCDR plans."""
     plans = BCDRPlan.query.order_by(BCDRPlan.name).all()
     return render_template('compliance/bcdr_list.html', plans=plans)
 
 @compliance_bp.route('/bcdr/new', methods=['GET', 'POST'])
-@requires_permission('compliance')
+@requires_permission('operations')
 def new_bcdr_plan():
-    if not has_write_permission('compliance'):
+    if not has_write_permission('operations'):
         if request.method == 'POST':
             flash('You do not have permission to create BCDR plans.', 'danger')
             return redirect(url_for('compliance.list_bcdr_plans'))
@@ -798,9 +798,9 @@ def new_bcdr_plan():
     return render_template('compliance/bcdr_form.html', subscriptions=subscriptions, assets=assets)
 
 @compliance_bp.route('/bcdr/<int:id>/edit', methods=['GET', 'POST'])
-@requires_permission('compliance')
+@requires_permission('operations')
 def edit_bcdr_plan(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission('operations'):
         if request.method == 'POST':
             flash('You do not have permission to edit BCDR plans.', 'danger')
             return redirect(url_for('compliance.bcdr_detail', id=id))
@@ -824,22 +824,22 @@ def edit_bcdr_plan(id):
     return render_template('compliance/bcdr_form.html', plan=plan, subscriptions=subscriptions, assets=assets)
 
 @compliance_bp.route('/bcdr/<int:id>')
-@requires_permission('compliance')
+@requires_permission('operations')
 def bcdr_detail(id):
     plan = db.get_or_404(BCDRPlan, id)
     return render_template('compliance/bcdr_detail.html', plan=plan)
 
 @compliance_bp.route('/bcdr/test/<int:test_id>')
-@requires_permission('compliance')
+@requires_permission('operations')
 def bcdr_test_log_detail(test_id):
     """Muestra los detalles de un único BCDR test log."""
     test_log = db.get_or_404(BCDRTestLog, test_id)
     return render_template('compliance/bcdr_test_log_detail.html', test_log=test_log)
 
 @compliance_bp.route('/bcdr/<int:plan_id>/log_test', methods=['GET', 'POST'])
-@requires_permission('compliance')
+@requires_permission('operations')
 def log_bcdr_test(plan_id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission('operations'):
         if request.method == 'POST':
             flash('You do not have permission to log BCDR tests.', 'danger')
             return redirect(url_for('compliance.bcdr_detail', id=plan_id))
@@ -887,10 +887,10 @@ def log_bcdr_test(plan_id):
     return render_template('compliance/bcdr_test_log_form.html', plan=plan, today_date=now().strftime('%Y-%m-%d'), users=users)
 
 @compliance_bp.route('/bcdr/test/<int:test_id>/edit', methods=['GET', 'POST'])
-@requires_permission('compliance')
+@requires_permission('operations')
 def edit_bcdr_test(test_id):
     test_log = db.get_or_404(BCDRTestLog, test_id)
-    if not has_write_permission('compliance'):
+    if not has_write_permission('operations'):
         if request.method == 'POST':
             flash('You do not have permission to edit BCDR test logs.', 'danger')
             return redirect(url_for('compliance.bcdr_test_log_detail', test_id=test_id))
@@ -945,7 +945,7 @@ def edit_bcdr_test(test_id):
     return render_template('compliance/bcdr_test_log_form.html', plan=plan, test_log=test_log, users=users, today_date=test_log.test_date.strftime('%Y-%m-%d'))
 
 @compliance_bp.route('/incidents')
-@requires_permission('compliance')
+@requires_permission('operations')
 def list_incidents():
     query = SecurityIncident.query
     status = request.args.get('status')
@@ -955,9 +955,9 @@ def list_incidents():
     return render_template('compliance/incident_list.html', incidents=incidents)
 
 @compliance_bp.route('/incidents/new', methods=['GET', 'POST'])
-@requires_permission('compliance')
+@requires_permission('operations')
 def new_incident():
-    if not has_write_permission('compliance'):
+    if not has_write_permission('operations'):
         if request.method == 'POST':
             flash('You do not have permission to log incidents.', 'danger')
             return redirect(url_for('compliance.list_incidents'))
@@ -998,15 +998,15 @@ def new_incident():
     return render_template('compliance/incident_form.html', users=users, assets=assets, subscriptions=subscriptions, suppliers=suppliers)
 
 @compliance_bp.route('/incidents/<int:id>')
-@requires_permission('compliance')
+@requires_permission('operations')
 def incident_detail(id):
     incident = db.get_or_404(SecurityIncident, id)
     return render_template('compliance/incident_detail.html', incident=incident)
 
 @compliance_bp.route('/incidents/<int:id>/edit', methods=['GET', 'POST'])
-@requires_permission('compliance')
+@requires_permission('operations')
 def edit_incident(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission('operations'):
         if request.method == 'POST':
             flash('You do not have permission to edit incidents.', 'danger')
             return redirect(url_for('compliance.incident_detail', id=id))
@@ -1050,9 +1050,9 @@ def edit_incident(id):
     return render_template('compliance/incident_form.html', incident=incident, users=users, assets=assets, subscriptions=subscriptions, suppliers=suppliers)
 
 @compliance_bp.route('/incidents/<int:id>/review', methods=['GET', 'POST'])
-@requires_permission('compliance')
+@requires_permission('operations')
 def incident_review(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission('operations'):
         if request.method == 'POST':
             flash('You do not have permission to edit incident reviews.', 'danger')
             return redirect(url_for('compliance.incident_detail', id=id))
@@ -1087,9 +1087,9 @@ def incident_review(id):
     return render_template('compliance/pir_form.html', incident=incident, review=review)
 
 @compliance_bp.route('/incidents/review/<int:review_id>/toggle-lock', methods=['POST'])
-@requires_permission('compliance')
+@requires_permission('operations')
 def toggle_pir_lock(review_id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission('operations'):
         return jsonify({'success': False, 'message': 'You do not have permission to lock incident reviews.'}), 403
     """Toggle lock state of a Post-Incident Review."""
     review = db.get_or_404(PostIncidentReview, review_id)
@@ -1111,9 +1111,9 @@ def toggle_pir_lock(review_id):
     return redirect(url_for('compliance.incident_review', id=review.incident_id))
 
 @compliance_bp.route('/incidents/review/<int:review_id>/timeline', methods=['POST'])
-@requires_permission('compliance')
+@requires_permission('operations')
 def add_timeline_event(review_id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission('operations'):
         return jsonify({'error': 'You do not have permission to modify timeline events.'}), 403
     review = db.get_or_404(PostIncidentReview, review_id)
     
@@ -1142,9 +1142,9 @@ def add_timeline_event(review_id):
     return jsonify({'id': event.id, 'time': event.event_time.strftime('%Y-%m-%dT%H:%M'), 'description': event.description}), 201
 
 @compliance_bp.route('/incidents/review/timeline/<int:event_id>', methods=['DELETE'])
-@requires_permission('compliance')
+@requires_permission('operations')
 def delete_timeline_event(event_id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission('operations'):
         return jsonify({'error': 'You do not have permission to delete timeline events.'}), 403
     event = db.get_or_404(IncidentTimelineEvent, event_id)
     db.session.delete(event)
@@ -1152,9 +1152,9 @@ def delete_timeline_event(event_id):
     return jsonify({'success': True})
 
 @compliance_bp.route('/incidents/review/<int:review_id>/timeline/reorder', methods=['POST'])
-@requires_permission('compliance')
+@requires_permission('operations')
 def reorder_timeline_events(review_id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission('operations'):
         return jsonify({'error': 'You do not have permission to reorder timeline events.'}), 403
     ordered_ids = request.json.get('ordered_ids', [])
     for index, event_id in enumerate(ordered_ids):
@@ -1165,7 +1165,7 @@ def reorder_timeline_events(review_id):
     return jsonify({'success': True})
 
 @compliance_bp.route('/incidents/<int:id>/export_pdf')
-@requires_permission('compliance')
+@requires_permission('operations')
 def export_pir_pdf(id):
     """Export Post-Incident Review as professional PDF."""
     from weasyprint import HTML
@@ -1221,7 +1221,7 @@ def upload_evidence():
     return redirect(request.referrer or url_for('compliance.dashboard'))
 
 @compliance_bp.route('/data-erasures')
-@requires_permission('compliance')
+@requires_permission('operations')
 def list_erasures():
     """Displays a filtered list of all data erasure maintenance events for audit purposes."""
     erasure_logs = MaintenanceLog.query.filter_by(event_type='Data Erasure').order_by(MaintenanceLog.event_date.desc()).all()

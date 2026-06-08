@@ -151,6 +151,78 @@
         .navbar.navbar-dark {
             background-color: var(--od-navbar-bg) !important;
         }
+
+        /* Action Required bell (navbar) */
+        .notif-bell-wrap {
+            position: relative;
+            cursor: pointer;
+        }
+        .nav-notif-dot {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 7px;
+            height: 7px;
+            background: #dc3545;
+            border-radius: 50%;
+            border: 1.5px solid var(--od-navbar-bg);
+            box-sizing: content-box;
+        }
+        .nav-notif-panel {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.5rem;
+            width: 340px;
+            max-width: 90vw;
+            background: var(--bs-body-bg, #fff);
+            color: var(--bs-body-color, #212529);
+            border: 1px solid var(--bs-border-color, #e0e0e0);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+            padding: 0.25rem 0;
+            display: none;
+            z-index: 2000;
+            cursor: default;
+            text-align: left;
+        }
+        .nav-notif-panel.show { display: block; }
+        .nav-notif-header {
+            font-weight: 700;
+            font-size: 0.9rem;
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--bs-border-color, #eee);
+        }
+        .nav-notif-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .nav-notif-list li {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            padding: 0.7rem 1rem;
+            border-bottom: 1px solid var(--bs-border-color, #f0f0f0);
+        }
+        .nav-notif-list li:last-child { border-bottom: none; }
+        .nav-notif-msg { font-size: 0.85rem; }
+        .nav-notif-action {
+            align-self: flex-start;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--bs-primary, #0d6efd);
+        }
+        .nav-notif-action:hover { text-decoration: underline; }
+        .nav-notif-empty {
+            padding: 1.25rem 1rem;
+            text-align: center;
+            color: var(--bs-secondary-color, #6c757d);
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 
@@ -651,6 +723,35 @@
                 </div>
 
                 <div class="ms-auto d-flex align-items-center">
+                    {# Action Required bell #}
+                    {% if current_user %}
+                    <div class="notif-bell-wrap me-2" id="navNotifBell" title="Action Required"
+                        onclick="toggleNavNotif(event)">
+                        <button class="btn btn-link text-white p-0 position-relative" type="button"
+                            aria-label="Action Required">
+                            <i class="fas fa-bell"></i>
+                            {% if action_alerts_count > 0 %}
+                            <span class="nav-notif-dot" title="{{ action_alerts_count }} action(s) required"></span>
+                            {% endif %}
+                        </button>
+                        <div class="nav-notif-panel" id="navNotifPanel">
+                            <div class="nav-notif-header">Action Required</div>
+                            {% if action_alerts %}
+                            <ul class="nav-notif-list">
+                                {% for alert in action_alerts %}
+                                <li>
+                                    <span class="nav-notif-msg">{{ alert.icon }} {{ alert.message }}</span>
+                                    <a href="{{ alert.link }}" class="nav-notif-action">{{ alert.action_text }} →</a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <div class="nav-notif-empty">🎉 You're all caught up</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <!-- Theme Toggle Button -->
                     <button class="btn btn-link text-white me-2" id="themeToggle" type="button"
                             title="Switch to dark mode" aria-label="Switch to dark mode">
@@ -683,7 +784,7 @@
                             {% endif %}
                             <li>
                                 <a class="dropdown-item py-2" href="{{ url_for('main.my_dashboard') }}">
-                                    <i class="fas fa-user-gauge fa-fw me-2 text-info"></i> My Dashboard
+                                    <i class="fas fa-gauge-high fa-fw me-2 text-info"></i> My Dashboard
                                 </a>
                             </li>
                             <li>
@@ -1035,6 +1136,31 @@
                     }
                 });
             });
+        });
+    </script>
+
+    <script>
+        // Action Required bell dropdown (navbar)
+        function toggleNavNotif(event) {
+            var panel = document.getElementById('navNotifPanel');
+            if (!panel) return;
+            // Clicks inside the panel (e.g. on a link) should not toggle it closed.
+            if (panel.contains(event.target)) return;
+            event.stopPropagation();
+            panel.classList.toggle('show');
+        }
+        document.addEventListener('click', function (event) {
+            var bell = document.getElementById('navNotifBell');
+            var panel = document.getElementById('navNotifPanel');
+            if (panel && bell && !bell.contains(event.target)) {
+                panel.classList.remove('show');
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                var panel = document.getElementById('navNotifPanel');
+                if (panel) panel.classList.remove('show');
+            }
         });
     </script>
     {% block scripts_extra %}{% endblock %}
