@@ -103,22 +103,12 @@ def new_subscription():
         renewal_date = datetime.strptime(request.form['renewal_date'], '%Y-%m-%d').date()
         budget_id = request.form.get('budget_id') or None
 
-        # Validate renewal_date is not too far in the past (prevents performance issues)
-        from datetime import timedelta
+        # Inform when renewal_date is in the past. The next renewal is computed
+        # mathematically (see Subscription.next_renewal_date), so old dates are fine.
         current_date = today()
         days_in_past = (current_date - renewal_date).days if renewal_date < current_date else 0
 
-        if days_in_past > 365:
-            flash('Error: Renewal date cannot be more than 1 year in the past. Please use a more recent date.', 'danger')
-            return render_template('subscriptions/form.html',
-                                    suppliers=Supplier.query.order_by(Supplier.name).all(),
-                                    contacts=Contact.query.order_by(Contact.name).all(),
-                                    payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
-                                    tags=Tag.query.order_by(Tag.name).all(),
-                                    software_items=software_items,
-                                    budgets=Budget.query.order_by(Budget.name).all(),
-                                    users=users)
-        elif days_in_past > 30:
+        if days_in_past > 30:
             flash(f'Warning: Renewal date is {days_in_past} days in the past. The next renewal will be calculated from this date.', 'warning')
 
         # Validate budget validity period if budget is selected
@@ -252,23 +242,12 @@ def edit_subscription(id):
         renewal_date = datetime.strptime(request.form['renewal_date'], '%Y-%m-%d').date()
         budget_id = request.form.get('budget_id') or None
 
-        # Validate renewal_date is not too far in the past (prevents performance issues)
-        from datetime import timedelta
+        # Inform when renewal_date is in the past. The next renewal is computed
+        # mathematically (see Subscription.next_renewal_date), so old dates are fine.
         current_date = today()
         days_in_past = (current_date - renewal_date).days if renewal_date < current_date else 0
 
-        if days_in_past > 365:
-            flash('Error: Renewal date cannot be more than 1 year in the past. Please use a more recent date.', 'danger')
-            return render_template('subscriptions/form.html',
-                                    subscription=subscription,
-                                    suppliers=Supplier.query.order_by(Supplier.name).all(),
-                                    contacts=Contact.query.order_by(Contact.name).all(),
-                                    payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
-                                    tags=Tag.query.order_by(Tag.name).all(),
-                                    software_items=software_items,
-                                    budgets=Budget.query.order_by(Budget.name).all(),
-                                    users=users)
-        elif days_in_past > 30:
+        if days_in_past > 30:
             flash(f'Warning: Renewal date is {days_in_past} days in the past. The next renewal will be calculated from this date.', 'warning')
 
         # Validate budget validity period if budget is selected
