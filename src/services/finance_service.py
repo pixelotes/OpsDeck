@@ -126,3 +126,86 @@ def renewal_occurrences_in_range(subscriptions, start_date, end_date):
                 occurrences.append((next_renewal, subscription))
             next_renewal = subscription.get_renewal_date_after(next_renewal)
     return occurrences
+
+
+def get_renewal_date_before(subscription, current_renewal):
+    """One renewal period BEFORE current_renewal (mirror of get_renewal_date_after)."""
+    from dateutil.relativedelta import relativedelta
+    from datetime import timedelta
+    import calendar
+
+    if subscription.renewal_period_type == 'monthly':
+        prev_base = current_renewal - relativedelta(months=subscription.renewal_period_value)
+        day = prev_base.day
+        if subscription.monthly_renewal_day:
+            if subscription.monthly_renewal_day == 'first':
+                day = 1
+            elif subscription.monthly_renewal_day == 'last':
+                day = calendar.monthrange(prev_base.year, prev_base.month)[1]
+            else:
+                try:
+                    last_day = calendar.monthrange(prev_base.year, prev_base.month)[1]
+                    day = min(int(subscription.monthly_renewal_day), last_day)
+                except (ValueError, TypeError):
+                    pass
+        return prev_base.replace(day=day)
+    elif subscription.renewal_period_type == 'yearly':
+        return current_renewal - relativedelta(years=subscription.renewal_period_value)
+    else:  # custom (days)
+        return current_renewal - timedelta(days=subscription.renewal_period_value)
+
+
+def subscription_occurrences_in_range(subscriptions, start_date, end_date):
+    """Every billing occurrence (charge date) within [start_date, end_date].
+
+    Walks the renewal grid both forward and backward from each subscription's
+    renewal_date anchor, so it works for arbitrary past (and future) windows.
+    The window itself bounds the result; the cost effective on each occurrence
+    is resolved separately (see ``subscription_effective_cost_at``).
+    """
+    occurrences = []
+    for sub in subscriptions:
+        anchor = sub.renewal_date
+        if not anchor:
+            continue
+
+        # Forward from the anchor (inclusive)
+        d = anchor
+        guard = 0
+        while d <= end_date and guard < 5000:
+            if d >= start_date:
+                occurrences.append((d, sub))
+            d = sub.get_renewal_date_after(d)
+            guard += 1
+
+        # Backward from the anchor (exclusive)
+        d = get_renewal_date_before(sub, anchor)
+        guard = 0
+        while d and d >= start_date and guard < 5000:
+            if d <= end_date:
+                occurrences.append((d, sub))
+            d = get_renewal_date_before(sub, d)
+            guard += 1
+    return occurrences
+
+
+def subscription_effective_cost_at(subscription, on_date):
+    """Total cost effective on ``on_date`` as (amount, currency, amount_eur).
+
+    Resolves the cost from the latest CostHistory entry effective on/before the
+    date (capturing price and seat changes); falls back to the subscription's
+    current cost if no history precedes the date.
+    """
+    chosen = None
+    for h in sorted(subscription.cost_history, key=lambda x: x.changed_date):
+        if h.changed_date <= on_date:
+            chosen = h
+        else:
+            break
+    if chosen is not None:
+        amount = chosen.total_cost
+        currency = chosen.currency or 'EUR'
+    else:
+        amount = subscription.current_cost
+        currency = subscription.currency or 'EUR'
+    return amount, currency, amount * get_conversion_rate(currency)

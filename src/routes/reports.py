@@ -1,12 +1,14 @@
 from flask import (
-    Blueprint, render_template, request
+    Blueprint, render_template, request, url_for
 )
 from sqlalchemy import func
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 from ..models import db, Subscription, Asset, Supplier, User, Group, Peripheral, Location, License, Purchase
 from ..models.assets import Brand
-from ..services.finance_service import get_conversion_rate
+from ..services.finance_service import (
+    get_conversion_rate, subscription_occurrences_in_range, subscription_effective_cost_at
+)
 from .main import login_required
 from ..services.permissions_service import requires_permission
 from src.utils.timezone_helper import now, today
@@ -577,25 +579,101 @@ def spend_analysis():
         peripherals_query = peripherals_query.filter(Peripheral.user_id.in_(user_ids_to_filter))
         licenses_query = licenses_query.filter(License.user_id.in_(user_ids_to_filter))
 
-    # --- Execute queries and combine results based on item_type ---
-    results = []
+    # --- Build unified spend rows (everything normalised to EUR) ---
+    def to_eur(amount, currency):
+        return (amount or 0) * get_conversion_rate(currency or 'EUR')
+
+    rows = []
+
+    # One-off purchases (assets, peripherals, standalone licenses)
+    one_off = []
     if item_type in ['assets', 'all']:
-        results.extend(assets_query.all())
+        one_off.extend(assets_query.all())
     if item_type in ['peripherals', 'all']:
-        results.extend(peripherals_query.all())
+        one_off.extend(peripherals_query.all())
     if item_type in ['licenses', 'all']:
-        results.extend(licenses_query.all()) # Add licenses
+        one_off.extend(licenses_query.all())
 
-    # --- Recalculate total_cost including licenses (summing original costs) ---
-    total_cost = sum(item.cost for item in results if item.cost is not None)
+    type_url = {
+        'Asset': 'assets.asset_detail',
+        'Peripheral': 'peripherals.peripheral_detail',
+        'License': 'licenses.detail',
+    }
+    for item in one_off:
+        cls = item.__class__.__name__
+        if cls in ('Asset', 'Peripheral'):
+            detail = item.brand.name if item.brand else 'N/A'
+        elif cls == 'License':
+            detail = item.software.name if item.software else 'N/A'
+        else:
+            detail = 'N/A'
+        rows.append({
+            'kind': cls,
+            'recurring': False,
+            'name': item.name,
+            'url': url_for(type_url[cls], id=item.id),
+            'detail': detail,
+            'user': item.user.name if getattr(item, 'user', None) else 'N/A',
+            'date': item.purchase_date,
+            'currency': item.currency,
+            'amount': item.cost,
+            'amount_eur': to_eur(item.cost, item.currency),
+        })
 
-    # Sort results for display (e.g., by purchase date descending, handle None dates)
-    results.sort(key=lambda x: x.purchase_date if x.purchase_date else date.min, reverse=True)
+    # Subscriptions: actual recurring spend reconstructed per billing occurrence,
+    # valued at the cost that was effective on each charge date (price + seats).
+    # Recurring spend needs a bounded past window: default to the trailing 12
+    # months when no range is given. Brand/Location filters don't apply to
+    # subscriptions, so when either is set subscriptions are excluded.
+    include_subs = item_type in ['subscriptions', 'all'] and not brand_id and not location_id
+    sub_window = None
+    if include_subs:
+        window_end = end_date_obj if end_date else today()
+        window_start = start_date_obj if start_date else (window_end - relativedelta(months=12))
+        sub_window = (window_start, window_end)
+
+        subs_query = Subscription.query.filter(Subscription.is_archived == False)
+        if supplier_id:
+            subs_query = subs_query.filter(Subscription.supplier_id == supplier_id)
+        subscriptions_list = subs_query.all()
+        if user_ids_to_filter:
+            uid_set = set(user_ids_to_filter)
+            subscriptions_list = [s for s in subscriptions_list if uid_set & {u.id for u in s.users}]
+
+        for occ_date, sub in subscription_occurrences_in_range(subscriptions_list, window_start, window_end):
+            amount, currency, amount_eur = subscription_effective_cost_at(sub, occ_date)
+            rows.append({
+                'kind': 'Subscription',
+                'recurring': True,
+                'name': sub.name,
+                'url': url_for('subscriptions.subscription_detail', id=sub.id),
+                'detail': sub.supplier.name if sub.supplier else 'N/A',
+                'user': 'N/A',
+                'date': occ_date,
+                'currency': currency,
+                'amount': amount,
+                'amount_eur': amount_eur,
+            })
+
+    # Newest first
+    rows.sort(key=lambda r: r['date'] if r['date'] else date.min, reverse=True)
+
+    total_cost_eur = sum(r['amount_eur'] for r in rows)
+
+    # Spend by month (EUR) — what was actually paid each month
+    monthly_totals = {}
+    for r in rows:
+        if r['date']:
+            key = r['date'].strftime('%Y-%m')
+            monthly_totals[key] = monthly_totals.get(key, 0) + r['amount_eur']
+    monthly_totals = dict(sorted(monthly_totals.items(), reverse=True))
 
     return render_template(
         'reports/spend_analysis.html',
-        results=results,
-        total_cost=total_cost,
+        rows=rows,
+        total_cost_eur=total_cost_eur,
+        monthly_totals=monthly_totals,
+        sub_window=sub_window,
         suppliers=suppliers,
         users=users,
         groups=groups,

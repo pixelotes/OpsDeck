@@ -14,8 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Suppliers & Contacts API**: read-only `GET /api/v1/suppliers` and `GET /api/v1/contacts` (list and detail)
 - **Changes API reads**: `GET /api/v1/changes` and `GET /api/v1/changes/{id}` (previously POST-only)
 - **Models management screen**: Dedicated Core Inventory screen to list, create, edit, and delete asset models across brands, with menu access below Brands
+- **Subscription spend in the Spend Analysis report**: recurring subscription cost is now reconstructed from billing history — each past billing occurrence is valued at the price and seat count effective on that date (from CostHistory) — and shown alongside one-off purchases, with a "Spend by Month (EUR)" summary. Defaults to the trailing 12 months when no date range is given
 
 ### Changed
+- Subscription seat changes made from the subscription page (add / add-all / remove user) now record a CostHistory entry for per-user plans, so historical spend stays accurate
+- **Spend Analysis** totals are now normalised to EUR (previously summed mixed currencies as if EUR)
 - **My Dashboard "Your Pending Tasks"** now lists only items assigned to you; the notification bell and the My Tasks counter likewise show only assigned items (incidents, changes, requests) — never tickets you opened
 - Grouped the three ticket types (Changes, Requests, Incidents) together in the sidebar
 - Cache static assets aggressively with mtime-based cache busting, and relaxed API rate limits
@@ -26,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status timeline line now runs through the centre of the step circles on change and request detail pages
 - Payment method detail page crashed when an associated subscription had no renewal date
 - Peripheral detail action dropdown ("Log Data Erasure" / "Record Disposal") overflowed off-screen; aligned its markup with the Assets version
+- Spend Analysis CSV export and table sorting were broken by a malformed table `id` attribute
 
 
 ## [0.6.10] - 2026-06-03

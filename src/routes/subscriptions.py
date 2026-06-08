@@ -604,6 +604,8 @@ def add_user_access(id):
             added.append(user.name)
 
     if added:
+        if subscription.pricing_model == 'per_user':
+            log_subscription_cost_change(subscription, reason='user_added')
         db.session.commit()
         flash(f'Added {", ".join(added)} to {subscription.name}.', 'success')
 
@@ -623,6 +625,8 @@ def add_all_users(id):
             added.append(user.name)
 
     if added:
+        if subscription.pricing_model == 'per_user':
+            log_subscription_cost_change(subscription, reason='user_added')
         db.session.commit()
         flash(f'Added {len(added)} users to {subscription.name}.', 'success')
     else:
@@ -639,6 +643,8 @@ def remove_user_access(id, user_id):
 
     if user in subscription.users:
         subscription.users.remove(user)
+        if subscription.pricing_model == 'per_user':
+            log_subscription_cost_change(subscription, reason='user_removed')
         db.session.commit()
         flash(f'User {user.name} removed from {subscription.name}.', 'warning')
 

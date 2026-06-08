@@ -31,6 +31,7 @@
                         <option value="assets" {% if item_type == 'assets' %}selected{% endif %}>Assets Only</option>
                         <option value="peripherals" {% if item_type == 'peripherals' %}selected{% endif %}>Peripherals Only</option>
                         <option value="licenses" {% if item_type == 'licenses' %}selected{% endif %}>Licenses Only (Standalone)</option>
+                        <option value="subscriptions" {% if item_type == 'subscriptions' %}selected{% endif %}>Subscriptions Only (Recurring)</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -88,65 +89,80 @@
     </div>
 </div>
 
+{% if monthly_totals %}
+<div class="card mb-4">
+    <div class="card-header">Spend by Month (EUR)</div>
+    <div class="card-body">
+        <table class="table table-sm table-striped mb-0">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th class="text-end">Total (EUR)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for month, amount in monthly_totals.items() %}
+                <tr>
+                    <td>{{ month }}</td>
+                    <td class="text-end">€{{ "%.2f"|format(amount) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <span>Results</span>
-        {# Updated Total Cost Display (assuming EUR base - adjust if needed) #}
-        <span class="fw-bold">Total Spend (Sum of Original Costs): EUR {{ "%.2f"|format(total_cost) }}</span>
+        <span>
+            Results
+            {% if sub_window %}
+            <small class="text-muted">· subscription spend reconstructed for {{ sub_window[0].strftime('%Y-%m-%d') }} → {{ sub_window[1].strftime('%Y-%m-%d') }}</small>
+            {% endif %}
+        </span>
+        <span class="fw-bold">Total Spend (EUR): €{{ "%.2f"|format(total_cost_eur) }}</span>
     </div>
     <div class="card-body">
-        <table class="table table-striped datatable id="spendings-table">
+        <table class="table table-striped datatable" id="spendings-table">
             <thead>
                 <tr>
                     <th>Type</th>
                     <th>Name</th>
-                    <th>Brand/Software</th> {# Combined Header #}
+                    <th>Brand/Software/Supplier</th>
                     <th>User</th>
-                    <th>Purchase Date</th>
-                    <th>Cost</th>
+                    <th>Date</th>
+                    <th class="text-end">Cost</th>
+                    <th class="text-end">Cost (EUR)</th>
                 </tr>
             </thead>
             <tbody>
-                {% for item in results %}
+                {% for row in rows %}
                 <tr>
-                    {# *** Handle License Type Display *** #}
                     <td>
-                        {% if item.__class__.__name__ == 'Asset' %}
+                        {% if row.kind == 'Asset' %}
                             <span class="badge bg-primary">Asset</span>
-                        {% elif item.__class__.__name__ == 'Peripheral' %}
+                        {% elif row.kind == 'Peripheral' %}
                             <span class="badge bg-info">Peripheral</span>
-                        {% elif item.__class__.__name__ == 'License' %}
-                            <span class="badge bg-warning">License</span> {# New Badge #}
+                        {% elif row.kind == 'License' %}
+                            <span class="badge bg-warning">License</span>
+                        {% elif row.kind == 'Subscription' %}
+                            <span class="badge bg-success">Subscription</span>
                         {% endif %}
                     </td>
-                    {# *** Handle Links for Each Type *** #}
                     <td>
-                        {% if item.__class__.__name__ == 'Asset' %}
-                            <a href="{{ url_for('assets.asset_detail', id=item.id) }}">{{ item.name }}</a>
-                        {% elif item.__class__.__name__ == 'Peripheral' %}
-                            <a href="{{ url_for('peripherals.peripheral_detail', id=item.id) }}">{{ item.name }}</a>
-                        {% elif item.__class__.__name__ == 'License' %}
-                             <a href="{{ url_for('licenses.detail', id=item.id) }}">{{ item.name }}</a> {# License Link #}
-                        {% endif %}
+                        <a href="{{ row.url }}">{{ row.name }}</a>
+                        {% if row.recurring %}<i class="fas fa-sync-alt text-muted ms-1" title="Recurring charge"></i>{% endif %}
                     </td>
-                    {# *** Handle Brand/Software Display *** #}
-                    <td>
-                        {% if item.__class__.__name__ in ['Asset', 'Peripheral'] %}
-                            {{ item.brand.name if item.brand else 'N/A' }}
-                        {% elif item.__class__.__name__ == 'License' %}
-                             {# Show linked software if available #}
-                            {{ item.software.name if item.software else 'N/A' }}
-                        {% else %}
-                             N/A
-                        {% endif %}
-                    </td>
-                    <td>{{ item.user.name if item.user else 'N/A' }}</td>
-                    <td>{{ item.purchase_date.strftime('%Y-%m-%d') if item.purchase_date else 'N/A' }}</td>
-                    <td>{{ item.currency }} {{ "%.2f"|format(item.cost) if item.cost is not none else '0.00' }}</td>
+                    <td>{{ row.detail }}</td>
+                    <td>{{ row.user }}</td>
+                    <td>{{ row.date.strftime('%Y-%m-%d') if row.date else 'N/A' }}</td>
+                    <td class="text-end">{{ row.currency }} {{ "%.2f"|format(row.amount) if row.amount is not none else '0.00' }}</td>
+                    <td class="text-end">€{{ "%.2f"|format(row.amount_eur) }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="text-center">No items found matching the selected criteria.</td> {# Updated colspan #}
+                    <td colspan="7" class="text-center">No items found matching the selected criteria.</td>
                 </tr>
                 {% endfor %}
             </tbody>
