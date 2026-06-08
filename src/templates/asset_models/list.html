@@ -39,7 +39,7 @@
                 <tbody>
                     {% for m in models %}
                     <tr>
-                        <td>{{ m.name }}</td>
+                        <td><a href="{{ url_for('asset_models.model_detail', id=m.id) }}">{{ m.name }}</a></td>
                         <td><a href="{{ url_for('brands.brand_detail', id=m.brand_id) }}">{{ m.brand.name }}</a></td>
                         <td>{{ m.notes or '-' }}</td>
                         <td class="text-end">{{ m.assets|length }}</td>

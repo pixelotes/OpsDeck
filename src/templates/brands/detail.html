@@ -58,7 +58,7 @@
                         <tbody>
                             {% for m in brand.models %}
                             <tr>
-                                <td>{{ m.name }}</td>
+                                <td><a href="{{ url_for('asset_models.model_detail', id=m.id) }}">{{ m.name }}</a></td>
                                 <td>{{ m.notes or '' }}</td>
                                 <td class="text-end">
                                     {% if can_write('core_inventory') %}
@@ -79,6 +79,66 @@
                 </div>
                 {% else %}
                 <p class="text-muted mb-0">No models yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Assets of this brand -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">Assets ({{ brand.assets|length }})</h5></div>
+            <div class="card-body">
+                {% if brand.assets %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr><th>Name</th><th>Model</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for a in brand.assets %}
+                            <tr>
+                                <td><a href="{{ url_for('assets.asset_detail', id=a.id) }}">{{ a.name }}</a></td>
+                                <td>{{ a.model.name if a.model else '-' }}</td>
+                                <td>{{ a.status or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No assets for this brand.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Peripherals of this brand -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">Peripherals ({{ brand.peripherals|length }})</h5></div>
+            <div class="card-body">
+                {% if brand.peripherals %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr><th>Name</th><th>Model</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for p in brand.peripherals %}
+                            <tr>
+                                <td><a href="{{ url_for('peripherals.peripheral_detail', id=p.id) }}">{{ p.name }}</a></td>
+                                <td>{{ p.model.name if p.model else '-' }}</td>
+                                <td>{{ p.status or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No peripherals for this brand.</p>
                 {% endif %}
             </div>
         </div>

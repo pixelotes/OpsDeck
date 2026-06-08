@@ -25,6 +25,14 @@ def list_models():
                            selected_brand_id=brand_id)
 
 
+@asset_models_bp.route('/<int:id>')
+@login_required
+@requires_permission('core_inventory', access_level='READ_ONLY')
+def model_detail(id):
+    model = db.get_or_404(AssetModel, id)
+    return render_template('asset_models/detail.html', model=model)
+
+
 @asset_models_bp.route('/new', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')

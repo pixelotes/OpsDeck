@@ -21,6 +21,21 @@ def test_list_models_loads(auth_client, brand_data):
     assert resp.status_code == 200
 
 
+def test_model_detail_lists_assets(auth_client, brand_data, app):
+    with app.app_context():
+        m = AssetModel(name='Latitude 5540', brand_id=brand_data['brand_id'])
+        db.session.add(m)
+        db.session.flush()
+        asset = Asset(name='LT-001', status='In Use', brand_id=brand_data['brand_id'], model_id=m.id)
+        db.session.add(asset)
+        db.session.commit()
+        mid = m.id
+    resp = auth_client.get(f'/asset-models/{mid}')
+    assert resp.status_code == 200
+    assert b'Latitude 5540' in resp.data
+    assert b'LT-001' in resp.data
+
+
 def test_create_model(auth_client, brand_data, app):
     resp = auth_client.post('/asset-models/new', data={
         'name': 'XPS 13', 'brand_id': brand_data['brand_id'], 'notes': 'Ultrabook',
