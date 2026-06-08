@@ -38,7 +38,7 @@ def is_break_glass_admin(user):
     return user.email == default_admin_email
 
 from src.utils.logger import log_audit
-from src.utils.timezone_helper import now, today
+from src.utils.timezone_helper import now, today, naive_to_aware
 
 
 @main_bp.route('/login', methods=['GET', 'POST'])
@@ -765,6 +765,7 @@ def get_action_required_alerts(user):
     """
     from ..models.policy import PolicyVersion
     from ..models.training import CourseAssignment
+    from ..models import Request, Change, SecurityIncident
 
     alerts = []
     if not user:
@@ -820,7 +821,142 @@ def get_action_required_alerts(user):
                 'action_text': 'View details'
             })
 
+    # Open tickets assigned to the user (awaiting action) — incidents, changes, requests
+    for inc in SecurityIncident.query.filter(
+        SecurityIncident.assignee_id == user.id,
+        SecurityIncident.status.notin_(['Resolved', 'Closed'])
+    ).all():
+        alerts.append({
+            'icon': '🚨',
+            'message': f'Incident "{inc.title}" assigned to you ({inc.status})',
+            'link': url_for('compliance.incident_detail', id=inc.id),
+            'action_text': 'View incident'
+        })
+
+    for chg in Change.query.filter(
+        Change.assignee_id == user.id,
+        Change.status.notin_(['Completed', 'Failed', 'Cancelled'])
+    ).all():
+        alerts.append({
+            'icon': '🔄',
+            'message': f'Change "{chg.title}" assigned to you ({chg.status})',
+            'link': url_for('changes.detail_change', id=chg.id),
+            'action_text': 'View change'
+        })
+
+    for req in Request.query.filter(
+        Request.assignee_id == user.id,
+        Request.status.in_(['Pending', 'Triage', 'In Progress'])
+    ).all():
+        alerts.append({
+            'icon': '🙋',
+            'message': f'Request "{req.title}" assigned to you ({req.status})',
+            'link': url_for('requests.detail_request', id=req.id),
+            'action_text': 'View request'
+        })
+
     return alerts
+
+
+# Bootstrap badge colour per ticket type and status (used by the "My Tickets" card)
+_TICKET_BADGE = {
+    'incident': {'Investigating': 'danger', 'Contained': 'warning', 'Resolved': 'success', 'Closed': 'dark'},
+    'change': {'Draft': 'secondary', 'Pending Approval': 'warning', 'Approved': 'info',
+               'In Progress': 'primary', 'Completed': 'success', 'Failed': 'danger', 'Cancelled': 'secondary'},
+    'request': {'Pending': 'secondary', 'Triage': 'warning', 'In Progress': 'primary',
+                'Completed': 'success', 'Closed': 'dark', 'Cancelled': 'secondary'},
+}
+
+
+def _ticket_task(title, description, url, action_text, due_date, current_date):
+    """Build a prioritized-task dict for a ticket assigned to the user.
+
+    Urgency is derived from ``due_date`` (a date or None); items without a due
+    date are treated as low-urgency ('Pending').
+    """
+    days_left = (due_date - current_date).days if due_date else 999
+    urgency_class = 'urgent' if days_left < 0 else ('warning' if days_left <= 7 else 'normal')
+    urgency_icon = '🔴' if days_left < 0 else ('🟡' if days_left <= 7 else '🟢')
+    urgency_label = 'URGENT' if days_left < 0 else ('Soon' if days_left <= 7 else 'Pending')
+    if days_left < 0:
+        due_text = f'Overdue by {abs(days_left)} days'
+    elif days_left == 0:
+        due_text = 'Due today'
+    elif days_left < 999:
+        due_text = f'Due in {days_left} days'
+    else:
+        due_text = 'No due date'
+    return {
+        'priority': 1 if days_left < 0 else (2 if days_left <= 7 else 3),
+        'urgency_class': urgency_class,
+        'urgency_icon': urgency_icon,
+        'urgency_label': urgency_label,
+        'due_text': due_text,
+        'title': title,
+        'description': description,
+        'action_url': url,
+        'action_text': action_text,
+        'can_dismiss': False,
+    }
+
+
+def get_my_open_tickets(user):
+    """Tickets opened BY the user (incidents reported, changes/requests requested).
+
+    Limited to those that are still open or were closed within the last 15 days.
+    This is distinct from the assigned-to-you items that feed the bell and the
+    'Your Pending Tasks' card.
+    """
+    from ..models import Request, Change, SecurityIncident
+
+    tickets = []
+    if not user:
+        return tickets
+
+    cutoff = now() - timedelta(days=15)
+
+    def keep(is_closed, terminal_dt):
+        # Open tickets are always kept; closed ones only if closed recently.
+        # naive_to_aware() localizes datetimes the DB returns naive (and is a
+        # no-op for already-aware values) so the comparison is tz-safe.
+        return (not is_closed) or (terminal_dt is not None and naive_to_aware(terminal_dt) >= cutoff)
+
+    # Incidents reported by me
+    for inc in SecurityIncident.query.filter(SecurityIncident.reported_by_id == user.id).all():
+        is_closed = inc.status in ('Resolved', 'Closed')
+        if keep(is_closed, inc.resolved_at):
+            tickets.append({
+                'type_label': 'Incident', 'icon': '🚨', 'title': inc.title,
+                'status': inc.status, 'status_class': _TICKET_BADGE['incident'].get(inc.status, 'secondary'),
+                'url': url_for('compliance.incident_detail', id=inc.id),
+                'created_at': inc.created_at, 'sort_dt': inc.created_at,
+            })
+
+    # Changes requested by me
+    for chg in Change.query.filter(Change.requester_id == user.id).all():
+        is_closed = chg.status in ('Completed', 'Failed', 'Cancelled')
+        if keep(is_closed, chg.closed_at):
+            tickets.append({
+                'type_label': 'Change', 'icon': '🔄', 'title': chg.title,
+                'status': chg.status, 'status_class': _TICKET_BADGE['change'].get(chg.status, 'secondary'),
+                'url': url_for('changes.detail_change', id=chg.id),
+                'created_at': chg.created_at, 'sort_dt': chg.created_at,
+            })
+
+    # Requests submitted by me
+    for req in Request.query.filter(Request.requester_id == user.id).all():
+        is_closed = req.status in ('Completed', 'Closed', 'Cancelled')
+        terminal_dt = req.closed_at or req.completed_at
+        if keep(is_closed, terminal_dt):
+            tickets.append({
+                'type_label': 'Request', 'icon': '🙋', 'title': req.title,
+                'status': req.status, 'status_class': _TICKET_BADGE['request'].get(req.status, 'secondary'),
+                'url': url_for('requests.detail_request', id=req.id),
+                'created_at': req.created_at, 'sort_dt': req.created_at,
+            })
+
+    tickets.sort(key=lambda t: t['sort_dt'] or cutoff, reverse=True)
+    return tickets
 
 
 @main_bp.route('/my-dashboard')
@@ -1014,8 +1150,40 @@ def my_dashboard():
             'can_dismiss': True
         })
 
+    # 4. Open tickets ASSIGNED to me (incidents, changes, requests)
+    from ..models import Request, Change, SecurityIncident
+
+    for inc in SecurityIncident.query.filter(
+        SecurityIncident.assignee_id == user_id,
+        SecurityIncident.status.notin_(['Resolved', 'Closed'])
+    ).all():
+        prioritized_tasks.append(_ticket_task(
+            f'Incident: {inc.title}', f'Severity {inc.severity} · status {inc.status}',
+            url_for('compliance.incident_detail', id=inc.id), 'View incident', None, current_date))
+
+    for chg in Change.query.filter(
+        Change.assignee_id == user_id,
+        Change.status.notin_(['Completed', 'Failed', 'Cancelled'])
+    ).all():
+        due = chg.scheduled_start.date() if chg.scheduled_start else None
+        prioritized_tasks.append(_ticket_task(
+            f'Change: {chg.title}', f'{chg.change_type} · status {chg.status}',
+            url_for('changes.detail_change', id=chg.id), 'View change', due, current_date))
+
+    for req in Request.query.filter(
+        Request.assignee_id == user_id,
+        Request.status.in_(['Pending', 'Triage', 'In Progress'])
+    ).all():
+        due = req.due_date.date() if req.due_date else None
+        prioritized_tasks.append(_ticket_task(
+            f'Request: {req.title}', f'{req.request_type} · status {req.status}',
+            url_for('requests.detail_request', id=req.id), 'View request', due, current_date))
+
     # Sort by priority
     prioritized_tasks.sort(key=lambda x: (x['priority'], x['due_text']))
+
+    # ----- MY TICKETS (opened by me) -----
+    my_tickets = get_my_open_tickets(user)
 
     # ----- NOTIFICATION COUNT -----
     notification_count = len(critical_alerts)
@@ -1053,6 +1221,7 @@ def my_dashboard():
         prioritized_tasks=prioritized_tasks,
         total_tasks=len(prioritized_tasks),
         pending_tasks=len([t for t in prioritized_tasks if t['priority'] <= 2]),
+        my_tickets=my_tickets,
 
         # Tab data
         my_assets=my_assets,

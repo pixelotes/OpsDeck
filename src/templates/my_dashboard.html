@@ -735,6 +735,41 @@
         </div>
     </div>
 
+    <!-- My Tickets (opened by me) -->
+    <div class="task-timeline" id="my-tickets">
+        <div class="timeline-header">
+            <h3>🎫 My Tickets</h3>
+        </div>
+
+        <div class="timeline-list">
+            {% if my_tickets %}
+                {% for ticket in my_tickets %}
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <div class="task-header">
+                            <span class="badge bg-{{ ticket.status_class }}">{{ ticket.status }}</span>
+                            <span class="task-due">{{ ticket.icon }} {{ ticket.type_label }} · {{ ticket.created_at.strftime('%Y-%m-%d') }}</span>
+                        </div>
+                        <h4 class="task-title">{{ ticket.title }}</h4>
+                        <div class="task-actions">
+                            <a href="{{ ticket.url }}" class="btn btn-sm btn-outline-primary">
+                                View →
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <h4>No open tickets</h4>
+                <p>You haven't opened any tickets recently.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- Resources Section with Tabs -->
     <div class="resources-section" id="recursos">
         <h3>💼 My Resources</h3>
