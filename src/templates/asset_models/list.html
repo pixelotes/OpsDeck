@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+
+{% block title %}Models - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-cube"></i> Models</h2>
+    <div class="d-flex align-items-center gap-2">
+        <form method="GET" class="d-flex align-items-center">
+            <select class="form-select form-select-sm" name="brand_id" onchange="this.form.submit()">
+                <option value="">All brands</option>
+                {% for brand in brands %}
+                <option value="{{ brand.id }}" {% if selected_brand_id == brand.id %}selected{% endif %}>{{ brand.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        {% if can_write('core_inventory') %}
+        <a href="{{ url_for('asset_models.new_model') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Model
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped datatable" id="models-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Brand</th>
+                        <th>Notes</th>
+                        <th class="text-end">Assets</th>
+                        <th class="text-end">Peripherals</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in models %}
+                    <tr>
+                        <td>{{ m.name }}</td>
+                        <td><a href="{{ url_for('brands.brand_detail', id=m.brand_id) }}">{{ m.brand.name }}</a></td>
+                        <td>{{ m.notes or '-' }}</td>
+                        <td class="text-end">{{ m.assets|length }}</td>
+                        <td class="text-end">{{ m.peripherals|length }}</td>
+                        <td>
+                            {% if can_write('core_inventory') %}
+                            <a href="{{ url_for('asset_models.edit_model', id=m.id) }}"
+                                class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <form action="{{ url_for('asset_models.delete_model', id=m.id) }}" method="POST"
+                                class="d-inline" data-confirm="Delete model '{{ m.name }}'?">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            No models yet.
+                            {% if can_write('core_inventory') %}
+                            <a href="{{ url_for('asset_models.new_model') }}">Add the first one.</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
