@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Payment method detail page crashed when an associated subscription had no renewal date
 - Peripheral detail action dropdown ("Log Data Erasure" / "Record Disposal") overflowed off-screen; aligned its markup with the Assets version
 - Spend Analysis CSV export and table sorting were broken by a malformed table `id` attribute
+- Creating a model inline from the asset/peripheral edit form failed with "Failed to create model" (HTTP 415): the endpoint read `request.json` on a multipart form post; it now reads JSON safely
 
 
 ## [0.6.10] - 2026-06-03

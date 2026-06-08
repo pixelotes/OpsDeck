@@ -144,8 +144,11 @@ def create_model(brand_id):
         flash('Write access required for this action.', 'danger')
         return redirect(url_for('brands.brand_detail', id=brand_id))
 
-    name = (request.form.get('name') or (request.json or {}).get('name') or '').strip()
-    notes = request.form.get('notes') or (request.json or {}).get('notes')
+    # Accept both form posts and JSON. get_json(silent=True) avoids the 415 that
+    # request.json raises on a non-JSON (e.g. multipart) request.
+    payload = request.get_json(silent=True) or {}
+    name = (request.form.get('name') or payload.get('name') or '').strip()
+    notes = request.form.get('notes') or payload.get('notes')
     if not name:
         if request.is_json:
             return jsonify({'error': 'Model name is required'}), 400

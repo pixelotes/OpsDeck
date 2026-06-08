@@ -21,6 +21,22 @@ def test_list_models_loads(auth_client, brand_data):
     assert resp.status_code == 200
 
 
+def test_inline_create_model_form_post(auth_client, brand_data, app):
+    """Inline picker posts multipart form WITHOUT notes; must not 415."""
+    resp = auth_client.post(
+        f'/brands/{brand_data["brand_id"]}/models/create',
+        data={'name': 'Magic Mouse 2'},
+        content_type='multipart/form-data',
+        headers={'X-Requested-With': 'XMLHttpRequest'},
+    )
+    assert resp.status_code == 200
+    assert resp.json['name'] == 'Magic Mouse 2'
+    assert resp.json['existing'] is False
+    with app.app_context():
+        assert AssetModel.query.filter_by(name='Magic Mouse 2',
+                                          brand_id=brand_data['brand_id']).count() == 1
+
+
 def test_model_detail_lists_assets(auth_client, brand_data, app):
     with app.app_context():
         m = AssetModel(name='Latitude 5540', brand_id=brand_data['brand_id'])
