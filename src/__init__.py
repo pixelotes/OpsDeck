@@ -28,7 +28,7 @@ import re
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri="memory://",
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["10000 per day", "1000 per hour"]
 )
 
 # --- CSRF Protection ---
@@ -191,7 +191,21 @@ def create_app(test_config=None):
 
     @limiter.request_filter
     def _no_limit_static():
-        return request.endpoint == 'static'
+        # Static files and the debounced global-search AJAX endpoint
+        # (fired on every keystroke) must not count against the rate limit.
+        return request.endpoint in ('static', 'main.search')
+
+    @app.url_defaults
+    def add_static_cache_buster(endpoint, values):
+        # Append ?v=<mtime> to static URLs so the 1-year browser cache is
+        # invalidated automatically whenever the underlying file changes.
+        if endpoint != 'static' or 'filename' not in values:
+            return
+        try:
+            mtime = int(os.stat(os.path.join(app.static_folder, values['filename'])).st_mtime)
+        except OSError:
+            return
+        values['v'] = mtime
 
     # Configure CSRF to not protect JSON requests (for AJAX endpoints)
     app.config['WTF_CSRF_CHECK_DEFAULT'] = False
