@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Service Requests**: New Operations module to submit and track service requests (access, hardware, software, information) through a triage-based fulfillment workflow (Pending → Triage → In Progress → Completed → Closed, with Cancelled as an off-flow state). Includes optional targets (service/asset/software), tags, evidence attachments, a status timeline, and the now-active "Create a Request" quick action on My Dashboard
+- **My Tickets on My Dashboard**: New card listing tickets you opened (incidents, changes, requests), limited to those still open or closed within the last 15 days, each with a status badge
+- **Service Requests API**: `GET`/`POST /api/v1/requests` (list, detail, and upsert by `external_ref`)
+- **Suppliers & Contacts API**: read-only `GET /api/v1/suppliers` and `GET /api/v1/contacts` (list and detail)
+- **Changes API reads**: `GET /api/v1/changes` and `GET /api/v1/changes/{id}` (previously POST-only)
+
+### Changed
+- **My Dashboard "Your Pending Tasks"** now lists only items assigned to you; the notification bell and the My Tasks counter likewise show only assigned items (incidents, changes, requests) — never tickets you opened
+- Grouped the three ticket types (Changes, Requests, Incidents) together in the sidebar
+- Cache static assets aggressively with mtime-based cache busting, and relaxed API rate limits
+
+### Fixed
+- Evidence download links on change and request detail pages (used the filename instead of the attachment id, causing a routing error)
+- Status timeline line now runs through the centre of the step circles on change and request detail pages
 
 
 ## [0.6.10] - 2026-06-03
