@@ -83,7 +83,11 @@
                     N/A
                     {% endif %}
                 </p>
-                <p><strong>Supplier:</strong> {{ peripheral.supplier.name if peripheral.supplier else 'N/A' }}</p>
+                <p><strong>Supplier:</strong>
+                    {% if peripheral.supplier %}
+                    <a href="{{ url_for('suppliers.supplier_detail', id=peripheral.supplier.id) }}">{{ peripheral.supplier.name }}</a>
+                    {% else %}N/A{% endif %}
+                </p>
                 <p><strong>Location:</strong>
                     <span class="badge {{ 'bg-info' if peripheral.user else 'bg-secondary' }}">
                         {{ peripheral.location_display }}
