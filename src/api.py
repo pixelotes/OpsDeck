@@ -6,12 +6,17 @@ from .extensions import db
 from .models import User, Asset, Peripheral, License, Subscription
 from .models.services import BusinessService
 from .models.change import Change
+from .models.request import Request
 from .models.security import SecurityIncident
 from .models.onboarding import OnboardingProcess
+from .models.procurement import Supplier
+from .models.crm import Contact
 from .schemas import (
     UserSchema, UserInputSchema, AssetSchema, PeripheralSchema,
     LicenseSchema, SubscriptionSchema, ServiceSchema,
+    SupplierSchema, ContactSchema,
     ChangeApiSchema, ChangeInputSchema,
+    RequestApiSchema, RequestInputSchema,
     IncidentApiSchema, IncidentInputSchema,
     OnboardingApiSchema, OnboardingInputSchema,
 )
@@ -107,6 +112,8 @@ register_read_only_resource(api_bp, Peripheral, PeripheralSchema, 'peripherals')
 register_read_only_resource(api_bp, License, LicenseSchema, 'licenses')
 register_read_only_resource(api_bp, Subscription, SubscriptionSchema, 'subscriptions')
 register_read_only_resource(api_bp, BusinessService, ServiceSchema, 'services')
+register_read_only_resource(api_bp, Supplier, SupplierSchema, 'suppliers')
+register_read_only_resource(api_bp, Contact, ContactSchema, 'contacts')
 
 
 # --- Helpers ---
@@ -169,6 +176,14 @@ class UserDetailResource(MethodView):
 class ChangeResource(MethodView):
 
     @api_bp.doc(security=[{"bearerAuth": []}])
+    @api_bp.response(200, ChangeApiSchema(many=True))
+    def get(self):
+        """List all changes (Protected)"""
+        limit = request.args.get('limit', 100, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        return Change.query.limit(limit).offset(offset).all()
+
+    @api_bp.doc(security=[{"bearerAuth": []}])
     @api_bp.arguments(ChangeInputSchema)
     @api_bp.response(201, ChangeApiSchema)
     def post(self, data):
@@ -199,6 +214,70 @@ class ChangeResource(MethodView):
         db.session.add(change)
         db.session.commit()
         return change, 201
+
+
+@api_bp.route('/changes/<int:id>')
+class ChangeDetailResource(MethodView):
+
+    @api_bp.doc(security=[{"bearerAuth": []}])
+    @api_bp.response(200, ChangeApiSchema)
+    def get(self, id):
+        """Get specific change by ID (Protected)"""
+        return db.get_or_404(Change, id)
+
+
+@api_bp.route('/requests')
+class RequestResource(MethodView):
+
+    @api_bp.doc(security=[{"bearerAuth": []}])
+    @api_bp.response(200, RequestApiSchema(many=True))
+    def get(self):
+        """List all service requests (Protected)"""
+        limit = request.args.get('limit', 100, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        return Request.query.limit(limit).offset(offset).all()
+
+    @api_bp.doc(security=[{"bearerAuth": []}])
+    @api_bp.arguments(RequestInputSchema)
+    @api_bp.response(201, RequestApiSchema)
+    def post(self, data):
+        """Create or update a service Request (upsert by external_ref)"""
+        existing = None
+        if data.get('external_ref'):
+            existing = Request.query.filter_by(external_ref=data['external_ref']).first()
+
+        requester = resolve_user(data.pop('requester', None))
+        assignee = resolve_user(data.pop('assignee', None))
+
+        if existing:
+            for key, value in data.items():
+                if value is not None:
+                    setattr(existing, key, value)
+            if requester:
+                existing.requester_id = requester.id
+            if assignee:
+                existing.assignee_id = assignee.id
+            db.session.commit()
+            return existing, 200
+
+        req = Request(
+            requester_id=(requester.id if requester else g.api_user.id),
+            assignee_id=(assignee.id if assignee else None),
+            **{k: v for k, v in data.items() if v is not None}
+        )
+        db.session.add(req)
+        db.session.commit()
+        return req, 201
+
+
+@api_bp.route('/requests/<int:id>')
+class RequestDetailResource(MethodView):
+
+    @api_bp.doc(security=[{"bearerAuth": []}])
+    @api_bp.response(200, RequestApiSchema)
+    def get(self, id):
+        """Get specific service request by ID (Protected)"""
+        return db.get_or_404(Request, id)
 
 
 @api_bp.route('/incidents')

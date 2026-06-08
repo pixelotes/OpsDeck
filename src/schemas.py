@@ -6,8 +6,11 @@ from .models.services import BusinessService
 
 from marshmallow import fields, Schema, validate
 from .models.change import Change
+from .models.request import Request
 from .models.security import SecurityIncident
 from .models.onboarding import OnboardingProcess
+from .models.procurement import Supplier
+from .models.crm import Contact
 
 # --- Base Schema ---
 class BaseSchema(SQLAlchemyAutoSchema):
@@ -57,12 +60,24 @@ class ServiceSchema(BaseSchema):
         # Exclude complex recursive relationships to keep it light for now
         exclude = ('upstream_dependencies', 'downstream_dependencies', 'components')
 
+class SupplierSchema(BaseSchema):
+    class Meta(BaseSchema.Meta):
+        model = Supplier
+
+class ContactSchema(BaseSchema):
+    class Meta(BaseSchema.Meta):
+        model = Contact
+
 
 # --- API Output Schemas ---
 
 class ChangeApiSchema(BaseSchema):
     class Meta(BaseSchema.Meta):
         model = Change
+
+class RequestApiSchema(BaseSchema):
+    class Meta(BaseSchema.Meta):
+        model = Request
 
 class IncidentApiSchema(BaseSchema):
     class Meta(BaseSchema.Meta):
@@ -85,6 +100,19 @@ class ChangeInputSchema(Schema):
     implementation_plan = fields.String(load_default=None)
     rollback_plan = fields.String(load_default=None)
     test_plan = fields.String(load_default=None)
+    requester = fields.String(load_default=None)
+    assignee = fields.String(load_default=None)
+    external_ref = fields.String(load_default=None, validate=validate.Length(max=255))
+
+
+class RequestInputSchema(Schema):
+    title = fields.String(required=True, validate=validate.Length(min=1, max=200))
+    description = fields.String(load_default=None)
+    request_type = fields.String(load_default='General', validate=validate.OneOf(['General', 'Access', 'Hardware', 'Software', 'Information']))
+    priority = fields.String(load_default='Medium', validate=validate.OneOf(['Low', 'Medium', 'High', 'Critical']))
+    status = fields.String(load_default='Pending')
+    justification = fields.String(load_default=None)
+    resolution_notes = fields.String(load_default=None)
     requester = fields.String(load_default=None)
     assignee = fields.String(load_default=None)
     external_ref = fields.String(load_default=None, validate=validate.Length(max=255))
