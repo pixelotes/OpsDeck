@@ -6,7 +6,7 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 disposal_bp = Blueprint('disposal', __name__, url_prefix='/disposal')
 
-@disposal_bp.route('/')
+@disposal_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('operations')
 def list_disposals():
@@ -14,7 +14,7 @@ def list_disposals():
     disposal_records = DisposalRecord.query.order_by(DisposalRecord.disposal_date.desc()).all()
     return render_template('disposal/list.html', records=disposal_records)
 
-@disposal_bp.route('/<int:id>')
+@disposal_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('operations')
 def disposal_detail(id):

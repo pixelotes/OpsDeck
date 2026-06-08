@@ -13,7 +13,7 @@ from src.utils.timezone_helper import today
 
 subscriptions_bp = Blueprint('subscriptions', __name__)
 
-@subscriptions_bp.route('/')
+@subscriptions_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def subscriptions():
@@ -65,7 +65,7 @@ def subscriptions():
                             month_filter=month_filter,
                             total_cost=total_cost_of_listed_subscriptions)
 
-@subscriptions_bp.route('/<int:id>')
+@subscriptions_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def subscription_detail(id):
@@ -410,7 +410,7 @@ def delete_subscription(id):
     flash('Subscription deleted successfully!', 'success')
     return redirect(url_for('subscriptions.subscriptions'))
 
-@subscriptions_bp.route('/archived')
+@subscriptions_bp.route('/archived', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def archived_subscriptions():
@@ -437,13 +437,13 @@ def unarchive_subscription(id):
     flash(f'Subscription "{subscription.name}" has been restored.', 'success')
     return redirect(url_for('subscriptions.archived_subscriptions'))
 
-@subscriptions_bp.route('/calendar')
+@subscriptions_bp.route('/calendar', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def calendar():
     return render_template('calendar.html')
 
-@subscriptions_bp.route('/api/calendar-events')
+@subscriptions_bp.route('/api/calendar-events', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def calendar_events():

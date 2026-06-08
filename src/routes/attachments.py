@@ -111,7 +111,7 @@ def upload_file():
 
     return redirect(request.referrer)
 
-@attachments_bp.route('/download/<int:attachment_id>')
+@attachments_bp.route('/download/<int:attachment_id>', methods=['GET'])
 @login_required
 def download_file(attachment_id):
     """

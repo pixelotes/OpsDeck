@@ -1,3 +1,4 @@
+"""Routes for hardware asset management (list, CRUD, archive, history, warranties)."""
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
@@ -14,18 +15,24 @@ from src.utils.timezone_helper import now, today
 
 assets_bp = Blueprint('assets', __name__)
 
-@assets_bp.route('/')
+# Permission module and frequently-referenced endpoints (avoid duplicated literals)
+MODULE = 'core_inventory'
+ASSET_DETAIL = 'assets.asset_detail'
+ASSET_LIST = 'assets.assets'
+WRITE_REQUIRED = 'Write access required for this action.'
+
+@assets_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def assets():
     assets = Asset.query.filter_by(is_archived=False).all()
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     locations = Location.query.filter_by(is_archived=False).order_by(Location.name).all()
     return render_template('assets/list.html', assets=assets, users=users, locations=locations)
 
-@assets_bp.route('/archived')
+@assets_bp.route('/archived', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def archived_assets():
     """Displays a list of all archived assets."""
     archived = Asset.query.filter_by(is_archived=True).order_by(Asset.name).all()
@@ -34,7 +41,7 @@ def archived_assets():
 
 @assets_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def archive_asset(id):
     """Sets an asset's status to archived."""
     asset = db.get_or_404(Asset, id)
@@ -49,12 +56,12 @@ def archive_asset(id):
     )
     
     flash(f'Asset "{asset.name}" has been archived.', 'warning')
-    return redirect(url_for('assets.assets'))
+    return redirect(url_for(ASSET_LIST))
 
 
 @assets_bp.route('/<int:id>/unarchive', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def unarchive_asset(id):
     """Restores an archived asset to active."""
     asset = db.get_or_404(Asset, id)
@@ -73,13 +80,13 @@ def unarchive_asset(id):
 
 @assets_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY') # READ_ONLY here, manually check POST
+@requires_permission(MODULE, access_level='READ_ONLY') # READ_ONLY here, manually check POST
 def new_asset():
     if request.method == 'POST':
         # Manual check for WRITE access
-        if not has_write_permission('core_inventory'):
-                flash('Write access required for this action.', 'danger')
-                return redirect(url_for('assets.assets'))
+        if not has_write_permission(MODULE):
+                flash(WRITE_REQUIRED, 'danger')
+                return redirect(url_for(ASSET_LIST))
         asset = Asset(
             name=request.form['name'],
             brand_id=int(request.form.get('brand_id')) if request.form.get('brand_id') else None,
@@ -113,7 +120,7 @@ def new_asset():
         )
         
         flash('Asset created successfully!', 'success')
-        return redirect(url_for('assets.assets'))
+        return redirect(url_for(ASSET_LIST))
 
     return render_template('assets/form.html',
                             users=User.query.filter_by(is_archived=False).order_by(User.name).all(),
@@ -125,20 +132,20 @@ def new_asset():
 
 @assets_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_asset(id):
     asset = db.get_or_404(Asset, id)
 
     if request.method == 'POST':
         # Manual check for WRITE access
-        if not has_write_permission('core_inventory'):
-                flash('Write access required for this action.', 'danger')
-                return redirect(url_for('assets.asset_detail', id=id))
+        if not has_write_permission(MODULE):
+                flash(WRITE_REQUIRED, 'danger')
+                return redirect(url_for(ASSET_DETAIL, id=id))
         # --- ENFORCE EOL WORKFLOW ---
         new_status = request.form.get('status')
         if new_status in ['Disposed', 'Sold']:
             flash('To dispose of an asset, please use the "Record Disposal" action from the asset detail page. This ensures a proper audit trail.', 'warning')
-            return redirect(url_for('assets.asset_detail', id=id))
+            return redirect(url_for(ASSET_DETAIL, id=id))
 
         changes = []
         old_status = asset.status
@@ -252,7 +259,7 @@ def edit_asset(id):
         )
         
         flash('Asset updated successfully!', 'success')
-        return redirect(url_for('assets.assets'))
+        return redirect(url_for(ASSET_LIST))
 
     return render_template('assets/form.html',
                             asset=asset,
@@ -263,9 +270,9 @@ def edit_asset(id):
                             brands=Brand.query.order_by(Brand.name).all(),
                             custom_field_definitions=CustomFieldDefinition.query.filter_by(entity_type='Asset').all())
 
-@assets_bp.route('/<int:id>')
+@assets_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def asset_detail(id):
     asset = db.get_or_404(Asset, id)
     locations = Location.query.filter_by(is_archived=False).order_by(Location.name).all()
@@ -274,18 +281,18 @@ def asset_detail(id):
 
 @assets_bp.route('/<int:id>/checkout', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def checkout_asset(id):
     asset = db.get_or_404(Asset, id)
     if asset.user:
         flash('This asset is already checked out.', 'warning')
-        return redirect(url_for('assets.asset_detail', id=id))
+        return redirect(url_for(ASSET_DETAIL, id=id))
 
     if request.method == 'POST':
         # Manual check for WRITE access
-        if not has_write_permission('core_inventory'):
-                flash('Write access required for this action.', 'danger')
-                return redirect(url_for('assets.asset_detail', id=id))
+        if not has_write_permission(MODULE):
+                flash(WRITE_REQUIRED, 'danger')
+                return redirect(url_for(ASSET_DETAIL, id=id))
         user_id = request.form.get('user_id')
         notes = request.form.get('notes')
         location_mode = request.form.get('location_mode', 'keep')
@@ -319,7 +326,7 @@ def checkout_asset(id):
 
         db.session.commit()
         flash(f'Asset "{asset.name}" has been checked out to {user.name}.', 'success')
-        return redirect(url_for('assets.asset_detail', id=id))
+        return redirect(url_for(ASSET_DETAIL, id=id))
         
     users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     locations = Location.query.filter_by(is_archived=False).order_by(Location.name).all()
@@ -328,25 +335,25 @@ def checkout_asset(id):
 
 @assets_bp.route('/<int:id>/checkin', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def checkin_asset(id):
     asset = db.get_or_404(Asset, id)
     redirect_url = request.form.get('redirect_url')
     
     if not asset.user:
         flash('This asset is already checked in.', 'warning')
-        return redirect(redirect_url or url_for('assets.asset_detail', id=id))
+        return redirect(redirect_url or url_for(ASSET_DETAIL, id=id))
 
     # REQUIRED: Select return location
     return_location_id = request.form.get('return_location_id')
     if not return_location_id:
         flash('You must select a location to return the asset to.', 'danger')
-        return redirect(redirect_url or url_for('assets.asset_detail', id=id))
+        return redirect(redirect_url or url_for(ASSET_DETAIL, id=id))
     
     target_location = db.session.get(Location,return_location_id)
     if not target_location:
         flash('Selected location not found.', 'danger')
-        return redirect(redirect_url or url_for('assets.asset_detail', id=id))
+        return redirect(redirect_url or url_for(ASSET_DETAIL, id=id))
 
     assignment = AssetAssignment.query.filter_by(asset_id=id, checked_in_date=None).order_by(AssetAssignment.checked_out_date.desc()).first()
     
@@ -373,11 +380,11 @@ def checkin_asset(id):
 
     db.session.commit()
     flash(f'Asset "{asset.name}" has been returned to {target_location.name}.', 'success')
-    return redirect(redirect_url or url_for('assets.asset_detail', id=id))
+    return redirect(redirect_url or url_for(ASSET_DETAIL, id=id))
 
-@assets_bp.route('/warranties')
+@assets_bp.route('/warranties', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def warranties():
     assets = Asset.query.filter(Asset.warranty_length.isnot(None)).all()
     peripherals = Peripheral.query.filter(Peripheral.warranty_length.isnot(None)).all()
@@ -392,9 +399,9 @@ def warranties():
     
     return render_template('assets/warranties.html', items=sorted_items, today=today())
 
-@assets_bp.route('/<int:id>/history')
+@assets_bp.route('/<int:id>/history', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def asset_history(id):
     """Displays the full history for a single asset as a visual timeline."""
     asset = db.get_or_404(Asset, id)

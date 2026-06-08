@@ -25,7 +25,7 @@ except ImportError:
 
 compliance_bp = Blueprint('compliance', __name__)
 
-@compliance_bp.route('/json/linkable-objects')
+@compliance_bp.route('/json/linkable-objects', methods=['GET'])
 @requires_permission('compliance')
 def get_linkable_objects():
     """
@@ -91,7 +91,7 @@ def get_linkable_objects():
 
     return jsonify(results)
 
-@compliance_bp.route('/json/subscriptions')
+@compliance_bp.route('/json/subscriptions', methods=['GET'])
 @requires_permission('compliance')
 def get_json_subscriptions():
     """Returns list of Subscriptions for UAR dropdown."""
@@ -105,7 +105,7 @@ def get_json_subscriptions():
         'name': s.name
     } for s in subs])
 
-@compliance_bp.route('/json/services')
+@compliance_bp.route('/json/services', methods=['GET'])
 @requires_permission('compliance')
 def get_json_services():
     from ..models.services import BusinessService
@@ -122,7 +122,7 @@ def get_json_services():
 
 # --- User Access Review (UAR) Routes ---
 
-@compliance_bp.route('/access-review')
+@compliance_bp.route('/access-review', methods=['GET'])
 @requires_permission('compliance')
 def access_review():
     """Renders the User Access Review interface."""
@@ -450,7 +450,7 @@ def promote_finding_to_incident():
 
 # --- JSON APIs for Automation Rules Dynamic Selectors ---
 
-@compliance_bp.route('/json/activities')
+@compliance_bp.route('/json/activities', methods=['GET'])
 @requires_permission('compliance')
 def get_activities():
     """Returns list of Security Activities for dropdown."""
@@ -465,7 +465,7 @@ def get_activities():
         'frequency': a.frequency or ''
     } for a in activities])
 
-@compliance_bp.route('/json/tags')
+@compliance_bp.route('/json/tags', methods=['GET'])
 @requires_permission('compliance')
 def get_all_tags():
     """Returns list of all non-archived Tags for dropdowns."""
@@ -478,14 +478,14 @@ def get_all_tags():
     except Exception as e:
         return jsonify([]), 500
 
-@compliance_bp.route('/json/maintenance-types')
+@compliance_bp.route('/json/maintenance-types', methods=['GET'])
 @requires_permission('compliance')
 def get_maintenance_types():
     """Returns distinct event_type values from MaintenanceLog."""
     types = db.session.query(MaintenanceLog.event_type).distinct().order_by(MaintenanceLog.event_type).all()
     return jsonify([t[0] for t in types if t[0]])
 
-@compliance_bp.route('/json/bcdr-plans')
+@compliance_bp.route('/json/bcdr-plans', methods=['GET'])
 @requires_permission('compliance')
 def get_bcdr_plans():
     """Returns list of BCDR Plans for dropdown."""
@@ -499,14 +499,14 @@ def get_bcdr_plans():
         'name': p.name
     } for p in plans])
 
-@compliance_bp.route('/vendors')
+@compliance_bp.route('/vendors', methods=['GET'])
 @requires_permission('compliance')
 def vendor_compliance():
     """Displays a list of all suppliers and their compliance status."""
     suppliers = Supplier.query.order_by(Supplier.name).all()
     return render_template('compliance/vendor_list.html', suppliers=suppliers)
 
-@compliance_bp.route('/assessments')
+@compliance_bp.route('/assessments', methods=['GET'])
 @requires_permission('compliance')
 def list_assessments():
     """Displays a list of all security assessments."""
@@ -558,7 +558,7 @@ def new_assessment(supplier_id):
 
     return render_template('compliance/assessment_form.html', supplier=supplier, today_date=now().strftime('%Y-%m-%d'))
 
-@compliance_bp.route('/assessment/<int:id>')
+@compliance_bp.route('/assessment/<int:id>', methods=['GET'])
 @requires_permission('compliance')
 def assessment_detail(id):
     assessment = db.get_or_404(SecurityAssessment, id)
@@ -585,7 +585,7 @@ def edit_assessment(id):
 
     return render_template('compliance/assessment_form.html', supplier=supplier, assessment=assessment)
 
-@compliance_bp.route('/policy-report')
+@compliance_bp.route('/policy-report', methods=['GET'])
 @requires_permission('compliance')
 def policy_report():
     """Shows which users have not acknowledged active policies."""
@@ -632,7 +632,7 @@ def policy_report():
             
     return render_template('compliance/policy_report.html', report_data=report_data)
 
-@compliance_bp.route('/my-policies')
+@compliance_bp.route('/my-policies', methods=['GET'])
 @login_required
 def my_policies():
     """Shows policies assigned to the current user."""
@@ -677,7 +677,7 @@ def my_policies():
 
 # --- Asset Inventory Management ---
 
-@compliance_bp.route('/inventory')
+@compliance_bp.route('/inventory', methods=['GET'])
 @requires_permission('compliance')
 def list_inventory():
     """Displays a list of all asset inventories."""

@@ -38,12 +38,14 @@ def new_peripheral():
         if not has_write_permission('core_inventory'):
                 flash('Write access required for this action.', 'danger')
                 return redirect(url_for('peripherals.peripherals'))
+        serial_number = request.form.get('serial_number')
+        serial_number = serial_number if serial_number and serial_number != 'None' else None
         peripheral = Peripheral(
             name=request.form['name'],
             type=request.form.get('type'),
             brand_id=int(request.form.get('brand_id')) if request.form.get('brand_id') else None,
             model_id=int(request.form.get('model_id')) if request.form.get('model_id') else None,
-            serial_number=request.form.get('serial_number'),
+            serial_number=serial_number,
             status=request.form['status'],
             purchase_date=datetime.strptime(request.form.get('purchase_date'), '%Y-%m-%d').date() if request.form.get('purchase_date') else None,
             warranty_length=int(request.form.get('warranty_length')) if request.form.get('warranty_length') else None,
@@ -88,12 +90,15 @@ def edit_peripheral(id):
         new_model_id = int(model_id_form) if model_id_form else None
 
         # Check for validated purchase
+        serial_number = request.form.get('serial_number')
+        serial_number = serial_number if serial_number and serial_number != 'None' else None
+
         if peripheral.purchase and peripheral.purchase.validated_cost is not None:
             peripheral.name = request.form['name']
             peripheral.type = request.form.get('type')
             peripheral.brand_id = new_brand_id
             peripheral.model_id = new_model_id
-            peripheral.serial_number = request.form.get('serial_number')
+            peripheral.serial_number = serial_number
             peripheral.status = new_status
             peripheral.user_id = request.form.get('user_id') or None
             db.session.commit()
@@ -105,7 +110,7 @@ def edit_peripheral(id):
         peripheral.type = request.form.get('type')
         peripheral.brand_id = new_brand_id
         peripheral.model_id = new_model_id
-        peripheral.serial_number = request.form.get('serial_number')
+        peripheral.serial_number = serial_number
         peripheral.status = new_status
         purchase_date_str = request.form.get('purchase_date')
         peripheral.purchase_date = datetime.strptime(purchase_date_str, '%Y-%m-%d').date() if purchase_date_str else None

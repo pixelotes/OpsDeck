@@ -10,7 +10,7 @@ from src.utils.timezone_helper import now
 
 changes_bp = Blueprint('changes', __name__)
 
-@changes_bp.route('/')
+@changes_bp.route('/', methods=['GET'])
 @requires_permission('operations')
 def list_changes():
     """List all changes with filtering."""
@@ -229,7 +229,7 @@ def edit_change(id):
                           tags=tags,
                           change=change)
 
-@changes_bp.route('/<int:id>')
+@changes_bp.route('/<int:id>', methods=['GET'])
 @requires_permission('operations')
 def detail_change(id):
     change = db.get_or_404(Change, id)

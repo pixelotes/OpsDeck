@@ -15,14 +15,14 @@ from src.utils.timezone_helper import now
 
 users_bp = Blueprint('users', __name__)
 
-@users_bp.route('/')
+@users_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('administration', access_level='READ_ONLY')
 def users():
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     return render_template('users/list.html', users=users)
 
-@users_bp.route('/org-chart')
+@users_bp.route('/org-chart', methods=['GET'])
 @login_required
 @requires_permission('administration', access_level='READ_ONLY')
 def org_chart():
@@ -73,7 +73,7 @@ def org_chart():
 
     return render_template('users/org_chart.html', users=users, org_tree_json=org_tree_json)
 
-@users_bp.route('/archived')
+@users_bp.route('/archived', methods=['GET'])
 @login_required
 @requires_permission('administration', access_level='READ_ONLY')
 def archived_users():
@@ -117,7 +117,7 @@ def unarchive_user(id):
     flash(f'User "{user.name}" has been restored.', 'success')
     return redirect(url_for('users.archived_users'))
 
-@users_bp.route('/<int:id>')
+@users_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('administration', access_level='READ_ONLY')
 def user_detail(id):
@@ -317,14 +317,14 @@ def from_flask_session_proxy():
     from flask import session
     return session
 
-@users_bp.route('/org-chart/snapshots')
+@users_bp.route('/org-chart/snapshots', methods=['GET'])
 @login_required
 @requires_permission('administration', access_level='READ_ONLY')
 def list_org_snapshots():
     snapshots = OrgChartSnapshot.query.order_by(OrgChartSnapshot.created_at.desc()).all()
     return render_template('users/org_snapshots_list.html', snapshots=snapshots)
 
-@users_bp.route('/org-chart/snapshots/<int:id>')
+@users_bp.route('/org-chart/snapshots/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('administration', access_level='READ_ONLY')
 def view_org_snapshot(id):

@@ -9,7 +9,7 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 contracts_bp = Blueprint('contracts', __name__)
 
-@contracts_bp.route('/')
+@contracts_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('procurement')
 def list_contracts():
@@ -243,7 +243,7 @@ def _get_item_url(item_type, item_id):
         return url_for('services.detail', id=item_id)
     return '#'
 
-@contracts_bp.route('/search-items')
+@contracts_bp.route('/search-items', methods=['GET'])
 @login_required
 @requires_permission('procurement')
 def search_items():

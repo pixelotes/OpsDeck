@@ -13,14 +13,14 @@ frameworks_bp = Blueprint('frameworks', __name__, url_prefix='/frameworks')
 
 # --- Rutas Principales del Framework ---
 
-@frameworks_bp.route('/')
+@frameworks_bp.route('/', methods=['GET'])
 @requires_permission('compliance')
 def list():
     """Muestra la lista de todos los frameworks."""
     frameworks = Framework.query.order_by(Framework.name).all()
     return render_template('frameworks/list.html', frameworks=frameworks)
 
-@frameworks_bp.route('/<int:id>')
+@frameworks_bp.route('/<int:id>', methods=['GET'])
 @requires_permission('compliance')
 def detail(id):
     """Muestra los detalles de un framework y sus controles."""
@@ -260,7 +260,7 @@ def delete_control(id):
 
 # --- Cross-Framework Control Mapping Routes ---
 
-@frameworks_bp.route('/control/<int:id>/detail')
+@frameworks_bp.route('/control/<int:id>/detail', methods=['GET'])
 @requires_permission('compliance')
 def control_detail(id):
     """Displays control detail with cross-mappings and linked evidence."""
@@ -405,7 +405,7 @@ def unmap_control(id, target_id):
     return redirect(url_for('frameworks.control_detail', id=id))
 
 
-@frameworks_bp.route('/api/search-controls')
+@frameworks_bp.route('/api/search-controls', methods=['GET'])
 @requires_permission('compliance')
 def search_controls():
     """API to search controls for cross-mapping (for TomSelect)."""

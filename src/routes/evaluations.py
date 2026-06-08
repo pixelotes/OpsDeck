@@ -9,7 +9,7 @@ from src.utils.timezone_helper import now
 
 evaluations_bp = Blueprint('evaluations', __name__, url_prefix='/evaluations')
 
-@evaluations_bp.route('/kanban')
+@evaluations_bp.route('/kanban', methods=['GET'])
 @login_required
 @requires_permission('procurement', access_level='READ_ONLY')
 def kanban_view():
@@ -25,7 +25,7 @@ def kanban_view():
                            evaluations_by_status=evaluations_by_status,
                            statuses=statuses)
 
-@evaluations_bp.route('/')
+@evaluations_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('procurement', access_level='READ_ONLY')
 def list_evaluations():
@@ -128,7 +128,7 @@ def new_evaluation():
                            budgets=budgets,
                            requirements=requirements)
 
-@evaluations_bp.route('/<int:id>')
+@evaluations_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('procurement', access_level='READ_ONLY')
 def detail(id):

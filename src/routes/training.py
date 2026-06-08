@@ -15,7 +15,7 @@ from src.utils.timezone_helper import today
 
 training_bp = Blueprint('training', __name__)
 
-@training_bp.route('/')
+@training_bp.route('/', methods=['GET'])
 @login_required
 def my_training():
     """Shows the logged-in user their assigned courses."""
@@ -29,7 +29,7 @@ def my_training():
     assignments = CourseAssignment.query.filter_by(user_id=user.id).order_by(CourseAssignment.due_date).all()
     return render_template('training/my_training.html', assignments=assignments)
 
-@training_bp.route('/courses')
+@training_bp.route('/courses', methods=['GET'])
 @login_required
 @requires_permission('knowledge_policy')
 def list_courses():

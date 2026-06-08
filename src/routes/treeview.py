@@ -7,7 +7,7 @@ from .main import login_required
 
 treeview_bp = Blueprint('treeview', __name__)
 
-@treeview_bp.route('/')
+@treeview_bp.route('/', methods=['GET'])
 @login_required
 def tree_view():
     selected_root = request.args.get('root', 'locations')

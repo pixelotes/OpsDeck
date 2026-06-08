@@ -5,7 +5,7 @@ from .main import login_required
 
 software_bp = Blueprint('software', __name__, url_prefix='/software')
 
-@software_bp.route('/')
+@software_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def list_software():
@@ -13,7 +13,7 @@ def list_software():
     all_software = Software.query.filter_by(is_archived=False).order_by(Software.name.asc()).paginate(page=page, per_page=15)
     return render_template('software/list.html', all_software=all_software)
 
-@software_bp.route('/<int:id>')
+@software_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def detail(id):

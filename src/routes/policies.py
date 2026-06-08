@@ -12,7 +12,7 @@ from src.utils.timezone_helper import today
 
 policies_bp = Blueprint('policies', __name__)
 
-@policies_bp.route('/')
+@policies_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('knowledge_policy')
 def list_policies():
@@ -60,7 +60,7 @@ def new_policy():
     groups = Group.query.order_by(Group.name).all()
     return render_template('policies/form.html', users=users, groups=groups)
 
-@policies_bp.route('/<int:id>')
+@policies_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('knowledge_policy')
 def detail(id):
@@ -226,7 +226,7 @@ def activate_version(id):
     flash(f'Version "{version_to_activate.version_number}" is now active.', 'success')
     return redirect(url_for('policies.detail', id=policy.id))
 
-@policies_bp.route('/version/<int:id>')
+@policies_bp.route('/version/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('knowledge_policy')
 def view_version(id):

@@ -22,7 +22,7 @@ campaigns_bp = Blueprint('campaigns', __name__)
 # CAMPAIGN CRUD
 # ==========================================
 
-@campaigns_bp.route('/')
+@campaigns_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('communications', access_level='READ_ONLY')
 def list_campaigns():
@@ -124,7 +124,7 @@ def new_campaign():
     return render_template('campaigns/form.html', campaign=None, users=users, groups=groups, tags=tags)
 
 
-@campaigns_bp.route('/<int:id>')
+@campaigns_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('communications', access_level='READ_ONLY')
 def detail(id):
@@ -523,7 +523,7 @@ def finish_campaign(id):
     return redirect(url_for('campaigns.detail', id=id))
 
 
-@campaigns_bp.route('/<int:id>/stats')
+@campaigns_bp.route('/<int:id>/stats', methods=['GET'])
 @login_required
 @requires_permission('communications', access_level='READ_ONLY')
 def get_stats(id):

@@ -10,14 +10,14 @@ from src.utils.timezone_helper import now
 
 purchases_bp = Blueprint('purchases', __name__, url_prefix='/purchases')
 
-@purchases_bp.route('/')
+@purchases_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('finance', access_level='READ_ONLY')
 def purchases():
     all_purchases = Purchase.query.order_by(Purchase.purchase_date.desc()).all()
     return render_template('purchases/list.html', purchases=all_purchases)
 
-@purchases_bp.route('/<int:id>')
+@purchases_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('finance', access_level='READ_ONLY')
 def purchase_detail(id):

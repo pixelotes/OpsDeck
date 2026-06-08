@@ -9,14 +9,14 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
-@maintenance_bp.route('/')
+@maintenance_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('operations')
 def list_logs():
     logs = MaintenanceLog.query.order_by(MaintenanceLog.event_date.desc()).all()
     return render_template('maintenance/list.html', logs=logs)
 
-@maintenance_bp.route('/<int:id>')
+@maintenance_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('operations')
 def log_detail(id):

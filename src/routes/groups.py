@@ -7,7 +7,7 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 groups_bp = Blueprint('groups', __name__)
 
-@groups_bp.route('/')
+@groups_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('administration', access_level='READ_ONLY')
 def list_groups():

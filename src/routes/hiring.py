@@ -17,7 +17,7 @@ hiring_bp = Blueprint('hiring', __name__)
 # KANBAN BOARD
 # ==========================================
 
-@hiring_bp.route('/')
+@hiring_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('hr_people')
 def board():
@@ -39,7 +39,7 @@ def board():
             
     return render_template('hiring/board.html', stages=stages)
 
-@hiring_bp.route('/list')
+@hiring_bp.route('/list', methods=['GET'])
 @login_required
 @requires_permission('hr_people')
 def list_candidates():
@@ -246,7 +246,7 @@ def unarchive_candidate(id):
     flash(f'Candidate "{candidate.name}" unarchived.', 'success')
     return redirect(request.referrer or url_for('hiring.list_candidates'))
 
-@hiring_bp.route('/candidate/<int:id>/resume')
+@hiring_bp.route('/candidate/<int:id>/resume', methods=['GET'])
 @login_required
 @requires_permission('hr_people')
 def download_resume(id):
@@ -412,7 +412,7 @@ def move_candidate():
 # STAGE MANAGEMENT
 # ==========================================
 
-@hiring_bp.route('/stages')
+@hiring_bp.route('/stages', methods=['GET', 'POST'])
 @login_required
 @requires_permission('hr_people')
 def manage_stages():

@@ -9,7 +9,7 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 cost_centers_bp = Blueprint('cost_centers', __name__)
 
-@cost_centers_bp.route('/')
+@cost_centers_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('finance', access_level='READ_ONLY')
 def list_cost_centers():
@@ -67,7 +67,7 @@ def new_cost_center():
     return render_template('cost_centers/form.html', cost_center=None)
 
 
-@cost_centers_bp.route('/<int:id>')
+@cost_centers_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('finance', access_level='READ_ONLY')
 def detail(id):

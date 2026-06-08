@@ -11,16 +11,21 @@ from ..services.permissions_service import requires_permission, has_write_permis
 # Admin bp
 admin_bp = Blueprint('admin', __name__)
 
-@admin_bp.route('/users')
+# Permission module and frequently-referenced endpoints (avoid duplicated literals)
+MODULE = 'administration'
+CUSTOM_FIELDS = 'admin.custom_fields'
+LIST_USERS = 'admin.list_users'
+
+@admin_bp.route('/users', methods=['GET'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_users():
     users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     return render_template('admin/list_users.html', users=users)
 
 @admin_bp.route('/users/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('administration', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def create_user():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -45,18 +50,18 @@ def create_user():
             )
             
             flash(f'User "{name}" created successfully.', 'success')
-            return redirect(url_for('admin.list_users'))
+            return redirect(url_for(LIST_USERS))
 
     return render_template('admin/form_user.html')
 
 @admin_bp.route('/users/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('administration', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def edit_user(id):
     user = db.get_or_404(User, id)
     if user.name == 'admin':
         flash('The default admin user cannot be edited.', 'danger')
-        return redirect(url_for('admin.list_users'))
+        return redirect(url_for(LIST_USERS))
 
     if request.method == 'POST':
         new_email = request.form.get('email')
@@ -94,19 +99,19 @@ def edit_user(id):
             )
             
         flash(f'User "{user.name}" has been updated.', 'success')
-        return redirect(url_for('admin.list_users'))
+        return redirect(url_for(LIST_USERS))
 
     return render_template('admin/edit_user.html', user=user)
 
 
 @admin_bp.route('/users/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('administration', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def delete_user(id):
     user_to_delete = db.get_or_404(User, id)
     if user_to_delete.name == 'admin':
         flash('The default admin user cannot be deleted.', 'danger')
-        return redirect(url_for('admin.list_users'))
+        return redirect(url_for(LIST_USERS))
         
     user_info = f"{user_to_delete.name} ({user_to_delete.email})"
     db.session.delete(user_to_delete)
@@ -120,27 +125,27 @@ def delete_user(id):
     )
     
     flash(f'User "{user_to_delete.name}" has been deleted.', 'success')
-    return redirect(url_for('admin.list_users'))
+    return redirect(url_for(LIST_USERS))
 
 
 # --- Custom Properties Management ---
 
 from ..models.core import CustomFieldDefinition, CustomFieldValue
 
-@admin_bp.route('/custom-fields')
+@admin_bp.route('/custom-fields', methods=['GET'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def custom_fields():
     definitions = CustomFieldDefinition.query.order_by(CustomFieldDefinition.entity_type, CustomFieldDefinition.name).all()
     return render_template('admin/custom_fields_list.html', definitions=definitions)
 
 @admin_bp.route('/custom-fields/new', methods=['POST'])
 @login_required
-@requires_permission('administration')
+@requires_permission(MODULE)
 def create_custom_field():
-    if not has_write_permission('administration'):
+    if not has_write_permission(MODULE):
         flash('Write access required to manage custom fields.', 'danger')
-        return redirect(url_for('admin.custom_fields'))
+        return redirect(url_for(CUSTOM_FIELDS))
     entity_type = request.form.get('entity_type')
     label = request.form.get('label')
     name = request.form.get('name')
@@ -149,12 +154,12 @@ def create_custom_field():
     
     if not all([entity_type, label, name, field_type]):
         flash('All fields are required.', 'danger')
-        return redirect(url_for('admin.custom_fields'))
+        return redirect(url_for(CUSTOM_FIELDS))
         
     existing = CustomFieldDefinition.query.filter_by(entity_type=entity_type, name=name).first()
     if existing:
         flash(f'A field with slug "{name}" already exists for {entity_type}.', 'danger')
-        return redirect(url_for('admin.custom_fields'))
+        return redirect(url_for(CUSTOM_FIELDS))
         
     new_field = CustomFieldDefinition(
         entity_type=entity_type,
@@ -175,15 +180,15 @@ def create_custom_field():
     )
     
     flash(f'{entity_type} property "{label}" created.', 'success')
-    return redirect(url_for('admin.custom_fields'))
+    return redirect(url_for(CUSTOM_FIELDS))
 
 @admin_bp.route('/custom-fields/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('administration')
+@requires_permission(MODULE)
 def delete_custom_field(id):
-    if not has_write_permission('administration'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete custom fields.', 'danger')
-        return redirect(url_for('admin.custom_fields'))
+        return redirect(url_for(CUSTOM_FIELDS))
     field = db.get_or_404(CustomFieldDefinition, id)
     info = f"{field.entity_type}.{field.name}"
     
@@ -200,7 +205,7 @@ def delete_custom_field(id):
     )
     
     flash('Custom property deleted.', 'success')
-    return redirect(url_for('admin.custom_fields'))
+    return redirect(url_for(CUSTOM_FIELDS))
 
 # --- Permissions Matrix ---
 
@@ -209,10 +214,10 @@ from ..services.permissions_service import update_permission_matrix
 
 @admin_bp.route('/permissions', methods=['GET', 'POST'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def permissions_matrix():
     if request.method == 'POST':
-        if not has_write_permission('administration'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update permissions.', 'danger')
             return redirect(url_for('admin.permissions_matrix'))
         target_type = request.form.get('target_type')
@@ -269,9 +274,9 @@ def permissions_matrix():
 from ..models.audit_log import AuditLog
 import json
 
-@admin_bp.route('/audit-log')
+@admin_bp.route('/audit-log', methods=['GET'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def audit_log():
     """
     Display audit log with server-side pagination and filtering.
@@ -352,9 +357,9 @@ def audit_log():
                           })
 
 
-@admin_bp.route('/audit-log/<int:id>/detail')
+@admin_bp.route('/audit-log/<int:id>/detail', methods=['GET'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def audit_log_detail(id):
     """
     Get detailed information about a specific audit log entry (for AJAX).

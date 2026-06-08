@@ -16,7 +16,7 @@ from src.utils.timezone_helper import now, today
 
 reports_bp = Blueprint('reports', __name__)
 
-@reports_bp.route('/subscription-reports')
+@reports_bp.route('/subscription-reports', methods=['GET'])
 @login_required
 @requires_permission('core_inventory')
 def subscription_reports():
@@ -132,7 +132,7 @@ def subscription_reports():
         available_years=available_years, selected_year=selected_year
     )
 
-@reports_bp.route('/asset-reports')
+@reports_bp.route('/asset-reports', methods=['GET'])
 @login_required
 @requires_permission('core_inventory')
 def asset_reports():
@@ -195,7 +195,7 @@ def asset_reports():
         warranty_data=warranty_data,
     )
 
-@reports_bp.route('/assets-dashboard')
+@reports_bp.route('/assets-dashboard', methods=['GET'])
 @login_required
 @requires_permission('core_inventory')
 def assets_dashboard():
@@ -379,7 +379,7 @@ def assets_dashboard():
     )
 
 
-@reports_bp.route('/assets-dashboard/pdf')
+@reports_bp.route('/assets-dashboard/pdf', methods=['GET'])
 @login_required
 @requires_permission('core_inventory')
 def assets_dashboard_pdf():

@@ -11,7 +11,7 @@ from src.utils.logger import log_audit
 asset_models_bp = Blueprint('asset_models', __name__)
 
 
-@asset_models_bp.route('/')
+@asset_models_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def list_models():
@@ -25,7 +25,7 @@ def list_models():
                            selected_brand_id=brand_id)
 
 
-@asset_models_bp.route('/<int:id>')
+@asset_models_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def model_detail(id):

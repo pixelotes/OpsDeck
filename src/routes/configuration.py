@@ -9,7 +9,7 @@ import json
 
 configuration_bp = Blueprint('configuration', __name__)
 
-@configuration_bp.route('/')
+@configuration_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def index():
@@ -17,7 +17,7 @@ def index():
     # Simple list view
     return render_template('configuration/index.html', configurations=configurations)
 
-@configuration_bp.route('/<int:id>')
+@configuration_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def detail(id):
@@ -113,7 +113,7 @@ def snapshot(id):
         
     return redirect(url_for('configuration.detail', id=id))
 
-@configuration_bp.route('/<int:id>/compare')
+@configuration_bp.route('/<int:id>/compare', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def compare(id):
@@ -143,7 +143,7 @@ def compare(id):
                            v2=v2,
                            diff=diff)
 
-@configuration_bp.route('/<int:id>/history')
+@configuration_bp.route('/<int:id>/history', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def history(id):
@@ -151,7 +151,7 @@ def history(id):
     versions = config.versions.order_by(ConfigurationVersion.version_number.desc()).all()
     return render_template('configuration/history.html', configuration=config, versions=versions)
 
-@configuration_bp.route('/<int:id>/versions')
+@configuration_bp.route('/<int:id>/versions', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def get_versions(id):
