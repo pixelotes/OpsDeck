@@ -57,7 +57,11 @@
                     <a href="{{ url_for('brands.brand_detail', id=peripheral.brand.id) }}">{{ peripheral.brand.name }}</a>
                     {% else %}N/A{% endif %}
                 </p>
-                <p><strong>Model:</strong> {{ peripheral.model.name if peripheral.model else 'N/A' }}</p>
+                <p><strong>Model:</strong>
+                    {% if peripheral.model %}
+                    <a href="{{ url_for('asset_models.model_detail', id=peripheral.model.id) }}">{{ peripheral.model.name }}</a>
+                    {% else %}N/A{% endif %}
+                </p>
                 <p><strong>Serial Number:</strong> {{ peripheral.serial_number or 'N/A' }}</p>
                 <p><strong>Status:</strong>
                     <span class="badge bg-info">{{ peripheral.status }}</span>

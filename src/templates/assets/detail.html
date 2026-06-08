@@ -77,7 +77,11 @@
                             <a href="{{ url_for('brands.brand_detail', id=asset.brand.id) }}">{{ asset.brand.name }}</a>
                             {% else %}N/A{% endif %}
                         </p>
-                        <p><strong>Model:</strong> {{ asset.model.name if asset.model else 'N/A' }}</p>
+                        <p><strong>Model:</strong>
+                            {% if asset.model %}
+                            <a href="{{ url_for('asset_models.model_detail', id=asset.model.id) }}">{{ asset.model.name }}</a>
+                            {% else %}N/A{% endif %}
+                        </p>
                         <p><strong>Serial Number:</strong> {{ asset.serial_number or 'N/A' }}</p>
                         <p><strong>Status:</strong>
                             <span class="badge bg-info">{{ asset.status }}</span>
