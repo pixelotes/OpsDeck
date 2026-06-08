@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Suppliers & Contacts API**: read-only `GET /api/v1/suppliers` and `GET /api/v1/contacts` (list and detail)
 - **Changes API reads**: `GET /api/v1/changes` and `GET /api/v1/changes/{id}` (previously POST-only)
 - **Models management screen**: Dedicated Core Inventory screen to list, create, edit, and delete asset models across brands, with menu access below Brands
+- **Status timeline on incident detail**: incidents now show the same step timeline as changes and requests (Investigating → Contained → Resolved → Closed), unifying the ticket detail look — no data model change
 - **Subscription spend in the Spend Analysis report**: recurring subscription cost is now reconstructed from billing history — each past billing occurrence is valued at the price and seat count effective on that date (from CostHistory) — and shown alongside one-off purchases, with a "Spend by Month (EUR)" summary. Defaults to the trailing 12 months when no date range is given
 
 ### Changed
