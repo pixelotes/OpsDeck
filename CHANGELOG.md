@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Service Requests**: New Operations module to submit and track service requests (access, hardware, software, information) through a triage-based fulfillment workflow (Pending → Triage → In Progress → Completed → Closed, with Cancelled as an off-flow state). Includes optional targets (service/asset/software), tags, evidence attachments, a status timeline, and the now-active "Create a Request" quick action on My Dashboard
+
 
 ## [0.6.10] - 2026-06-03
 

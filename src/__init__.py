@@ -107,6 +107,11 @@ def create_app(test_config=None):
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True}
 
+    # Cache static assets aggressively (1 year). Cache-busting is handled by the
+    # mtime-based ?v= query param added in `add_static_cache_buster` below, so the
+    # browser re-fetches a file only when it actually changes on disk.
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000  # 1 year, in seconds
+
     # Log which database backend is being used
     is_postgres = 'postgresql' in database_url
     app.config['IS_POSTGRES'] = is_postgres
@@ -333,6 +338,9 @@ def create_app(test_config=None):
     
     from .routes.changes import changes_bp
     app.register_blueprint(changes_bp, url_prefix='/changes')
+
+    from .routes.requests import requests_bp
+    app.register_blueprint(requests_bp, url_prefix='/requests')
 
     from .routes.audits import audits_bp
     app.register_blueprint(audits_bp)

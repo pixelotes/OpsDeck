@@ -1,0 +1,136 @@
+{% extends "layout.html" %}
+
+{% block title %}Service Requests - OpsDeck{% endblock %}
+
+{% macro status_badge(status) %}
+{% if status == 'Pending' %}
+<span class="badge bg-secondary">Pending</span>
+{% elif status == 'Triage' %}
+<span class="badge bg-warning text-dark">Triage</span>
+{% elif status == 'In Progress' %}
+<span class="badge bg-primary">In Progress</span>
+{% elif status == 'Completed' %}
+<span class="badge bg-success">Completed</span>
+{% elif status == 'Closed' %}
+<span class="badge bg-dark">Closed</span>
+{% elif status == 'Cancelled' %}
+<span class="badge bg-secondary">Cancelled</span>
+{% else %}
+<span class="badge bg-secondary">{{ status }}</span>
+{% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-hand-paper"></i> Service Requests</h2>
+    <div class="d-flex align-items-center gap-2">
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="fas fa-filter"></i> Filter{% if request.args.get('status') %}: {{ request.args.get('status') }}{% endif %}
+            </button>
+            <div class="dropdown-menu dropdown-menu-end shadow">
+                <a class="dropdown-item" href="{{ url_for('requests.list_requests') }}">All</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="{{ url_for('requests.list_requests', status='Pending') }}">Pending</a>
+                <a class="dropdown-item" href="{{ url_for('requests.list_requests', status='Triage') }}">Triage</a>
+                <a class="dropdown-item" href="{{ url_for('requests.list_requests', status='In Progress') }}">In Progress</a>
+                <a class="dropdown-item" href="{{ url_for('requests.list_requests', status='Completed') }}">Completed</a>
+                <a class="dropdown-item" href="{{ url_for('requests.list_requests', status='Closed') }}">Closed</a>
+            </div>
+        </div>
+        {% if can_write('operations') %}
+        <a href="{{ url_for('requests.new_request') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> New Request
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        {% if requests %}
+        <div class="table-responsive">
+            <table class="table table-striped datatable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Due</th>
+                        <th>Requester</th>
+                        <th>Assignee</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                    <tr>
+                        <td><a href="{{ url_for('requests.detail_request', id=req.id) }}">#{{ req.id }}</a></td>
+                        <td>
+                            <a href="{{ url_for('requests.detail_request', id=req.id) }}"
+                                class="text-body fw-bold text-decoration-none">
+                                {{ req.title }}
+                            </a>
+                            <br>
+                            <small class="text-muted">{{ req.created_at.strftime('%Y-%m-%d') }}</small>
+                        </td>
+                        <td><span class="badge bg-info text-dark">{{ req.request_type }}</span></td>
+                        <td>{{ req.priority }}</td>
+                        <td>{{ status_badge(req.status) }}</td>
+                        <td>
+                            {% if req.due_date %}
+                            {{ req.due_date.strftime('%d/%m %H:%M') }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle-sm bg-primary text-white me-2">
+                                    {{ req.requester.name[:1] }}
+                                </div>
+                                <small>{{ req.requester.name.split()[0] }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            {% if req.assignee %}
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle-sm bg-info text-white me-2">
+                                    {{ req.assignee.name[:1] }}
+                                </div>
+                                <small>{{ req.assignee.name.split()[0] }}</small>
+                            </div>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('requests.detail_request', id=req.id) }}"
+                                class="btn btn-sm btn-outline-primary" title="View">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            {% if can_write('operations') and req.status not in ['Completed', 'Closed', 'Cancelled'] %}
+                            <a href="{{ url_for('requests.edit_request', id=req.id) }}"
+                                class="btn btn-sm btn-outline-secondary" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        {% set icon = '🙋' %}
+        {% set title = 'No Service Requests Found' %}
+        {% set message = 'Submit and track service requests through triage and fulfillment.' %}
+        {% set action_url = url_for('requests.new_request') if can_write('operations') else none %}
+        {% set action_text = 'Create First Request' %}
+        {% include 'components/empty_state.html' %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

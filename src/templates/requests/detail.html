@@ -1,0 +1,349 @@
+{% extends "layout.html" %}
+
+{% block title %}Request #{{ req.id }} - OpsDeck{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Request #{{ req.id }}: {{ req.title }}</h2>
+        <div class="mt-2">
+            <!-- Status Badge -->
+            {% if req.status == 'Pending' %}
+            <span class="badge bg-secondary fs-6">Pending</span>
+            {% elif req.status == 'Triage' %}
+            <span class="badge bg-warning text-dark fs-6">Triage</span>
+            {% elif req.status == 'In Progress' %}
+            <span class="badge bg-primary fs-6">In Progress</span>
+            {% elif req.status == 'Completed' %}
+            <span class="badge bg-success fs-6">Completed</span>
+            {% elif req.status == 'Closed' %}
+            <span class="badge bg-dark fs-6">Closed</span>
+            {% elif req.status == 'Cancelled' %}
+            <span class="badge bg-secondary fs-6">Cancelled</span>
+            {% endif %}
+
+            <span class="badge border border-secondary text-secondary ms-2">{{ req.priority }} Priority</span>
+            <span class="badge border border-info text-info ms-2">{{ req.request_type }}</span>
+        </div>
+    </div>
+
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <!-- ACTION BUTTONS -->
+        {% if can_write('operations') and req.status not in ['Completed', 'Closed', 'Cancelled'] %}
+        <a href="{{ url_for('requests.edit_request', id=req.id) }}" class="btn btn-secondary me-2">
+            <i class="fas fa-edit"></i> Edit
+        </a>
+        {% endif %}
+
+        {% if req.status == 'Pending' and can_write('operations') %}
+        <form action="{{ url_for('requests.triage_request', id=req.id) }}" method="POST" class="d-inline"
+            data-confirm="Move this request to triage?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-warning me-2"><i class="fas fa-inbox"></i> Send to Triage</button>
+        </form>
+        {% endif %}
+
+        {% if req.status == 'Triage' and can_write('operations') %}
+        <form action="{{ url_for('requests.start_request', id=req.id) }}" method="POST" class="d-inline"
+            data-confirm="Start working on this request?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-primary me-2"><i class="fas fa-play"></i> Start Work</button>
+        </form>
+        {% endif %}
+
+        {% if req.status == 'In Progress' and can_write('operations') %}
+        <form action="{{ url_for('requests.complete_request', id=req.id) }}" method="POST" class="d-inline me-2"
+            data-confirm="Mark this request as completed?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-success"><i class="fas fa-flag-checkered"></i> Complete</button>
+        </form>
+        {% endif %}
+
+        {% if req.status == 'Completed' and can_write('operations') %}
+        <form action="{{ url_for('requests.close_request', id=req.id) }}" method="POST" class="d-inline me-2"
+            data-confirm="Close this request?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-dark"><i class="fas fa-lock"></i> Close</button>
+        </form>
+        {% endif %}
+
+        {% if can_write('operations') and req.status not in ['Completed', 'Closed', 'Cancelled'] %}
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                More
+            </button>
+            <div class="dropdown-menu dropdown-menu-end">
+                <form action="{{ url_for('requests.cancel_request', id=req.id) }}" method="POST"
+                    data-confirm="Cancel this request?">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="dropdown-item text-danger"><i class="fas fa-ban"></i> Cancel Request</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- TIMELINE: Pending -> Triage -> In Progress -> Completed -> Closed -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="position-relative m-4">
+            <!-- Track + progress line, vertically centered on the 20px dots (center at 10px) -->
+            <div class="position-absolute w-100" style="top: 10px; height: 2px; background-color: #dee2e6;"></div>
+            <div class="position-absolute"
+                style="top: 10px; height: 2px; background-color: var(--bs-primary); width:
+                    {% if req.status == 'Pending' %}0%{% elif req.status == 'Triage' %}25%{% elif req.status == 'In Progress' %}50%{% elif req.status == 'Completed' %}75%{% elif req.status == 'Closed' %}100%{% else %}0%{% endif %};">
+            </div>
+
+            <div class="d-flex justify-content-between position-relative">
+                <!-- Pending -->
+                <div class="text-center">
+                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                        style="width: 20px; height: 20px;"></div>
+                    <small>Pending</small>
+                </div>
+                <!-- Triage -->
+                <div class="text-center">
+                    <div class="rounded-circle {% if req.status in ['Triage', 'In Progress', 'Completed', 'Closed'] %}bg-primary{% else %}bg-secondary{% endif %} text-white d-flex align-items-center justify-content-center"
+                        style="width: 20px; height: 20px;"></div>
+                    <small>Triage</small>
+                </div>
+                <!-- In Progress -->
+                <div class="text-center">
+                    <div class="rounded-circle {% if req.status in ['In Progress', 'Completed', 'Closed'] %}bg-primary{% else %}bg-secondary{% endif %} text-white d-flex align-items-center justify-content-center"
+                        style="width: 20px; height: 20px;"></div>
+                    <small>In Progress</small>
+                </div>
+                <!-- Completed -->
+                <div class="text-center">
+                    <div class="rounded-circle {% if req.status in ['Completed', 'Closed'] %}bg-primary{% else %}bg-secondary{% endif %} text-white d-flex align-items-center justify-content-center"
+                        style="width: 20px; height: 20px;"></div>
+                    <small>Completed</small>
+                </div>
+                <!-- Closed -->
+                <div class="text-center">
+                    <div class="rounded-circle {% if req.status == 'Closed' %}bg-success{% else %}bg-secondary{% endif %} text-white d-flex align-items-center justify-content-center"
+                        style="width: 20px; height: 20px;"></div>
+                    <small>Closed</small>
+                </div>
+            </div>
+        </div>
+        {% if req.status == 'Cancelled' %}
+        <div class="text-center mt-2">
+            <span class="badge bg-danger"><i class="fas fa-ban"></i> This request was cancelled.</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <!-- LEFT COLUMN -->
+    <div class="col-lg-8">
+        <ul class="nav nav-tabs mb-3" id="detailTabs" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview"
+                    type="button">Overview</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="justification-tab" data-bs-toggle="tab" data-bs-target="#justification"
+                    type="button">Justification</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link text-success" id="resolution-tab" data-bs-toggle="tab"
+                    data-bs-target="#resolution" type="button">Resolution</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="evidence-tab" data-bs-toggle="tab" data-bs-target="#evidence"
+                    type="button">Evidence</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="detailTabsContent">
+            <!-- OVERVIEW -->
+            <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5>Description</h5>
+                        {% if req.description %}
+                        <div class="markdown-body p-3 bg-light rounded">
+                            {{ req.description | markdown | safe }}
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No description provided.</p>
+                        {% endif %}
+
+                        <hr>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Related To</h6>
+                                {% if req.service %}
+                                <a href="{{ url_for('services.detail', id=req.service_id) }}"><i
+                                        class="fas fa-server"></i> {{ req.service.name }}</a>
+                                {% elif req.asset %}
+                                <a href="{{ url_for('assets.asset_detail', id=req.asset_id) }}"><i
+                                        class="fas fa-laptop"></i> {{ req.asset.name }}</a>
+                                {% elif req.software %}
+                                <a href="{{ url_for('software.detail', id=req.software_id) }}"><i
+                                        class="fas fa-compact-disc"></i> {{ req.software.name }}</a>
+                                {% else %}
+                                <span class="text-muted">None specified</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Priority</h6>
+                                {% if req.priority == 'Critical' %}
+                                <span class="badge bg-danger">Critical</span>
+                                {% elif req.priority == 'High' %}
+                                <span class="badge bg-warning text-dark">High</span>
+                                {% elif req.priority == 'Medium' %}
+                                <span class="badge bg-info text-dark">Medium</span>
+                                {% else %}
+                                <span class="badge bg-success">Low</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- JUSTIFICATION -->
+            <div class="tab-pane fade" id="justification" role="tabpanel">
+                <div class="card shadow mb-4">
+                    <div class="card-body">
+                        {% if req.justification %}
+                        {{ req.justification | markdown | safe }}
+                        {% else %}
+                        <p class="text-muted">No justification provided.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- RESOLUTION -->
+            <div class="tab-pane fade" id="resolution" role="tabpanel">
+                <div class="card shadow mb-4 border-left-success">
+                    <div class="card-body">
+                        {% if req.resolution_notes %}
+                        {{ req.resolution_notes | markdown | safe }}
+                        {% else %}
+                        <p class="text-muted">No resolution notes yet.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- EVIDENCE -->
+            <div class="tab-pane fade" id="evidence" role="tabpanel">
+                <div class="card mb-4">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-dark">Attachments</h6>
+                    </div>
+                    <div class="card-body">
+                        {% if req.attachments %}
+                        <div class="list-group mb-3">
+                            {% for att in req.attachments %}
+                            <a href="{{ url_for('attachments.download_file', attachment_id=att.id) }}"
+                                class="list-group-item list-group-item-action">
+                                <i class="fas fa-paperclip me-2"></i> {{ att.filename }}
+                                <span class="float-end text-muted small">{{ att.created_at.strftime('%Y-%m-%d %H:%M')
+                                    }}</span>
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-muted text-center py-3">No evidence uploaded yet.</p>
+                        {% endif %}
+
+                        {% if can_write('operations') %}
+                        <hr>
+                        <h6>Upload Evidence</h6>
+                        <form action="{{ url_for('requests.add_evidence', id=req.id) }}" method="POST"
+                            enctype="multipart/form-data">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="input-group">
+                                <input type="file" class="form-control" name="file" required>
+                                <button class="btn btn-outline-primary" type="submit">Upload</button>
+                            </div>
+                            <small class="text-muted">Upload screenshots, approvals, or supporting documents.</small>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-dark">Details</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <th class="ps-0">Requester:</th>
+                        <td class="text-end">{{ req.requester.name }}</td>
+                    </tr>
+                    <tr>
+                        <th class="ps-0">Assignee:</th>
+                        <td class="text-end">
+                            {% if req.assignee %}{{ req.assignee.name }}{% else %}<span
+                                class="text-muted">Unassigned</span>{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="ps-0 pt-3">Triaged By:</th>
+                        <td class="text-end pt-3">
+                            {% if req.triaged_by %}
+                            {{ req.triaged_by.name }}<br>
+                            <small class="text-muted">{{ req.triaged_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+                <hr>
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <th class="ps-0">Created:</th>
+                        <td class="text-end">{{ req.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                    <tr>
+                        <th class="ps-0">Due Date:</th>
+                        <td class="text-end">{% if req.due_date %}{{ req.due_date.strftime('%Y-%m-%d %H:%M') }}{% else %}-{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th class="ps-0">Started:</th>
+                        <td class="text-end">{% if req.started_at %}{{ req.started_at.strftime('%Y-%m-%d %H:%M') }}{% else %}-{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th class="ps-0">Completed:</th>
+                        <td class="text-end">{% if req.completed_at %}{{ req.completed_at.strftime('%Y-%m-%d %H:%M') }}{% else %}-{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th class="ps-0">Closed:</th>
+                        <td class="text-end">{% if req.closed_at %}{{ req.closed_at.strftime('%Y-%m-%d %H:%M') }}{% else %}-{% endif %}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAGS -->
+        <div class="card mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-dark">Tags</h6>
+            </div>
+            <div class="card-body">
+                {% for tag in req.tags %}
+                <span class="badge bg-secondary me-1">{{ tag.name }}</span>
+                {% else %}
+                <span class="text-muted">No tags.</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

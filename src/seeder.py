@@ -7,7 +7,7 @@ from .models import (
     BCDRPlan, BCDRTestLog, Course, CourseAssignment, Group, Policy, PolicyVersion, Opportunity,
     Documentation, Link, Software, License, Framework, FrameworkControl, ComplianceLink, ComplianceRule,
     BusinessService, ServiceComponent, ComplianceAudit, Contact, RiskAssessment,
-    EmailTemplate, NotificationEvent, Change,
+    EmailTemplate, NotificationEvent, Change, Request,
     SecurityActivity, ActivityExecution
 )
 from .models.assets import Brand, AssetModel
@@ -708,6 +708,98 @@ def seed_data(app=None):
         )
         
         db.session.add_all([change1, change2])
+        db.session.commit()
+
+        # 12c. Service Requests
+        print("Creating service requests...")
+        req_pending = Request(
+            title="New laptop for marketing hire",
+            request_type="Hardware",
+            priority="High",
+            status="Pending",
+            description="New starter joining the marketing team next week needs a laptop.",
+            justification="Onboarding deadline; equipment must be ready before day one.",
+            requester=users[3],
+            tags=[tags[1]],  # Hardware
+        )
+        req_triage = Request(
+            title="VPN access for remote contractor",
+            request_type="Access",
+            priority="Medium",
+            status="Triage",
+            description="Contractor needs VPN access to the staging environment.",
+            justification="Required to deliver the Q3 integration work remotely.",
+            requester=users[2],  # Charlie
+            assignee=users[8],   # Ian
+            service=services[0],
+            triaged_at=now() - timedelta(days=1),
+            triaged_by=users[8],
+            tags=[tags[7]],  # Security
+        )
+        req_inprogress = Request(
+            title="Install Adobe Photoshop on design workstation",
+            request_type="Software",
+            priority="Medium",
+            status="In Progress",
+            description="Design team requested Photoshop for the new campaign assets.",
+            justification="Approved software for the design function.",
+            requester=users[4],  # Fiona
+            assignee=users[8],   # Ian
+            software=software_list[3],  # Adobe Photoshop
+            triaged_at=now() - timedelta(days=3),
+            triaged_by=users[8],
+            started_at=now() - timedelta(days=2),
+            tags=[tags[6]],  # Design
+        )
+        req_completed = Request(
+            title="Reset MFA for locked-out user",
+            request_type="Access",
+            priority="Critical",
+            status="Completed",
+            description="User locked out after losing their MFA device.",
+            justification="User unable to access critical systems.",
+            requester=users[5],
+            assignee=users[8],   # Ian
+            triaged_at=now() - timedelta(days=5),
+            triaged_by=users[8],
+            started_at=now() - timedelta(days=5),
+            completed_at=now() - timedelta(days=4),
+            resolution_notes="MFA reset and re-enrolled on the user's new device. Verified login.",
+        )
+        req_closed = Request(
+            title="Request office monitor",
+            request_type="Hardware",
+            priority="Low",
+            status="Closed",
+            description="Second monitor for the finance desk.",
+            justification="Improve productivity for spreadsheet-heavy work.",
+            requester=users[6],
+            assignee=users[8],   # Ian
+            triaged_at=now() - timedelta(days=20),
+            triaged_by=users[8],
+            started_at=now() - timedelta(days=18),
+            completed_at=now() - timedelta(days=15),
+            closed_at=now() - timedelta(days=14),
+            resolution_notes="Monitor delivered and set up at the finance desk.",
+            tags=[tags[1]],  # Hardware
+        )
+        req_cancelled = Request(
+            title="Access to legacy CRM",
+            request_type="Access",
+            priority="Low",
+            status="Cancelled",
+            description="Access request to the legacy CRM system.",
+            justification="Was needed for a data export task.",
+            requester=users[7],
+            triaged_at=now() - timedelta(days=8),
+            triaged_by=users[8],
+            closed_at=now() - timedelta(days=7),
+        )
+
+        db.session.add_all([
+            req_pending, req_triage, req_inprogress,
+            req_completed, req_closed, req_cancelled
+        ])
         db.session.commit()
 
         # 13. Compliance Audit (Defense Room)

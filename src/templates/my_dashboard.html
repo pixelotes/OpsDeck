@@ -616,11 +616,9 @@
     <div class="quick-actions-hero">
         <h3>🎯 Quick Actions</h3>
         <div class="action-grid">
-            <a href="#" class="action-card primary coming-soon"
-                onclick="event.preventDefault();" title="Coming soon — requests are not available yet">
+            <a href="{{ url_for('requests.new_request') }}" class="action-card primary">
                 <div class="action-icon">🙋</div>
                 <div class="action-label">Create a<br>Request</div>
-                <div class="action-soon">Soon</div>
             </a>
 
             <a href="{{ url_for('compliance.new_incident') }}" class="action-card secondary">

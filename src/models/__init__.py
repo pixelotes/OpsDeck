@@ -25,6 +25,7 @@ from .communications import EmailTemplate, PackCommunication, ScheduledCommunica
 from .notifications import NotificationEvent
 from .finance import FinanceSettings, ExchangeRate
 from .change import Change
+from .request import Request, REQUEST_STATUSES
 from .contracts import Contract, ContractItem
 from .hiring import HiringStage, Candidate
 from .audit_log import AuditLog

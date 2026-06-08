@@ -1,0 +1,250 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if req %}Edit Request #{{ req.id }}{% else %}New Service Request{% endif %} - OpsDeck{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/easymde/easymde.min.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{% if req %}Edit Request <small class="text-muted">#{{ req.id }}</small>{% else %}New Service
+        Request{% endif %}</h1>
+</div>
+
+<form method="POST"
+    action="{% if req %}{{ url_for('requests.edit_request', id=req.id) }}{% else %}{{ url_for('requests.new_request') }}{% endif %}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="row">
+        <div class="col-md-12">
+            <ul class="nav nav-tabs mb-3" id="requestTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general"
+                        type="button" role="tab">
+                        <i class="fas fa-info-circle"></i> General Information
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="details-tab" data-bs-toggle="tab" data-bs-target="#details"
+                        type="button" role="tab">
+                        <i class="fas fa-clipboard-list"></i> Justification & Resolution
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="requestTabsContent">
+
+                <!-- TAB 1: GENERAL -->
+                <div class="tab-pane fade show active" id="general" role="tabpanel">
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Title <span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" name="title" required
+                                            placeholder="e.g., Request VPN access for new contractor"
+                                            value="{{ req.title if req else '' }}" {% if not
+                                            can_write('operations') %}disabled{% endif %}>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Description</label>
+                                        <textarea class="form-control" name="description" rows="3"
+                                            placeholder="What are you requesting?" {% if not
+                                            can_write('operations') %}disabled{% endif
+                                            %}>{{ req.description if req else '' }}</textarea>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Related To</label>
+                                            <select class="form-select" name="target_type" id="targetTypeSelect" {% if
+                                                not can_write('operations') %}disabled{% endif %}>
+                                                <option value="" {% if not req %}selected{% endif %}>-- None --</option>
+                                                <option value="service" {% if req and req.service_id %}selected{% endif
+                                                    %}>Business Service</option>
+                                                <option value="asset" {% if req and req.asset_id %}selected{% endif %}>
+                                                    Asset</option>
+                                                <option value="software" {% if req and req.software_id %}selected{% endif
+                                                    %}>Software</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Related Item</label>
+
+                                            <div id="target-service-wrapper" class="target-wrapper"
+                                                style="display:none;">
+                                                <select class="form-select tom-select" name="service_id" {% if not
+                                                    can_write('operations') %}disabled{% endif %}>
+                                                    <option value="">-- Select Service --</option>
+                                                    {% for service in services %}
+                                                    <option value="{{ service.id }}" {% if req and
+                                                        req.service_id==service.id %}selected{% endif %}>{{ service.name
+                                                        }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+
+                                            <div id="target-asset-wrapper" class="target-wrapper" style="display:none;">
+                                                <select class="form-select tom-select" name="asset_id" {% if not
+                                                    can_write('operations') %}disabled{% endif %}>
+                                                    <option value="">-- Select Asset --</option>
+                                                    {% for asset in assets %}
+                                                    <option value="{{ asset.id }}" {% if req and req.asset_id==asset.id
+                                                        %}selected{% endif %}>{{ asset.name }} ({{ asset.serial_number
+                                                        }})</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+
+                                            <div id="target-software-wrapper" class="target-wrapper"
+                                                style="display:none;">
+                                                <select class="form-select tom-select" name="software_id" {% if not
+                                                    can_write('operations') %}disabled{% endif %}>
+                                                    <option value="">-- Select Software --</option>
+                                                    {% for sw in software %}
+                                                    <option value="{{ sw.id }}" {% if req and req.software_id==sw.id
+                                                        %}selected{% endif %}>{{ sw.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Tags</label>
+                                        <select class="form-select tom-select" name="tag_ids" multiple {% if not
+                                            can_write('operations') %}disabled{% endif %}>
+                                            {% for tag in tags %}
+                                            <option value="{{ tag.id }}" {% if req and tag in req.tags %}selected{% endif
+                                                %}>{{ tag.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <div class="card bg-light border-0">
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">Request Type <span
+                                                        class="text-danger">*</span></label>
+                                                <select class="form-select" name="request_type" required {% if not
+                                                    can_write('operations') %}disabled{% endif %}>
+                                                    {% for t in ['General', 'Access', 'Hardware', 'Software', 'Information'] %}
+                                                    <option value="{{ t }}" {% if (req and req.request_type==t) or (not req and t=='General') %}selected{% endif %}>{{ t }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">Priority</label>
+                                                <select class="form-select" name="priority" {% if not
+                                                    can_write('operations') %}disabled{% endif %}>
+                                                    {% for p in ['Low', 'Medium', 'High', 'Critical'] %}
+                                                    <option value="{{ p }}" {% if (req and req.priority==p) or (not req and p=='Medium') %}selected{% endif %}>{{ p }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+
+                                            <hr>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">Due Date</label>
+                                                <input type="datetime-local" class="form-control" name="due_date"
+                                                    value="{% if req and req.due_date %}{{ req.due_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
+                                                    {% if not can_write('operations') %}disabled{% endif %}>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">Assignee</label>
+                                                <select class="form-select tom-select" name="assignee_id" {% if not
+                                                    can_write('operations') %}disabled{% endif %}>
+                                                    <option value="">-- Unassigned --</option>
+                                                    {% for u in users %}
+                                                    <option value="{{ u.id }}" {% if req and req.assignee_id==u.id
+                                                        %}selected{% endif %}>{{ u.name }} ({{ u.role }})</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: DETAILS -->
+                <div class="tab-pane fade" id="details" role="tabpanel">
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <label class="form-label fw-bold text-primary"><i class="fas fa-balance-scale"></i>
+                                    Justification</label>
+                                <div class="form-text mb-2">Why is this request needed? (business case)</div>
+                                <textarea id="mde-justification" name="justification" {% if not can_write('operations')
+                                    %}disabled{% endif %}>{{ req.justification if req and req.justification else '' }}</textarea>
+                            </div>
+
+                            <hr>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold text-success"><i class="fas fa-check-circle"></i>
+                                    Resolution Notes</label>
+                                <div class="form-text mb-2">How was the request fulfilled? (filled in during
+                                    fulfillment)</div>
+                                <textarea id="mde-resolution" name="resolution_notes" {% if not can_write('operations')
+                                    %}disabled{% endif %}>{{ req.resolution_notes if req and req.resolution_notes else '' }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="d-flex justify-content-end mb-5">
+                <a href="{% if req %}{{ url_for('requests.detail_request', id=req.id) }}{% else %}{{ url_for('requests.list_requests') }}{% endif %}"
+                    class="btn btn-secondary me-2">Cancel</a>
+                {% if can_write('operations') %}
+                <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> {% if req %}Save Changes{%
+                    else %}Create Request{% endif %}</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='vendor/easymde/easymde.min.js') }}"></script>
+<script>
+    new EasyMDE({ element: document.getElementById('mde-justification'), minHeight: "180px" });
+    new EasyMDE({ element: document.getElementById('mde-resolution'), minHeight: "150px" });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const typeSelect = document.getElementById('targetTypeSelect');
+        const wrappers = document.querySelectorAll('.target-wrapper');
+
+        function showWrapper(type) {
+            wrappers.forEach(el => {
+                el.style.display = 'none';
+                el.querySelectorAll('select, input').forEach(i => i.disabled = true);
+            });
+            if (type) {
+                const wrapper = document.getElementById('target-' + type + '-wrapper');
+                if (wrapper) {
+                    wrapper.style.display = 'block';
+                    wrapper.querySelectorAll('select, input').forEach(i => i.disabled = false);
+                }
+            }
+        }
+
+        typeSelect.addEventListener('change', function () { showWrapper(this.value); });
+        showWrapper(typeSelect.value);
+    });
+</script>
+{% endblock %}
