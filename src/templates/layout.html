@@ -349,6 +349,10 @@
                             href="{{ url_for('requests.list_requests') }}"><i class="fa-fw fas fa-hand-paper"></i>
                             Requests</a></li>
                     <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint and 'incident' in request.endpoint %}active{% endif %}"
+                            href="{{ url_for('compliance.list_incidents') }}"><i
+                                class="fa-fw fas fa-exclamation-circle"></i> Incidents</a></li>
+                    <li class="nav-item"><a
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('maintenance.') %}active{% endif %}"
                             href="{{ url_for('maintenance.list_logs') }}"><i class="fa-fw fas fa-tools"></i>
                             Maintenance</a></li>
@@ -360,10 +364,6 @@
                             class="nav-link {% if request.endpoint and 'erasure' in request.endpoint %}active{% endif %}"
                             href="{{ url_for('compliance.list_erasures') }}"><i class="fa-fw fas fa-eraser"></i> Erasure
                             Log</a></li>
-                    <li class="nav-item"><a
-                            class="nav-link {% if request.endpoint and 'incident' in request.endpoint %}active{% endif %}"
-                            href="{{ url_for('compliance.list_incidents') }}"><i
-                                class="fa-fw fas fa-exclamation-circle"></i> Incidents</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.blueprint == 'activities' %}active{% endif %}"
                             href="{{ url_for('activities.list_activities') }}"><i class="fa-fw fas fa-tasks"></i>
                             Security Activities</a></li>
