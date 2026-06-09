@@ -31,18 +31,9 @@ def seed_data(app=None):
 
         print("Seeding database with extensive demo data...")
 
-        # Seed Hiring Stages First
-        print("Creating hiring stages...")
-        hiring_stages = [
-            HiringStage(name='Applied', order=1),
-            HiringStage(name='Screening', order=2),
-            HiringStage(name='Interview', order=3),
-            HiringStage(name='Offer', order=4),
-            HiringStage(name='Hired', order=5, is_hired_stage=True),
-            HiringStage(name='Rejected', order=6)
-        ]
-        db.session.add_all(hiring_stages)
-        db.session.commit()
+        # Hiring stages are seeded by seed-db-prod (which runs before this);
+        # just load them here so demo candidates can reference them.
+        hiring_stages = HiringStage.query.order_by(HiringStage.order).all()
 
         # 1. Create Core Entities
         print("Creating core entities...")
