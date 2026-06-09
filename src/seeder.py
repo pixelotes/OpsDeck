@@ -8,7 +8,9 @@ from .models import (
     Documentation, Link, Software, License, Framework, FrameworkControl, ComplianceLink, ComplianceRule,
     BusinessService, ServiceComponent, ComplianceAudit, Contact, RiskAssessment,
     EmailTemplate, NotificationEvent, Change, Request,
-    SecurityActivity, ActivityExecution
+    SecurityActivity, ActivityExecution,
+    OnboardingPack, PackItem, ProcessTemplate,
+    OnboardingProcess, OffboardingProcess, ProcessItem, PackCommunication
 )
 from .models.assets import Brand, AssetModel
 from .models.hiring import HiringStage, Candidate
@@ -1185,6 +1187,218 @@ def seed_data(app=None):
                      stage=hiring_stages[5], notes='Not a good cultural fit')
         ]
         db.session.add_all(demo_candidates)
+        db.session.commit()
+
+        # ------------------------------------------------------------------
+        # HR: role profiles, global checklist, email templates, processes
+        # ------------------------------------------------------------------
+        print("Creating HR role profiles, checklists, templates and processes...")
+
+        def _sw(name_fragment):
+            """Look up seeded software by partial name (for pack provisioning)."""
+            return Software.query.filter(Software.name.ilike(f"%{name_fragment}%")).first()
+
+        # --- Role profiles (Onboarding Packs) with differentiated tasks ---
+        pack_dev = OnboardingPack(name='Development', description='Role profile for software engineers and developers.')
+        pack_design = OnboardingPack(name='Design', description='Role profile for product and brand designers.')
+        pack_finance = OnboardingPack(name='Financial', description='Role profile for finance and accounting roles.')
+        db.session.add_all([pack_dev, pack_design, pack_finance])
+        db.session.flush()
+
+        vscode = _sw('Visual Studio Code')
+        photoshop = _sw('Adobe Photoshop')
+
+        pack_items = [
+            # Development
+            PackItem(pack_id=pack_dev.id, item_type='Hardware', description='Provision developer laptop (16GB+ RAM)'),
+            PackItem(pack_id=pack_dev.id, item_type='Software', description='Install IDE / code editor',
+                     software_id=vscode.id if vscode else None),
+            PackItem(pack_id=pack_dev.id, item_type='Task', description='Grant access to Git repositories and CI/CD'),
+            PackItem(pack_id=pack_dev.id, item_type='Task', description='Add to on-call rotation and incident tooling'),
+            # Design
+            PackItem(pack_id=pack_design.id, item_type='Hardware', description='Provision design workstation + calibrated monitor'),
+            PackItem(pack_id=pack_design.id, item_type='Software', description='Install Adobe Creative Suite',
+                     software_id=photoshop.id if photoshop else None),
+            PackItem(pack_id=pack_design.id, item_type='Task', description='Grant access to Figma and design system library'),
+            PackItem(pack_id=pack_design.id, item_type='Task', description='Share brand asset repository and guidelines'),
+            # Financial
+            PackItem(pack_id=pack_finance.id, item_type='Hardware', description='Provision standard laptop with dual monitors'),
+            PackItem(pack_id=pack_finance.id, item_type='Task', description='Grant access to ERP / accounting system'),
+            PackItem(pack_id=pack_finance.id, item_type='Task', description='Configure expense approval workflow'),
+            PackItem(pack_id=pack_finance.id, item_type='Task', description='Sign financial controls and SoD acknowledgment'),
+        ]
+        db.session.add_all(pack_items)
+
+        # --- Global checklist common to all departments (ProcessTemplate) ---
+        global_templates = [
+            # Onboarding
+            ProcessTemplate(name='Sign NDA and employment contract', process_type='onboarding'),
+            ProcessTemplate(name='Complete HR paperwork and tax forms', process_type='onboarding'),
+            ProcessTemplate(name='Security & compliance induction training', process_type='onboarding'),
+            ProcessTemplate(name='Add to company directory and org chart', process_type='onboarding'),
+            # Offboarding
+            ProcessTemplate(name='Conduct exit interview', process_type='offboarding'),
+            ProcessTemplate(name='Revoke building and badge access', process_type='offboarding'),
+            ProcessTemplate(name='Collect all company equipment', process_type='offboarding'),
+            ProcessTemplate(name='Remove from payroll and benefits', process_type='offboarding'),
+        ]
+        db.session.add_all(global_templates)
+
+        # --- Custom email templates (Jinja2; vars from communications_context) ---
+        tpl_welcome = EmailTemplate(
+            name='New Hire Welcome',
+            subject='Welcome aboard, {{ new_hire_name }}! 🎉',
+            category='onboarding', is_active=True, is_system=False,
+            body_html="""
+<p>Hi {{ new_hire_name }},</p>
+<p>We're thrilled to welcome you to the team! Your first day is <strong>{{ start_date }}</strong>.</p>
+<p>To help you hit the ground running:</p>
+<ul>
+    <li>Your laptop and accounts will be ready on day one.</li>
+    <li>{% if buddy %}Your onboarding buddy, <strong>{{ buddy.name }}</strong>, will reach out to say hello.{% else %}A buddy will be assigned to help you settle in.{% endif %}</li>
+    <li>{% if manager %}You'll have a 1:1 with your manager, <strong>{{ manager.name }}</strong>, during your first week.{% endif %}</li>
+</ul>
+<p>If you have any questions before you start, just reply to this email.</p>
+<p>See you soon!<br>The People Team</p>
+""".strip()
+        )
+        tpl_buddy = EmailTemplate(
+            name='Buddy Heads-Up (New Hire Starts Tomorrow)',
+            subject='Heads up: {{ new_hire_name }} starts tomorrow',
+            category='onboarding', is_active=True, is_system=False,
+            body_html="""
+<p>Hi {% if buddy %}{{ buddy.name }}{% else %}there{% endif %},</p>
+<p>A quick reminder that you're the onboarding buddy for <strong>{{ new_hire_name }}</strong>,
+who joins us tomorrow ({{ start_date }}).</p>
+<p>Please remember to:</p>
+<ul>
+    <li>Say hello and introduce yourself on their first morning.</li>
+    <li>Schedule a welcome coffee in their first few days.</li>
+    <li>Be their go-to person for the small questions during week one.</li>
+</ul>
+<p>Thanks for helping make their start a great one!<br>The People Team</p>
+""".strip()
+        )
+        tpl_offboarding = EmailTemplate(
+            name='Offboarding Next Steps',
+            subject='Your departure: next steps and important dates',
+            category='offboarding', is_active=True, is_system=False,
+            body_html="""
+<p>Hi {% if user %}{{ user.name }}{% else %}there{% endif %},</p>
+<p>As your last day with us ({{ departure_date }}) approaches, here's a summary of the next steps
+to wrap things up smoothly:</p>
+<ul>
+    <li>Return all company equipment (laptop, peripherals, access badge) by your last day.</li>
+    <li>Your corporate accounts will be deactivated at the end of {{ departure_date }}.</li>
+    <li>{% if manager %}Your manager, <strong>{{ manager.name }}</strong>, will schedule a short exit interview.{% else %}HR will reach out to schedule a short exit interview.{% endif %}</li>
+    <li>Final payroll and benefits details will be sent to your personal email.</li>
+</ul>
+<p>Thank you for everything you've contributed. We wish you all the best in your next chapter!</p>
+<p>Warm regards,<br>The People Team</p>
+""".strip()
+        )
+        db.session.add_all([tpl_welcome, tpl_buddy, tpl_offboarding])
+        db.session.flush()
+
+        # Wire the onboarding templates into every role profile
+        for pack in (pack_dev, pack_design, pack_finance):
+            db.session.add_all([
+                PackCommunication(pack_id=pack.id, template_id=tpl_welcome.id, offset_days=0, recipient_type='target_user'),
+                PackCommunication(pack_id=pack.id, template_id=tpl_buddy.id, offset_days=-1, recipient_type='buddy'),
+            ])
+        db.session.commit()
+
+        # --- A few onboarding/offboarding processes in different states ---
+        onboarding_global = [t for t in global_templates if t.process_type == 'onboarding']
+        offboarding_global = [t for t in global_templates if t.process_type == 'offboarding']
+
+        manager_eng = users[2]    # Charlie Brown (Engineering Manager)
+        manager_sales = users[3]  # George Costanza (Sales Manager)
+        buddy_dev = users[4]      # Fiona Glenanne
+        buddy_design = users[5]   # Diana Prince
+
+        def _make_onboarding_items(proc, pack, completed_upto):
+            """Mirror the checklist the onboarding route would generate."""
+            items = [ProcessItem(onboarding_process_id=proc.id,
+                                 description="👤 Create user account (Automated)", item_type='CreateUser')]
+            items += [ProcessItem(onboarding_process_id=proc.id, description=t.name, item_type='StaticTask')
+                      for t in onboarding_global]
+            items += [ProcessItem(onboarding_process_id=proc.id, description=pi.description,
+                                  item_type=pi.item_type, linked_object_id=pi.software_id) for pi in pack.items]
+            if proc.assigned_manager_id:
+                mgr = db.session.get(User, proc.assigned_manager_id)
+                items.append(ProcessItem(onboarding_process_id=proc.id, item_type='SocialTask',
+                                         description=f"📅 Schedule 1:1 meeting with {mgr.name} (Manager)",
+                                         linked_object_id=mgr.id))
+            if proc.assigned_buddy_id:
+                bd = db.session.get(User, proc.assigned_buddy_id)
+                items.append(ProcessItem(onboarding_process_id=proc.id, item_type='SocialTask',
+                                         description=f"☕ Schedule welcome coffee with buddy: {bd.name}",
+                                         linked_object_id=bd.id))
+            for idx, it in enumerate(items):
+                if completed_upto == -1 or idx < completed_upto:
+                    it.is_completed = True
+            return items
+
+        def _make_offboarding_items(proc, completed_upto):
+            items = [ProcessItem(offboarding_process_id=proc.id, description=t.name, item_type='StaticTask')
+                     for t in offboarding_global]
+            items.append(ProcessItem(offboarding_process_id=proc.id,
+                                     description="Return company laptop", item_type='StaticTask'))
+            items.append(ProcessItem(offboarding_process_id=proc.id,
+                                     description="Disable all corporate accounts", item_type='RevokeAccess'))
+            for idx, it in enumerate(items):
+                if completed_upto == -1 or idx < completed_upto:
+                    it.is_completed = True
+            return items
+
+        # 1) Onboarding in progress (Provisioning), starts in a few days
+        onb_inprogress = OnboardingProcess(
+            new_hire_name='Marcus Lee',
+            target_email='marcus.lee@example.com',
+            personal_email='marcus.lee.personal@gmail.com',
+            start_date=today() + timedelta(days=5),
+            status='Provisioning',
+            pack_id=pack_dev.id,
+            assigned_manager_id=manager_eng.id,
+            assigned_buddy_id=buddy_dev.id,
+            notes='Backfill for the platform team.'
+        )
+        # 2) Onboarding completed (started in the past), linked to a real user
+        onb_completed = OnboardingProcess(
+            new_hire_name=users[8].name,  # Ian Malcolm
+            user_id=users[8].id,
+            target_email=users[8].email,
+            start_date=today() - timedelta(days=20),
+            status='Completed',
+            pack_id=pack_design.id,
+            assigned_manager_id=users[0].id,  # Alice Johnson
+            assigned_buddy_id=buddy_design.id
+        )
+        db.session.add_all([onb_inprogress, onb_completed])
+        db.session.flush()
+        db.session.add_all(_make_onboarding_items(onb_inprogress, pack_dev, completed_upto=4))
+        db.session.add_all(_make_onboarding_items(onb_completed, pack_design, completed_upto=-1))
+
+        # 3) Offboarding in progress, departing soon
+        off_inprogress = OffboardingProcess(
+            user_id=users[7].id,       # Ethan Hunt
+            manager_id=manager_sales.id,
+            departure_date=today() + timedelta(days=10),
+            status='In Progress',
+            notes='Voluntary departure; equipment return pending.'
+        )
+        # 4) Offboarding completed (departed in the past)
+        off_completed = OffboardingProcess(
+            user_id=users[6].id,       # Heidi Klum
+            manager_id=users[0].id,    # Alice Johnson
+            departure_date=today() - timedelta(days=15),
+            status='Completed'
+        )
+        db.session.add_all([off_inprogress, off_completed])
+        db.session.flush()
+        db.session.add_all(_make_offboarding_items(off_inprogress, completed_upto=2))
+        db.session.add_all(_make_offboarding_items(off_completed, completed_upto=-1))
         db.session.commit()
 
         print("Database seeded successfully!")
