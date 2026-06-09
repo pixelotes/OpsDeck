@@ -3,6 +3,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
 from datetime import datetime, date
+from urllib.parse import urlparse
 from ..models import db, Asset, AssetHistory, User, Location, Supplier, Purchase, AssetAssignment, Peripheral
 from ..models.assets import Brand, AssetModel
 from ..models.core import CustomFieldDefinition
@@ -339,21 +340,29 @@ def checkout_asset(id):
 def checkin_asset(id):
     asset = db.get_or_404(Asset, id)
     redirect_url = request.form.get('redirect_url')
+    fallback_url = url_for(ASSET_DETAIL, id=id)
+    candidate_redirect = (redirect_url or '').replace('\\', '/')
+    parsed_redirect = urlparse(candidate_redirect)
+    safe_redirect_url = (
+        candidate_redirect
+        if candidate_redirect.startswith('/') and not parsed_redirect.netloc and not parsed_redirect.scheme
+        else fallback_url
+    )
     
     if not asset.user:
         flash('This asset is already checked in.', 'warning')
-        return redirect(redirect_url or url_for(ASSET_DETAIL, id=id))
+        return redirect(safe_redirect_url)
 
     # REQUIRED: Select return location
     return_location_id = request.form.get('return_location_id')
     if not return_location_id:
         flash('You must select a location to return the asset to.', 'danger')
-        return redirect(redirect_url or url_for(ASSET_DETAIL, id=id))
+        return redirect(safe_redirect_url)
     
     target_location = db.session.get(Location,return_location_id)
     if not target_location:
         flash('Selected location not found.', 'danger')
-        return redirect(redirect_url or url_for(ASSET_DETAIL, id=id))
+        return redirect(safe_redirect_url)
 
     assignment = AssetAssignment.query.filter_by(asset_id=id, checked_in_date=None).order_by(AssetAssignment.checked_out_date.desc()).first()
     
@@ -380,7 +389,7 @@ def checkin_asset(id):
 
     db.session.commit()
     flash(f'Asset "{asset.name}" has been returned to {target_location.name}.', 'success')
-    return redirect(redirect_url or url_for(ASSET_DETAIL, id=id))
+    return redirect(safe_redirect_url)
 
 @assets_bp.route('/warranties', methods=['GET'])
 @login_required
