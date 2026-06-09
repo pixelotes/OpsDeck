@@ -188,8 +188,30 @@ def delete_pack_communication(pack_id, comm_id):
     
     db.session.delete(comm)
     db.session.commit()
-    
+
     flash('Email rule removed.', 'success')
+    return redirect(url_for('onboarding.pack_detail', id=pack_id))
+
+
+@onboarding_bp.route('/packs/<int:pack_id>/items/<int:item_id>/delete', methods=['POST'])
+@login_required
+@requires_permission('hr_people')
+def delete_pack_item(pack_id, item_id):
+    """Delete an item from a pack."""
+    if not has_write_permission('hr_people'):
+        flash('Write access required to delete items.', 'danger')
+        return redirect(url_for('onboarding.pack_detail', id=pack_id))
+
+    item = db.get_or_404(PackItem, item_id)
+
+    if item.pack_id != pack_id:
+        flash('Invalid item for this pack.', 'danger')
+        return redirect(url_for('onboarding.pack_detail', id=pack_id))
+
+    db.session.delete(item)
+    db.session.commit()
+
+    flash('Item removed from profile.', 'success')
     return redirect(url_for('onboarding.pack_detail', id=pack_id))
 
 
