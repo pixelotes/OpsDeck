@@ -13,9 +13,15 @@ from src.utils.timezone_helper import today
 
 subscriptions_bp = Blueprint('subscriptions', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'core_inventory'
+SUBSCRIPTIONS = 'subscriptions.subscriptions'
+SUBSCRIPTION_DETAIL = 'subscriptions.subscription_detail'
+SUBSCRIPTIONS_FORM_HTML = 'subscriptions/form.html'
+
 @subscriptions_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def subscriptions():
     subscription_type_filter = request.args.get('subscription_type')
     tag_filter = request.args.get('tag_id', type=int)
@@ -67,7 +73,7 @@ def subscriptions():
 
 @subscriptions_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def subscription_detail(id):
     subscription = db.get_or_404(Subscription, id)
     cost_history_labels = [entry.changed_date.strftime('%Y-%m-%d') for entry in subscription.cost_history]
@@ -90,16 +96,16 @@ def subscription_detail(id):
 
 @subscriptions_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def new_subscription():
     software_items = Software.query.filter_by(is_archived=False).order_by(Software.name).all()
 
     users = User.query.filter_by(is_archived=False).all()
 
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
+        if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
-                return redirect(url_for('subscriptions.subscriptions'))
+                return redirect(url_for(SUBSCRIPTIONS))
         renewal_date = datetime.strptime(request.form['renewal_date'], '%Y-%m-%d').date()
         budget_id = request.form.get('budget_id') or None
 
@@ -116,7 +122,7 @@ def new_subscription():
             budget = db.session.get(Budget,budget_id)
             if budget and not budget.is_active(renewal_date):
                 flash('Error: This subscription renewal date is outside the selected Budget\'s validity period.', 'danger')
-                return render_template('subscriptions/form.html',
+                return render_template(SUBSCRIPTIONS_FORM_HTML,
                                         suppliers=Supplier.query.order_by(Supplier.name).all(),
                                         contacts=Contact.query.order_by(Contact.name).all(),
                                         payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
@@ -135,7 +141,7 @@ def new_subscription():
                 cost_per_user = None
                 if cost <= 0:
                     flash('Error: Subscription cost must be greater than 0.', 'danger')
-                    return render_template('subscriptions/form.html',
+                    return render_template(SUBSCRIPTIONS_FORM_HTML,
                                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                                             contacts=Contact.query.order_by(Contact.name).all(),
                                             payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
@@ -148,7 +154,7 @@ def new_subscription():
                 cost = 0  # Will be calculated based on users
                 if cost_per_user <= 0:
                     flash('Error: Cost per user must be greater than 0.', 'danger')
-                    return render_template('subscriptions/form.html',
+                    return render_template(SUBSCRIPTIONS_FORM_HTML,
                                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                                             contacts=Contact.query.order_by(Contact.name).all(),
                                             payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
@@ -158,7 +164,7 @@ def new_subscription():
                                             users=users)
         except (ValueError, KeyError):
             flash('Error: Invalid cost value.', 'danger')
-            return render_template('subscriptions/form.html',
+            return render_template(SUBSCRIPTIONS_FORM_HTML,
                                     suppliers=Supplier.query.order_by(Supplier.name).all(),
                                     contacts=Contact.query.order_by(Contact.name).all(),
                                     payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
@@ -215,9 +221,9 @@ def new_subscription():
         db.session.add(subscription)
         db.session.commit()
         flash('Subscription created successfully!', 'success')
-        return redirect(url_for('subscriptions.subscriptions'))
+        return redirect(url_for(SUBSCRIPTIONS))
 
-    return render_template('subscriptions/form.html',
+    return render_template(SUBSCRIPTIONS_FORM_HTML,
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             contacts=Contact.query.order_by(Contact.name).all(),
                             payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
@@ -228,7 +234,7 @@ def new_subscription():
 
 @subscriptions_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_subscription(id):
     subscription = db.get_or_404(Subscription, id)
     software_items = Software.query.filter_by(is_archived=False).order_by(Software.name).all()
@@ -236,9 +242,9 @@ def edit_subscription(id):
     users = User.query.filter_by(is_archived=False).all()
 
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
+        if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
-                return redirect(url_for('subscriptions.subscription_detail', id=id))
+                return redirect(url_for(SUBSCRIPTION_DETAIL, id=id))
         renewal_date = datetime.strptime(request.form['renewal_date'], '%Y-%m-%d').date()
         budget_id = request.form.get('budget_id') or None
 
@@ -255,7 +261,7 @@ def edit_subscription(id):
             budget = db.session.get(Budget,budget_id)
             if budget and not budget.is_active(renewal_date):
                 flash('Error: This subscription renewal date is outside the selected Budget\'s validity period.', 'danger')
-                return render_template('subscriptions/form.html',
+                return render_template(SUBSCRIPTIONS_FORM_HTML,
                                         subscription=subscription,
                                         suppliers=Supplier.query.order_by(Supplier.name).all(),
                                         contacts=Contact.query.order_by(Contact.name).all(),
@@ -275,7 +281,7 @@ def edit_subscription(id):
                 new_cost_per_user = None
                 if new_cost <= 0:
                     flash('Error: Subscription cost must be greater than 0.', 'danger')
-                    return render_template('subscriptions/form.html',
+                    return render_template(SUBSCRIPTIONS_FORM_HTML,
                                             subscription=subscription,
                                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                                             contacts=Contact.query.order_by(Contact.name).all(),
@@ -289,7 +295,7 @@ def edit_subscription(id):
                 new_cost = 0  # Will be calculated based on users
                 if new_cost_per_user <= 0:
                     flash('Error: Cost per user must be greater than 0.', 'danger')
-                    return render_template('subscriptions/form.html',
+                    return render_template(SUBSCRIPTIONS_FORM_HTML,
                                             subscription=subscription,
                                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                                             contacts=Contact.query.order_by(Contact.name).all(),
@@ -300,7 +306,7 @@ def edit_subscription(id):
                                             users=users)
         except (ValueError, KeyError):
             flash('Error: Invalid cost value.', 'danger')
-            return render_template('subscriptions/form.html',
+            return render_template(SUBSCRIPTIONS_FORM_HTML,
                                     subscription=subscription,
                                     suppliers=Supplier.query.order_by(Supplier.name).all(),
                                     contacts=Contact.query.order_by(Contact.name).all(),
@@ -367,9 +373,9 @@ def edit_subscription(id):
 
         db.session.commit()
         flash('Subscription updated successfully!', 'success')
-        return redirect(url_for('subscriptions.subscription_detail', id=subscription.id))
+        return redirect(url_for(SUBSCRIPTION_DETAIL, id=subscription.id))
 
-    return render_template('subscriptions/form.html',
+    return render_template(SUBSCRIPTIONS_FORM_HTML,
                             subscription=subscription,
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             contacts=Contact.query.order_by(Contact.name).all(),
@@ -381,34 +387,34 @@ def edit_subscription(id):
 
 @subscriptions_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def delete_subscription(id):
     subscription = db.get_or_404(Subscription, id)
     db.session.delete(subscription)
     db.session.commit()
     flash('Subscription deleted successfully!', 'success')
-    return redirect(url_for('subscriptions.subscriptions'))
+    return redirect(url_for(SUBSCRIPTIONS))
 
 @subscriptions_bp.route('/archived', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def archived_subscriptions():
     archived = Subscription.query.filter_by(is_archived=True).order_by(Subscription.name).all()
     return render_template('subscriptions/archived.html', subscriptions=archived)
 
 @subscriptions_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def archive_subscription(id):
     subscription = db.get_or_404(Subscription, id)
     subscription.is_archived = True
     db.session.commit()
     flash(f'Subscription "{subscription.name}" has been archived.', 'warning')
-    return redirect(url_for('subscriptions.subscriptions'))
+    return redirect(url_for(SUBSCRIPTIONS))
 
 @subscriptions_bp.route('/<int:id>/unarchive', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def unarchive_subscription(id):
     subscription = db.get_or_404(Subscription, id)
     subscription.is_archived = False
@@ -418,13 +424,13 @@ def unarchive_subscription(id):
 
 @subscriptions_bp.route('/calendar', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def calendar():
     return render_template('calendar.html')
 
 @subscriptions_bp.route('/api/calendar-events', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def calendar_events():
     from ..models.contracts import Contract
     from ..models.certificates import CertificateVersion
@@ -458,7 +464,7 @@ def calendar_events():
                         'start': next_renewal.isoformat(),
                         'backgroundColor': '#007bff',
                         'borderColor': '#007bff',
-                        'url': url_for('subscriptions.subscription_detail', id=subscription.id),
+                        'url': url_for(SUBSCRIPTION_DETAIL, id=subscription.id),
                         'extendedProps': {
                             'type': 'subscription',
                             'name': subscription.name,
@@ -477,7 +483,7 @@ def calendar_events():
                     'start': renewal_date.isoformat(),
                     'backgroundColor': '#ffc107',
                     'borderColor': '#ffc107',
-                    'url': url_for('subscriptions.subscription_detail', id=subscription.id),
+                    'url': url_for(SUBSCRIPTION_DETAIL, id=subscription.id),
                     'extendedProps': {
                         'type': 'subscription',
                         'name': subscription.name,
@@ -570,7 +576,7 @@ def calendar_events():
 
 @subscriptions_bp.route('/<int:id>/users/add', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def add_user_access(id):
     subscription = db.get_or_404(Subscription, id)
     user_ids = request.form.getlist('user_ids')
@@ -588,11 +594,11 @@ def add_user_access(id):
         db.session.commit()
         flash(f'Added {", ".join(added)} to {subscription.name}.', 'success')
 
-    return redirect(url_for('subscriptions.subscription_detail', id=id) + '#users')
+    return redirect(url_for(SUBSCRIPTION_DETAIL, id=id) + '#users')
 
 @subscriptions_bp.route('/<int:id>/users/add-all', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def add_all_users(id):
     subscription = db.get_or_404(Subscription, id)
     all_users = User.query.filter_by(is_archived=False).all()
@@ -611,11 +617,11 @@ def add_all_users(id):
     else:
         flash('All users already have access.', 'info')
 
-    return redirect(url_for('subscriptions.subscription_detail', id=id) + '#users')
+    return redirect(url_for(SUBSCRIPTION_DETAIL, id=id) + '#users')
 
 @subscriptions_bp.route('/<int:id>/users/remove/<int:user_id>', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def remove_user_access(id, user_id):
     subscription = db.get_or_404(Subscription, id)
     user = db.get_or_404(User, user_id)
@@ -627,4 +633,4 @@ def remove_user_access(id, user_id):
         db.session.commit()
         flash(f'User {user.name} removed from {subscription.name}.', 'warning')
 
-    return redirect(url_for('subscriptions.subscription_detail', id=id) + '#users')
+    return redirect(url_for(SUBSCRIPTION_DETAIL, id=id) + '#users')

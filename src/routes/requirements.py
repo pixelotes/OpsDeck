@@ -7,9 +7,14 @@ from src.utils.timezone_helper import now
 
 requirements_bp = Blueprint('requirements', __name__, url_prefix='/requirements')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'procurement'
+DETAIL = 'requirements.detail'
+LIST_REQUIREMENTS = 'requirements.list_requirements'
+
 @requirements_bp.route('/timeline', methods=['GET'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def timeline():
     """Timeline view showing requirement → evaluation → supplier flow"""
     # Get all non-archived requirements with their relationships
@@ -34,7 +39,7 @@ def timeline():
 
 @requirements_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_requirements():
     # Start with base query
     query = Requirement.query.filter_by(is_archived=False)
@@ -105,12 +110,12 @@ def list_requirements():
 
 @requirements_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def new_requirement():
     if request.method == 'POST':
-        if not has_write_permission('procurement'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create requirements.', 'danger')
-            return redirect(url_for('requirements.list_requirements'))
+            return redirect(url_for(LIST_REQUIREMENTS))
 
         requirement = Requirement(
             name=request.form['name'],
@@ -125,13 +130,13 @@ def new_requirement():
         db.session.add(requirement)
         db.session.commit()
         flash('Requirement created successfully.', 'success')
-        return redirect(url_for('requirements.detail', id=requirement.id))
+        return redirect(url_for(DETAIL, id=requirement.id))
 
     return render_template('requirements/form.html')
 
 @requirements_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def detail(id):
     requirement = db.get_or_404(Requirement, id)
     # Get non-hidden actions
@@ -140,13 +145,13 @@ def detail(id):
 
 @requirements_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_requirement(id):
     requirement = db.get_or_404(Requirement, id)
     if request.method == 'POST':
-        if not has_write_permission('procurement'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update requirements.', 'danger')
-            return redirect(url_for('requirements.list_requirements'))
+            return redirect(url_for(LIST_REQUIREMENTS))
 
         requirement.name = request.form['name']
         requirement.requirement_type = request.form.get('requirement_type')
@@ -159,23 +164,23 @@ def edit_requirement(id):
 
         db.session.commit()
         flash('Requirement updated successfully.', 'success')
-        return redirect(url_for('requirements.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
     return render_template('requirements/form.html', requirement=requirement)
 
 @requirements_bp.route('/<int:id>/convert', methods=['GET', 'POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def convert_requirement(id):
     requirement = db.get_or_404(Requirement, id)
     if requirement.status == 'Converted':
         flash('This requirement has already been converted.', 'warning')
-        return redirect(url_for('requirements.list_requirements'))
+        return redirect(url_for(LIST_REQUIREMENTS))
 
     if request.method == 'POST':
-        if not has_write_permission('procurement'):
+        if not has_write_permission(MODULE):
             flash('Write access required to convert requirements.', 'danger')
-            return redirect(url_for('requirements.list_requirements'))
+            return redirect(url_for(LIST_REQUIREMENTS))
 
         conversion_type = request.form.get('conversion_type')
         requirement.status = 'Converted'
@@ -208,11 +213,11 @@ def convert_requirement(id):
 
 @requirements_bp.route('/<int:id>/add_action', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def add_action(id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to add actions.', 'danger')
-        return redirect(url_for('requirements.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
     requirement = db.get_or_404(Requirement, id)
     action_type = request.form.get('action_type', 'Note')
@@ -230,16 +235,16 @@ def add_action(id):
         db.session.commit()
         flash('Action added successfully.', 'success')
 
-    return redirect(url_for('requirements.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 @requirements_bp.route('/action/<int:action_id>/edit', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_action(action_id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to edit actions.', 'danger')
         action = db.get_or_404(RequirementAction, action_id)
-        return redirect(url_for('requirements.detail', id=action.requirement_id))
+        return redirect(url_for(DETAIL, id=action.requirement_id))
 
     action = db.get_or_404(RequirementAction, action_id)
     action.description = request.form.get('description')
@@ -248,32 +253,32 @@ def edit_action(action_id):
     db.session.commit()
     flash('Action updated successfully.', 'success')
 
-    return redirect(url_for('requirements.detail', id=action.requirement_id))
+    return redirect(url_for(DETAIL, id=action.requirement_id))
 
 @requirements_bp.route('/action/<int:action_id>/toggle_hidden', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def toggle_action_hidden(action_id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to hide/show actions.', 'danger')
         action = db.get_or_404(RequirementAction, action_id)
-        return redirect(url_for('requirements.detail', id=action.requirement_id))
+        return redirect(url_for(DETAIL, id=action.requirement_id))
 
     action = db.get_or_404(RequirementAction, action_id)
     action.is_hidden = not action.is_hidden
     db.session.commit()
     flash('Action visibility updated.', 'info')
 
-    return redirect(url_for('requirements.detail', id=action.requirement_id))
+    return redirect(url_for(DETAIL, id=action.requirement_id))
 
 @requirements_bp.route('/action/<int:action_id>/delete', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def delete_action(action_id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete actions.', 'danger')
         action = db.get_or_404(RequirementAction, action_id)
-        return redirect(url_for('requirements.detail', id=action.requirement_id))
+        return redirect(url_for(DETAIL, id=action.requirement_id))
 
     action = db.get_or_404(RequirementAction, action_id)
     requirement_id = action.requirement_id
@@ -281,7 +286,7 @@ def delete_action(action_id):
     db.session.commit()
     flash('Action deleted.', 'success')
 
-    return redirect(url_for('requirements.detail', id=requirement_id))
+    return redirect(url_for(DETAIL, id=requirement_id))
 
 
 # --- Legacy routes for backward compatibility ---
@@ -294,7 +299,7 @@ from flask import request as flask_request
 def legacy_redirect(path):
     """Redirect old /leads URLs to /requirements"""
     # Get the full path with query string
-    new_url = url_for('requirements.list_requirements')
+    new_url = url_for(LIST_REQUIREMENTS)
     if path:
         # Try to map old route names to new ones
         path_map = {

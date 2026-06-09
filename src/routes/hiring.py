@@ -13,13 +13,19 @@ from src.utils.timezone_helper import now, today, to_utc
 
 hiring_bp = Blueprint('hiring', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'hr_people'
+BOARD = 'hiring.board'
+EDIT_CANDIDATE = 'hiring.edit_candidate'
+MANAGE_STAGES = 'hiring.manage_stages'
+
 # ==========================================
 # KANBAN BOARD
 # ==========================================
 
 @hiring_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def board():
     """Main Kanban board view for hiring pipeline."""
     stages = HiringStage.query.order_by(HiringStage.order).all()
@@ -41,7 +47,7 @@ def board():
 
 @hiring_bp.route('/list', methods=['GET'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def list_candidates():
     """List view of all candidates with search and pagination."""
     page = request.args.get('page', 1, type=int)
@@ -84,13 +90,13 @@ def list_candidates():
 
 @hiring_bp.route('/candidate/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def new_candidate():
     """Create a new candidate."""
     if request.method == 'POST':
-        if not has_write_permission('hr_people'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create candidates.', 'danger')
-            return redirect(url_for('hiring.board'))
+            return redirect(url_for(BOARD))
         name = request.form.get('name')
         email = request.form.get('email')
         phone = request.form.get('phone')
@@ -141,7 +147,7 @@ def new_candidate():
         db.session.commit()
         
         flash(f'Candidate "{name}" added successfully.', 'success')
-        return redirect(url_for('hiring.board'))
+        return redirect(url_for(BOARD))
     
     # GET: Show form
     stages = HiringStage.query.order_by(HiringStage.order).all()
@@ -149,15 +155,15 @@ def new_candidate():
 
 @hiring_bp.route('/candidate/<int:id>', methods=['GET', 'POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def edit_candidate(id):
     """View/Edit a candidate."""
     candidate = db.get_or_404(Candidate, id)
     
     if request.method == 'POST':
-        if not has_write_permission('hr_people'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update candidates.', 'danger')
-            return redirect(url_for('hiring.edit_candidate', id=id))
+            return redirect(url_for(EDIT_CANDIDATE, id=id))
         candidate.name = request.form.get('name')
         candidate.email = request.form.get('email')
         candidate.phone = request.form.get('phone')
@@ -198,45 +204,45 @@ def edit_candidate(id):
         
         db.session.commit()
         flash(f'Candidate "{candidate.name}" updated.', 'success')
-        return redirect(url_for('hiring.board'))
+        return redirect(url_for(BOARD))
     
     stages = HiringStage.query.order_by(HiringStage.order).all()
     return render_template('hiring/candidate_form.html', stages=stages, candidate=candidate)
 
 @hiring_bp.route('/candidate/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def delete_candidate(id):
-    if not has_write_permission('hr_people'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete candidates.', 'danger')
-        return redirect(url_for('hiring.board'))
+        return redirect(url_for(BOARD))
     """Delete a candidate."""
     candidate = db.get_or_404(Candidate, id)
     name = candidate.name
     db.session.delete(candidate)
     db.session.commit()
     flash(f'Candidate "{name}" deleted.', 'warning')
-    return redirect(url_for('hiring.board'))
+    return redirect(url_for(BOARD))
 
 @hiring_bp.route('/candidate/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def archive_candidate(id):
-    if not has_write_permission('hr_people'):
+    if not has_write_permission(MODULE):
         flash('Write access required to archive candidates.', 'danger')
-        return redirect(request.referrer or url_for('hiring.board'))
+        return redirect(request.referrer or url_for(BOARD))
     """Archive a candidate."""
     candidate = db.get_or_404(Candidate, id)
     candidate.is_archived = True
     db.session.commit()
     flash(f'Candidate "{candidate.name}" archived.', 'success')
-    return redirect(request.referrer or url_for('hiring.board'))
+    return redirect(request.referrer or url_for(BOARD))
 
 @hiring_bp.route('/candidate/<int:id>/unarchive', methods=['POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def unarchive_candidate(id):
-    if not has_write_permission('hr_people'):
+    if not has_write_permission(MODULE):
         flash('Write access required to unarchive candidates.', 'danger')
         return redirect(request.referrer or url_for('hiring.list_candidates'))
     """Unarchive a candidate."""
@@ -248,14 +254,14 @@ def unarchive_candidate(id):
 
 @hiring_bp.route('/candidate/<int:id>/resume', methods=['GET'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def download_resume(id):
     """Download the candidate's resume."""
     candidate = db.get_or_404(Candidate, id)
     
     if not candidate.resume_link:
         flash('No resume attached.', 'warning')
-        return redirect(url_for('hiring.edit_candidate', id=id))
+        return redirect(url_for(EDIT_CANDIDATE, id=id))
         
     # Check if it's an external link
     if candidate.resume_link.startswith('http') or candidate.resume_link.startswith('www'):
@@ -271,7 +277,7 @@ def download_resume(id):
         )
     except FileNotFoundError:
         flash('Resume file not found on server.', 'danger')
-        return redirect(url_for('hiring.edit_candidate', id=id))
+        return redirect(url_for(EDIT_CANDIDATE, id=id))
 
 # ==========================================
 # KANBAN DRAG & DROP API
@@ -279,9 +285,9 @@ def download_resume(id):
 
 @hiring_bp.route('/move', methods=['POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def move_candidate():
-    if not has_write_permission('hr_people'):
+    if not has_write_permission(MODULE):
         return jsonify({'status': 'error', 'message': 'Write access required to move candidates.'}), 403
     """API endpoint for moving candidates between stages (drag & drop).
     Note: CSRF is disabled for JSON requests in Flask-WTF by default."""
@@ -414,7 +420,7 @@ def move_candidate():
 
 @hiring_bp.route('/stages', methods=['GET', 'POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def manage_stages():
     """Admin view to manage hiring stages."""
     stages = HiringStage.query.order_by(HiringStage.order).all()
@@ -422,16 +428,16 @@ def manage_stages():
 
 @hiring_bp.route('/stages/new', methods=['POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def new_stage():
-    if not has_write_permission('hr_people'):
+    if not has_write_permission(MODULE):
         flash('Write access required to create stages.', 'danger')
-        return redirect(url_for('hiring.manage_stages'))
+        return redirect(url_for(MANAGE_STAGES))
     """Create a new hiring stage."""
     
     if not name:
         flash('Stage name is required.', 'danger')
-        return redirect(url_for('hiring.manage_stages'))
+        return redirect(url_for(MANAGE_STAGES))
     
     # Auto-assign order (last + 1)
     max_order = db.session.query(db.func.max(HiringStage.order)).scalar() or 0
@@ -445,15 +451,15 @@ def new_stage():
     db.session.commit()
     
     flash(f'Stage "{name}" created.', 'success')
-    return redirect(url_for('hiring.manage_stages'))
+    return redirect(url_for(MANAGE_STAGES))
 
 @hiring_bp.route('/stages/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def delete_stage(id):
-    if not has_write_permission('hr_people'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete stages.', 'danger')
-        return redirect(url_for('hiring.manage_stages'))
+        return redirect(url_for(MANAGE_STAGES))
     """Delete a hiring stage."""
     stage = db.get_or_404(HiringStage, id)
     
@@ -461,25 +467,25 @@ def delete_stage(id):
     PROTECTED_STAGES = ['Applied', 'Offer', 'Hired', 'Rejected']
     if stage.name in PROTECTED_STAGES:
         flash(f'Cannot delete system stage "{stage.name}".', 'danger')
-        return redirect(url_for('hiring.manage_stages'))
+        return redirect(url_for(MANAGE_STAGES))
 
     # Check if stage has candidates
     if stage.candidates:
         flash(f'Cannot delete stage "{stage.name}" - it still has {len(stage.candidates)} candidates.', 'danger')
-        return redirect(url_for('hiring.manage_stages'))
+        return redirect(url_for(MANAGE_STAGES))
     
     name = stage.name
     db.session.delete(stage)
     db.session.commit()
     
     flash(f'Stage "{name}" deleted.', 'success')
-    return redirect(url_for('hiring.manage_stages'))
+    return redirect(url_for(MANAGE_STAGES))
 
 @hiring_bp.route('/stages/reorder', methods=['POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def update_stage_order():
-    if not has_write_permission('hr_people'):
+    if not has_write_permission(MODULE):
         return jsonify({'status': 'error', 'message': 'Write access required to reorder stages.'}), 403
     """API to update the order of stages."""
     data = request.json
@@ -498,21 +504,21 @@ def update_stage_order():
 
 @hiring_bp.route('/stages/<int:id>/update', methods=['POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def update_stage(id):
-    if not has_write_permission('hr_people'):
+    if not has_write_permission(MODULE):
         flash('Write access required to update stages.', 'danger')
-        return redirect(url_for('hiring.manage_stages'))
+        return redirect(url_for(MANAGE_STAGES))
     """Update a hiring stage (rename)."""
     stage = db.get_or_404(HiringStage, id)
     
     name = request.form.get('name')
     if not name:
         flash('Stage name is required.', 'danger')
-        return redirect(url_for('hiring.manage_stages'))
+        return redirect(url_for(MANAGE_STAGES))
         
     stage.name = name
     db.session.commit()
     
     flash(f'Stage renamed to "{name}".', 'success')
-    return redirect(url_for('hiring.manage_stages'))
+    return redirect(url_for(MANAGE_STAGES))

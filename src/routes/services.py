@@ -23,19 +23,23 @@ services_bp = Blueprint('services', __name__,
                         template_folder='../templates/services', # Relative to src/routes
                         url_prefix='/services')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'core_inventory'
+DETAIL = 'services.detail'
+
 @services_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_services():
     services = BusinessService.query.order_by(BusinessService.name).all()
     return render_template('services/list.html', services=services)
 
 @services_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def create_service():
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
+        if not has_write_permission(MODULE):
             flash('Write access required for this action.', 'danger')
             return redirect(url_for('services.list_services'))
         name = request.form.get('name')
@@ -63,7 +67,7 @@ def create_service():
             db.session.add(service)
             db.session.commit()
             flash('Service created successfully!', 'success')
-            return redirect(url_for('services.detail', id=service.id))
+            return redirect(url_for(DETAIL, id=service.id))
         except Exception as e:
             db.session.rollback()
             flash(f'Error creating service: {str(e)}', 'danger')
@@ -74,7 +78,7 @@ def create_service():
 
 @services_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def detail(id):
     service = db.get_or_404(BusinessService, id)
     all_services = BusinessService.query.filter(BusinessService.id != id).all()
@@ -146,14 +150,14 @@ from src.utils.logger import log_audit
 
 @services_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_service(id):
     service = db.get_or_404(BusinessService, id)
     
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
+        if not has_write_permission(MODULE):
             flash('Write access required for this action.', 'danger')
-            return redirect(url_for('services.detail', id=id))
+            return redirect(url_for(DETAIL, id=id))
         service.name = request.form.get('name')
         service.description = request.form.get('description')
         service.owner_id = request.form.get('owner_id') if request.form.get('owner_id') else None
@@ -182,7 +186,7 @@ def edit_service(id):
             )
             
             flash('Service updated successfully!', 'success')
-            return redirect(url_for('services.detail', id=service.id))
+            return redirect(url_for(DETAIL, id=service.id))
         except Exception as e:
             db.session.rollback()
             flash(f'Error updating service: {str(e)}', 'danger')
@@ -193,7 +197,7 @@ def edit_service(id):
 
 @services_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def delete_service(id):
     service = db.get_or_404(BusinessService, id)
     try:
@@ -213,11 +217,11 @@ def delete_service(id):
     except Exception as e:
         db.session.rollback()
         flash(f'Error deleting service: {str(e)}', 'danger')
-        return redirect(url_for('services.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
 @services_bp.route('/<int:id>/dependency/add', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def add_dependency(id):
     service = db.get_or_404(BusinessService, id)
     target_service_id = request.form.get('target_service_id')
@@ -226,16 +230,16 @@ def add_dependency(id):
 
     if not target_service_id:
         flash('Please select a service.', 'warning')
-        return redirect(url_for('services.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
     target_service = db.session.get(BusinessService, target_service_id)
     if not target_service:
         flash('Target service not found.', 'danger')
-        return redirect(url_for('services.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
     if target_service.id == service.id:
         flash('Cannot depend on self.', 'warning')
-        return redirect(url_for('services.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
     # Resolve label enum
     label_enum = None
@@ -244,7 +248,7 @@ def add_dependency(id):
             label_enum = DependencyType(label_value)
         except ValueError:
             flash('Invalid dependency label.', 'danger')
-            return redirect(url_for('services.detail', id=id))
+            return redirect(url_for(DETAIL, id=id))
 
     try:
         if dependency_type == 'upstream':
@@ -264,11 +268,11 @@ def add_dependency(id):
         db.session.rollback()
         flash(f'Error adding dependency: {str(e)}', 'danger')
 
-    return redirect(url_for('services.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 @services_bp.route('/<int:id>/dependency/remove/<int:target_id>', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def remove_dependency(id, target_id):
     dep_type = request.form.get('type') # 'upstream' or 'downstream'
 
@@ -288,11 +292,11 @@ def remove_dependency(id, target_id):
         db.session.rollback()
         flash(f'Error removing dependency: {str(e)}', 'danger')
 
-    return redirect(url_for('services.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 @services_bp.route('/<int:id>/component/add', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def add_component(id):
     service = db.get_or_404(BusinessService, id)
     comp_type = request.form.get('component_type')
@@ -301,7 +305,7 @@ def add_component(id):
     
     if not comp_type or not comp_id:
         flash('Invalid component selection.', 'warning')
-        return redirect(url_for('services.detail', id=id) + '#infrastructure')
+        return redirect(url_for(DETAIL, id=id) + '#infrastructure')
         
     # Create component link
     comp = ServiceComponent(
@@ -319,11 +323,11 @@ def add_component(id):
         db.session.rollback()
         flash(f'Error linking component: {str(e)}', 'danger')
 
-    return redirect(url_for('services.detail', id=id) + '#infrastructure')
+    return redirect(url_for(DETAIL, id=id) + '#infrastructure')
 
 @services_bp.route('/component/<int:comp_id>/delete', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def delete_component(comp_id):
     comp = db.get_or_404(ServiceComponent, comp_id)
     service_id = comp.service_id
@@ -334,7 +338,7 @@ def delete_component(comp_id):
     except Exception as e:
         db.session.rollback()
         flash(f'Error removing component: {str(e)}', 'danger')
-    return redirect(url_for('services.detail', id=service_id) + '#infrastructure')
+    return redirect(url_for(DETAIL, id=service_id) + '#infrastructure')
 
 
 @services_bp.route('/api/search-components/<component_type>', methods=['GET'])
@@ -382,7 +386,7 @@ def search_components(component_type):
 
 @services_bp.route('/<int:id>/link-document', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def link_document(id):
     service = db.get_or_404(BusinessService, id)
     doc_id = request.form.get('document_id')
@@ -392,12 +396,12 @@ def link_document(id):
             service.documents.append(doc)
             db.session.commit()
             flash('Documentation linked.', 'success')
-    return redirect(url_for('services.detail', id=id) + '#context')
+    return redirect(url_for(DETAIL, id=id) + '#context')
 
 
 @services_bp.route('/<int:id>/unlink-document/<int:doc_id>', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def unlink_document(id, doc_id):
     service = db.get_or_404(BusinessService, id)
     doc = db.session.get(Documentation,doc_id)
@@ -405,12 +409,12 @@ def unlink_document(id, doc_id):
         service.documents.remove(doc)
         db.session.commit()
         flash('Documentation unlinked.', 'success')
-    return redirect(url_for('services.detail', id=id) + '#context')
+    return redirect(url_for(DETAIL, id=id) + '#context')
 
 
 @services_bp.route('/<int:id>/link-policy', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def link_policy(id):
     service = db.get_or_404(BusinessService, id)
     policy_id = request.form.get('policy_id')
@@ -420,12 +424,12 @@ def link_policy(id):
             service.policies.append(policy)
             db.session.commit()
             flash('Policy linked.', 'success')
-    return redirect(url_for('services.detail', id=id) + '#context')
+    return redirect(url_for(DETAIL, id=id) + '#context')
 
 
 @services_bp.route('/<int:id>/unlink-policy/<int:policy_id>', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def unlink_policy(id, policy_id):
     service = db.get_or_404(BusinessService, id)
     policy = db.session.get(Policy,policy_id)
@@ -433,12 +437,12 @@ def unlink_policy(id, policy_id):
         service.policies.remove(policy)
         db.session.commit()
         flash('Policy unlinked.', 'success')
-    return redirect(url_for('services.detail', id=id) + '#context')
+    return redirect(url_for(DETAIL, id=id) + '#context')
 
 
 @services_bp.route('/<int:id>/link-activity', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def link_activity(id):
     service = db.get_or_404(BusinessService, id)
     activity_id = request.form.get('activity_id')
@@ -448,12 +452,12 @@ def link_activity(id):
             service.activities.append(activity)
             db.session.commit()
             flash('Security activity linked.', 'success')
-    return redirect(url_for('services.detail', id=id) + '#context')
+    return redirect(url_for(DETAIL, id=id) + '#context')
 
 
 @services_bp.route('/<int:id>/unlink-activity/<int:activity_id>', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def unlink_activity(id, activity_id):
     service = db.get_or_404(BusinessService, id)
     activity = db.session.get(SecurityActivity,activity_id)
@@ -461,12 +465,12 @@ def unlink_activity(id, activity_id):
         service.activities.remove(activity)
         db.session.commit()
         flash('Security activity unlinked.', 'success')
-    return redirect(url_for('services.detail', id=id) + '#context')
+    return redirect(url_for(DETAIL, id=id) + '#context')
 
 
 @services_bp.route('/<int:id>/add-link', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def add_link(id):
     db.get_or_404(BusinessService, id)
     name = request.form.get('name')
@@ -482,35 +486,35 @@ def add_link(id):
         db.session.add(link)
         db.session.commit()
         flash('External link added.', 'success')
-    return redirect(url_for('services.detail', id=id) + '#context')
+    return redirect(url_for(DETAIL, id=id) + '#context')
 
 
 @services_bp.route('/<int:id>/remove-link/<int:link_id>', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def remove_link(id, link_id):
     link = db.get_or_404(Link, link_id)
     if link.owner_type == 'BusinessService' and link.owner_id == id:
         db.session.delete(link)
         db.session.commit()
         flash('External link removed.', 'success')
-    return redirect(url_for('services.detail', id=id) + '#context')
+    return redirect(url_for(DETAIL, id=id) + '#context')
 
 
 @services_bp.route('/<int:id>/upload-attachment', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def upload_attachment(id):
     db.get_or_404(BusinessService, id)
     
     if 'file' not in request.files:
         flash('No file selected.', 'warning')
-        return redirect(url_for('services.detail', id=id) + '#context')
+        return redirect(url_for(DETAIL, id=id) + '#context')
 
     file = request.files['file']
     if file.filename == '':
         flash('No file selected.', 'warning')
-        return redirect(url_for('services.detail', id=id) + '#context')
+        return redirect(url_for(DETAIL, id=id) + '#context')
     
     # Secure the filename and generate a unique stored name
     original_filename = file.filename
@@ -534,12 +538,12 @@ def upload_attachment(id):
     db.session.commit()
     flash('File uploaded successfully.', 'success')
 
-    return redirect(url_for('services.detail', id=id) + '#context')
+    return redirect(url_for(DETAIL, id=id) + '#context')
 
 
 @services_bp.route('/<int:id>/remove-attachment/<int:att_id>', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def remove_attachment(id, att_id):
     attachment = db.get_or_404(Attachment, att_id)
     if attachment.linkable_type == 'BusinessService' and attachment.linkable_id == id:
@@ -554,7 +558,7 @@ def remove_attachment(id, att_id):
         db.session.delete(attachment)
         db.session.commit()
         flash('Attachment removed.', 'success')
-    return redirect(url_for('services.detail', id=id) + '#context')
+    return redirect(url_for(DETAIL, id=id) + '#context')
 
 # ==========================================
 # USER ACCESS MANAGEMENT
@@ -562,7 +566,7 @@ def remove_attachment(id, att_id):
 
 @services_bp.route('/<int:id>/users/add', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def add_user_access(id):
     service = db.get_or_404(BusinessService, id)
     user_ids = request.form.getlist('user_ids')
@@ -578,11 +582,11 @@ def add_user_access(id):
         db.session.commit()
         flash(f'Added {len(added)} user(s) to {service.name}.', 'success')
 
-    return redirect(url_for('services.detail', id=id) + '#users')
+    return redirect(url_for(DETAIL, id=id) + '#users')
 
 @services_bp.route('/<int:id>/users/add-all', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def add_all_users(id):
     service = db.get_or_404(BusinessService, id)
     all_users = User.query.filter_by(is_archived=False).all()
@@ -599,11 +603,11 @@ def add_all_users(id):
     else:
         flash('All users already have access.', 'info')
 
-    return redirect(url_for('services.detail', id=id) + '#users')
+    return redirect(url_for(DETAIL, id=id) + '#users')
 
 @services_bp.route('/<int:id>/users/remove/<int:user_id>', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def remove_user_access(id, user_id):
     service = db.get_or_404(BusinessService, id)
     user = db.get_or_404(User, user_id)
@@ -613,7 +617,7 @@ def remove_user_access(id, user_id):
         db.session.commit()
         flash(f'User {user.name} removed from {service.name}.', 'warning')
 
-    return redirect(url_for('services.detail', id=id) + '#users')
+    return redirect(url_for(DETAIL, id=id) + '#users')
 
 @services_bp.route('/<int:id>/check_access/<int:user_id>', methods=['GET'])
 @login_required
@@ -648,7 +652,7 @@ def check_user_access(id, user_id):
 
 @services_bp.route('/<int:id>/link_certificate', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def link_certificate(id):
     service = db.get_or_404(BusinessService, id)
     cert_id = request.form.get('certificate_id')
@@ -674,11 +678,11 @@ def link_certificate(id):
              else:
                  flash('Certificate not found.', 'danger')
     
-    return redirect(url_for('services.detail', id=id, _anchor='context'))
+    return redirect(url_for(DETAIL, id=id, _anchor='context'))
 
 @services_bp.route('/<int:id>/unlink_certificate/<int:cert_id>', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def unlink_certificate(id, cert_id):
     service = db.get_or_404(BusinessService, id)
     cert = db.get_or_404(Certificate, cert_id)
@@ -697,12 +701,12 @@ def unlink_certificate(id, cert_id):
         db.session.commit()
         flash(f'Certificate "{cert.name}" unlinked successfully.', 'success')
     
-    return redirect(url_for('services.detail', id=id, _anchor='context'))
+    return redirect(url_for(DETAIL, id=id, _anchor='context'))
 
 
 @services_bp.route('/<int:id>/link_credential', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def link_credential(id):
     service = db.get_or_404(BusinessService, id)
     cred_id = request.form.get('credential_id')
@@ -728,11 +732,11 @@ def link_credential(id):
              else:
                  flash('Credential not found.', 'danger')
     
-    return redirect(url_for('services.detail', id=id, _anchor='context'))
+    return redirect(url_for(DETAIL, id=id, _anchor='context'))
 
 @services_bp.route('/<int:id>/unlink_credential/<int:cred_id>', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def unlink_credential(id, cred_id):
     service = db.get_or_404(BusinessService, id)
     cred = db.get_or_404(Credential, cred_id)
@@ -751,4 +755,4 @@ def unlink_credential(id, cred_id):
         db.session.commit()
         flash(f'Credential "{cred.name}" unlinked successfully.', 'success')
     
-    return redirect(url_for('services.detail', id=id, _anchor='context'))
+    return redirect(url_for(DETAIL, id=id, _anchor='context'))

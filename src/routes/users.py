@@ -15,16 +15,21 @@ from src.utils.timezone_helper import now
 
 users_bp = Blueprint('users', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'administration'
+USERS = 'users.users'
+USER_DETAIL = 'users.user_detail'
+
 @users_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def users():
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     return render_template('users/list.html', users=users)
 
 @users_bp.route('/org-chart', methods=['GET'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def org_chart():
     users = User.query.filter_by(is_archived=False, hide_from_org_chart=False).all()
 
@@ -36,7 +41,7 @@ def org_chart():
             'name': u.name,
             'title': u.job_title or 'No Title',
             'department': u.department or '',
-            'url': url_for('users.user_detail', id=u.id),
+            'url': url_for(USER_DETAIL, id=u.id),
             'children': []
         }
 
@@ -75,7 +80,7 @@ def org_chart():
 
 @users_bp.route('/archived', methods=['GET'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def archived_users():
     users = User.query.filter_by(is_archived=True).all()
     return render_template('users/archived.html', users=users)
@@ -83,7 +88,7 @@ def archived_users():
 
 @users_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission('administration', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def archive_user(id):
     user = db.get_or_404(User, id)
 
@@ -94,7 +99,7 @@ def archive_user(id):
         for error in errors:
             flash(error, 'danger')
         flash(f'Cannot archive user "{user.name}". Please resolve the issues above first.', 'danger')
-        return redirect(url_for('users.user_detail', id=id))
+        return redirect(url_for(USER_DETAIL, id=id))
 
     # Clean up non-critical relationships
     user.prepare_for_archival()
@@ -104,12 +109,12 @@ def archive_user(id):
     db.session.commit()
 
     flash(f'User "{user.name}" has been archived successfully.', 'warning')
-    return redirect(url_for('users.users'))
+    return redirect(url_for(USERS))
 
 
 @users_bp.route('/<int:id>/unarchive', methods=['POST'])
 @login_required
-@requires_permission('administration', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def unarchive_user(id):
     user = db.get_or_404(User, id)
     user.is_archived = False
@@ -119,7 +124,7 @@ def unarchive_user(id):
 
 @users_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def user_detail(id):
     user = db.get_or_404(User, id)
     custom_field_definitions = CustomFieldDefinition.query.filter_by(entity_type='User').all()
@@ -127,15 +132,15 @@ def user_detail(id):
 
 @users_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def new_user():
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     custom_field_definitions = CustomFieldDefinition.query.filter_by(entity_type='User').all()
 
     if request.method == 'POST':
-        if not has_write_permission('administration'):
+        if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
-                return redirect(url_for('users.users'))
+                return redirect(url_for(USERS))
         manager_id = request.form.get('manager_id')
         buddy_id = request.form.get('buddy_id')
 
@@ -155,13 +160,13 @@ def new_user():
         db.session.commit()
         
         flash('User created successfully!', 'success')
-        return redirect(url_for('users.users'))
+        return redirect(url_for(USERS))
 
     return render_template('users/form.html', users=users, custom_field_definitions=custom_field_definitions)
 
 @users_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_user(id):
     user = db.get_or_404(User, id)
 
@@ -169,9 +174,9 @@ def edit_user(id):
     custom_field_definitions = CustomFieldDefinition.query.filter_by(entity_type='User').all()
 
     if request.method == 'POST':
-        if not has_write_permission('administration'):
+        if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
-                return redirect(url_for('users.user_detail', id=id))
+                return redirect(url_for(USER_DETAIL, id=id))
         user.name = request.form['name']
         user.email = request.form.get('email')
         user.department = request.form.get('department')
@@ -190,14 +195,14 @@ def edit_user(id):
         
         db.session.commit()
         flash('User updated successfully!', 'success')
-        return redirect(url_for('users.users'))
+        return redirect(url_for(USERS))
 
     return render_template('users/form.html', user=user, users=users, custom_field_definitions=custom_field_definitions)
 
 
 @users_bp.route('/<int:id>/inventory/generate', methods=['POST'])
 @login_required
-@requires_permission('administration', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def generate_inventory(id):
     """
     Genera un snapshot en PDF del inventario del usuario y lo guarda
@@ -218,7 +223,7 @@ def generate_inventory(id):
     except Exception as e:
         current_app.logger.error(f"Error generating PDF with WeasyPrint: {e}")
         flash('Error generating PDF. Check logs.', 'danger')
-        return redirect(url_for('users.user_detail', id=id))
+        return redirect(url_for(USER_DETAIL, id=id))
 
     # 3. Definir nombres de archivo
     timestamp = now().strftime('%Y-%m-%d_%H%M')
@@ -234,7 +239,7 @@ def generate_inventory(id):
     except OSError as e:
         current_app.logger.error(f"Error saving PDF file: {e}")
         flash('Error saving inventory file.', 'danger')
-        return redirect(url_for('users.user_detail', id=id))
+        return redirect(url_for(USER_DETAIL, id=id))
 
     # 5. Crear el registro 'Attachment' en la BD
     attachment = Attachment(
@@ -248,11 +253,11 @@ def generate_inventory(id):
     db.session.commit()
     
     flash('Inventory snapshot generated and saved.', 'success')
-    return redirect(url_for('users.user_detail', id=id))
+    return redirect(url_for(USER_DETAIL, id=id))
 
 @users_bp.route('/<int:id>/generate-token', methods=['POST'])
 @login_required
-@requires_permission('administration', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def generate_token(id):
     """Generates a new API token for the user."""
     user = db.get_or_404(User, id)
@@ -271,11 +276,11 @@ def generate_token(id):
     )
     
     flash('New API Token generated successfully.', 'success')
-    return redirect(url_for('users.user_detail', id=id))
+    return redirect(url_for(USER_DETAIL, id=id))
 
 @users_bp.route('/org-chart/snapshot', methods=['POST'])
 @login_required
-@requires_permission('administration', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def create_org_snapshot():
     if request.method == 'POST':
         name = request.form.get('name') or f'Org Chart - {now().strftime("%Y-%m-%d")}'
@@ -319,14 +324,14 @@ def from_flask_session_proxy():
 
 @users_bp.route('/org-chart/snapshots', methods=['GET'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_org_snapshots():
     snapshots = OrgChartSnapshot.query.order_by(OrgChartSnapshot.created_at.desc()).all()
     return render_template('users/org_snapshots_list.html', snapshots=snapshots)
 
 @users_bp.route('/org-chart/snapshots/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('administration', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def view_org_snapshot(id):
     snapshot = db.get_or_404(OrgChartSnapshot, id)
 

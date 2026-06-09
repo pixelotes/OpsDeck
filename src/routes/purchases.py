@@ -10,29 +10,35 @@ from src.utils.timezone_helper import now
 
 purchases_bp = Blueprint('purchases', __name__, url_prefix='/purchases')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'finance'
+PURCHASES = 'purchases.purchases'
+PURCHASE_DETAIL = 'purchases.purchase_detail'
+PURCHASES_FORM_HTML = 'purchases/form.html'
+
 @purchases_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('finance', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def purchases():
     all_purchases = Purchase.query.order_by(Purchase.purchase_date.desc()).all()
     return render_template('purchases/list.html', purchases=all_purchases)
 
 @purchases_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('finance', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def purchase_detail(id):
     purchase = db.get_or_404(Purchase, id)
     return render_template('purchases/detail.html', purchase=purchase)
 
 @purchases_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('finance', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def new_purchase():
     if request.method == 'POST':
         # Manual check for WRITE access
-        if not has_write_permission('finance'):
+        if not has_write_permission(MODULE):
             flash('Write access required for this action.', 'danger')
-            return redirect(url_for('purchases.purchases'))
+            return redirect(url_for(PURCHASES))
         purchase_date = datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date()
         budget_id = request.form.get('budget_id') or None
         
@@ -41,7 +47,7 @@ def new_purchase():
             budget = db.session.get(Budget,budget_id)
             if budget and not budget.is_active(purchase_date):
                 flash('Error: This purchase date is outside the selected Budget\'s validity period.', 'danger')
-                return render_template('purchases/form.html',
+                return render_template(PURCHASES_FORM_HTML,
                                         suppliers=Supplier.query.order_by(Supplier.name).all(),
                                         users=User.query.order_by(User.name).all(),
                                         payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
@@ -61,9 +67,9 @@ def new_purchase():
         db.session.add(purchase)
         db.session.commit()
         flash('Purchase created successfully!', 'success')
-        return redirect(url_for('purchases.purchases'))
+        return redirect(url_for(PURCHASES))
 
-    return render_template('purchases/form.html',
+    return render_template(PURCHASES_FORM_HTML,
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             users=User.query.order_by(User.name).all(),
                             payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
@@ -72,14 +78,14 @@ def new_purchase():
 
 @purchases_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('finance', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_purchase(id):
     purchase = db.get_or_404(Purchase, id)
     if request.method == 'POST':
         # Manual check for WRITE access
-        if not has_write_permission('finance'):
+        if not has_write_permission(MODULE):
             flash('Write access required for this action.', 'danger')
-            return redirect(url_for('purchases.purchase_detail', id=id))
+            return redirect(url_for(PURCHASE_DETAIL, id=id))
         purchase_date = datetime.strptime(request.form['purchase_date'], '%Y-%m-%d').date()
         budget_id = request.form.get('budget_id') or None
         
@@ -88,7 +94,7 @@ def edit_purchase(id):
             budget = db.session.get(Budget,budget_id)
             if budget and not budget.is_active(purchase_date):
                 flash('Error: This purchase date is outside the selected Budget\'s validity period.', 'danger')
-                return render_template('purchases/form.html',
+                return render_template(PURCHASES_FORM_HTML,
                                         purchase=purchase,
                                         suppliers=Supplier.query.order_by(Supplier.name).all(),
                                         users=User.query.order_by(User.name).all(),
@@ -106,9 +112,9 @@ def edit_purchase(id):
         purchase.budget_id = budget_id
         db.session.commit()
         flash('Purchase updated successfully!', 'success')
-        return redirect(url_for('purchases.purchases'))
+        return redirect(url_for(PURCHASES))
 
-    return render_template('purchases/form.html',
+    return render_template(PURCHASES_FORM_HTML,
                             purchase=purchase,
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             users=User.query.order_by(User.name).all(),
@@ -118,11 +124,11 @@ def edit_purchase(id):
 
 @purchases_bp.route('/<int:id>/approve', methods=['POST'])
 @login_required
-@requires_permission('finance')
+@requires_permission(MODULE)
 def approve_purchase(id):
-    if not has_write_permission('finance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to approve purchases.', 'danger')
-        return redirect(url_for('purchases.purchase_detail', id=id))
+        return redirect(url_for(PURCHASE_DETAIL, id=id))
     purchase = db.get_or_404(Purchase, id)
     user_id = session.get('user_id')
     purchase.validated_cost = purchase.calculated_cost
@@ -134,15 +140,15 @@ def approve_purchase(id):
     db.session.add(history_log)
     db.session.commit()
     flash(f'The cost for this purchase has been validated at EUR {purchase.validated_cost:.2f}.', 'success')
-    return redirect(url_for('purchases.purchase_detail', id=id))
+    return redirect(url_for(PURCHASE_DETAIL, id=id))
 
 @purchases_bp.route('/<int:id>/unvalidate_cost', methods=['POST'])
 @login_required
-@requires_permission('finance')
+@requires_permission(MODULE)
 def unvalidate_cost(id):
-    if not has_write_permission('finance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to unvalidate costs.', 'danger')
-        return redirect(url_for('purchases.purchase_detail', id=id))
+        return redirect(url_for(PURCHASE_DETAIL, id=id))
     purchase = db.get_or_404(Purchase, id)
     user_id = session.get('user_id')
     history_log = PurchaseCostHistory(
@@ -154,4 +160,4 @@ def unvalidate_cost(id):
     purchase.cost_validated_by_id = None
     db.session.commit()
     flash('The validated cost has been removed. The cost will now be calculated dynamically.', 'info')
-    return redirect(url_for('purchases.purchase_detail', id=id))
+    return redirect(url_for(PURCHASE_DETAIL, id=id))

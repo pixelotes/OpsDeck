@@ -9,9 +9,13 @@ import json
 
 configuration_bp = Blueprint('configuration', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'core_inventory'
+DETAIL = 'configuration.detail'
+
 @configuration_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def index():
     configurations = Configuration.query.all()
     # Simple list view
@@ -19,7 +23,7 @@ def index():
 
 @configuration_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def detail(id):
     config = db.get_or_404(Configuration, id)
     latest = config.latest_version
@@ -40,7 +44,7 @@ def detail(id):
 
 @configuration_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def new():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -68,13 +72,13 @@ def new():
         db.session.commit()
         
         flash('Configuration created', 'success')
-        return redirect(url_for('configuration.detail', id=config.id))
+        return redirect(url_for(DETAIL, id=config.id))
         
     return render_template('configuration/new.html')
 
 @configuration_bp.route('/<int:id>/snapshot', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def snapshot(id):
     config = db.get_or_404(Configuration, id)
     
@@ -86,7 +90,7 @@ def snapshot(id):
         raw_data = request.form.get('config_data')
         if not raw_data:
             flash('No data provided', 'danger')
-            return redirect(url_for('configuration.detail', id=id))
+            return redirect(url_for(DETAIL, id=id))
             
         data = json.loads(raw_data)
         commit_message = request.form.get('commit_message', 'Updated configuration')
@@ -111,11 +115,11 @@ def snapshot(id):
     except Exception as e:
         flash(f'Error saving snapshot: {str(e)}', 'danger')
         
-    return redirect(url_for('configuration.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 @configuration_bp.route('/<int:id>/compare', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def compare(id):
     config = db.get_or_404(Configuration, id)
     
@@ -130,7 +134,7 @@ def compare(id):
             v1 = ConfigurationVersion.query.filter_by(configuration_id=id, version_number=latest.version_number - 1).first()
         else:
             flash('Not enough versions to compare', 'warning')
-            return redirect(url_for('configuration.detail', id=id))
+            return redirect(url_for(DETAIL, id=id))
     else:
         v1 = db.get_or_404(ConfigurationVersion, v1_id)
         v2 = db.get_or_404(ConfigurationVersion, v2_id)
@@ -145,7 +149,7 @@ def compare(id):
 
 @configuration_bp.route('/<int:id>/history', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def history(id):
     config = db.get_or_404(Configuration, id)
     versions = config.versions.order_by(ConfigurationVersion.version_number.desc()).all()
@@ -153,7 +157,7 @@ def history(id):
 
 @configuration_bp.route('/<int:id>/versions', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def get_versions(id):
     """API endpoint to get versions for a configuration."""
     config = db.get_or_404(Configuration, id)
@@ -167,7 +171,7 @@ def get_versions(id):
 
 @configuration_bp.route('/<int:id>/versions/create_from_change', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def create_version_from_change(id):
     """API endpoint to create a new version (clone latest) directly from change request context."""
     config = db.get_or_404(Configuration, id)

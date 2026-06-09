@@ -9,26 +9,30 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'operations'
+LOG_DETAIL = 'maintenance.log_detail'
+
 @maintenance_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def list_logs():
     logs = MaintenanceLog.query.order_by(MaintenanceLog.event_date.desc()).all()
     return render_template('maintenance/list.html', logs=logs)
 
 @maintenance_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def log_detail(id):
     log = db.get_or_404(MaintenanceLog, id)
     return render_template('maintenance/detail.html', log=log)
 
 @maintenance_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def new_log():
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create maintenance logs.', 'danger')
             return redirect(url_for('maintenance.list_logs'))
         log = MaintenanceLog(
@@ -71,7 +75,7 @@ def new_log():
                 db.session.commit()
 
         flash('Maintenance log created successfully.', 'success')
-        return redirect(url_for('maintenance.log_detail', id=log.id))
+        return redirect(url_for(LOG_DETAIL, id=log.id))
 
     # Pre-select asset or peripheral for query params if available
     preselected_asset_id = request.args.get('asset_id', type=int)
@@ -92,13 +96,13 @@ def new_log():
 
 @maintenance_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def edit_log(id):
     log = db.get_or_404(MaintenanceLog, id)
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update maintenance logs.', 'danger')
-            return redirect(url_for('maintenance.log_detail', id=id))
+            return redirect(url_for(LOG_DETAIL, id=id))
         log.event_type = request.form['event_type']
         log.description = request.form['description']
         log.status = request.form['status']
@@ -137,7 +141,7 @@ def edit_log(id):
 
         db.session.commit()
         flash('Maintenance log updated successfully.', 'success')
-        return redirect(url_for('maintenance.log_detail', id=log.id))
+        return redirect(url_for(LOG_DETAIL, id=log.id))
 
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     assets = Asset.query.filter_by(is_archived=False).order_by(Asset.name).all()

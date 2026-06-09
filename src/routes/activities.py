@@ -11,9 +11,14 @@ from src.utils.timezone_helper import today
 
 activities_bp = Blueprint('activities', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'operations'
+ACTIVITY_DETAIL = 'activities.activity_detail'
+EXECUTION_DETAIL = 'activities.execution_detail'
+
 @activities_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def list_activities():
     """Displays a list of all security activities."""
     activities = SecurityActivity.query.order_by(SecurityActivity.name).all()
@@ -26,11 +31,11 @@ def list_activities():
 
 @activities_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def new_activity():
     """Creates a new security activity."""
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create activities.', 'danger')
             return redirect(url_for('activities.list_activities'))
         activity = SecurityActivity(
@@ -62,7 +67,7 @@ def new_activity():
         db.session.commit()
         
         flash('Security Activity created successfully.', 'success')
-        return redirect(url_for('activities.activity_detail', id=activity.id))
+        return redirect(url_for(ACTIVITY_DETAIL, id=activity.id))
     
     # GET request - render form
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
@@ -73,7 +78,7 @@ def new_activity():
 
 @activities_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def activity_detail(id):
     """Displays details of a specific security activity."""
     activity = db.get_or_404(SecurityActivity, id)
@@ -83,15 +88,15 @@ def activity_detail(id):
 
 @activities_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def edit_activity(id):
     """Edits an existing security activity."""
     activity = db.get_or_404(SecurityActivity, id)
     
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update activities.', 'danger')
-            return redirect(url_for('activities.activity_detail', id=id))
+            return redirect(url_for(ACTIVITY_DETAIL, id=id))
         activity.name = request.form['name']
         activity.description = request.form.get('description')
         activity.frequency = request.form.get('frequency')
@@ -116,7 +121,7 @@ def edit_activity(id):
         db.session.commit()
         
         flash('Security Activity updated successfully.', 'success')
-        return redirect(url_for('activities.activity_detail', id=activity.id))
+        return redirect(url_for(ACTIVITY_DETAIL, id=activity.id))
     
     # GET request - render form with existing data
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
@@ -127,11 +132,11 @@ def edit_activity(id):
 
 @activities_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def delete_activity(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete activities.', 'danger')
-        return redirect(url_for('activities.activity_detail', id=id))
+        return redirect(url_for(ACTIVITY_DETAIL, id=id))
     """Deletes a security activity."""
     activity = db.get_or_404(SecurityActivity, id)
     activity_name = activity.name
@@ -144,15 +149,15 @@ def delete_activity(id):
 
 @activities_bp.route('/<int:id>/execute', methods=['GET', 'POST'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def execute_activity(id):
     """Records a new execution for a security activity."""
     activity = db.get_or_404(SecurityActivity, id)
     
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to record executions.', 'danger')
-            return redirect(url_for('activities.activity_detail', id=id))
+            return redirect(url_for(ACTIVITY_DETAIL, id=id))
         execution = ActivityExecution(
             activity_id=activity.id,
             executor_id=request.form.get('executor_id') or session.get('user_id'),
@@ -191,7 +196,7 @@ def execute_activity(id):
             db.session.commit()
         
         flash('Execution recorded successfully.', 'success')
-        return redirect(url_for('activities.execution_detail', id=execution.id))
+        return redirect(url_for(EXECUTION_DETAIL, id=execution.id))
     
     # GET request - render form
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
@@ -206,7 +211,7 @@ def execute_activity(id):
 
 @activities_bp.route('/execution/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def execution_detail(id):
     """Displays details of a specific execution."""
     execution = db.get_or_404(ActivityExecution, id)
@@ -214,16 +219,16 @@ def execution_detail(id):
 
 @activities_bp.route('/execution/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def edit_execution(id):
     """Edits an existing execution."""
     execution = db.get_or_404(ActivityExecution, id)
     activity = execution.activity
     
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update executions.', 'danger')
-            return redirect(url_for('activities.execution_detail', id=id))
+            return redirect(url_for(EXECUTION_DETAIL, id=id))
         execution.executor_id = request.form.get('executor_id')
         execution.execution_date = datetime.strptime(request.form['execution_date'], '%Y-%m-%d').date()
         execution.status = request.form['status']
@@ -258,7 +263,7 @@ def edit_execution(id):
         db.session.commit()
         
         flash('Execution updated successfully.', 'success')
-        return redirect(url_for('activities.execution_detail', id=execution.id))
+        return redirect(url_for(EXECUTION_DETAIL, id=execution.id))
     
     # GET request
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
@@ -271,7 +276,7 @@ def edit_execution(id):
 
 @activities_bp.route('/get-objects-by-type', methods=['GET'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def get_objects_by_type():
     """AJAX endpoint to get objects of a specific type."""
     object_type = request.args.get('type')
@@ -321,11 +326,11 @@ def get_objects_by_type():
 
 @activities_bp.route('/<int:id>/link-object', methods=['POST'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def link_object(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to link objects.', 'danger')
-        return redirect(url_for('activities.activity_detail', id=id))
+        return redirect(url_for(ACTIVITY_DETAIL, id=id))
     """Links an object to a security activity."""
     db.get_or_404(SecurityActivity, id)
     
@@ -334,7 +339,7 @@ def link_object(id):
     
     if not object_type or not object_id:
         flash('Please select both object type and object.', 'danger')
-        return redirect(url_for('activities.activity_detail', id=id))
+        return redirect(url_for(ACTIVITY_DETAIL, id=id))
     
     # Check if link already exists
     existing_link = ActivityRelatedObject.query.filter_by(
@@ -345,7 +350,7 @@ def link_object(id):
     
     if existing_link:
         flash('This object is already linked to this activity.', 'warning')
-        return redirect(url_for('activities.activity_detail', id=id))
+        return redirect(url_for(ACTIVITY_DETAIL, id=id))
     
     # Create new link
     link = ActivityRelatedObject(
@@ -358,15 +363,15 @@ def link_object(id):
     db.session.commit()
     
     flash(f'{object_type} linked successfully.', 'success')
-    return redirect(url_for('activities.activity_detail', id=id))
+    return redirect(url_for(ACTIVITY_DETAIL, id=id))
 
 @activities_bp.route('/<int:id>/unlink-object/<int:link_id>', methods=['POST'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def unlink_object(id, link_id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to unlink objects.', 'danger')
-        return redirect(url_for('activities.activity_detail', id=id))
+        return redirect(url_for(ACTIVITY_DETAIL, id=id))
     """Removes a link between an activity and an object."""
     db.get_or_404(SecurityActivity, id)
     link = db.get_or_404(ActivityRelatedObject, link_id)
@@ -374,10 +379,10 @@ def unlink_object(id, link_id):
     # Verify the link belongs to this activity
     if link.activity_id != id:
         flash('Invalid link.', 'danger')
-        return redirect(url_for('activities.activity_detail', id=id))
+        return redirect(url_for(ACTIVITY_DETAIL, id=id))
     
     db.session.delete(link)
     db.session.commit()
     
     flash('Object unlinked successfully.', 'success')
-    return redirect(url_for('activities.activity_detail', id=id))
+    return redirect(url_for(ACTIVITY_DETAIL, id=id))

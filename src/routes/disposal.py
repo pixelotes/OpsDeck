@@ -6,9 +6,12 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 disposal_bp = Blueprint('disposal', __name__, url_prefix='/disposal')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'operations'
+
 @disposal_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def list_disposals():
     """A list view that shows only computer disposals for audit purposes."""
     disposal_records = DisposalRecord.query.order_by(DisposalRecord.disposal_date.desc()).all()
@@ -16,7 +19,7 @@ def list_disposals():
 
 @disposal_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def disposal_detail(id):
     """Shows the details of a single disposal record."""
     record = db.get_or_404(DisposalRecord, id)
@@ -24,10 +27,10 @@ def disposal_detail(id):
 
 @disposal_bp.route('/record', methods=['GET', 'POST'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def record_disposal():
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to record disposals.', 'danger')
             return redirect(url_for('disposal.list_disposals'))
     asset_id = request.args.get('asset_id')
@@ -77,13 +80,13 @@ def record_disposal():
 
 @disposal_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('operations')
+@requires_permission(MODULE)
 def edit_disposal(id):
     record = db.get_or_404(DisposalRecord, id)
     item = record.asset or record.peripheral
 
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update disposal records.', 'danger')
             return redirect(url_for('disposal.disposal_detail', id=id))
         user_id = session.get('user_id')

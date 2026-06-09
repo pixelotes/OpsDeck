@@ -17,6 +17,12 @@ from src.utils.timezone_helper import now, today
 
 campaigns_bp = Blueprint('campaigns', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'communications'
+DETAIL = 'campaigns.detail'
+NEW_CAMPAIGN = 'campaigns.new_campaign'
+CAMPAIGNS_FORM_HTML = 'campaigns/form.html'
+
 
 # ==========================================
 # CAMPAIGN CRUD
@@ -24,7 +30,7 @@ campaigns_bp = Blueprint('campaigns', __name__)
 
 @campaigns_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('communications', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_campaigns():
     """List all campaigns with their status."""
     view = request.args.get('view', 'active')
@@ -44,11 +50,11 @@ def list_campaigns():
 
 @campaigns_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('communications', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def new_campaign():
     """Create a new campaign (wizard form)."""
     if request.method == 'POST':
-        if not has_write_permission('communications'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create campaigns.', 'danger')
             return redirect(url_for('campaigns.list_campaigns'))
         title = request.form.get('title')
@@ -61,19 +67,19 @@ def new_campaign():
         
         if not title or not subject or not body_html:
             flash('Title, subject, and body are required.', 'danger')
-            return redirect(url_for('campaigns.new_campaign'))
+            return redirect(url_for(NEW_CAMPAIGN))
         
         # Validate Jinja2 syntax for subject
         is_valid, error = validate_template_syntax(subject)
         if not is_valid:
             flash(f'Subject template syntax error: {error}', 'danger')
-            return redirect(url_for('campaigns.new_campaign'))
+            return redirect(url_for(NEW_CAMPAIGN))
         
         # Validate Jinja2 syntax for body
         is_valid, error = validate_template_syntax(body_html)
         if not is_valid:
             flash(f'Body template syntax error: {error}', 'danger')
-            return redirect(url_for('campaigns.new_campaign'))
+            return redirect(url_for(NEW_CAMPAIGN))
         
         # Parse scheduled_at if provided
         scheduled_at = None
@@ -82,7 +88,7 @@ def new_campaign():
                 scheduled_at = datetime.strptime(scheduled_at_str, '%Y-%m-%dT%H:%M')
             except ValueError:
                 flash('Invalid date/time format.', 'danger')
-                return redirect(url_for('campaigns.new_campaign'))
+                return redirect(url_for(NEW_CAMPAIGN))
         
         # Create campaign
         campaign = Campaign(
@@ -115,18 +121,18 @@ def new_campaign():
         db.session.commit()
         
         flash(f'Campaign "{title}" created as draft.', 'success')
-        return redirect(url_for('campaigns.detail', id=campaign.id))
+        return redirect(url_for(DETAIL, id=campaign.id))
     
     # GET - show form
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     groups = Group.query.order_by(Group.name).all()
     tags = Tag.query.filter_by(is_archived=False).order_by(Tag.name).all()
-    return render_template('campaigns/form.html', campaign=None, users=users, groups=groups, tags=tags)
+    return render_template(CAMPAIGNS_FORM_HTML, campaign=None, users=users, groups=groups, tags=tags)
 
 
 @campaigns_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('communications', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def detail(id):
     """Campaign detail/report view."""
     campaign = db.get_or_404(Campaign, id)
@@ -161,19 +167,19 @@ def detail(id):
 
 @campaigns_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('communications', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def edit_campaign(id):
     """Edit a draft campaign."""
     campaign = db.get_or_404(Campaign, id)
     
     if campaign.status != 'draft':
         flash('Only draft campaigns can be edited.', 'warning')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     
     if request.method == 'POST':
-        if not has_write_permission('communications'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update campaigns.', 'danger')
-            return redirect(url_for('campaigns.detail', id=id))
+            return redirect(url_for(DETAIL, id=id))
         title = request.form.get('title')
         subject = request.form.get('subject')
         body_html = request.form.get('body_html')
@@ -183,7 +189,7 @@ def edit_campaign(id):
             flash('Title, subject, and body are required.', 'danger')
             users = User.query.filter_by(is_archived=False).order_by(User.name).all()
             groups = Group.query.order_by(Group.name).all()
-            return render_template('campaigns/form.html', campaign=campaign, users=users, groups=groups)
+            return render_template(CAMPAIGNS_FORM_HTML, campaign=campaign, users=users, groups=groups)
         
         # Validate Jinja2 syntax for subject
         is_valid, error = validate_template_syntax(subject)
@@ -191,7 +197,7 @@ def edit_campaign(id):
             flash(f'Subject template syntax error: {error}', 'danger')
             users = User.query.filter_by(is_archived=False).order_by(User.name).all()
             groups = Group.query.order_by(Group.name).all()
-            return render_template('campaigns/form.html', campaign=campaign, users=users, groups=groups)
+            return render_template(CAMPAIGNS_FORM_HTML, campaign=campaign, users=users, groups=groups)
         
         # Validate Jinja2 syntax for body
         is_valid, error = validate_template_syntax(body_html)
@@ -199,7 +205,7 @@ def edit_campaign(id):
             flash(f'Body template syntax error: {error}', 'danger')
             users = User.query.filter_by(is_archived=False).order_by(User.name).all()
             groups = Group.query.order_by(Group.name).all()
-            return render_template('campaigns/form.html', campaign=campaign, users=users, groups=groups)
+            return render_template(CAMPAIGNS_FORM_HTML, campaign=campaign, users=users, groups=groups)
         
         campaign.title = title
         campaign.subject = subject
@@ -234,21 +240,21 @@ def edit_campaign(id):
         
         db.session.commit()
         flash('Campaign updated.', 'success')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     groups = Group.query.order_by(Group.name).all()
     tags = Tag.query.filter_by(is_archived=False).order_by(Tag.name).all()
-    return render_template('campaigns/form.html', campaign=campaign, users=users, groups=groups, tags=tags)
+    return render_template(CAMPAIGNS_FORM_HTML, campaign=campaign, users=users, groups=groups, tags=tags)
 
 
 @campaigns_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission('communications', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def archive_campaign(id):
-    if not has_write_permission('communications'):
+    if not has_write_permission(MODULE):
         flash('Write access required to archive campaigns.', 'danger')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     """
     Archive a campaign (replaces delete).
     Only allowed from 'draft' or 'finished' states.
@@ -257,7 +263,7 @@ def archive_campaign(id):
     
     if not campaign.can_be_archived:
         flash(f'Cannot archive campaign in "{campaign.status}" state. Cancel it first.', 'danger')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     
     campaign.status = 'archived'
     db.session.commit()
@@ -268,11 +274,11 @@ def archive_campaign(id):
 
 @campaigns_bp.route('/<int:id>/clone', methods=['POST'])
 @login_required
-@requires_permission('communications', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def clone_campaign(id):
-    if not has_write_permission('communications'):
+    if not has_write_permission(MODULE):
         flash('Write access required to clone campaigns.', 'danger')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     """
     Clone a campaign - copies title (with -copy suffix), subject, and body.
     Does NOT copy recipients or scheduling.
@@ -303,11 +309,11 @@ def clone_campaign(id):
 
 @campaigns_bp.route('/<int:id>/schedule', methods=['POST'])
 @login_required
-@requires_permission('communications', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def schedule_campaign(id):
-    if not has_write_permission('communications'):
+    if not has_write_permission(MODULE):
         flash('Write access required to schedule campaigns.', 'danger')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     """
     Schedule/launch a campaign.
     This spawns individual ScheduledCommunication records for each recipient.
@@ -316,14 +322,14 @@ def schedule_campaign(id):
     
     if campaign.status != 'draft':
         flash('Campaign has already been scheduled or processed.', 'warning')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     
     # Resolve audience
     audience = campaign.get_resolved_audience()
     
     if not audience:
         flash('No recipients found. Add users, groups, or enable "Send to All".', 'danger')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     
     # Determine scheduled date
     if campaign.scheduled_at:
@@ -355,16 +361,16 @@ def schedule_campaign(id):
     db.session.commit()
     
     flash(f'Campaign scheduled! {created_count} emails queued for delivery.', 'success')
-    return redirect(url_for('campaigns.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 
 @campaigns_bp.route('/<int:id>/cancel', methods=['POST'])
 @login_required
-@requires_permission('communications', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def cancel_campaign(id):
-    if not has_write_permission('communications'):
+    if not has_write_permission(MODULE):
         flash('Write access required to cancel campaigns.', 'danger')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     """
     🚨 PANIC BUTTON: Cancel all pending communications for this campaign.
     Only allowed from 'scheduled' or 'ongoing' states.
@@ -374,7 +380,7 @@ def cancel_campaign(id):
     
     if not campaign.can_be_cancelled:
         flash(f'Cannot cancel campaign in "{campaign.status}" state.', 'danger')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     
     # Mass cancel pending communications
     cancelled_count = ScheduledCommunication.query.filter_by(
@@ -394,16 +400,16 @@ def cancel_campaign(id):
     else:
         flash('Campaign returned to draft.', 'info')
     
-    return redirect(url_for('campaigns.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 
 @campaigns_bp.route('/<int:id>/send_now', methods=['POST'])
 @login_required
-@requires_permission('communications', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def send_campaign_now(id):
-    if not has_write_permission('communications'):
+    if not has_write_permission(MODULE):
         flash('Write access required to send campaigns.', 'danger')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     """
     Force immediate processing of a scheduled campaign.
     Triggers the sending of all pending communications right now.
@@ -423,7 +429,7 @@ def send_campaign_now(id):
     
     if not pending:
         flash('No pending emails to send.', 'info')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     
     sent_count = 0
     failed_count = 0
@@ -457,16 +463,16 @@ def send_campaign_now(id):
     db.session.commit()
     
     flash(f'Sent {sent_count} emails, {failed_count} failed.', 'success' if failed_count == 0 else 'warning')
-    return redirect(url_for('campaigns.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 
 @campaigns_bp.route('/<int:id>/retry_failed', methods=['POST'])
 @login_required
-@requires_permission('communications', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def retry_failed(id):
-    if not has_write_permission('communications'):
+    if not has_write_permission(MODULE):
         flash('Write access required to retry campaigns.', 'danger')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     """
     Reset all failed communications for this campaign to pending,
     allowing them to be retried by the communications queue processor.
@@ -482,7 +488,7 @@ def retry_failed(id):
     
     if not failed_comms:
         flash('No failed emails to retry.', 'info')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     
     retry_count = 0
     for comm in failed_comms:
@@ -495,16 +501,16 @@ def retry_failed(id):
     db.session.commit()
     
     flash(f'🔄 {retry_count} failed email(s) queued for retry.', 'success')
-    return redirect(url_for('campaigns.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 
 @campaigns_bp.route('/<int:id>/finish', methods=['POST'])
 @login_required
-@requires_permission('communications', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def finish_campaign(id):
-    if not has_write_permission('communications'):
+    if not has_write_permission(MODULE):
         flash('Write access required to finish campaigns.', 'danger')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     """
     Manually finish an ongoing campaign.
     Marks campaign as 'finished' and stops any further retry attempts.
@@ -513,19 +519,19 @@ def finish_campaign(id):
     
     if campaign.status != 'ongoing':
         flash(f'Cannot finish campaign in "{campaign.status}" state.', 'warning')
-        return redirect(url_for('campaigns.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     
     # Mark for finish - any pending retry attempts will be ignored by status check
     campaign.status = 'finished'
     db.session.commit()
     
     flash('Campaign marked as finished.', 'success')
-    return redirect(url_for('campaigns.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 
 @campaigns_bp.route('/<int:id>/stats', methods=['GET'])
 @login_required
-@requires_permission('communications', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def get_stats(id):
     """
     API endpoint returning campaign stats and communications as JSON.

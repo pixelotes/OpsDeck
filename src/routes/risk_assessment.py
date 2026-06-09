@@ -9,16 +9,20 @@ from src.utils.timezone_helper import now
 
 risk_assessment_bp = Blueprint('risk_assessment', __name__, url_prefix='/risk-assessments')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'risk_governance'
+VIEW_ASSESSMENT = 'risk_assessment.view_assessment'
+
 @risk_assessment_bp.route('/', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def list_assessments():
     assessments = RiskAssessment.query.order_by(RiskAssessment.created_at.desc()).all()
     return render_template('risk_assessment/list.html', assessments=assessments)
 
 @risk_assessment_bp.route('/new', methods=['GET', 'POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def new_assessment():
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         if request.method == 'POST':
             flash('You do not have permission to create assessments.', 'danger')
             return redirect(url_for('risk_assessment.list_assessments'))
@@ -54,27 +58,27 @@ def new_assessment():
         else:
             flash('Empty assessment created.', 'success')
             
-        return redirect(url_for('risk_assessment.view_assessment', id=assessment.id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=assessment.id))
         
     return render_template('risk_assessment/new.html')
 
 @risk_assessment_bp.route('/<int:id>', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def view_assessment(id):
     assessment = db.get_or_404(RiskAssessment, id)
     return render_template('risk_assessment/detail.html', assessment=assessment)
 
 @risk_assessment_bp.route('/item/<int:id>/edit', methods=['POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def edit_assessment_item(id):
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         item = db.get_or_404(RiskAssessmentItem, id)
         flash('You do not have permission to edit assessment items.', 'danger')
-        return redirect(url_for('risk_assessment.view_assessment', id=item.assessment_id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=item.assessment_id))
     item = db.get_or_404(RiskAssessmentItem, id)
     if item.assessment.status == 'Locked':
         flash('Cannot edit items in a locked assessment.', 'warning')
-        return redirect(url_for('risk_assessment.view_assessment', id=item.assessment_id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=item.assessment_id))
         
     item.risk_description = request.form.get('risk_description')
     item.residual_impact = int(request.form.get('residual_impact'))
@@ -86,14 +90,14 @@ def edit_assessment_item(id):
     
     db.session.commit()
     flash('Assessment item updated.', 'success')
-    return redirect(url_for('risk_assessment.view_assessment', id=item.assessment_id))
+    return redirect(url_for(VIEW_ASSESSMENT, id=item.assessment_id))
 
 @risk_assessment_bp.route('/<int:id>/lock', methods=['POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def lock_assessment(id):
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         flash('You do not have permission to lock assessments.', 'danger')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     assessment = db.get_or_404(RiskAssessment, id)
     
     # Checkbox from the sync modal
@@ -137,10 +141,10 @@ def lock_assessment(id):
     if sync_to_live and updated_count > 0:
         msg += f' {updated_count} live risk(s) updated with new scores.'
     flash(msg, 'success')
-    return redirect(url_for('risk_assessment.view_assessment', id=assessment.id))
+    return redirect(url_for(VIEW_ASSESSMENT, id=assessment.id))
 
 @risk_assessment_bp.route('/<int:id>/pdf', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def export_pdf(id):
     assessment = db.get_or_404(RiskAssessment, id)
     from weasyprint import HTML
@@ -159,11 +163,11 @@ def export_pdf(id):
 # --- Evidence Management Routes ---
 
 @risk_assessment_bp.route('/<int:id>/item/<int:item_id>/upload', methods=['POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def upload_evidence(id, item_id):
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         flash('You do not have permission to upload evidence.', 'danger')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     """Upload a file as evidence for an assessment item."""
     from ..models import Attachment, RiskAssessmentEvidence
     from werkzeug.utils import secure_filename
@@ -176,16 +180,16 @@ def upload_evidence(id, item_id):
     
     if item.assessment_id != assessment.id:
         flash('Invalid item for this assessment.', 'danger')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     
     if assessment.status == 'Locked':
         flash('Cannot add evidence to a locked assessment.', 'warning')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     
     file = request.files.get('file')
     if not file or file.filename == '':
         flash('No file selected.', 'warning')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     
     # Save file
     original_filename = secure_filename(file.filename)
@@ -214,15 +218,15 @@ def upload_evidence(id, item_id):
     db.session.commit()
     
     flash(f'Evidence file "{original_filename}" uploaded successfully.', 'success')
-    return redirect(url_for('risk_assessment.view_assessment', id=id))
+    return redirect(url_for(VIEW_ASSESSMENT, id=id))
 
 
 @risk_assessment_bp.route('/<int:id>/item/<int:item_id>/link', methods=['POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def link_evidence(id, item_id):
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         flash('You do not have permission to link evidence.', 'danger')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     """Link an existing OpsDeck object as evidence for an assessment item."""
     from ..models import RiskAssessmentEvidence
     
@@ -231,11 +235,11 @@ def link_evidence(id, item_id):
     
     if item.assessment_id != assessment.id:
         flash('Invalid item for this assessment.', 'danger')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     
     if assessment.status == 'Locked':
         flash('Cannot add evidence to a locked assessment.', 'warning')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     
     linkable_type = request.form.get('linkable_type')
     linkable_id = request.form.get('linkable_id')
@@ -243,7 +247,7 @@ def link_evidence(id, item_id):
     
     if not linkable_type or not linkable_id:
         flash('Please select an object to link.', 'warning')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     
     evidence = RiskAssessmentEvidence(
         item_id=item_id,
@@ -255,15 +259,15 @@ def link_evidence(id, item_id):
     db.session.commit()
     
     flash(f'{linkable_type} linked as evidence successfully.', 'success')
-    return redirect(url_for('risk_assessment.view_assessment', id=id))
+    return redirect(url_for(VIEW_ASSESSMENT, id=id))
 
 
 @risk_assessment_bp.route('/<int:id>/evidence/<int:evidence_id>/delete', methods=['POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def delete_evidence(id, evidence_id):
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         flash('You do not have permission to remove evidence.', 'danger')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     """Remove an evidence item from an assessment."""
     from ..models import RiskAssessmentEvidence
     
@@ -272,21 +276,21 @@ def delete_evidence(id, evidence_id):
     
     if evidence.item.assessment_id != assessment.id:
         flash('Invalid evidence for this assessment.', 'danger')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     
     if assessment.status == 'Locked':
         flash('Cannot remove evidence from a locked assessment.', 'warning')
-        return redirect(url_for('risk_assessment.view_assessment', id=id))
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     
     db.session.delete(evidence)
     db.session.commit()
     
     flash('Evidence removed successfully.', 'success')
-    return redirect(url_for('risk_assessment.view_assessment', id=id))
+    return redirect(url_for(VIEW_ASSESSMENT, id=id))
 
 
 @risk_assessment_bp.route('/api/linkable-objects/<linkable_type>', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def get_linkable_objects(linkable_type):
     """API endpoint to get objects of a specific type for linking as evidence."""
     from flask import jsonify

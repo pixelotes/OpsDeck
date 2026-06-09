@@ -7,6 +7,10 @@ from .main import login_required
 
 treeview_bp = Blueprint('treeview', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+ASSET_DETAIL = 'assets.asset_detail'
+PERIPHERAL_DETAIL = 'peripherals.peripheral_detail'
+
 @treeview_bp.route('/', methods=['GET'])
 @login_required
 def tree_view():
@@ -35,7 +39,7 @@ def tree_view():
                 asset_node = {
                     'name': asset_name,
                     'icon': 'fa-laptop',
-                    'url': url_for('assets.asset_detail', id=asset.id),
+                    'url': url_for(ASSET_DETAIL, id=asset.id),
                     'children': []
                 }
                 for peripheral in asset.peripherals:
@@ -44,7 +48,7 @@ def tree_view():
                     peripheral_node = {
                         'name': peripheral.name,
                         'icon': 'fa-keyboard',
-                        'url': url_for('peripherals.peripheral_detail', id=peripheral.id)
+                        'url': url_for(PERIPHERAL_DETAIL, id=peripheral.id)
                     }
                     asset_node['children'].append(peripheral_node)
                 location_node['children'].append(asset_node)
@@ -66,7 +70,7 @@ def tree_view():
                     assets_node['children'].append({
                         'name': asset.name,
                         'icon': 'fa-laptop',
-                        'url': url_for('assets.asset_detail', id=asset.id)
+                        'url': url_for(ASSET_DETAIL, id=asset.id)
                     })
                 user_node['children'].append(assets_node)
 
@@ -77,7 +81,7 @@ def tree_view():
                     peripherals_node['children'].append({
                         'name': peripheral.name,
                         'icon': 'fa-keyboard', # Or fa-mouse, fa-headphones etc. based on type?
-                        'url': url_for('peripherals.peripheral_detail', id=peripheral.id)
+                        'url': url_for(PERIPHERAL_DETAIL, id=peripheral.id)
                     })
                 user_node['children'].append(peripherals_node)
             # --- END ADD Peripherals ---
@@ -131,7 +135,7 @@ def tree_view():
                 asset_node = {
                     'name': asset.name,
                     'icon': 'fa-laptop-house',  # Remote work icon
-                    'url': url_for('assets.asset_detail', id=asset.id),
+                    'url': url_for(ASSET_DETAIL, id=asset.id),
                     'children': []
                 }
                 # Also show peripherals attached to this remote asset
@@ -141,7 +145,7 @@ def tree_view():
                     peripheral_node = {
                         'name': peripheral.name,
                         'icon': 'fa-keyboard',
-                        'url': url_for('peripherals.peripheral_detail', id=peripheral.id)
+                        'url': url_for(PERIPHERAL_DETAIL, id=peripheral.id)
                     }
                     asset_node['children'].append(peripheral_node)
                 user_node['children'].append(asset_node)
@@ -175,7 +179,7 @@ def tree_view():
                     assets_node['children'].append({
                         'name': asset.name,
                         'icon': 'fa-laptop',
-                        'url': url_for('assets.asset_detail', id=asset.id)
+                        'url': url_for(ASSET_DETAIL, id=asset.id)
                     })
                 supplier_node['children'].append(assets_node)
 
@@ -186,7 +190,7 @@ def tree_view():
                     peripherals_node['children'].append({
                         'name': peripheral.name,
                         'icon': 'fa-keyboard', # Or other icons based on type
-                        'url': url_for('peripherals.peripheral_detail', id=peripheral.id)
+                        'url': url_for(PERIPHERAL_DETAIL, id=peripheral.id)
                     })
                 supplier_node['children'].append(peripherals_node)
             # --- END ADD Peripherals ---

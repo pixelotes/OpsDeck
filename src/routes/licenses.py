@@ -6,9 +6,15 @@ from .main import login_required
 
 licenses_bp = Blueprint('licenses', __name__, url_prefix='/licenses')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'core_inventory'
+DETAIL = 'licenses.detail'
+LIST_LICENSES = 'licenses.list_licenses'
+LICENSES_FORM_HTML = 'licenses/form.html'
+
 @licenses_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_licenses():
     page = request.args.get('page', 1, type=int)
     licenses = License.query.filter_by(is_archived=False).order_by(License.name.asc()).paginate(page=page, per_page=15)
@@ -16,19 +22,19 @@ def list_licenses():
 
 @licenses_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def detail(id):
     license = db.get_or_404(License, id)
     return render_template('licenses/detail.html', license=license)
 
 @licenses_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def add_license():
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
+        if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
-                return redirect(url_for('licenses.list_licenses'))
+                return redirect(url_for(LIST_LICENSES))
         cost_form = request.form.get('cost')
         purchase_date_form = request.form.get('purchase_date')
         expiry_date_form = request.form.get('expiry_date')
@@ -61,27 +67,27 @@ def add_license():
         db.session.add(new_license)
         db.session.commit()
         flash('License added successfully!', 'success')
-        return redirect(url_for('licenses.list_licenses'))
+        return redirect(url_for(LIST_LICENSES))
 
     # --- (GET request part remains the same) ---
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     purchases = Purchase.query.filter_by(is_archived=False).order_by(Purchase.purchase_date.desc()).all()
     subscriptions = Subscription.query.filter_by(is_archived=False).order_by(Subscription.name).all()
     software_items = Software.query.filter_by(is_archived=False).order_by(Software.name).all()
-    return render_template('licenses/form.html', license=None, users=users, purchases=purchases, subscriptions=subscriptions, software_items=software_items)
+    return render_template(LICENSES_FORM_HTML, license=None, users=users, purchases=purchases, subscriptions=subscriptions, software_items=software_items)
 
 
 @licenses_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_license(id):
     license = db.get_or_404(License, id)
     original_purchase = license.purchase # Store original purchase before potential changes
 
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
+        if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
-                return redirect(url_for('licenses.detail', id=id))
+                return redirect(url_for(DETAIL, id=id))
         # --- Check if original or NEW purchase is validated ---
         new_purchase_id_form = request.form.get('purchase_id')
         new_purchase_id = int(new_purchase_id_form) if new_purchase_id_form else None
@@ -115,7 +121,7 @@ def edit_license(id):
             purchases = Purchase.query.filter_by(is_archived=False).order_by(Purchase.purchase_date.desc()).all()
             subscriptions = Subscription.query.filter_by(is_archived=False).order_by(Subscription.name).all()
             software_items = Software.query.filter_by(is_archived=False).order_by(Software.name).all()
-            return render_template('licenses/form.html', license=license, users=users, purchases=purchases, subscriptions=subscriptions, software_items=software_items)
+            return render_template(LICENSES_FORM_HTML, license=license, users=users, purchases=purchases, subscriptions=subscriptions, software_items=software_items)
         # --- End Validation Check ---
 
         # (Existing code for processing form data and saving, starting from cost_form = ...)
@@ -157,14 +163,14 @@ def edit_license(id):
 
         db.session.commit()
         flash('License updated successfully!', 'success')
-        return redirect(url_for('licenses.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
     # --- (GET request part remains the same) ---
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     purchases = Purchase.query.filter_by(is_archived=False).order_by(Purchase.purchase_date.desc()).all()
     subscriptions = Subscription.query.filter_by(is_archived=False).order_by(Subscription.name).all()
     software_items = Software.query.filter_by(is_archived=False).order_by(Software.name).all()
-    return render_template('licenses/form.html', license=license, users=users, purchases=purchases, subscriptions=subscriptions, software_items=software_items)
+    return render_template(LICENSES_FORM_HTML, license=license, users=users, purchases=purchases, subscriptions=subscriptions, software_items=software_items)
     license = db.get_or_404(License, id)
     if request.method == 'POST':
         cost_form = request.form.get('cost')
@@ -208,35 +214,35 @@ def edit_license(id):
 
         db.session.commit()
         flash('License updated successfully!', 'success')
-        return redirect(url_for('licenses.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
     # --- (GET request part remains the same) ---
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     purchases = Purchase.query.filter_by(is_archived=False).order_by(Purchase.purchase_date.desc()).all()
     subscriptions = Subscription.query.filter_by(is_archived=False).order_by(Subscription.name).all()
     software_items = Software.query.filter_by(is_archived=False).order_by(Software.name).all()
-    return render_template('licenses/form.html', license=license, users=users, purchases=purchases, subscriptions=subscriptions, software_items=software_items)
+    return render_template(LICENSES_FORM_HTML, license=license, users=users, purchases=purchases, subscriptions=subscriptions, software_items=software_items)
 
 @licenses_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def archive_license(id):
     license = db.get_or_404(License, id)
     license.is_archived = True
     db.session.commit()
     flash(f'License "{license.name}" has been archived.', 'info')
-    return redirect(url_for('licenses.list_licenses'))
+    return redirect(url_for(LIST_LICENSES))
 
 @licenses_bp.route('/archived', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def archived_licenses():
     licenses = License.query.filter_by(is_archived=True).order_by(License.name).all()
     return render_template('licenses/archived.html', licenses=licenses)
 
 @licenses_bp.route('/<int:id>/restore', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def restore_license(id):
     license = db.get_or_404(License, id)
     license.is_archived = False

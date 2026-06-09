@@ -11,6 +11,9 @@ from .main import login_required
 
 finance_bp = Blueprint('finance', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+EXCHANGE_RATES = 'finance.exchange_rates'
+
 
 @finance_bp.route('/exchange-rates', methods=['GET', 'POST'])
 @login_required
@@ -23,7 +26,7 @@ def exchange_rates():
         # Backend enforcement for WRITE access
         if not has_write_permission('finance'):
             flash('You do not have permission to perform this action.', 'danger')
-            return redirect(url_for('finance.exchange_rates'))
+            return redirect(url_for(EXCHANGE_RATES))
 
         action = request.form.get('action')
         
@@ -34,7 +37,7 @@ def exchange_rates():
                 flash('Exchange rates synchronized successfully!', 'success')
             else:
                 flash('Failed to sync exchange rates. Check logs for details.', 'danger')
-            return redirect(url_for('finance.exchange_rates'))
+            return redirect(url_for(EXCHANGE_RATES))
         
         elif action == 'save':
             # Save settings
@@ -43,7 +46,7 @@ def exchange_rates():
             settings.api_key = request.form.get('api_key') or None
             db.session.commit()
             flash('Settings saved successfully!', 'success')
-            return redirect(url_for('finance.exchange_rates'))
+            return redirect(url_for(EXCHANGE_RATES))
     
     # Get historical data for chart (last 30 entries per major currency)
     currencies_to_show = ['USD', 'GBP', 'CHF', 'JPY']

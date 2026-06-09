@@ -13,10 +13,14 @@ from .main import login_required
 
 admin_notifications_bp = Blueprint('admin_notifications', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'administration'
+LIST_EVENTS = 'admin_notifications.list_events'
+
 
 @admin_notifications_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('administration')
+@requires_permission(MODULE)
 def list_events():
     """List all notification events with their current configuration."""
     events = NotificationEvent.query.order_by(NotificationEvent.name).all()
@@ -26,11 +30,11 @@ def list_events():
 
 @admin_notifications_bp.route('/<int:event_id>/toggle', methods=['POST'])
 @login_required
-@requires_permission('administration')
+@requires_permission(MODULE)
 def toggle_event(event_id):
-    if not has_write_permission('administration'):
+    if not has_write_permission(MODULE):
         flash('Write access required to toggle notifications.', 'danger')
-        return redirect(url_for('admin_notifications.list_events'))
+        return redirect(url_for(LIST_EVENTS))
     """Toggle a notification event on/off."""
     event = db.get_or_404(NotificationEvent, event_id)
     event.enabled = not event.enabled
@@ -38,16 +42,16 @@ def toggle_event(event_id):
     
     status = 'enabled' if event.enabled else 'disabled'
     flash(f'Notification "{event.name}" has been {status}.', 'success')
-    return redirect(url_for('admin_notifications.list_events'))
+    return redirect(url_for(LIST_EVENTS))
 
 
 @admin_notifications_bp.route('/<int:event_id>/update', methods=['POST'])
 @login_required
-@requires_permission('administration')
+@requires_permission(MODULE)
 def update_event(event_id):
-    if not has_write_permission('administration'):
+    if not has_write_permission(MODULE):
         flash('Write access required to update notifications.', 'danger')
-        return redirect(url_for('admin_notifications.list_events'))
+        return redirect(url_for(LIST_EVENTS))
     """Update a notification event's template and days offset."""
     event = db.get_or_404(NotificationEvent, event_id)
     
@@ -65,7 +69,7 @@ def update_event(event_id):
             event.days_offset = int(days_offset)
         except ValueError:
             flash('Invalid days offset value.', 'danger')
-            return redirect(url_for('admin_notifications.list_events'))
+            return redirect(url_for(LIST_EVENTS))
             
     # Update channels
     channels = []
@@ -85,4 +89,4 @@ def update_event(event_id):
     
     db.session.commit()
     flash(f'Notification "{event.name}" has been updated.', 'success')
-    return redirect(url_for('admin_notifications.list_events'))
+    return redirect(url_for(LIST_EVENTS))

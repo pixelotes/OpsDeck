@@ -15,6 +15,10 @@ from src.utils.timezone_helper import today
 
 training_bp = Blueprint('training', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'knowledge_policy'
+COURSE_DETAIL = 'training.course_detail'
+
 @training_bp.route('/', methods=['GET'])
 @login_required
 def my_training():
@@ -31,17 +35,17 @@ def my_training():
 
 @training_bp.route('/courses', methods=['GET'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def list_courses():
     courses = Course.query.order_by(Course.title).all()
     return render_template('training/list_courses.html', courses=courses)
 
 @training_bp.route('/courses/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def new_course():
     if request.method == 'POST':
-        if not has_write_permission('knowledge_policy'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create courses.', 'danger')
             return redirect(url_for('training.list_courses'))
         course = Course(
@@ -58,13 +62,13 @@ def new_course():
 
 @training_bp.route('/courses/<int:id>', methods=['GET', 'POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def course_detail(id):
     course = db.get_or_404(Course, id)
     if request.method == 'POST':
-        if not has_write_permission('knowledge_policy'):
+        if not has_write_permission(MODULE):
             flash('Write access required to assign courses.', 'danger')
-            return redirect(url_for('training.course_detail', id=id))
+            return redirect(url_for(COURSE_DETAIL, id=id))
         user_ids = request.form.getlist('user_ids')
         group_ids = request.form.getlist('group_ids')
         
@@ -85,7 +89,7 @@ def course_detail(id):
         
         db.session.commit()
         flash(f'{assigned_count} user(s) have been assigned this training.', 'success')
-        return redirect(url_for('training.course_detail', id=id))
+        return redirect(url_for(COURSE_DETAIL, id=id))
 
     users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     groups = Group.query.order_by(Group.name).all()
@@ -134,30 +138,30 @@ def complete_course(assignment_id):
 
 @training_bp.route('/assignment/<int:assignment_id>/admin_complete', methods=['POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def admin_complete_course(assignment_id):
-    if not has_write_permission('knowledge_policy'):
+    if not has_write_permission(MODULE):
         assignment = db.get_or_404(CourseAssignment, assignment_id)
         flash('Write access required to mark courses as complete.', 'danger')
-        return redirect(url_for('training.course_detail', id=assignment.course_id))
+        return redirect(url_for(COURSE_DETAIL, id=assignment.course_id))
     assignment = db.get_or_404(CourseAssignment, assignment_id)
     notes = request.form.get('notes')
     completion_date_str = request.form.get('completion_date')
 
     if not completion_date_str:
         flash('Completion date is required.', 'danger')
-        return redirect(url_for('training.course_detail', id=assignment.course_id))
+        return redirect(url_for(COURSE_DETAIL, id=assignment.course_id))
     
     try:
         completion_date = datetime.strptime(completion_date_str, '%Y-%m-%d').date()
     except ValueError:
         flash('Invalid date format for completion date.', 'danger')
-        return redirect(url_for('training.course_detail', id=assignment.course_id))
+        return redirect(url_for(COURSE_DETAIL, id=assignment.course_id))
 
     # Avoid creating a duplicate completion
     if assignment.completion:
         flash(f'"{assignment.course.title}" was already marked as complete for this user.', 'warning')
-        return redirect(url_for('training.course_detail', id=assignment.course_id))
+        return redirect(url_for(COURSE_DETAIL, id=assignment.course_id))
     
     completion = CourseCompletion(
         assignment_id=assignment.id,
@@ -187,16 +191,16 @@ def admin_complete_course(assignment_id):
 
     db.session.commit()
     flash(f'Successfully marked "{assignment.course.title}" as complete for {assignment.user.name}!', 'success')
-    return redirect(url_for('training.course_detail', id=assignment.course_id))
+    return redirect(url_for(COURSE_DETAIL, id=assignment.course_id))
 
 @training_bp.route('/completion/<int:completion_id>/edit', methods=['POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def edit_completion(completion_id):
-    if not has_write_permission('knowledge_policy'):
+    if not has_write_permission(MODULE):
         completion = db.get_or_404(CourseCompletion, completion_id)
         flash('Write access required to edit completion records.', 'danger')
-        return redirect(url_for('training.course_detail', id=completion.assignment.course_id))
+        return redirect(url_for(COURSE_DETAIL, id=completion.assignment.course_id))
     """
     Edita una finalización de curso existente.
     """
@@ -242,4 +246,4 @@ def edit_completion(completion_id):
 
     db.session.commit()
     flash(f'Completion for "{assignment.course.title}" (User: {assignment.user.name}) has been updated.', 'success')
-    return redirect(url_for('training.course_detail', id=assignment.course_id))
+    return redirect(url_for(COURSE_DETAIL, id=assignment.course_id))
