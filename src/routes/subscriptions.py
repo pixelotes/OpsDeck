@@ -13,7 +13,7 @@ from src.utils.timezone_helper import today
 
 subscriptions_bp = Blueprint('subscriptions', __name__)
 
-@subscriptions_bp.route('/')
+@subscriptions_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def subscriptions():
@@ -65,7 +65,7 @@ def subscriptions():
                             month_filter=month_filter,
                             total_cost=total_cost_of_listed_subscriptions)
 
-@subscriptions_bp.route('/<int:id>')
+@subscriptions_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def subscription_detail(id):
@@ -103,22 +103,12 @@ def new_subscription():
         renewal_date = datetime.strptime(request.form['renewal_date'], '%Y-%m-%d').date()
         budget_id = request.form.get('budget_id') or None
 
-        # Validate renewal_date is not too far in the past (prevents performance issues)
-        from datetime import timedelta
+        # Inform when renewal_date is in the past. The next renewal is computed
+        # mathematically (see Subscription.next_renewal_date), so old dates are fine.
         current_date = today()
         days_in_past = (current_date - renewal_date).days if renewal_date < current_date else 0
 
-        if days_in_past > 365:
-            flash('Error: Renewal date cannot be more than 1 year in the past. Please use a more recent date.', 'danger')
-            return render_template('subscriptions/form.html',
-                                    suppliers=Supplier.query.order_by(Supplier.name).all(),
-                                    contacts=Contact.query.order_by(Contact.name).all(),
-                                    payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
-                                    tags=Tag.query.order_by(Tag.name).all(),
-                                    software_items=software_items,
-                                    budgets=Budget.query.order_by(Budget.name).all(),
-                                    users=users)
-        elif days_in_past > 30:
+        if days_in_past > 30:
             flash(f'Warning: Renewal date is {days_in_past} days in the past. The next renewal will be calculated from this date.', 'warning')
 
         # Validate budget validity period if budget is selected
@@ -252,23 +242,12 @@ def edit_subscription(id):
         renewal_date = datetime.strptime(request.form['renewal_date'], '%Y-%m-%d').date()
         budget_id = request.form.get('budget_id') or None
 
-        # Validate renewal_date is not too far in the past (prevents performance issues)
-        from datetime import timedelta
+        # Inform when renewal_date is in the past. The next renewal is computed
+        # mathematically (see Subscription.next_renewal_date), so old dates are fine.
         current_date = today()
         days_in_past = (current_date - renewal_date).days if renewal_date < current_date else 0
 
-        if days_in_past > 365:
-            flash('Error: Renewal date cannot be more than 1 year in the past. Please use a more recent date.', 'danger')
-            return render_template('subscriptions/form.html',
-                                    subscription=subscription,
-                                    suppliers=Supplier.query.order_by(Supplier.name).all(),
-                                    contacts=Contact.query.order_by(Contact.name).all(),
-                                    payment_methods=PaymentMethod.query.order_by(PaymentMethod.name).all(),
-                                    tags=Tag.query.order_by(Tag.name).all(),
-                                    software_items=software_items,
-                                    budgets=Budget.query.order_by(Budget.name).all(),
-                                    users=users)
-        elif days_in_past > 30:
+        if days_in_past > 30:
             flash(f'Warning: Renewal date is {days_in_past} days in the past. The next renewal will be calculated from this date.', 'warning')
 
         # Validate budget validity period if budget is selected
@@ -410,7 +389,7 @@ def delete_subscription(id):
     flash('Subscription deleted successfully!', 'success')
     return redirect(url_for('subscriptions.subscriptions'))
 
-@subscriptions_bp.route('/archived')
+@subscriptions_bp.route('/archived', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def archived_subscriptions():
@@ -437,13 +416,13 @@ def unarchive_subscription(id):
     flash(f'Subscription "{subscription.name}" has been restored.', 'success')
     return redirect(url_for('subscriptions.archived_subscriptions'))
 
-@subscriptions_bp.route('/calendar')
+@subscriptions_bp.route('/calendar', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def calendar():
     return render_template('calendar.html')
 
-@subscriptions_bp.route('/api/calendar-events')
+@subscriptions_bp.route('/api/calendar-events', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def calendar_events():
@@ -604,6 +583,8 @@ def add_user_access(id):
             added.append(user.name)
 
     if added:
+        if subscription.pricing_model == 'per_user':
+            log_subscription_cost_change(subscription, reason='user_added')
         db.session.commit()
         flash(f'Added {", ".join(added)} to {subscription.name}.', 'success')
 
@@ -623,6 +604,8 @@ def add_all_users(id):
             added.append(user.name)
 
     if added:
+        if subscription.pricing_model == 'per_user':
+            log_subscription_cost_change(subscription, reason='user_added')
         db.session.commit()
         flash(f'Added {len(added)} users to {subscription.name}.', 'success')
     else:
@@ -639,6 +622,8 @@ def remove_user_access(id, user_id):
 
     if user in subscription.users:
         subscription.users.remove(user)
+        if subscription.pricing_model == 'per_user':
+            log_subscription_cost_change(subscription, reason='user_removed')
         db.session.commit()
         flash(f'User {user.name} removed from {subscription.name}.', 'warning')
 

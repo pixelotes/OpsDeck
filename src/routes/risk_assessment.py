@@ -9,7 +9,7 @@ from src.utils.timezone_helper import now
 
 risk_assessment_bp = Blueprint('risk_assessment', __name__, url_prefix='/risk-assessments')
 
-@risk_assessment_bp.route('/')
+@risk_assessment_bp.route('/', methods=['GET'])
 @requires_permission('risk_governance')
 def list_assessments():
     assessments = RiskAssessment.query.order_by(RiskAssessment.created_at.desc()).all()
@@ -58,7 +58,7 @@ def new_assessment():
         
     return render_template('risk_assessment/new.html')
 
-@risk_assessment_bp.route('/<int:id>')
+@risk_assessment_bp.route('/<int:id>', methods=['GET'])
 @requires_permission('risk_governance')
 def view_assessment(id):
     assessment = db.get_or_404(RiskAssessment, id)
@@ -139,7 +139,7 @@ def lock_assessment(id):
     flash(msg, 'success')
     return redirect(url_for('risk_assessment.view_assessment', id=assessment.id))
 
-@risk_assessment_bp.route('/<int:id>/pdf')
+@risk_assessment_bp.route('/<int:id>/pdf', methods=['GET'])
 @requires_permission('risk_governance')
 def export_pdf(id):
     assessment = db.get_or_404(RiskAssessment, id)
@@ -285,7 +285,7 @@ def delete_evidence(id, evidence_id):
     return redirect(url_for('risk_assessment.view_assessment', id=id))
 
 
-@risk_assessment_bp.route('/api/linkable-objects/<linkable_type>')
+@risk_assessment_bp.route('/api/linkable-objects/<linkable_type>', methods=['GET'])
 @requires_permission('risk_governance')
 def get_linkable_objects(linkable_type):
     """API endpoint to get objects of a specific type for linking as evidence."""

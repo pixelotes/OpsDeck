@@ -7,14 +7,14 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 tags_bp = Blueprint('tags', __name__)
 
-@tags_bp.route('/')
+@tags_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('core_inventory')
 def tags():
     all_tags = Tag.query.filter_by(is_archived=False).order_by(Tag.name).all()
     return render_template('tags/list.html', tags=all_tags)
 
-@tags_bp.route('/archived')
+@tags_bp.route('/archived', methods=['GET'])
 @login_required
 @requires_permission('core_inventory')
 def archived_tags():

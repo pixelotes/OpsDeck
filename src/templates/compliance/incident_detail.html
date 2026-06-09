@@ -22,6 +22,47 @@
     </div>
 </div>
 
+<!-- STATUS TIMELINE: Investigating -> Contained -> Resolved -> Closed -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="position-relative m-4">
+            <!-- Track + progress line, vertically centered on the 20px dots (center at 10px) -->
+            <div class="position-absolute w-100" style="top: 10px; height: 2px; background-color: #dee2e6;"></div>
+            <div class="position-absolute"
+                style="top: 10px; height: 2px; background-color: var(--bs-primary); width:
+                    {% if incident.status == 'Investigating' %}0%{% elif incident.status == 'Contained' %}33%{% elif incident.status == 'Resolved' %}66%{% elif incident.status == 'Closed' %}100%{% else %}0%{% endif %};">
+            </div>
+
+            <div class="d-flex justify-content-between position-relative">
+                <!-- Investigating -->
+                <div class="text-center">
+                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                        style="width: 20px; height: 20px;"></div>
+                    <small>Investigating</small>
+                </div>
+                <!-- Contained -->
+                <div class="text-center">
+                    <div class="rounded-circle {% if incident.status in ['Contained', 'Resolved', 'Closed'] %}bg-primary{% else %}bg-secondary{% endif %} text-white d-flex align-items-center justify-content-center"
+                        style="width: 20px; height: 20px;"></div>
+                    <small>Contained</small>
+                </div>
+                <!-- Resolved -->
+                <div class="text-center">
+                    <div class="rounded-circle {% if incident.status in ['Resolved', 'Closed'] %}bg-primary{% else %}bg-secondary{% endif %} text-white d-flex align-items-center justify-content-center"
+                        style="width: 20px; height: 20px;"></div>
+                    <small>Resolved</small>
+                </div>
+                <!-- Closed -->
+                <div class="text-center">
+                    <div class="rounded-circle {% if incident.status == 'Closed' %}bg-success{% else %}bg-secondary{% endif %} text-white d-flex align-items-center justify-content-center"
+                        style="width: 20px; height: 20px;"></div>
+                    <small>Closed</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card mb-4">
     <div class="card-header">Incident Details</div>
     <div class="card-body">

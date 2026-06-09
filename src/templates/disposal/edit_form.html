@@ -27,9 +27,14 @@
                 </div>
             </div>
             <div class="mb-3">
-                <label for="disposal_partner" class="form-label">Disposal Partner/Vendor</label>
-                <input type="text" class="form-control" id="disposal_partner" name="disposal_partner"
-                    value="{{ record.disposal_partner or '' }}" {% if not can_write('operations') %}disabled{% endif %}>
+                <label for="disposal_partner_id" class="form-label">Disposal Partner/Vendor</label>
+                <select class="form-select tom-select" id="disposal_partner_id" name="disposal_partner_id"
+                    {% if not can_write('operations') %}disabled{% endif %}>
+                    <option value="">-- None --</option>
+                    {% for supplier in suppliers %}
+                    <option value="{{ supplier.id }}" {% if record.disposal_partner_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="mb-3">
                 <label for="notes" class="form-label">Notes</label>

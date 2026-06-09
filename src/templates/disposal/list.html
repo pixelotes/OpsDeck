@@ -37,7 +37,11 @@
                         {% endif %}
                     </td>
                     <td>{{ record.disposal_method }}</td>
-                    <td>{{ record.disposal_partner or 'N/A' }}</td>
+                    <td>
+                        {% if record.disposal_partner %}
+                        <a href="{{ url_for('suppliers.supplier_detail', id=record.disposal_partner.id) }}">{{ record.disposal_partner.name }}</a>
+                        {% else %}N/A{% endif %}
+                    </td>
                     <td>
                         {% if record.attachments %}
                         <a href="{{ url_for('attachments.download_file', attachment_id=record.attachments[0].id) }}"><i

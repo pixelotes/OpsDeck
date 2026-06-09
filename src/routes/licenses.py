@@ -6,7 +6,7 @@ from .main import login_required
 
 licenses_bp = Blueprint('licenses', __name__, url_prefix='/licenses')
 
-@licenses_bp.route('/')
+@licenses_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def list_licenses():
@@ -14,7 +14,7 @@ def list_licenses():
     licenses = License.query.filter_by(is_archived=False).order_by(License.name.asc()).paginate(page=page, per_page=15)
     return render_template('licenses/list.html', licenses=licenses)
 
-@licenses_bp.route('/<int:id>')
+@licenses_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def detail(id):
@@ -227,7 +227,7 @@ def archive_license(id):
     flash(f'License "{license.name}" has been archived.', 'info')
     return redirect(url_for('licenses.list_licenses'))
 
-@licenses_bp.route('/archived')
+@licenses_bp.route('/archived', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def archived_licenses():

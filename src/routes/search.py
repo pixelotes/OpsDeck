@@ -12,7 +12,7 @@ from .main import login_required
 search_bp = Blueprint('search', __name__)
 
 
-@search_bp.route('/')
+@search_bp.route('/', methods=['GET'])
 @login_required
 def search_home():
     """

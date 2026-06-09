@@ -23,7 +23,7 @@ services_bp = Blueprint('services', __name__,
                         template_folder='../templates/services', # Relative to src/routes
                         url_prefix='/services')
 
-@services_bp.route('/')
+@services_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def list_services():
@@ -72,7 +72,7 @@ def create_service():
     cost_centers = CostCenter.query.order_by(CostCenter.code).all()
     return render_template('services/form.html', users=users, service=None, cost_centers=cost_centers)
 
-@services_bp.route('/<int:id>')
+@services_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def detail(id):
@@ -337,7 +337,7 @@ def delete_component(comp_id):
     return redirect(url_for('services.detail', id=service_id) + '#infrastructure')
 
 
-@services_bp.route('/api/search-components/<component_type>')
+@services_bp.route('/api/search-components/<component_type>', methods=['GET'])
 @login_required
 def search_components(component_type):
     """Search infrastructure components by type for TomSelect remote mode."""
@@ -615,7 +615,7 @@ def remove_user_access(id, user_id):
 
     return redirect(url_for('services.detail', id=id) + '#users')
 
-@services_bp.route('/<int:id>/check_access/<int:user_id>')
+@services_bp.route('/<int:id>/check_access/<int:user_id>', methods=['GET'])
 @login_required
 def check_user_access(id, user_id):
     """

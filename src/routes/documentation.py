@@ -10,7 +10,7 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 documentation_bp = Blueprint('documentation', __name__)
 
-@documentation_bp.route('/')
+@documentation_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('knowledge_policy')
 def list_docs():
@@ -46,7 +46,7 @@ def list_docs():
         search_tags=search_tags
     )
 
-@documentation_bp.route('/<int:id>')
+@documentation_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('knowledge_policy')
 def detail(id):
@@ -212,7 +212,7 @@ def delete_doc(id):
     flash('Entrada de documentación eliminada.', 'success')
     return redirect(url_for('documentation.list_docs'))
 
-@documentation_bp.route('/api/search')
+@documentation_bp.route('/api/search', methods=['GET'])
 @login_required
 @requires_permission('knowledge_policy')
 def search_api():

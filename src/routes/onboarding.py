@@ -25,7 +25,7 @@ _EP_OFFBOARDING = 'onboarding.offboarding_detail'
 
 # --- DASHBOARD PRINCIPAL ---
 
-@onboarding_bp.route('/')
+@onboarding_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('hr_people')
 def index():
@@ -58,7 +58,7 @@ def new_pack():
         flash(f'Pack "{name}" created.', 'success')
     return redirect(url_for(_EP_INDEX))
 
-@onboarding_bp.route('/packs')
+@onboarding_bp.route('/packs', methods=['GET'])
 @login_required
 @requires_permission('hr_people')
 def list_packs():
@@ -66,7 +66,7 @@ def list_packs():
     packs = OnboardingPack.query.filter_by(is_active=True).all()
     return render_template('onboarding/packs_list.html', packs=packs)
 
-@onboarding_bp.route('/api/packs')
+@onboarding_bp.route('/api/packs', methods=['GET'])
 @login_required
 @requires_permission('hr_people')
 def packs_api():
@@ -74,7 +74,7 @@ def packs_api():
     packs = OnboardingPack.query.filter_by(is_active=True).all()
     return jsonify([{'id': p.id, 'name': p.name} for p in packs])
 
-@onboarding_bp.route('/api/users')
+@onboarding_bp.route('/api/users', methods=['GET'])
 @login_required
 @requires_permission('hr_people')
 def users_api():
@@ -307,7 +307,7 @@ def new_onboarding():
     users = User.query.filter_by(is_archived=False).all() # Para asignar usuario si ya existe
     return render_template('onboarding/form_onboarding.html', packs=packs, users=users)
 
-@onboarding_bp.route('/view/<int:id>')
+@onboarding_bp.route('/view/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('hr_people')
 def onboarding_detail(id):
@@ -531,7 +531,7 @@ def new_offboarding():
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     return render_template('onboarding/form_offboarding.html', users=users)
 
-@onboarding_bp.route('/offboarding/view/<int:id>')
+@onboarding_bp.route('/offboarding/view/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('hr_people')
 def offboarding_detail(id):
@@ -882,7 +882,7 @@ def add_user_to_course(process_id, item_id):
 # API / UTILS
 # ==========================================
 
-@onboarding_bp.route('/templates')
+@onboarding_bp.route('/templates', methods=['GET'])
 @login_required
 @requires_permission('hr_people')
 def list_templates():
@@ -923,7 +923,7 @@ def toggle_template_task(id):
 # ==========================================
 
 # Histórico de Procesos (Auditoría)
-@onboarding_bp.route('/history')
+@onboarding_bp.route('/history', methods=['GET'])
 @login_required
 def history():
     """Muestra los procesos completados para auditoría."""

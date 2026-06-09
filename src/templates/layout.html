@@ -293,6 +293,10 @@
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('brands.') %}active{% endif %}"
                             href="{{ url_for('brands.list_brands') }}"><i class="fa-fw fas fa-tag"></i>
                             Brands</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint and request.endpoint.startswith('asset_models.') %}active{% endif %}"
+                            href="{{ url_for('asset_models.list_models') }}"><i class="fa-fw fas fa-cube"></i>
+                            Models</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.blueprint == 'software' %}active{% endif %}"
                             href="{{ url_for('software.list_software') }}"><i class="fa-fw fas fa-compact-disc"></i>
                             Software</a></li>

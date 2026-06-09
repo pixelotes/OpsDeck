@@ -7,14 +7,14 @@ from ..services.permissions_service import requires_permission
 
 locations_bp = Blueprint('locations', __name__)
 
-@locations_bp.route('/')
+@locations_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('core_inventory')
 def list_locations():
     locations = Location.query.filter_by(is_archived=False).all()
     return render_template('locations/list.html', locations=locations)
 
-@locations_bp.route('/archived')
+@locations_bp.route('/archived', methods=['GET'])
 @login_required
 @requires_permission('core_inventory')
 def archived_locations():
@@ -89,7 +89,7 @@ def edit_location(id):
 
     return render_template('locations/form.html', location=location)
 
-@locations_bp.route('/<int:id>')
+@locations_bp.route('/<int:id>', methods=['GET'])
 @login_required
 def location_detail(id):
     location = db.get_or_404(Location, id)

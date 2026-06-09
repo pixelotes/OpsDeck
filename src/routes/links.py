@@ -7,7 +7,7 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 links_bp = Blueprint('links', __name__)
 
-@links_bp.route('/')
+@links_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('knowledge_policy')
 def list_links():
@@ -43,7 +43,7 @@ def list_links():
         search_tags=search_tags
     )
 
-@links_bp.route('/<int:id>')
+@links_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('knowledge_policy')
 def detail(id):

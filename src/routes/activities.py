@@ -11,7 +11,7 @@ from src.utils.timezone_helper import today
 
 activities_bp = Blueprint('activities', __name__)
 
-@activities_bp.route('/')
+@activities_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('operations')
 def list_activities():
@@ -71,7 +71,7 @@ def new_activity():
     
     return render_template('activities/form.html', users=users, groups=groups, tags=tags)
 
-@activities_bp.route('/<int:id>')
+@activities_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('operations')
 def activity_detail(id):
@@ -204,7 +204,7 @@ def execute_activity(id):
                          current_user=current_user,
                          today_date=today_date)
 
-@activities_bp.route('/execution/<int:id>')
+@activities_bp.route('/execution/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('operations')
 def execution_detail(id):
@@ -269,7 +269,7 @@ def edit_execution(id):
                          users=users,
                          today_date=execution.execution_date.strftime('%Y-%m-%d'))
 
-@activities_bp.route('/get-objects-by-type')
+@activities_bp.route('/get-objects-by-type', methods=['GET'])
 @login_required
 @requires_permission('operations')
 def get_objects_by_type():

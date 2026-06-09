@@ -23,7 +23,7 @@ def _form_context(req=None):
     )
 
 
-@requests_bp.route('/')
+@requests_bp.route('/', methods=['GET'])
 @requires_permission('operations')
 def list_requests():
     """List all requests with filtering."""

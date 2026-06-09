@@ -22,7 +22,7 @@ admin_communications_bp = Blueprint('admin_communications', __name__)
 # EMAIL TEMPLATE CRUD
 # ==========================================
 
-@admin_communications_bp.route('/templates')
+@admin_communications_bp.route('/templates', methods=['GET'])
 @login_required
 @requires_permission('hr_people')
 def list_templates():

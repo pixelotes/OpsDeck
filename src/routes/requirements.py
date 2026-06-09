@@ -7,7 +7,7 @@ from src.utils.timezone_helper import now
 
 requirements_bp = Blueprint('requirements', __name__, url_prefix='/requirements')
 
-@requirements_bp.route('/timeline')
+@requirements_bp.route('/timeline', methods=['GET'])
 @login_required
 @requires_permission('procurement', access_level='READ_ONLY')
 def timeline():
@@ -32,7 +32,7 @@ def timeline():
 
     return render_template('requirements/timeline.html', timeline_data=timeline_data)
 
-@requirements_bp.route('/')
+@requirements_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('procurement', access_level='READ_ONLY')
 def list_requirements():
@@ -129,7 +129,7 @@ def new_requirement():
 
     return render_template('requirements/form.html')
 
-@requirements_bp.route('/<int:id>')
+@requirements_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('procurement', access_level='READ_ONLY')
 def detail(id):

@@ -10,20 +10,30 @@ from src.utils.logger import log_audit
 
 brands_bp = Blueprint('brands', __name__)
 
+# Permission module and frequently-referenced endpoints (avoid duplicated literals)
+MODULE = 'core_inventory'
+BRAND_DETAIL = 'brands.brand_detail'
+BRAND_LIST = 'brands.list_brands'
+
+
+def _wants_json():
+    """True when the caller expects a JSON response (AJAX / JSON request)."""
+    return request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
 
 # ----- Brand CRUD -----
 
-@brands_bp.route('/')
+@brands_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_brands():
     brands = Brand.query.order_by(Brand.name).all()
     return render_template('brands/list.html', brands=brands)
 
 
-@brands_bp.route('/<int:id>')
+@brands_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def brand_detail(id):
     brand = db.get_or_404(Brand, id)
     return render_template('brands/detail.html', brand=brand)
@@ -31,16 +41,16 @@ def brand_detail(id):
 
 @brands_bp.route('/new', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def new_brand():
     return render_template('brands/form.html', brand=None)
 
 
 @brands_bp.route('/new', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def create_brand():
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    is_ajax = _wants_json()
     name = (request.form.get('name') or '').strip()
     if not name:
         if is_ajax:
@@ -52,7 +62,7 @@ def create_brand():
         if is_ajax:
             return jsonify({'id': existing.id, 'name': existing.name, 'existing': True})
         flash(f'Brand "{name}" already exists.', 'warning')
-        return redirect(url_for('brands.list_brands'))
+        return redirect(url_for(BRAND_LIST))
     brand = Brand(
         name=name,
         website=request.form.get('website') or None,
@@ -67,12 +77,12 @@ def create_brand():
     if is_ajax:
         return jsonify({'id': brand.id, 'name': brand.name, 'existing': False})
     flash(f'Brand "{brand.name}" created.', 'success')
-    return redirect(url_for('brands.brand_detail', id=brand.id))
+    return redirect(url_for(BRAND_DETAIL, id=brand.id))
 
 
 @brands_bp.route('/<int:id>/edit', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_brand(id):
     brand = db.get_or_404(Brand, id)
     return render_template('brands/form.html', brand=brand)
@@ -80,7 +90,7 @@ def edit_brand(id):
 
 @brands_bp.route('/<int:id>/edit', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def update_brand(id):
     brand = db.get_or_404(Brand, id)
     name = (request.form.get('name') or '').strip()
@@ -100,12 +110,12 @@ def update_brand(id):
         target_object=f'Brand:{brand.id}', target_info=brand.name,
     )
     flash(f'Brand "{brand.name}" updated.', 'success')
-    return redirect(url_for('brands.brand_detail', id=brand.id))
+    return redirect(url_for(BRAND_DETAIL, id=brand.id))
 
 
 @brands_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def delete_brand(id):
     brand = db.get_or_404(Brand, id)
     in_use_assets = Asset.query.filter_by(brand_id=id).count()
@@ -116,7 +126,7 @@ def delete_brand(id):
             f'{in_use_assets} asset(s) and {in_use_peripherals} peripheral(s).',
             'danger',
         )
-        return redirect(url_for('brands.brand_detail', id=id))
+        return redirect(url_for(BRAND_DETAIL, id=id))
     name = brand.name
     db.session.delete(brand)  # cascades to its AssetModels
     db.session.commit()
@@ -125,39 +135,42 @@ def delete_brand(id):
         target_object=f'Brand:{id}', target_info=name,
     )
     flash(f'Brand "{name}" deleted.', 'success')
-    return redirect(url_for('brands.list_brands'))
+    return redirect(url_for(BRAND_LIST))
 
 
 # ----- AssetModel CRUD (nested under brand) -----
 
 @brands_bp.route('/<int:brand_id>/models/create', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def create_model(brand_id):
     """Create an AssetModel under a Brand.
     Supports both AJAX (returns JSON) and standard form POST.
     """
     brand = db.get_or_404(Brand, brand_id)
-    if not has_write_permission('core_inventory'):
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+    if not has_write_permission(MODULE):
+        if _wants_json():
             return jsonify({'error': 'Write access required'}), 403
         flash('Write access required for this action.', 'danger')
-        return redirect(url_for('brands.brand_detail', id=brand_id))
+        return redirect(url_for(BRAND_DETAIL, id=brand_id))
 
-    name = (request.form.get('name') or (request.json or {}).get('name') or '').strip()
-    notes = request.form.get('notes') or (request.json or {}).get('notes')
+    # Accept both form posts and JSON. get_json(silent=True) avoids the 415 that
+    # request.json raises on a non-JSON (e.g. multipart) request.
+    payload = request.get_json(silent=True) or {}
+    name = (request.form.get('name') or payload.get('name') or '').strip()
+    notes = request.form.get('notes') or payload.get('notes')
     if not name:
         if request.is_json:
             return jsonify({'error': 'Model name is required'}), 400
         flash('Model name is required.', 'danger')
-        return redirect(url_for('brands.brand_detail', id=brand_id))
+        return redirect(url_for(BRAND_DETAIL, id=brand_id))
 
     existing = AssetModel.query.filter_by(brand_id=brand.id, name=name).first()
     if existing:
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        if _wants_json():
             return jsonify({'id': existing.id, 'name': existing.name, 'brand_id': brand.id, 'existing': True})
         flash(f'Model "{name}" already exists for brand "{brand.name}".', 'warning')
-        return redirect(url_for('brands.brand_detail', id=brand_id))
+        return redirect(url_for(BRAND_DETAIL, id=brand_id))
 
     model = AssetModel(name=name, brand_id=brand.id, notes=notes or None)
     db.session.add(model)
@@ -167,20 +180,20 @@ def create_model(brand_id):
         target_object=f'AssetModel:{model.id}', target_info=f'{brand.name} / {model.name}',
     )
 
-    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+    if _wants_json():
         return jsonify({'id': model.id, 'name': model.name, 'brand_id': brand.id, 'existing': False})
     flash(f'Model "{model.name}" created.', 'success')
-    return redirect(url_for('brands.brand_detail', id=brand_id))
+    return redirect(url_for(BRAND_DETAIL, id=brand_id))
 
 
 @brands_bp.route('/<int:brand_id>/models/<int:model_id>/delete', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def delete_model(brand_id, model_id):
     model = db.get_or_404(AssetModel, model_id)
     if model.brand_id != brand_id:
         flash('Model does not belong to this brand.', 'danger')
-        return redirect(url_for('brands.brand_detail', id=brand_id))
+        return redirect(url_for(BRAND_DETAIL, id=brand_id))
     in_use_assets = Asset.query.filter_by(model_id=model_id).count()
     in_use_peripherals = Peripheral.query.filter_by(model_id=model_id).count()
     if in_use_assets or in_use_peripherals:
@@ -189,7 +202,7 @@ def delete_model(brand_id, model_id):
             f'{in_use_assets} asset(s) and {in_use_peripherals} peripheral(s).',
             'danger',
         )
-        return redirect(url_for('brands.brand_detail', id=brand_id))
+        return redirect(url_for(BRAND_DETAIL, id=brand_id))
     name = model.name
     db.session.delete(model)
     db.session.commit()
@@ -198,14 +211,14 @@ def delete_model(brand_id, model_id):
         target_object=f'AssetModel:{model_id}', target_info=name,
     )
     flash(f'Model "{name}" deleted.', 'success')
-    return redirect(url_for('brands.brand_detail', id=brand_id))
+    return redirect(url_for(BRAND_DETAIL, id=brand_id))
 
 
 # ----- JSON endpoint used by brand/model pickers in forms -----
 
-@brands_bp.route('/<int:brand_id>/models.json')
+@brands_bp.route('/<int:brand_id>/models.json', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_models_json(brand_id):
     """Returns the AssetModels for a given brand, sorted by name.
     Used by dependent <select> pickers in asset/peripheral forms.

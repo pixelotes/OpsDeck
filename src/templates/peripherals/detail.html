@@ -22,7 +22,7 @@
             <i class="fas fa-sign-out-alt"></i> Check Out
         </a>
         {% endif %}
-        <div class="btn-group d-inline">
+        <div class="btn-group">
             <a href="{{ url_for('peripherals.edit_peripheral', id=peripheral.id) }}" class="btn btn-outline-primary">
                 <i class="fas fa-edit"></i> Edit
             </a>
@@ -30,7 +30,7 @@
                 data-bs-toggle="dropdown" aria-expanded="false">
                 <span class="visually-hidden">Toggle Dropdown</span>
             </button>
-            <ul class="dropdown-menu">
+            <ul class="dropdown-menu dropdown-menu-end">
                 <li><a class="dropdown-item"
                         href="{{ url_for('maintenance.new_log', peripheral_id=peripheral.id, event_type='Data Erasure') }}">Log
                         Data Erasure</a></li>
@@ -57,7 +57,11 @@
                     <a href="{{ url_for('brands.brand_detail', id=peripheral.brand.id) }}">{{ peripheral.brand.name }}</a>
                     {% else %}N/A{% endif %}
                 </p>
-                <p><strong>Model:</strong> {{ peripheral.model.name if peripheral.model else 'N/A' }}</p>
+                <p><strong>Model:</strong>
+                    {% if peripheral.model %}
+                    <a href="{{ url_for('asset_models.model_detail', id=peripheral.model.id) }}">{{ peripheral.model.name }}</a>
+                    {% else %}N/A{% endif %}
+                </p>
                 <p><strong>Serial Number:</strong> {{ peripheral.serial_number or 'N/A' }}</p>
                 <p><strong>Status:</strong>
                     <span class="badge bg-info">{{ peripheral.status }}</span>
@@ -83,7 +87,11 @@
                     N/A
                     {% endif %}
                 </p>
-                <p><strong>Supplier:</strong> {{ peripheral.supplier.name if peripheral.supplier else 'N/A' }}</p>
+                <p><strong>Supplier:</strong>
+                    {% if peripheral.supplier %}
+                    <a href="{{ url_for('suppliers.supplier_detail', id=peripheral.supplier.id) }}">{{ peripheral.supplier.name }}</a>
+                    {% else %}N/A{% endif %}
+                </p>
                 <p><strong>Location:</strong>
                     <span class="badge {{ 'bg-info' if peripheral.user else 'bg-secondary' }}">
                         {{ peripheral.location_display }}

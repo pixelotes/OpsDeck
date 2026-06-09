@@ -403,7 +403,7 @@ def password_change_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-@main_bp.route('/', endpoint='dashboard')
+@main_bp.route('/', endpoint='dashboard', methods=['GET'])
 @login_required
 def home():
     """
@@ -419,7 +419,7 @@ def home():
     else:
         return redirect(url_for('main.my_dashboard'))
 
-@main_bp.route('/org-health')
+@main_bp.route('/org-health', methods=['GET'])
 @login_required
 @requires_permission('health_dashboard', access_level='READ_ONLY')
 def organizational_health():
@@ -959,7 +959,7 @@ def get_my_open_tickets(user):
     return tickets
 
 
-@main_bp.route('/my-dashboard')
+@main_bp.route('/my-dashboard', methods=['GET'])
 @login_required
 def my_dashboard():
     """Personal Dashboard - Self-service portal for employees."""
@@ -1240,7 +1240,7 @@ def my_dashboard():
     )
 
 
-@main_bp.route('/operations')
+@main_bp.route('/operations', methods=['GET'])
 @login_required
 def ops_finance_dashboard():
     # --- STAT CARD COUNTS ---
@@ -1386,7 +1386,7 @@ def notification_settings():
         notify_days_list=notify_days_list
     )
 
-@main_bp.route('/api/search')
+@main_bp.route('/api/search', methods=['GET'])
 @login_required
 def search():
     query = request.args.get('q', '').strip()
@@ -1505,7 +1505,7 @@ def change_password():
     return render_template('change_password.html', forced_change=forced_change)
 
 
-@main_bp.route('/my-api-key')
+@main_bp.route('/my-api-key', methods=['GET'])
 @login_required
 def my_api_key():
     """Render the API Key management page for the current user."""
@@ -1546,7 +1546,7 @@ def localhost_only(f):
         return f(*args, **kwargs)
     return decorated
 
-@main_bp.route('/internal/test-db')
+@main_bp.route('/internal/test-db', methods=['GET'])
 @localhost_only
 def internal_test_db():
     """
@@ -1586,7 +1586,7 @@ def internal_test_db():
         }), 500
 
 
-@main_bp.route('/internal/app-info')
+@main_bp.route('/internal/app-info', methods=['GET'])
 @localhost_only
 def internal_app_info():
     """
@@ -1708,7 +1708,7 @@ def internal_test_email():
         }), 500
 
 
-@main_bp.route('/internal/health-check')
+@main_bp.route('/internal/health-check', methods=['GET'])
 @localhost_only
 def internal_health_check():
     """

@@ -23,7 +23,7 @@ audits_bp = Blueprint('audits', __name__, url_prefix='/security/audits')
 # LIST & CRUD
 # ============================================================================
 
-@audits_bp.route('/')
+@audits_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('compliance')
 def list_audits():
@@ -576,7 +576,7 @@ def unlock_audit(id):
 # EXPORT
 # ============================================================================
 
-@audits_bp.route('/<int:id>/export')
+@audits_bp.route('/<int:id>/export', methods=['GET'])
 @login_required
 @requires_permission('compliance')
 def export_audit(id):
@@ -609,7 +609,7 @@ def delete_audit(id):
 # API: Search Linkable Objects
 # ============================================================================
 
-@audits_bp.route('/api/search-linkable')
+@audits_bp.route('/api/search-linkable', methods=['GET'])
 @login_required
 @requires_permission('compliance')
 def search_linkable_api():

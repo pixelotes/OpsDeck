@@ -8,14 +8,14 @@ from .main import login_required
 
 budgets_bp = Blueprint('budgets', __name__)
 
-@budgets_bp.route('/')
+@budgets_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('finance', access_level='READ_ONLY')
 def budgets():
     budgets = Budget.query.all()
     return render_template('budgets/list.html', budgets=budgets)
 
-@budgets_bp.route('/<int:id>')
+@budgets_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('finance', access_level='READ_ONLY')
 def budget_detail(id):

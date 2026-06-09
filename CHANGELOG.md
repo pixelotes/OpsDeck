@@ -13,16 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Service Requests API**: `GET`/`POST /api/v1/requests` (list, detail, and upsert by `external_ref`)
 - **Suppliers & Contacts API**: read-only `GET /api/v1/suppliers` and `GET /api/v1/contacts` (list and detail)
 - **Changes API reads**: `GET /api/v1/changes` and `GET /api/v1/changes/{id}` (previously POST-only)
+- **Models management screen**: Dedicated Core Inventory screen to list, create, edit, and delete asset models across brands, with menu access below Brands
+- **Model detail page**: lists the assets and peripherals using a given model; the brand detail page now also lists the brand's assets and peripherals (and links each model to its detail)
+- **Status timeline on incident detail**: incidents now show the same step timeline as changes and requests (Investigating → Contained → Resolved → Closed), unifying the ticket detail look — no data model change
+- **Subscription spend in the Spend Analysis report**: recurring subscription cost is now reconstructed from billing history — each past billing occurrence is valued at the price and seat count effective on that date (from CostHistory) — and shown alongside one-off purchases, with a "Spend by Month (EUR)" summary. Defaults to the trailing 12 months when no date range is given
 
 ### Changed
+- Subscription seat changes made from the subscription page (add / add-all / remove user) now record a CostHistory entry for per-user plans, so historical spend stays accurate
+- **Spend Analysis** totals are now normalised to EUR (previously summed mixed currencies as if EUR)
 - **My Dashboard "Your Pending Tasks"** now lists only items assigned to you; the notification bell and the My Tasks counter likewise show only assigned items (incidents, changes, requests) — never tickets you opened
 - Grouped the three ticket types (Changes, Requests, Incidents) together in the sidebar
 - Cache static assets aggressively with mtime-based cache busting, and relaxed API rate limits
+- Disposal records now link their disposal partner to a Supplier record (previously free text), shown as a link on disposal/asset/peripheral detail. Migration backfills the link by matching the existing text to a supplier name; unmatched values are not preserved
 
 ### Fixed
 - Evidence download links on change and request detail pages (used the filename instead of the attachment id, causing a routing error)
 - Status timeline line now runs through the centre of the step circles on change and request detail pages
-
 
 ## [0.6.10] - 2026-06-03
 

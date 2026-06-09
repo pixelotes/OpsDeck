@@ -7,7 +7,7 @@ from .main import login_required
 
 certificates_bp = Blueprint('certificates', __name__, url_prefix='/certificates')
 
-@certificates_bp.route('/')
+@certificates_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def list_certificates():
@@ -80,7 +80,7 @@ def create_certificate():
     services = BusinessService.query.order_by(BusinessService.name).all()
     return render_template('certificates/form.html', users=users, services=services)
 
-@certificates_bp.route('/<int:id>')
+@certificates_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def certificate_detail(id):

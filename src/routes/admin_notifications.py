@@ -14,7 +14,7 @@ from .main import login_required
 admin_notifications_bp = Blueprint('admin_notifications', __name__)
 
 
-@admin_notifications_bp.route('/')
+@admin_notifications_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('administration')
 def list_events():

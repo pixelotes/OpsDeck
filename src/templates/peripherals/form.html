@@ -43,7 +43,7 @@
                 <div class="col-md-12">
                     <label for="serial_number" class="form-label">Serial Number</label>
                     <input type="text" class="form-control" id="serial_number" name="serial_number"
-                        value="{{ peripheral.serial_number if peripheral else '' }}" {% if not
+                        value="{{ peripheral.serial_number if peripheral and peripheral.serial_number else '' }}" {% if not
                         can_write('core_inventory') %}disabled{% endif %}>
                 </div>
             </div>

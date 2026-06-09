@@ -7,14 +7,14 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 contacts_bp = Blueprint('contacts', __name__)
 
-@contacts_bp.route('/')
+@contacts_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('procurement', access_level='READ_ONLY')
 def contacts():
     contacts = Contact.query.filter_by(is_archived=False).join(Supplier).all()
     return render_template('contacts/list.html', contacts=contacts)
 
-@contacts_bp.route('/archived')
+@contacts_bp.route('/archived', methods=['GET'])
 @login_required
 @requires_permission('procurement', access_level='READ_ONLY')
 def archived_contacts():
@@ -41,7 +41,7 @@ def unarchive_contact(id):
     flash(f'Contact "{contact.name}" has been restored.', 'success')
     return redirect(url_for('contacts.archived_contacts'))
 
-@contacts_bp.route('/<int:id>')
+@contacts_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('procurement', access_level='READ_ONLY')
 def contact_detail(id):

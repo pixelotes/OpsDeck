@@ -21,7 +21,7 @@ from .main import login_required
 
 risk_bp = Blueprint('risk', __name__)
 
-@risk_bp.route('/')
+@risk_bp.route('/', methods=['GET'])
 @requires_permission('risk_governance')
 def list_risks():
     query = Risk.query
@@ -69,7 +69,7 @@ def list_risks():
     
     return render_template('risk/list.html', risks=risks)
 
-@risk_bp.route('/dashboard')
+@risk_bp.route('/dashboard', methods=['GET'])
 @requires_permission('risk_governance')
 def dashboard():
     # 1. KPIs
@@ -164,7 +164,7 @@ def dashboard():
                            top_critical_risks=top_critical_risks,
                            accepted_risks=accepted_risks)
 
-@risk_bp.route('/dashboard/pdf')
+@risk_bp.route('/dashboard/pdf', methods=['GET'])
 @requires_permission('risk_governance')
 def dashboard_pdf():
     from weasyprint import HTML
@@ -240,19 +240,19 @@ def dashboard_pdf():
     
     return response
 
-@risk_bp.route('/<int:id>')
+@risk_bp.route('/<int:id>', methods=['GET'])
 @requires_permission('risk_governance')
 def detail(id):
     risk = db.get_or_404(Risk, id)
     return render_template('risk/detail.html', risk=risk)
 
-@risk_bp.route('/catalog')
+@risk_bp.route('/catalog', methods=['GET'])
 @requires_permission('risk_governance')
 def catalog_list():
     catalogs = RiskCatalog.query.all()
     return render_template('risk/catalog_list.html', catalogs=catalogs)
 
-@risk_bp.route('/catalog/<int:id>')
+@risk_bp.route('/catalog/<int:id>', methods=['GET'])
 @requires_permission('risk_governance')
 def catalog_detail(id):
     catalog = db.get_or_404(RiskCatalog, id)
@@ -515,7 +515,7 @@ def remove_affected_item(item_id):
     flash('Affected item removed.', 'success')
     return redirect(url_for('risk.detail', id=risk_id))
 
-@risk_bp.route('/api/items/<item_type>')
+@risk_bp.route('/api/items/<item_type>', methods=['GET'])
 @requires_permission('risk_governance')
 def api_get_items(item_type):
     """API endpoint to fetch items by type for dynamic selector."""
@@ -547,7 +547,7 @@ def api_get_items(item_type):
     return jsonify(items)
 
 
-@risk_bp.route('/api/references/<ref_type>')
+@risk_bp.route('/api/references/<ref_type>', methods=['GET'])
 @requires_permission('risk_governance')
 def api_get_references(ref_type):
     """API endpoint to fetch reference items by type for dynamic selector."""

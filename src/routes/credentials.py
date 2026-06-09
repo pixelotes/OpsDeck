@@ -12,7 +12,7 @@ credentials_bp = Blueprint('credentials', __name__, url_prefix='/credentials')
 # Credential types constant
 CREDENTIAL_TYPES = ['API Key', 'OAuth', 'Service Account', 'SSH Key', 'Password', 'Certificate']
 
-@credentials_bp.route('/')
+@credentials_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def list_credentials():
@@ -99,7 +99,7 @@ def list_credentials():
         current_filters=current_filters
     )
 
-@credentials_bp.route('/<int:id>')
+@credentials_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission('core_inventory', access_level='READ_ONLY')
 def detail_credential(id):

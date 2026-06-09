@@ -32,7 +32,11 @@
                 <p><strong>Method:</strong> {{ record.disposal_method }}</p>
             </div>
             <div class="col-md-6">
-                <p><strong>Disposal Partner:</strong> {{ record.disposal_partner or 'N/A' }}</p>
+                <p><strong>Disposal Partner:</strong>
+                    {% if record.disposal_partner %}
+                    <a href="{{ url_for('suppliers.supplier_detail', id=record.disposal_partner.id) }}">{{ record.disposal_partner.name }}</a>
+                    {% else %}N/A{% endif %}
+                </p>
                 {% if record.notes %}
                 <p><strong>Notes:</strong> {{ record.notes|nl2br }}</p>
                 {% endif %}
