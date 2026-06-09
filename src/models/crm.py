@@ -1,6 +1,7 @@
 from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN
 
 class Requirement(db.Model):
     """Requirements/Ideas for procurement - formerly Lead"""
@@ -48,7 +49,7 @@ class Requirement(db.Model):
 
     # Relationships
     actions = db.relationship('RequirementAction', backref='requirement', lazy=True,
-                              cascade='all, delete-orphan', order_by='RequirementAction.created_at.desc()')
+                              cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='RequirementAction.created_at.desc()')
     evaluations = db.relationship('Opportunity', backref='source_requirement', lazy=True,
                                   foreign_keys='Opportunity.requirement_id')
 
@@ -98,8 +99,8 @@ class Opportunity(db.Model):
     budget_id = db.Column(db.Integer, db.ForeignKey('budget.id'))
 
     # Relationships
-    activities = db.relationship('Activity', backref='opportunity', lazy=True, cascade='all, delete-orphan', order_by='Activity.activity_date.desc()')
-    tasks = db.relationship('OpportunityTask', backref='opportunity', lazy=True, cascade='all, delete-orphan', order_by='OpportunityTask.created_at.asc()')
+    activities = db.relationship('Activity', backref='opportunity', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='Activity.activity_date.desc()')
+    tasks = db.relationship('OpportunityTask', backref='opportunity', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='OpportunityTask.created_at.asc()')
 
 class Activity(db.Model):
     """Activity log entries for opportunities"""

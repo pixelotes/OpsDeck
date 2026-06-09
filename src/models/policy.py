@@ -3,6 +3,7 @@ from src.utils.timezone_helper import now
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 
 policy_version_users = db.Table('policy_version_users',
     db.Column('policy_version_id', db.Integer, db.ForeignKey('policy_version.id'), primary_key=True),
@@ -23,11 +24,11 @@ class Policy(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: now())
 
     # Relationship to its versions
-    versions = db.relationship('PolicyVersion', backref='policy', lazy=True, cascade='all, delete-orphan')
+    versions = db.relationship('PolicyVersion', backref='policy', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Policy.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Policy')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
@@ -35,7 +36,7 @@ class Policy(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Policy.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Policy'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
 
@@ -46,7 +47,7 @@ class PolicyVersion(db.Model):
     content = db.Column(db.Text) # The full text of the policy
     effective_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date) # Optional: when the policy version is no longer valid
-    acknowledgements = db.relationship('PolicyAcknowledgement', backref='version', lazy=True, cascade='all, delete-orphan')
+    acknowledgements = db.relationship('PolicyAcknowledgement', backref='version', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
     users_to_acknowledge = db.relationship('User', secondary=policy_version_users, back_populates='policy_versions_to_acknowledge')
     groups_to_acknowledge = db.relationship('Group', secondary=policy_version_groups, back_populates='policy_versions_to_acknowledge')
 
@@ -55,7 +56,7 @@ class PolicyVersion(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(PolicyVersion.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='PolicyVersion')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
 
 class PolicyAcknowledgement(db.Model):

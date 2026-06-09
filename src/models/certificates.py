@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from .auth import User
 from src.utils.timezone_helper import now, today
 
@@ -34,10 +35,10 @@ class Certificate(db.Model):
     updated_at = db.Column(db.DateTime, default=lambda: now(), onupdate=lambda: now())
 
     # Relationship to Services
-    services = db.relationship('BusinessService', secondary=service_certificates, backref=db.backref('certificates', lazy='dynamic'))
+    services = db.relationship('BusinessService', secondary=service_certificates, backref=db.backref('certificates', lazy=LAZY_DYNAMIC))
 
     # Relationship to Versions
-    versions = db.relationship('CertificateVersion', backref='certificate', lazy='dynamic', cascade='all, delete-orphan', order_by='desc(CertificateVersion.expires_at)')
+    versions = db.relationship('CertificateVersion', backref='certificate', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='desc(CertificateVersion.expires_at)')
 
     @property
     def owner(self):
