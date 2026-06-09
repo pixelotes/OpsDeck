@@ -4,7 +4,6 @@ from flask import (
 )
 from datetime import datetime, date
 from urllib.parse import urlparse
-from urllib.parse import urlparse
 from ..models import db, Asset, AssetHistory, User, Location, Supplier, Purchase, AssetAssignment, Peripheral
 from ..models.assets import Brand, AssetModel
 from ..models.core import CustomFieldDefinition
@@ -339,29 +338,21 @@ def checkout_asset(id):
 @login_required
 @requires_permission(MODULE, access_level='WRITE')
 def checkin_asset(id):
+    asset = db.get_or_404(Asset, id)
+
+    # Only redirect to a local relative path to avoid open redirects (CodeQL).
     redirect_url = request.form.get('redirect_url', '')
-    normalized_redirect_url = redirect_url.replace('\\', '')
-    parsed_redirect_url = urlparse(normalized_redirect_url)
+    parsed_redirect_url = urlparse(redirect_url)
     safe_redirect_url = (
-        normalized_redirect_url
-        if normalized_redirect_url and not parsed_redirect_url.scheme and not parsed_redirect_url.netloc
+        redirect_url
+        if redirect_url and not parsed_redirect_url.scheme and not parsed_redirect_url.netloc
         else url_for(ASSET_DETAIL, id=id)
     )
-    redirect_url = request.form.get('redirect_url')
-    fallback_url = url_for(ASSET_DETAIL, id=id)
-    candidate_redirect = (redirect_url or '').replace('\\', '/')
-        return redirect(safe_redirect_url)
-    safe_redirect_url = (
-        candidate_redirect
-        if candidate_redirect.startswith('/') and not parsed_redirect.netloc and not parsed_redirect.scheme
-        else fallback_url
-    )
-        return redirect(safe_redirect_url)
+
     if not asset.user:
         flash('This asset is already checked in.', 'warning')
         return redirect(safe_redirect_url)
 
-        return redirect(safe_redirect_url)
     return_location_id = request.form.get('return_location_id')
     if not return_location_id:
         flash('You must select a location to return the asset to.', 'danger')
@@ -388,7 +379,7 @@ def checkin_asset(id):
     from ..models.onboarding import ProcessItem
     with db.session.no_autoflush:
         offboarding_item = ProcessItem.query.filter_by(
-    return redirect(safe_redirect_url)
+            item_type='Asset',
             linked_object_id=id,
             is_completed=False
         ).first()
