@@ -15,6 +15,7 @@ from ..services.permissions_service import requires_permission, has_write_permis
 from ..services.uar_service import UARAutomationService
 from ..utils.uar_engine import AccessReviewEngine
 from src.utils.timezone_helper import now
+from ..utils.redirects import safe_redirect_target
 
 
 # Optional import for Enterprise Plugin
@@ -1234,7 +1235,7 @@ def upload_evidence():
     # For a complete implementation, you'd need to handle file uploads,
     # link them to controls, etc.
     flash('Evidence upload functionality not fully implemented yet.', 'info')
-    return redirect(request.referrer or url_for(COMPLIANCE_DASHBOARD))
+    return redirect(safe_redirect_target(request.referrer, url_for(COMPLIANCE_DASHBOARD)))
 
 @compliance_bp.route('/data-erasures')
 @requires_permission(MODULE_OPERATIONS)
@@ -1347,7 +1348,7 @@ def create_manual_link():
     """
     if not has_write_permission(MODULE_COMPLIANCE):
         flash('Write access required to create manual links.', 'danger')
-        return redirect(request.referrer or url_for(FRAMEWORKS_LIST))
+        return redirect(safe_redirect_target(request.referrer, url_for(FRAMEWORKS_LIST)))
 
     framework_control_id = request.form.get('framework_control_id', type=int)
     linkable_type = request.form.get('linkable_type')
@@ -1356,13 +1357,13 @@ def create_manual_link():
 
     if not all([framework_control_id, linkable_type, linkable_id]):
         flash('Missing required fields.', 'danger')
-        return redirect(request.referrer or url_for(FRAMEWORKS_LIST))
+        return redirect(safe_redirect_target(request.referrer, url_for(FRAMEWORKS_LIST)))
 
     # Validate control exists
     control = db.session.get(FrameworkControl,framework_control_id)
     if not control:
         flash('Control not found.', 'danger')
-        return redirect(request.referrer or url_for(FRAMEWORKS_LIST))
+        return redirect(safe_redirect_target(request.referrer, url_for(FRAMEWORKS_LIST)))
 
     # Check for existing link to avoid duplicates
     existing = ComplianceLink.query.filter_by(
@@ -1394,7 +1395,7 @@ def link_control():
     """Form to link a control to an object (Risk, Asset, etc)."""
     if not has_write_permission(MODULE_COMPLIANCE):
         flash('Write access required to link controls.', 'danger')
-        return redirect(request.referrer or url_for(RISK_DASHBOARD))
+        return redirect(safe_redirect_target(request.referrer, url_for(RISK_DASHBOARD)))
 
     linkable_type = request.args.get('linkable_type') or request.form.get('linkable_type')
     linkable_id = request.args.get('linkable_id') or request.form.get('linkable_id')
@@ -1512,7 +1513,7 @@ def create_rule():
     """Creates a new ComplianceRule for automated compliance checking."""
     if not has_write_permission(MODULE_COMPLIANCE):
         flash('Write access required to create automation rules.', 'danger')
-        return redirect(request.referrer or url_for(COMPLIANCE_DASHBOARD))
+        return redirect(safe_redirect_target(request.referrer, url_for(COMPLIANCE_DASHBOARD)))
 
     import json
     
@@ -1524,13 +1525,13 @@ def create_rule():
     
     if not all([framework_control_id, name, target_model]):
         flash('Missing required fields for automation rule.', 'danger')
-        return redirect(request.referrer or url_for(COMPLIANCE_DASHBOARD))
+        return redirect(safe_redirect_target(request.referrer, url_for(COMPLIANCE_DASHBOARD)))
     
     # Validate control exists
     control = db.session.get(FrameworkControl,framework_control_id)
     if not control:
         flash('Control not found.', 'danger')
-        return redirect(request.referrer or url_for(COMPLIANCE_DASHBOARD))
+        return redirect(safe_redirect_target(request.referrer, url_for(COMPLIANCE_DASHBOARD)))
     
     # Build criteria JSON based on target_model
     criteria = {}
@@ -1617,7 +1618,7 @@ def create_rule():
     db.session.commit()
     
     flash(f'Automation rule "{name}" created successfully.', 'success')
-    return redirect(request.referrer or url_for(CONTROL_DETAIL, id=framework_control_id))
+    return redirect(safe_redirect_target(request.referrer, url_for(CONTROL_DETAIL, id=framework_control_id)))
 
 @compliance_bp.route('/evidence/<int:id>/delete', methods=['POST'])
 @login_required
@@ -1632,7 +1633,7 @@ def delete_evidence(id):
     # The instruction only provided the decorator and permission check.
     # For a complete implementation, you'd need to retrieve and delete the evidence.
     flash(f'Evidence with ID {id} deletion functionality not fully implemented yet.', 'info')
-    return redirect(request.referrer or url_for(COMPLIANCE_DASHBOARD))
+    return redirect(safe_redirect_target(request.referrer, url_for(COMPLIANCE_DASHBOARD)))
 
 @compliance_bp.route('/rules/<int:rule_id>/delete', methods=['POST'])
 @login_required
@@ -1641,7 +1642,7 @@ def delete_rule(rule_id):
     """Deletes a ComplianceRule."""
     if not has_write_permission(MODULE_COMPLIANCE):
         flash('Write access required to delete automation rules.', 'danger')
-        return redirect(request.referrer or url_for(CONTROL_DETAIL, id=rule_id)) # Redirect to control detail if rule_id is invalid
+        return redirect(safe_redirect_target(request.referrer, url_for(CONTROL_DETAIL, id=rule_id))) # Redirect to control detail if rule_id is invalid
 
     rule = db.get_or_404(ComplianceRule, rule_id)
     rule_name = rule.name
@@ -1651,7 +1652,7 @@ def delete_rule(rule_id):
     db.session.commit()
     
     flash(f'Automation rule "{rule_name}" has been deleted.', 'success')
-    return redirect(request.referrer or url_for(CONTROL_DETAIL, id=control_id))
+    return redirect(safe_redirect_target(request.referrer, url_for(CONTROL_DETAIL, id=control_id)))
 
 
 @compliance_bp.route('/rules/<int:rule_id>/toggle', methods=['POST'])
@@ -1660,7 +1661,7 @@ def delete_rule(rule_id):
 def toggle_rule(rule_id):
     if not has_write_permission(MODULE_COMPLIANCE):
         flash('Write access required to toggle rules.', 'danger')
-        return redirect(request.referrer or url_for(CONTROL_DETAIL, id=rule_id))
+        return redirect(safe_redirect_target(request.referrer, url_for(CONTROL_DETAIL, id=rule_id)))
     """Toggles a ComplianceRule enabled/disabled state."""
     rule = db.get_or_404(ComplianceRule, rule_id)
     
@@ -1669,7 +1670,7 @@ def toggle_rule(rule_id):
     
     status = 'enabled' if rule.enabled else 'disabled'
     flash(f'Automation rule "{rule.name}" has been {status}.', 'success')
-    return redirect(request.referrer or url_for(CONTROL_DETAIL, id=rule.framework_control_id))
+    return redirect(safe_redirect_target(request.referrer, url_for(CONTROL_DETAIL, id=rule.framework_control_id)))
 
 # ======================================================================
 # UAR AUTOMATION ROUTES

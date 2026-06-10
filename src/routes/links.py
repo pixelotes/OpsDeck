@@ -4,6 +4,7 @@ from flask import (
 from ..models import db, Link, Tag, User, Group, Software
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
+from ..utils.redirects import safe_redirect_target
 
 links_bp = Blueprint('links', __name__)
 
@@ -74,7 +75,7 @@ def new_link():
                 owner_id = int(owner_id)
             except ValueError:
                 flash('Propietario (Owner) inválido.', 'danger')
-                return redirect(request.referrer)
+                return redirect(safe_redirect_target(request.referrer))
 
         # Crear el objeto base
         link = Link(
@@ -124,7 +125,7 @@ def edit_link(id):
                 link.owner_id = int(owner_id_str)
             except ValueError:
                 flash('Propietario (Owner) inválido.', 'danger')
-                return redirect(request.referrer)
+                return redirect(safe_redirect_target(request.referrer))
         else:
             link.owner_type = None
             link.owner_id = None

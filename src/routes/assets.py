@@ -3,8 +3,8 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
 from datetime import datetime, date
-from urllib.parse import urlparse
 from ..models import db, Asset, AssetHistory, User, Location, Supplier, Purchase, AssetAssignment, Peripheral
+from ..utils.redirects import safe_redirect_target
 from ..models.assets import Brand, AssetModel
 from ..models.core import CustomFieldDefinition
 from .main import login_required
@@ -340,14 +340,7 @@ def checkout_asset(id):
 def checkin_asset(id):
     asset = db.get_or_404(Asset, id)
 
-    # Only redirect to a local relative path to avoid open redirects (CodeQL).
-    redirect_url = request.form.get('redirect_url', '')
-    parsed_redirect_url = urlparse(redirect_url)
-    safe_redirect_url = (
-        redirect_url
-        if redirect_url and not parsed_redirect_url.scheme and not parsed_redirect_url.netloc
-        else url_for(ASSET_DETAIL, id=id)
-    )
+    safe_redirect_url = safe_redirect_target(request.form.get('redirect_url'), url_for(ASSET_DETAIL, id=id))
 
     if not asset.user:
         flash('This asset is already checked in.', 'warning')
