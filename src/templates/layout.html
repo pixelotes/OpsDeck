@@ -304,7 +304,7 @@
                             href="{{ url_for('licenses.list_licenses') }}"><i class="fa-fw fas fa-id-badge"></i>
                             Licenses</a></li>
                     <li class="nav-item"><a
-                            class="nav-link {% if request.endpoint and request.endpoint.startswith('subscriptions.subscriptions') %}active{% endif %}"
+                            class="nav-link {% if request.endpoint and request.endpoint.startswith('subscriptions.') and not request.endpoint.startswith('subscriptions.calendar') %}active{% endif %}"
                             href="{{ url_for('subscriptions.subscriptions') }}"><i class="fa-fw fas fa-cogs"></i>
                             Subscriptions</a></li>
                     <li class="nav-item"><a
@@ -312,7 +312,7 @@
                             href="{{ url_for('configuration.index') }}"><i class="fa-fw fas fa-sliders-h"></i>
                             CMDB</a></li>
                     <li class="nav-item"><a
-                            class="nav-link {% if request.endpoint == 'credentials.list_credentials' %}active{% endif %}"
+                            class="nav-link {% if request.endpoint and request.endpoint.startswith('credentials.') %}active{% endif %}"
                             href="{{ url_for('credentials.list_credentials') }}"><i class="fa-fw fas fa-key"></i>
                             Credentials</a></li>
                     <li class="nav-item"><a
