@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "components/back_button.html" import back_to_list %}
 {% from "components/compliance_link_macro.html" import compliance_links %}
 {% block title %}Security Assessment - {{ super() }}{% endblock %}
 
@@ -9,9 +10,7 @@
         <h5 class="text-muted">For: <a href="{{ url_for('suppliers.supplier_detail', id=assessment.supplier.id) }}">{{
                 assessment.supplier.name }}</a></h5>
     </div>
-    <a href="{{ url_for('suppliers.supplier_detail', id=assessment.supplier.id) }}" class="btn btn-outline-secondary">
-        <i class="fas fa-arrow-left"></i> Back to Supplier
-    </a>
+    {{ back_to_list('suppliers.supplier_detail', label='Back to Supplier', id=assessment.supplier.id) }}
 </div>
 
 <div class="card mb-4">

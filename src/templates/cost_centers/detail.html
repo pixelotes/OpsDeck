@@ -1,8 +1,10 @@
 {% extends "layout.html" %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block title %}{{ cost_center.code }} - Cost Center - OpsDeck{% endblock %}
 
 {% block content %}
+{{ back_to_list('cost_centers.list_cost_centers') }}
 <div class="container-fluid">
     <div class="mb-4">
         <div class="d-flex justify-content-between align-items-center">

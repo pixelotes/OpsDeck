@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block title %}Execution Details - {{ execution.activity.name }} - {{ super() }}{% endblock %}
 
 {% block content %}
@@ -11,10 +12,7 @@
             <i class="fas fa-edit"></i> Edit
         </a>
         {% endif %}
-        <a href="{{ url_for('activities.activity_detail', id=execution.activity_id) }}"
-            class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> Back to Activity
-        </a>
+        {{ back_to_list('activities.activity_detail', label='Back to Activity', id=execution.activity_id) }}
     </div>
 </div>
 

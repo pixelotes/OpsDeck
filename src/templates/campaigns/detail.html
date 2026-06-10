@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block title %}Campaign: {{ campaign.title }} - {{ super() }}{% endblock %}
 
 {% block content %}
@@ -70,9 +71,7 @@
         </form>
         {% endif %}
 
-        <a href="{{ url_for('campaigns.list_campaigns') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Back
-        </a>
+        {{ back_to_list('campaigns.list_campaigns') }}
     </div>
 </div>
 

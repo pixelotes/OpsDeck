@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "components/back_button.html" import back_to_list %}
 {% from "components/compliance_link_macro.html" import compliance_links %}
 {% block title %}Inventory: {{ inventory.name }} - {{ super() }}{% endblock %}
 
@@ -21,9 +22,7 @@
             </button>
         </form>
         {% endif %}
-        <a href="{{ url_for('compliance.list_inventory') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> Back
-        </a>
+        {{ back_to_list('compliance.list_inventory') }}
     </div>
 </div>
 

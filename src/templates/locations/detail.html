@@ -1,8 +1,10 @@
 {% extends "layout.html" %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block title %}{{ location.name }} - {{ super() }}{% endblock %}
 
 {% block content %}
+{{ back_to_list('locations.list_locations') }}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-map-marker-alt"></i> {{ location.name }}</h2>
     <a href="{{ url_for('locations.edit_location', id=location.id) }}" class="btn btn-outline-primary">

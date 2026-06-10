@@ -1,6 +1,8 @@
 {% extends "layout.html" %}
+{% from "components/back_button.html" import back_to_list %}
 {% block title %}Execution #{{ execution.id }} - {{ execution.comparison.name }} - {{ super() }}{% endblock %}
 {% block content %}
+{{ back_to_list('compliance.uar_automation_list') }}
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{{ url_for('compliance.uar_automation_list') }}">UAR Automation</a></li>

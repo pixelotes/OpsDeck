@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block title %}{{ snapshot.name }} - Org Snapshot{% endblock %}
 
 {% block head_extra %}
@@ -102,9 +103,7 @@
             <i class="fas fa-download"></i> Export
         </button>
 
-        <a href="{{ url_for('users.list_org_snapshots') }}" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> Back to List
-        </a>
+        {{ back_to_list('users.list_org_snapshots') }}
     </div>
 </div>
 

@@ -1,6 +1,8 @@
 {% extends "layout.html" %}
+{% from "components/back_button.html" import back_to_list %}
 {% block title %}Disposal Record - {{ super() }}{% endblock %}
 {% block content %}
+{{ back_to_list('disposal.list_disposals') }}
 {% set item = record.asset or record.peripheral %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">

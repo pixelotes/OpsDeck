@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block title %}{{ brand.name }} - {{ super() }}{% endblock %}
 
 {% block content %}
@@ -11,9 +12,7 @@
             <i class="fas fa-edit"></i> Edit
         </a>
         {% endif %}
-        <a href="{{ url_for('brands.list_brands') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> Back
-        </a>
+        {{ back_to_list('brands.list_brands') }}
     </div>
 </div>
 
