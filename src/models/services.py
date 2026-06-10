@@ -1,6 +1,7 @@
 from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_
 import enum
@@ -65,7 +66,7 @@ class BusinessService(db.Model):
 
     # Relationships
     cost_center = db.relationship('CostCenter', backref='services')
-    components = db.relationship('ServiceComponent', backref='service', lazy='dynamic', cascade='all, delete-orphan')
+    components = db.relationship('ServiceComponent', backref='service', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
     documents = db.relationship('Documentation', secondary='service_documentation', backref='services')
     policies = db.relationship('Policy', secondary='service_policies', backref='services')
     activities = db.relationship('SecurityActivity', secondary='service_activities', backref='services')
@@ -78,8 +79,8 @@ class BusinessService(db.Model):
         secondary=ServiceDependency.__table__,
         primaryjoin=(id == ServiceDependency.__table__.c.child_id),
         secondaryjoin=(id == ServiceDependency.__table__.c.parent_id),
-        backref=db.backref('downstream_dependencies', lazy='dynamic'),
-        lazy='dynamic',
+        backref=db.backref('downstream_dependencies', lazy=LAZY_DYNAMIC),
+        lazy=LAZY_DYNAMIC,
         overlaps="parent,child,upstream_links,downstream_links"
     )
 
@@ -88,14 +89,14 @@ class BusinessService(db.Model):
         'ServiceDependency',
         foreign_keys=[ServiceDependency.child_id],
         primaryjoin=(id == ServiceDependency.child_id),
-        lazy='dynamic',
+        lazy=LAZY_DYNAMIC,
         overlaps="child,upstream_dependencies,downstream_dependencies,parent"
     )
     downstream_links = db.relationship(
         'ServiceDependency',
         foreign_keys=[ServiceDependency.parent_id],
         primaryjoin=(id == ServiceDependency.parent_id),
-        lazy='dynamic',
+        lazy=LAZY_DYNAMIC,
         overlaps="parent,upstream_dependencies,downstream_dependencies,child"
     )
     
@@ -105,7 +106,7 @@ class BusinessService(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == BusinessService.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'BusinessService'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
     

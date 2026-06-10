@@ -1,6 +1,7 @@
 from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 
 # Association table for Risk Assessment - Change Mitigation M2M
 risk_assessment_changes = db.Table('risk_assessment_changes',
@@ -19,11 +20,11 @@ class RiskAssessment(db.Model):
     # Snapshot of global metrics at closure time
     total_residual_risk = db.Column(db.Integer) 
     
-    items = db.relationship('RiskAssessmentItem', backref='assessment', cascade='all, delete-orphan')
+    items = db.relationship('RiskAssessmentItem', backref='assessment', cascade=CASCADE_ALL_DELETE_ORPHAN)
 
     # Relationship to Changes that mitigate risks in this assessment
     mitigating_changes = db.relationship('Change', secondary=risk_assessment_changes, 
-                                       backref=db.backref('risk_assessments', lazy='dynamic'))
+                                       backref=db.backref('risk_assessments', lazy=LAZY_DYNAMIC))
 
 
     @property
@@ -46,7 +47,7 @@ class RiskAssessmentItem(db.Model):
     original_risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), nullable=True) # Optional link to original
     
     # Relationship to original risk for assessment history access
-    original_risk = db.relationship('Risk', backref=db.backref('assessment_items', lazy='dynamic'))
+    original_risk = db.relationship('Risk', backref=db.backref('assessment_items', lazy=LAZY_DYNAMIC))
     
     # --- SNAPSHOT DATA (Frozen values) ---
     risk_description = db.Column(db.Text)
@@ -63,7 +64,7 @@ class RiskAssessmentItem(db.Model):
     mitigation_notes = db.Column(db.Text) # Specific notes for this assessment
 
     # --- Relationships ---
-    evidence = db.relationship('RiskAssessmentEvidence', backref='item', cascade='all, delete-orphan')
+    evidence = db.relationship('RiskAssessmentEvidence', backref='item', cascade=CASCADE_ALL_DELETE_ORPHAN)
 
     @property
     def residual_score(self):

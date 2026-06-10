@@ -7,9 +7,14 @@ from .main import login_required
 
 certificates_bp = Blueprint('certificates', __name__, url_prefix='/certificates')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'core_inventory'
+CERTIFICATE_DETAIL = 'certificates.certificate_detail'
+WRITE_REQUIRED = 'Write access required for this action.'
+
 @certificates_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_certificates():
     certificates = Certificate.query.order_by(Certificate.name).all()
     # Eager load versions? Or just let lazy loading handle it for MVP list
@@ -18,11 +23,11 @@ def list_certificates():
 
 @certificates_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def create_certificate():
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
-                flash('Write access required for this action.', 'danger')
+        if not has_write_permission(MODULE):
+                flash(WRITE_REQUIRED, 'danger')
                 return redirect(url_for('certificates.list_certificates'))
         # 1. Create Certificate
         name = request.form.get('name')
@@ -57,7 +62,6 @@ def create_certificate():
                 expires_at=datetime.strptime(expires_at_str, '%Y-%m-%d').date(),
                 issuer=request.form.get('issuer'),
                 common_name=request.form.get('common_name'),
-                # serial_number=request.form.get('serial_number'),
                 private_key_location=request.form.get('private_key_location'),
                 is_active=True
             )
@@ -73,7 +77,7 @@ def create_certificate():
         )
         
         flash(f'Certificate "{cert.name}" created successfully.', 'success')
-        return redirect(url_for('certificates.certificate_detail', id=cert.id))
+        return redirect(url_for(CERTIFICATE_DETAIL, id=cert.id))
 
     # GET
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
@@ -82,21 +86,21 @@ def create_certificate():
 
 @certificates_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def certificate_detail(id):
     cert = db.get_or_404(Certificate, id)
     return render_template('certificates/detail.html', certificate=cert)
 
 @certificates_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_certificate(id):
     cert = db.get_or_404(Certificate, id)
     
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
-                flash('Write access required for this action.', 'danger')
-                return redirect(url_for('certificates.certificate_detail', id=id))
+        if not has_write_permission(MODULE):
+                flash(WRITE_REQUIRED, 'danger')
+                return redirect(url_for(CERTIFICATE_DETAIL, id=id))
         cert.name = request.form.get('name')
         cert.type = request.form.get('type')
         cert.description = request.form.get('description')
@@ -116,7 +120,7 @@ def edit_certificate(id):
         
         log_audit(event_type='certificate.updated', action='update', target_object=f"Certificate:{cert.id}")
         flash('Certificate updated.', 'success')
-        return redirect(url_for('certificates.certificate_detail', id=cert.id))
+        return redirect(url_for(CERTIFICATE_DETAIL, id=cert.id))
 
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     services = BusinessService.query.order_by(BusinessService.name).all()
@@ -124,14 +128,14 @@ def edit_certificate(id):
 
 @certificates_bp.route('/<int:id>/versions/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def new_version(id):
     cert = db.get_or_404(Certificate, id)
     
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
-                flash('Write access required for this action.', 'danger')
-                return redirect(url_for('certificates.certificate_detail', id=id))
+        if not has_write_permission(MODULE):
+                flash(WRITE_REQUIRED, 'danger')
+                return redirect(url_for(CERTIFICATE_DETAIL, id=id))
         expires_at_str = request.form.get('expires_at')
         if not expires_at_str:
             flash('Expiration date is required.', 'danger')
@@ -159,6 +163,6 @@ def new_version(id):
         
         log_audit(event_type='certificate_version.created', action='create', target_object=f"Certificate:{cert.id}")
         flash('New version added.', 'success')
-        return redirect(url_for('certificates.certificate_detail', id=cert.id))
+        return redirect(url_for(CERTIFICATE_DETAIL, id=cert.id))
 
     return render_template('certificates/version_form.html', certificate=cert)

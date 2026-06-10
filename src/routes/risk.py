@@ -21,8 +21,12 @@ from .main import login_required
 
 risk_bp = Blueprint('risk', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'risk_governance'
+DETAIL = 'risk.detail'
+
 @risk_bp.route('/', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def list_risks():
     query = Risk.query
 
@@ -70,7 +74,7 @@ def list_risks():
     return render_template('risk/list.html', risks=risks)
 
 @risk_bp.route('/dashboard', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def dashboard():
     # 1. KPIs
     all_risks = Risk.query.all()
@@ -165,7 +169,7 @@ def dashboard():
                            accepted_risks=accepted_risks)
 
 @risk_bp.route('/dashboard/pdf', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def dashboard_pdf():
     from weasyprint import HTML
     from flask import make_response
@@ -241,19 +245,19 @@ def dashboard_pdf():
     return response
 
 @risk_bp.route('/<int:id>', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def detail(id):
     risk = db.get_or_404(Risk, id)
     return render_template('risk/detail.html', risk=risk)
 
 @risk_bp.route('/catalog', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def catalog_list():
     catalogs = RiskCatalog.query.all()
     return render_template('risk/catalog_list.html', catalogs=catalogs)
 
 @risk_bp.route('/catalog/<int:id>', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def catalog_detail(id):
     catalog = db.get_or_404(RiskCatalog, id)
     return render_template('risk/catalog_detail.html', catalog=catalog)
@@ -263,9 +267,9 @@ from src.utils.timezone_helper import now
 
 
 @risk_bp.route('/new', methods=['GET', 'POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def new_risk():
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         if request.method == 'POST':
             flash('You do not have permission to log new risks.', 'danger')
             return redirect(url_for('risk.list_risks'))
@@ -376,13 +380,13 @@ def new_risk():
                            threat_types=threat_types, risk=pre_filled_risk)
 
 @risk_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def edit_risk(id):
     risk = db.get_or_404(Risk, id)
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         if request.method == 'POST':
             flash('You do not have permission to edit risks.', 'danger')
-            return redirect(url_for('risk.detail', id=id))
+            return redirect(url_for(DETAIL, id=id))
     if request.method == 'POST':
         # Capture old values for audit
         old_score = risk.residual_score
@@ -441,7 +445,7 @@ def edit_risk(id):
         )
         
         flash('Risk has been updated.', 'success')
-        return redirect(url_for('risk.detail', id=risk.id))
+        return redirect(url_for(DETAIL, id=risk.id))
 
     users = User.query.filter_by(is_archived=False).all()
     activities = SecurityActivity.query.order_by(SecurityActivity.name).all()
@@ -452,18 +456,18 @@ def edit_risk(id):
                            threat_types=threat_types)
 
 @risk_bp.route('/<int:id>/affected_items/add', methods=['POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def add_affected_item(id):
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         flash('You do not have permission to modify risk items.', 'danger')
-        return redirect(url_for('risk.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     risk = db.get_or_404(Risk, id)
     linkable_type = request.form.get('linkable_type')
     linkable_id = request.form.get('linkable_id')
     
     if not linkable_type or not linkable_id:
         flash('Invalid item selected.', 'danger')
-        return redirect(url_for('risk.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
     # Check if already exists
     exists = RiskAffectedItem.query.filter_by(
@@ -474,7 +478,7 @@ def add_affected_item(id):
     
     if exists:
         flash('Item is already linked to this risk.', 'warning')
-        return redirect(url_for('risk.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
         
     # Verify existence of the target object
     model_map = {
@@ -487,36 +491,36 @@ def add_affected_item(id):
     model = model_map.get(linkable_type)
     if not model:
         flash(f'Unsupported item type: {linkable_type}', 'danger')
-        return redirect(url_for('risk.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
         
     target = db.session.get(model,linkable_id)
     if not target:
         flash('Target item not found.', 'danger')
-        return redirect(url_for('risk.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
         
     item = RiskAffectedItem(risk_id=risk.id, linkable_type=linkable_type, linkable_id=linkable_id)
     db.session.add(item)
     db.session.commit()
     
     flash('Affected item added successfully.', 'success')
-    return redirect(url_for('risk.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 @risk_bp.route('/affected_items/<int:item_id>/delete', methods=['POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def remove_affected_item(item_id):
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         item = db.get_or_404(RiskAffectedItem, item_id)
         flash('You do not have permission to modify risk items.', 'danger')
-        return redirect(url_for('risk.detail', id=item.risk_id))
+        return redirect(url_for(DETAIL, id=item.risk_id))
     item = db.get_or_404(RiskAffectedItem, item_id)
     risk_id = item.risk_id
     db.session.delete(item)
     db.session.commit()
     flash('Affected item removed.', 'success')
-    return redirect(url_for('risk.detail', id=risk_id))
+    return redirect(url_for(DETAIL, id=risk_id))
 
 @risk_bp.route('/api/items/<item_type>', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def api_get_items(item_type):
     """API endpoint to fetch items by type for dynamic selector."""
     model_map = {
@@ -548,7 +552,7 @@ def api_get_items(item_type):
 
 
 @risk_bp.route('/api/references/<ref_type>', methods=['GET'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def api_get_references(ref_type):
     """API endpoint to fetch reference items by type for dynamic selector."""
     model_map = {
@@ -576,11 +580,11 @@ def api_get_references(ref_type):
 
 
 @risk_bp.route('/<int:id>/references/add', methods=['POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def add_reference(id):
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         flash('You do not have permission to modify risk references.', 'danger')
-        return redirect(url_for('risk.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     """Add a reference (Policy, Documentation, Link) to a risk."""
     risk = db.get_or_404(Risk, id)
     linkable_type = request.form.get('linkable_type')
@@ -588,7 +592,7 @@ def add_reference(id):
     
     if not linkable_type or not linkable_id:
         flash('Invalid reference selected.', 'danger')
-        return redirect(url_for('risk.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
     # Check if already exists
     exists = RiskReference.query.filter_by(
@@ -599,7 +603,7 @@ def add_reference(id):
     
     if exists:
         flash('Reference is already linked to this risk.', 'warning')
-        return redirect(url_for('risk.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
         
     # Verify existence of the target object
     model_map = {
@@ -611,32 +615,32 @@ def add_reference(id):
     model = model_map.get(linkable_type)
     if not model:
         flash(f'Unsupported reference type: {linkable_type}', 'danger')
-        return redirect(url_for('risk.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
         
     target = db.session.get(model,linkable_id)
     if not target:
         flash('Target reference not found.', 'danger')
-        return redirect(url_for('risk.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
         
     ref = RiskReference(risk_id=risk.id, linkable_type=linkable_type, linkable_id=linkable_id)
     db.session.add(ref)
     db.session.commit()
     
     flash('Reference added successfully.', 'success')
-    return redirect(url_for('risk.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 
 @risk_bp.route('/references/<int:ref_id>/delete', methods=['POST'])
-@requires_permission('risk_governance')
+@requires_permission(MODULE)
 def remove_reference(ref_id):
-    if not has_write_permission('risk_governance'):
+    if not has_write_permission(MODULE):
         ref = db.get_or_404(RiskReference, ref_id)
         flash('You do not have permission to modify risk references.', 'danger')
-        return redirect(url_for('risk.detail', id=ref.risk_id))
+        return redirect(url_for(DETAIL, id=ref.risk_id))
     """Remove a reference from a risk."""
     ref = db.get_or_404(RiskReference, ref_id)
     risk_id = ref.risk_id
     db.session.delete(ref)
     db.session.commit()
     flash('Reference removed.', 'success')
-    return redirect(url_for('risk.detail', id=risk_id))
+    return redirect(url_for(DETAIL, id=risk_id))

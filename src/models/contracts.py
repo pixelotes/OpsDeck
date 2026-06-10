@@ -2,6 +2,7 @@ from datetime import datetime, date
 from sqlalchemy import and_
 from sqlalchemy.orm import foreign
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from src.utils.timezone_helper import today, now
 
 
@@ -40,11 +41,11 @@ class Contract(db.Model):
     attachments = db.relationship('Attachment',
         primaryjoin="and_(Contract.id==foreign(Attachment.linkable_id), "
                     "Attachment.linkable_type=='Contract')",
-        lazy=True, cascade='all, delete-orphan',
+        lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="attachments")
         
     # 2. Linked Items (The Reverse Polymorphic Link)
-    items = db.relationship('ContractItem', backref='contract', lazy='dynamic', cascade='all, delete-orphan')
+    items = db.relationship('ContractItem', backref='contract', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
 
     @property
     def is_active(self):

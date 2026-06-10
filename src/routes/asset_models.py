@@ -10,10 +10,15 @@ from src.utils.logger import log_audit
 
 asset_models_bp = Blueprint('asset_models', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'core_inventory'
+EDIT_MODEL = 'asset_models.edit_model'
+LIST_MODELS = 'asset_models.list_models'
+
 
 @asset_models_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_models():
     brand_id = request.args.get('brand_id', type=int)
     query = AssetModel.query.join(Brand)
@@ -27,7 +32,7 @@ def list_models():
 
 @asset_models_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def model_detail(id):
     model = db.get_or_404(AssetModel, id)
     return render_template('asset_models/detail.html', model=model)
@@ -35,7 +40,7 @@ def model_detail(id):
 
 @asset_models_bp.route('/new', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def new_model():
     brands = Brand.query.order_by(Brand.name).all()
     return render_template('asset_models/form.html', model=None, brands=brands,
@@ -44,7 +49,7 @@ def new_model():
 
 @asset_models_bp.route('/new', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def create_model():
     name = (request.form.get('name') or '').strip()
     brand_id = request.form.get('brand_id', type=int)
@@ -60,7 +65,7 @@ def create_model():
     existing = AssetModel.query.filter_by(brand_id=brand.id, name=name).first()
     if existing:
         flash(f'Model "{name}" already exists for brand "{brand.name}".', 'warning')
-        return redirect(url_for('asset_models.list_models'))
+        return redirect(url_for(LIST_MODELS))
 
     model = AssetModel(name=name, brand_id=brand.id, notes=request.form.get('notes') or None)
     db.session.add(model)
@@ -70,12 +75,12 @@ def create_model():
         target_object=f'AssetModel:{model.id}', target_info=f'{brand.name} / {model.name}',
     )
     flash(f'Model "{model.name}" created.', 'success')
-    return redirect(url_for('asset_models.list_models'))
+    return redirect(url_for(LIST_MODELS))
 
 
 @asset_models_bp.route('/<int:id>/edit', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_model(id):
     model = db.get_or_404(AssetModel, id)
     brands = Brand.query.order_by(Brand.name).all()
@@ -85,7 +90,7 @@ def edit_model(id):
 
 @asset_models_bp.route('/<int:id>/edit', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def update_model(id):
     model = db.get_or_404(AssetModel, id)
     name = (request.form.get('name') or '').strip()
@@ -93,11 +98,11 @@ def update_model(id):
 
     if not name:
         flash('Model name is required.', 'danger')
-        return redirect(url_for('asset_models.edit_model', id=id))
+        return redirect(url_for(EDIT_MODEL, id=id))
     brand = db.session.get(Brand, brand_id) if brand_id else None
     if not brand:
         flash('A valid brand is required.', 'danger')
-        return redirect(url_for('asset_models.edit_model', id=id))
+        return redirect(url_for(EDIT_MODEL, id=id))
 
     clash = AssetModel.query.filter(
         AssetModel.brand_id == brand.id,
@@ -106,7 +111,7 @@ def update_model(id):
     ).first()
     if clash:
         flash(f'Another model named "{name}" already exists for brand "{brand.name}".', 'danger')
-        return redirect(url_for('asset_models.edit_model', id=id))
+        return redirect(url_for(EDIT_MODEL, id=id))
 
     model.name = name
     model.brand_id = brand.id
@@ -117,12 +122,12 @@ def update_model(id):
         target_object=f'AssetModel:{model.id}', target_info=f'{brand.name} / {model.name}',
     )
     flash(f'Model "{model.name}" updated.', 'success')
-    return redirect(url_for('asset_models.list_models'))
+    return redirect(url_for(LIST_MODELS))
 
 
 @asset_models_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def delete_model(id):
     model = db.get_or_404(AssetModel, id)
     in_use_assets = Asset.query.filter_by(model_id=id).count()
@@ -133,7 +138,7 @@ def delete_model(id):
             f'{in_use_assets} asset(s) and {in_use_peripherals} peripheral(s).',
             'danger',
         )
-        return redirect(url_for('asset_models.list_models'))
+        return redirect(url_for(LIST_MODELS))
     name = model.name
     db.session.delete(model)
     db.session.commit()
@@ -142,4 +147,4 @@ def delete_model(id):
         target_object=f'AssetModel:{id}', target_info=name,
     )
     flash(f'Model "{name}" deleted.', 'success')
-    return redirect(url_for('asset_models.list_models'))
+    return redirect(url_for(LIST_MODELS))

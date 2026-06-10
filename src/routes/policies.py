@@ -12,19 +12,24 @@ from src.utils.timezone_helper import today
 
 policies_bp = Blueprint('policies', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'knowledge_policy'
+DETAIL = 'policies.detail'
+POLICIES_VERSION_FORM_HTML = 'policies/version_form.html'
+
 @policies_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def list_policies():
     policies = Policy.query.order_by(Policy.title).all()
     return render_template('policies/list.html', policies=policies)
 
 @policies_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def new_policy():
     if request.method == 'POST':
-        if not has_write_permission('knowledge_policy'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create policies.', 'danger')
             return redirect(url_for('policies.list_policies'))
         policy = Policy(
@@ -54,7 +59,7 @@ def new_policy():
         db.session.add(version)
         db.session.commit()
         flash('Policy and its initial version have been created.', 'success')
-        return redirect(url_for('policies.detail', id=policy.id))
+        return redirect(url_for(DETAIL, id=policy.id))
 
     users = User.query.order_by(User.name).all()
     groups = Group.query.order_by(Group.name).all()
@@ -62,7 +67,7 @@ def new_policy():
 
 @policies_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def detail(id):
     policy = db.get_or_404(Policy, id)
     users = User.query.order_by(User.name).filter_by(is_archived=False).all()
@@ -71,15 +76,15 @@ def detail(id):
 
 @policies_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def edit_policy(id):
     policy = db.get_or_404(Policy, id)
     latest_version = PolicyVersion.query.filter_by(policy_id=id).order_by(PolicyVersion.effective_date.desc()).first()
 
     if request.method == 'POST':
-        if not has_write_permission('knowledge_policy'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update policies.', 'danger')
-            return redirect(url_for('policies.detail', id=id))
+            return redirect(url_for(DETAIL, id=id))
         policy.title = request.form['title']
         policy.category = request.form.get('category')
         policy.description = request.form.get('description')
@@ -93,7 +98,7 @@ def edit_policy(id):
 
         db.session.commit()
         flash('Policy details have been updated.', 'success')
-        return redirect(url_for('policies.detail', id=policy.id))
+        return redirect(url_for(DETAIL, id=policy.id))
     
     users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     groups = Group.query.order_by(Group.name).all()
@@ -102,18 +107,18 @@ def edit_policy(id):
 
 @policies_bp.route('/<int:id>/new_version', methods=['GET', 'POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def new_version(id):
     policy = db.get_or_404(Policy, id)
     if request.method == 'POST':
-        if not has_write_permission('knowledge_policy'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create versions.', 'danger')
-            return redirect(url_for('policies.detail', id=id))
+            return redirect(url_for(DETAIL, id=id))
         content = request.form['content']
         
         if not content or not content.strip():
             flash('Policy content cannot be empty.', 'danger')
-            return render_template('policies/version_form.html', policy=policy)
+            return render_template(POLICIES_VERSION_FORM_HTML, policy=policy)
 
         version = PolicyVersion(
             policy_id=id,
@@ -144,27 +149,27 @@ def new_version(id):
                 db.session.commit()
 
         flash(f'New version "{version.version_number}" has been created.', 'success')
-        return redirect(url_for('policies.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
         
     users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     groups = Group.query.order_by(Group.name).all()
-    return render_template('policies/version_form.html', policy=policy, users=users, groups=groups)
+    return render_template(POLICIES_VERSION_FORM_HTML, policy=policy, users=users, groups=groups)
 
 @policies_bp.route('/version/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def edit_version(id):
     version = db.get_or_404(PolicyVersion, id)
     policy = version.policy
     if request.method == 'POST':
-        if not has_write_permission('knowledge_policy'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update versions.', 'danger')
-            return redirect(url_for('policies.detail', id=policy.id))
+            return redirect(url_for(DETAIL, id=policy.id))
         content = request.form['content']
 
         if not content or not content.strip():
             flash('Policy content cannot be empty.', 'danger')
-            return render_template('policies/version_form.html', policy=policy, version=version)
+            return render_template(POLICIES_VERSION_FORM_HTML, policy=policy, version=version)
             
         version.version_number = request.form['version_number']
         version.effective_date = datetime.strptime(request.form['effective_date'], '%Y-%m-%d').date()
@@ -195,20 +200,20 @@ def edit_version(id):
 
         db.session.commit()
         flash(f'Version "{version.version_number}" has been updated.', 'success')
-        return redirect(url_for('policies.detail', id=policy.id))
+        return redirect(url_for(DETAIL, id=policy.id))
     
     users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     groups = Group.query.order_by(Group.name).all()
-    return render_template('policies/version_form.html', policy=policy, version=version, users=users, groups=groups)
+    return render_template(POLICIES_VERSION_FORM_HTML, policy=policy, version=version, users=users, groups=groups)
 
 @policies_bp.route('/version/<int:id>/activate', methods=['POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def activate_version(id):
-    if not has_write_permission('knowledge_policy'):
+    if not has_write_permission(MODULE):
         version = db.get_or_404(PolicyVersion, id)
         flash('Write access required to activate versions.', 'danger')
-        return redirect(url_for('policies.detail', id=version.policy_id))
+        return redirect(url_for(DETAIL, id=version.policy_id))
     version_to_activate = db.get_or_404(PolicyVersion, id)
     policy = version_to_activate.policy
 
@@ -224,11 +229,11 @@ def activate_version(id):
     
     db.session.commit()
     flash(f'Version "{version_to_activate.version_number}" is now active.', 'success')
-    return redirect(url_for('policies.detail', id=policy.id))
+    return redirect(url_for(DETAIL, id=policy.id))
 
 @policies_bp.route('/version/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def view_version(id):
     version = db.get_or_404(PolicyVersion, id)
     user_id = session.get('user_id')
@@ -237,7 +242,7 @@ def view_version(id):
 
 @policies_bp.route('/version/<int:id>/acknowledge', methods=['POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def acknowledge_version(id):
     version = db.get_or_404(PolicyVersion, id)
     user_id = session.get('user_id')
@@ -261,11 +266,11 @@ def acknowledge_version(id):
 
 @policies_bp.route('/policy/<int:policy_id>/remove_user/<int:user_id>', methods=['POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def remove_user_from_policy(policy_id, user_id):
-    if not has_write_permission('knowledge_policy'):
+    if not has_write_permission(MODULE):
         flash('Write access required to remove users.', 'danger')
-        return redirect(url_for('policies.detail', id=policy_id))
+        return redirect(url_for(DETAIL, id=policy_id))
     db.get_or_404(Policy, policy_id)
     latest_version = PolicyVersion.query.filter_by(policy_id=policy_id).order_by(PolicyVersion.effective_date.desc()).first()
     if latest_version:
@@ -274,15 +279,15 @@ def remove_user_from_policy(policy_id, user_id):
             latest_version.users_to_acknowledge.remove(user)
             db.session.commit()
             flash(f'User "{user.name}" removed from policy.', 'success')
-    return redirect(url_for('policies.detail', id=policy_id))
+    return redirect(url_for(DETAIL, id=policy_id))
 
 @policies_bp.route('/policy/<int:policy_id>/remove_group/<int:group_id>', methods=['POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def remove_group_from_policy(policy_id, group_id):
-    if not has_write_permission('knowledge_policy'):
+    if not has_write_permission(MODULE):
         flash('Write access required to remove groups.', 'danger')
-        return redirect(url_for('policies.detail', id=policy_id))
+        return redirect(url_for(DETAIL, id=policy_id))
     db.get_or_404(Policy, policy_id)
     latest_version = PolicyVersion.query.filter_by(policy_id=policy_id).order_by(PolicyVersion.effective_date.desc()).first()
     if latest_version:
@@ -291,4 +296,4 @@ def remove_group_from_policy(policy_id, group_id):
             latest_version.groups_to_acknowledge.remove(group)
             db.session.commit()
             flash(f'Group "{group.name}" removed from policy.', 'success')
-    return redirect(url_for('policies.detail', id=policy_id))
+    return redirect(url_for(DETAIL, id=policy_id))

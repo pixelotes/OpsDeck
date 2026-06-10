@@ -1,6 +1,7 @@
 from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_
 
@@ -62,13 +63,13 @@ class Request(db.Model):
     software = db.relationship('Software', backref='requests')
 
     # --- Integrations ---
-    tags = db.relationship('Tag', secondary=request_tags, backref=db.backref('requests', lazy='dynamic'))
+    tags = db.relationship('Tag', secondary=request_tags, backref=db.backref('requests', lazy=LAZY_DYNAMIC))
 
     # Polymorphic Attachments (Evidence)
     attachments = db.relationship('Attachment',
                         primaryjoin="and_(Request.id==foreign(Attachment.linkable_id), "
                                     "Attachment.linkable_type=='Request')",
-                        lazy=True, cascade='all, delete-orphan',
+                        lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                         overlaps="attachments")
 
     # Compliance Links (Evidence for controls)
@@ -77,7 +78,7 @@ class Request(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Request.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Request'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
 

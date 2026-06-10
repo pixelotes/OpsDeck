@@ -7,6 +7,7 @@ extensibility for mass campaigns and security bulletins.
 """
 from datetime import datetime
 from ..extensions import db
+from .constants import LAZY_DYNAMIC
 from src.utils.timezone_helper import now, today
 
 
@@ -116,9 +117,9 @@ class Campaign(db.Model):
     
     # Many-to-Many relationships for targeted audience
     target_users = db.relationship('User', secondary=campaign_users, 
-                                   backref=db.backref('campaigns_as_recipient', lazy='dynamic'))
+                                   backref=db.backref('campaigns_as_recipient', lazy=LAZY_DYNAMIC))
     target_groups = db.relationship('Group', secondary=campaign_groups,
-                                    backref=db.backref('campaigns', lazy='dynamic'))
+                                    backref=db.backref('campaigns', lazy=LAZY_DYNAMIC))
     
     # Tags for categorization
     tags = db.relationship('Tag', secondary=campaign_tags, lazy='subquery',

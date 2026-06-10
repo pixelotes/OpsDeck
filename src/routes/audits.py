@@ -19,13 +19,21 @@ from src.utils.timezone_helper import now
 
 audits_bp = Blueprint('audits', __name__, url_prefix='/security/audits')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'compliance'
+LIST_AUDITS = 'audits.list_audits'
+NEW_AUDIT = 'audits.new_audit'
+VIEW_AUDIT = 'audits.view_audit'
+MSG_AUDIT_LOCKED_CANNOT_MODIFIED = 'Audit is locked and cannot be modified.'
+MSG_FILE_SELECTED = 'No file selected.'
+
 # ============================================================================
 # LIST & CRUD
 # ============================================================================
 
 @audits_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def list_audits():
     # IMPORTANT: Show ALL audits regardless of framework.is_active status
     # Audits are historical evidence snapshots and remain valid even if framework is deactivated
@@ -38,12 +46,12 @@ def list_audits():
 
 @audits_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def new_audit():
     if request.method == 'POST':
-        if not has_write_permission('compliance'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create audits.', 'danger')
-            return redirect(url_for('audits.list_audits'))
+            return redirect(url_for(LIST_AUDITS))
         creation_strategy = request.form.get('creation_strategy', 'scratch')
         
         # Common fields
@@ -51,7 +59,7 @@ def new_audit():
         
         if not internal_lead_id:
             flash('Internal Lead is required.', 'danger')
-            return redirect(url_for('audits.new_audit'))
+            return redirect(url_for(NEW_AUDIT))
         
         # Automated Evidence Configuration (applies to both strategies)
         evidence_months = int(request.form.get('evidence_months', 6))
@@ -68,7 +76,7 @@ def new_audit():
 
                 if not name or not framework_id:
                     flash('Audit Name and Framework are required for fresh starts.', 'danger')
-                    return redirect(url_for('audits.new_audit'))
+                    return redirect(url_for(NEW_AUDIT))
 
                 audit = ComplianceAudit.create_snapshot(
                     framework_id=int(framework_id),
@@ -87,7 +95,7 @@ def new_audit():
                 
                 if not source_audit_id:
                     flash('Source Audit is required for renewal.', 'danger')
-                    return redirect(url_for('audits.new_audit'))
+                    return redirect(url_for(NEW_AUDIT))
                 
                 target_date = None
                 if target_date_str:
@@ -103,12 +111,12 @@ def new_audit():
                 )
             
             flash('Audit created successfully.', 'success')
-            return redirect(url_for('audits.view_audit', id=audit.id))
+            return redirect(url_for(VIEW_AUDIT, id=audit.id))
             
         except Exception as e:
             db.session.rollback()
             flash(f'Error creating audit: {str(e)}', 'danger')
-            return redirect(url_for('audits.new_audit'))
+            return redirect(url_for(NEW_AUDIT))
 
     frameworks = Framework.query.filter_by(is_active=True).all()
     users = User.query.filter_by(is_archived=False).all()
@@ -130,7 +138,7 @@ def new_audit():
 
 @audits_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def view_audit(id):
     audit = db.get_or_404(ComplianceAudit, id)
     users = User.query.filter_by(is_archived=False).all()
@@ -161,17 +169,17 @@ def view_audit(id):
 
 @audits_bp.route('/<int:id>/header', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def update_audit_header(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to update audit header.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
     if audit.is_locked:
-        flash('Audit is locked and cannot be modified.', 'warning')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_AUDIT_LOCKED_CANNOT_MODIFIED, 'warning')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     audit.status = request.form.get('status', audit.status)
     audit.outcome = request.form.get('outcome') or None
@@ -186,21 +194,21 @@ def update_audit_header(id):
     
     db.session.commit()
     flash('Audit details updated.', 'success')
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 @audits_bp.route('/<int:id>/update', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def update_audit_items(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to update audit items.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
     if audit.is_locked:
-        flash('Audit is locked and cannot be modified.', 'warning')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_AUDIT_LOCKED_CANNOT_MODIFIED, 'warning')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     for item in audit.audit_items:
         item_id = str(item.id)
@@ -222,7 +230,7 @@ def update_audit_items(id):
         db.session.rollback()
         flash(f'Error updating audit: {str(e)}', 'danger')
         
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 # ============================================================================
 # PARTICIPANTS
@@ -230,17 +238,17 @@ def update_audit_items(id):
 
 @audits_bp.route('/<int:id>/participants/add', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def add_participant(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to add participants.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
     if audit.is_locked:
-        flash('Audit is locked and cannot be modified.', 'warning')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_AUDIT_LOCKED_CANNOT_MODIFIED, 'warning')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     user_id = request.form.get('user_id')
     
@@ -251,21 +259,21 @@ def add_participant(id):
             db.session.commit()
             flash(f'{user.name} added to the team.', 'success')
     
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 @audits_bp.route('/<int:id>/participants/<int:user_id>/remove', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def remove_participant(id, user_id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to remove participants.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
     if audit.is_locked:
-        flash('Audit is locked and cannot be modified.', 'warning')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_AUDIT_LOCKED_CANNOT_MODIFIED, 'warning')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     user = db.get_or_404(User, user_id)
     
@@ -274,7 +282,7 @@ def remove_participant(id, user_id):
         db.session.commit()
         flash(f'{user.name} removed from the team.', 'success')
     
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 # ============================================================================
 # ATTACHMENTS (Global Audit Attachments)
@@ -282,28 +290,28 @@ def remove_participant(id, user_id):
 
 @audits_bp.route('/<int:id>/attachments/upload', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def upload_audit_attachment(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to upload attachments.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     from flask import current_app
     
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
     if audit.is_locked:
-        flash('Audit is locked and cannot be modified.', 'warning')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_AUDIT_LOCKED_CANNOT_MODIFIED, 'warning')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     if 'file' not in request.files:
-        flash('No file selected.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_FILE_SELECTED, 'danger')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     file = request.files['file']
     if file.filename == '':
-        flash('No file selected.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_FILE_SELECTED, 'danger')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     original_filename = file.filename
     unique_filename = f"{uuid.uuid4().hex}_{secure_filename(original_filename)}"
@@ -321,7 +329,7 @@ def upload_audit_attachment(id):
     db.session.commit()
     
     flash('File uploaded successfully.', 'success')
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 # ============================================================================
 # ITEM ATTACHMENTS
@@ -329,11 +337,11 @@ def upload_audit_attachment(id):
 
 @audits_bp.route('/<int:id>/item/<int:item_id>/upload', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def upload_item_attachment(id, item_id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to upload evidence.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     from flask import current_app
     
     audit = db.get_or_404(ComplianceAudit, id)
@@ -341,17 +349,17 @@ def upload_item_attachment(id, item_id):
     
     # Lock check
     if audit.is_locked:
-        flash('Audit is locked and cannot be modified.', 'warning')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_AUDIT_LOCKED_CANNOT_MODIFIED, 'warning')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     if 'file' not in request.files:
-        flash('No file selected.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_FILE_SELECTED, 'danger')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     file = request.files['file']
     if file.filename == '':
-        flash('No file selected.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_FILE_SELECTED, 'danger')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     original_filename = file.filename
     unique_filename = f"{uuid.uuid4().hex}_{secure_filename(original_filename)}"
@@ -369,7 +377,7 @@ def upload_item_attachment(id, item_id):
     db.session.commit()
     
     flash('Evidence uploaded.', 'success')
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 # ============================================================================
 # LINKED OBJECTS (Polymorphic Links)
@@ -377,18 +385,18 @@ def upload_item_attachment(id, item_id):
 
 @audits_bp.route('/<int:id>/item/<int:item_id>/link', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def add_item_link(id, item_id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to link evidence.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     item = db.get_or_404(AuditControlItem, item_id)
     
     # Lock check
     if audit.is_locked:
-        flash('Audit is locked and cannot be modified.', 'warning')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_AUDIT_LOCKED_CANNOT_MODIFIED, 'warning')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     linkable_type = request.form.get('linkable_type')
     
@@ -409,48 +417,48 @@ def add_item_link(id, item_id):
     else:
         flash('Failed to link object: Missing type or ID.', 'warning')
     
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 @audits_bp.route('/<int:id>/item/<int:item_id>/link/<int:link_id>/delete', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def delete_item_link(id, item_id, link_id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete links.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
     if audit.is_locked:
-        flash('Audit is locked and cannot be modified.', 'warning')
-        return redirect(url_for('audits.view_audit', id=id))
+        flash(MSG_AUDIT_LOCKED_CANNOT_MODIFIED, 'warning')
+        return redirect(url_for(VIEW_AUDIT, id=id))
     
     link = db.get_or_404(AuditControlLink, link_id)
     db.session.delete(link)
     db.session.commit()
     flash('Link removed.', 'success')
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 @audits_bp.route('/<int:id>/link_evidence', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def link_evidence(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to link evidence.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
     if audit.is_locked:
         flash('Audit is locked.', 'warning')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
 
     ev_type = request.form.get('type') # 'onboarding' or 'offboarding'
     ev_id = request.form.get('process_id')
     
     if not ev_id:
         flash('No process selected.', 'warning')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
 
     if ev_type == 'onboarding':
         proc = db.session.get(OnboardingProcess,ev_id)
@@ -465,20 +473,20 @@ def link_evidence(id):
             db.session.commit()
             flash('Offboarding evidence linked.', 'success')
 
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 @audits_bp.route('/<int:id>/unlink_evidence', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def unlink_evidence(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to unlink evidence.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     if audit.is_locked:
         flash('Audit is locked.', 'warning')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
 
     ev_type = request.form.get('type')
     ev_id = request.form.get('process_id')
@@ -496,7 +504,7 @@ def unlink_evidence(id):
             db.session.commit()
             flash('Offboarding evidence removed.', 'success')
             
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 # ============================================================================
 # API: AJAX Status Update
@@ -504,9 +512,9 @@ def unlink_evidence(id):
 
 @audits_bp.route('/api/control/<int:id>/status', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def api_update_control_status(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         return jsonify({'success': False, 'error': 'Write access required'}), 403
     """AJAX endpoint for instant status updates on audit controls."""
     item = db.get_or_404(AuditControlItem, id)
@@ -536,11 +544,11 @@ def api_update_control_status(id):
 
 @audits_bp.route('/<int:id>/lock', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def lock_audit(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to lock audits.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     """Lock the audit to prevent further modifications."""
     audit = db.get_or_404(ComplianceAudit, id)
     
@@ -551,15 +559,15 @@ def lock_audit(id):
         db.session.commit()
         flash('Audit has been locked. No further modifications are allowed.', 'success')
     
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 @audits_bp.route('/<int:id>/unlock', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def unlock_audit(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to unlock audits.', 'danger')
-        return redirect(url_for('audits.view_audit', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))
     """Unlock the audit to allow modifications again."""
     audit = db.get_or_404(ComplianceAudit, id)
     
@@ -570,7 +578,7 @@ def unlock_audit(id):
         db.session.commit()
         flash('Audit has been unlocked. Modifications are now allowed.', 'success')
     
-    return redirect(url_for('audits.view_audit', id=id))
+    return redirect(url_for(VIEW_AUDIT, id=id))
 
 # ============================================================================
 # EXPORT
@@ -578,7 +586,7 @@ def unlock_audit(id):
 
 @audits_bp.route('/<int:id>/export', methods=['GET'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def export_audit(id):
     audit = db.get_or_404(ComplianceAudit, id)
     
@@ -594,16 +602,16 @@ def export_audit(id):
 
 @audits_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def delete_audit(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete audits.', 'danger')
-        return redirect(url_for('audits.list_audits'))
+        return redirect(url_for(LIST_AUDITS))
     audit = db.get_or_404(ComplianceAudit, id)
     db.session.delete(audit)
     db.session.commit()
     flash('Audit deleted.', 'success')
-    return redirect(url_for('audits.list_audits'))
+    return redirect(url_for(LIST_AUDITS))
 
 # ============================================================================
 # API: Search Linkable Objects
@@ -611,7 +619,7 @@ def delete_audit(id):
 
 @audits_bp.route('/api/search-linkable', methods=['GET'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def search_linkable_api():
     """Search for linkable objects by type and query.
        If query is empty, returns all non-archived objects of that type.
@@ -750,7 +758,7 @@ def search_linkable_api():
 
 @audits_bp.route('/<int:id>/export-pack', methods=['POST'])
 @login_required
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def export_defense_pack(id):
     """
     Generate and download a complete defense pack for an audit.

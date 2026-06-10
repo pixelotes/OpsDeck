@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy import and_
 from sqlalchemy.orm import foreign
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from .auth import User
 from src.utils.timezone_helper import now, to_utc
 
@@ -50,10 +51,10 @@ class Credential(db.Model):
     asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=True)
     
     # Relationships for reverse visibility
-    services = db.relationship('BusinessService', secondary='service_credentials', backref=db.backref('credentials', lazy='dynamic'))
-    software = db.relationship('Software', backref=db.backref('credentials', lazy='dynamic'))
-    license = db.relationship('License', backref=db.backref('credentials', lazy='dynamic'))
-    asset = db.relationship('Asset', backref=db.backref('credentials', lazy='dynamic'))
+    services = db.relationship('BusinessService', secondary='service_credentials', backref=db.backref('credentials', lazy=LAZY_DYNAMIC))
+    software = db.relationship('Software', backref=db.backref('credentials', lazy=LAZY_DYNAMIC))
+    license = db.relationship('License', backref=db.backref('credentials', lazy=LAZY_DYNAMIC))
+    asset = db.relationship('Asset', backref=db.backref('credentials', lazy=LAZY_DYNAMIC))
     
     # ==========================================
     # TIMESTAMPS
@@ -67,8 +68,8 @@ class Credential(db.Model):
     secrets = db.relationship(
         'CredentialSecret',
         backref='credential',
-        lazy='dynamic',
-        cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC,
+        cascade=CASCADE_ALL_DELETE_ORPHAN,
         order_by='CredentialSecret.created_at.desc()'
     )
     

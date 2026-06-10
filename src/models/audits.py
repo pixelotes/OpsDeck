@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy import and_
 from sqlalchemy.orm import foreign
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from .core import Attachment
 from .security import Framework
 from .onboarding import OnboardingProcess, OffboardingProcess
@@ -71,8 +72,8 @@ class ComplianceAudit(db.Model):
     audit_items = db.relationship(
         'AuditControlItem',
         backref='audit',
-        cascade='all, delete-orphan',
-        lazy='dynamic'
+        cascade=CASCADE_ALL_DELETE_ORPHAN,
+        lazy=LAZY_DYNAMIC
     )
 
     # Polymorphic attachments (Proposal, Final Report, etc.)
@@ -82,8 +83,8 @@ class ComplianceAudit(db.Model):
             foreign(Attachment.linkable_id) == ComplianceAudit.id,
             Attachment.linkable_type == 'ComplianceAudit'
         ),
-        lazy='dynamic',
-        cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC,
+        cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="attachments"
     )
 
@@ -422,8 +423,8 @@ class AuditControlItem(db.Model):
     linked_objects = db.relationship(
         'AuditControlLink',
         backref='audit_item',
-        cascade='all, delete-orphan',
-        lazy='dynamic'
+        cascade=CASCADE_ALL_DELETE_ORPHAN,
+        lazy=LAZY_DYNAMIC
     )
 
     # Polymorphic attachments (Evidence files uploaded directly to this item)
@@ -433,8 +434,8 @@ class AuditControlItem(db.Model):
             foreign(Attachment.linkable_id) == AuditControlItem.id,
             Attachment.linkable_type == 'AuditControlItem'
         ),
-        lazy='dynamic',
-        cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC,
+        cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="attachments"
     )
 

@@ -7,16 +7,20 @@ from ..services.permissions_service import requires_permission
 
 locations_bp = Blueprint('locations', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'core_inventory'
+LIST_LOCATIONS = 'locations.list_locations'
+
 @locations_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory')
+@requires_permission(MODULE)
 def list_locations():
     locations = Location.query.filter_by(is_archived=False).all()
     return render_template('locations/list.html', locations=locations)
 
 @locations_bp.route('/archived', methods=['GET'])
 @login_required
-@requires_permission('core_inventory')
+@requires_permission(MODULE)
 def archived_locations():
     locations = Location.query.filter_by(is_archived=True).all()
     return render_template('locations/archived.html', locations=locations)
@@ -24,18 +28,18 @@ def archived_locations():
 
 @locations_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def archive_location(id):
     location = db.get_or_404(Location, id)
     location.is_archived = True
     db.session.commit()
     flash(f'Location "{location.name}" has been archived.', 'warning')
-    return redirect(url_for('locations.list_locations'))
+    return redirect(url_for(LIST_LOCATIONS))
 
 
 @locations_bp.route('/<int:id>/unarchive', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def unarchive_location(id):
     location = db.get_or_404(Location, id)
     location.is_archived = False
@@ -46,7 +50,7 @@ def unarchive_location(id):
 
 @locations_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def new_location():
     if request.method == 'POST':
         location = Location(
@@ -63,13 +67,13 @@ def new_location():
         db.session.add(location)
         db.session.commit()
         flash('Location created successfully!', 'success')
-        return redirect(url_for('locations.list_locations'))
+        return redirect(url_for(LIST_LOCATIONS))
 
     return render_template('locations/form.html')
 
 @locations_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def edit_location(id):
     location = db.get_or_404(Location, id)
 
@@ -85,7 +89,7 @@ def edit_location(id):
         location.reception_email = request.form.get('reception_email', '').strip() or None
         db.session.commit()
         flash('Location updated successfully!', 'success')
-        return redirect(url_for('locations.list_locations'))
+        return redirect(url_for(LIST_LOCATIONS))
 
     return render_template('locations/form.html', location=location)
 

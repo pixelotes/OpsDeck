@@ -2,6 +2,7 @@ from datetime import datetime
 from src.utils.timezone_helper import now
 from werkzeug.security import generate_password_hash, check_password_hash
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 import secrets
 
 user_groups = db.Table('user_groups',
@@ -39,18 +40,18 @@ class User(db.Model, CustomPropertiesMixin): # Add UserMixin here if using Flask
     is_archived = db.Column(db.Boolean, default=False, nullable=False, index=True)
     hide_from_org_chart = db.Column(db.Boolean, default=False, nullable=False, index=True)
     
-    acknowledgements = db.relationship('PolicyAcknowledgement', backref='user', lazy=True, cascade='all, delete-orphan')
+    acknowledgements = db.relationship('PolicyAcknowledgement', backref='user', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
     
     groups = db.relationship('Group', secondary=user_groups, back_populates='users')
     
     policy_versions_to_acknowledge = db.relationship('PolicyVersion', secondary='policy_version_users', back_populates='users_to_acknowledge')
     
-    course_assignments = db.relationship('CourseAssignment', backref='user', lazy=True, cascade='all, delete-orphan')
+    course_assignments = db.relationship('CourseAssignment', backref='user', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
     
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(User.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='User')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
                             
     # Hierarchy & Mentorship
@@ -147,7 +148,7 @@ class UserKnownIP(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: now())
     last_seen = db.Column(db.DateTime, default=lambda: now())
     
-    user = db.relationship('User', backref=db.backref('known_ips', lazy=True, cascade='all, delete-orphan'))
+    user = db.relationship('User', backref=db.backref('known_ips', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN))
     
     __table_args__ = (
         db.Index('idx_user_ip', 'user_id', 'ip_address'),
@@ -177,5 +178,5 @@ class OrgChartSnapshot(db.Model):
     audit_links = db.relationship('AuditControlLink',
         primaryjoin="and_(OrgChartSnapshot.id==foreign(AuditControlLink.linkable_id), "
                     "AuditControlLink.linkable_type=='OrgChartSnapshot')",
-        lazy='dynamic'
+        lazy=LAZY_DYNAMIC
     )

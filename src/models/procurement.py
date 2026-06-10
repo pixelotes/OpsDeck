@@ -4,6 +4,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import foreign, validates
 from sqlalchemy import and_
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from src.utils.timezone_helper import today, now
 
 
@@ -60,7 +61,7 @@ class Supplier(db.Model):
     attachments = db.relationship('Attachment',
         primaryjoin="and_(Supplier.id==foreign(Attachment.linkable_id), "
         "Attachment.linkable_type=='Supplier')",
-        lazy=True, cascade='all, delete-orphan',
+        lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
@@ -68,17 +69,17 @@ class Supplier(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Supplier.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Supplier'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
 
-    contacts = db.relationship('Contact', backref='supplier', lazy=True, cascade='all, delete-orphan')
+    contacts = db.relationship('Contact', backref='supplier', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
     subscriptions = db.relationship('Subscription', backref='supplier', lazy=True)
     purchases = db.relationship('Purchase', backref='supplier', lazy=True)
     assets = db.relationship('Asset', backref='supplier', lazy=True)
     peripherals = db.relationship('Peripheral', backref='supplier', lazy=True)
     opportunities = db.relationship('Opportunity', backref='supplier', foreign_keys='Opportunity.supplier_id')
-    security_assessments = db.relationship('SecurityAssessment', backref='supplier', lazy=True, cascade='all, delete-orphan')
+    security_assessments = db.relationship('SecurityAssessment', backref='supplier', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
 
 
 class PurchaseCostHistory(db.Model):
@@ -113,7 +114,7 @@ class Purchase(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Purchase.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Purchase')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
@@ -121,7 +122,7 @@ class Purchase(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Purchase.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Purchase'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
     assets = db.relationship('Asset', backref='purchase', lazy=True)
@@ -182,7 +183,7 @@ class Budget(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Budget.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Budget'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
 
@@ -411,7 +412,7 @@ class Subscription(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Subscription.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Subscription')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
@@ -419,11 +420,11 @@ class Subscription(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Subscription.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Subscription'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
-    cost_history = db.relationship('CostHistory', backref='subscription', lazy=True, cascade='all, delete-orphan', order_by='CostHistory.changed_date')
-    tags = db.relationship('Tag', secondary=subscription_tags, backref=db.backref('subscriptions', lazy='dynamic'))
+    cost_history = db.relationship('CostHistory', backref='subscription', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='CostHistory.changed_date')
+    tags = db.relationship('Tag', secondary=subscription_tags, backref=db.backref('subscriptions', lazy=LAZY_DYNAMIC))
     users = db.relationship('User', secondary=subscription_users, backref='access_subscriptions')
     
     # Metadata

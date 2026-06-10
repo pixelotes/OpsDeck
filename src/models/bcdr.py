@@ -2,6 +2,7 @@ from datetime import datetime, date
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from .core import Tag
 from .auth import User
 from src.utils.timezone_helper import today, now
@@ -33,14 +34,14 @@ class BCDRPlan(db.Model):
     # Relationships
     subscriptions = db.relationship('Subscription', secondary=bcdr_plan_subscriptions, backref='bcdr_plans')
     assets = db.relationship('Asset', secondary=bcdr_plan_assets, backref='bcdr_plans')
-    test_logs = db.relationship('BCDRTestLog', backref='plan', lazy='dynamic', cascade='all, delete-orphan', order_by='BCDRTestLog.test_date.desc()')
+    test_logs = db.relationship('BCDRTestLog', backref='plan', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='BCDRTestLog.test_date.desc()')
 
     compliance_links = db.relationship('ComplianceLink',
         primaryjoin=lambda: and_(
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == BCDRPlan.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'BCDRPlan'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
 
@@ -57,11 +58,11 @@ class BCDRTestLog(db.Model):
     assignee = db.relationship('User', foreign_keys=[assignee_id])
 
     # Tags
-    tags = db.relationship('Tag', secondary=bcdr_test_tags, backref=db.backref('bcdr_test_logs', lazy='dynamic'))
+    tags = db.relationship('Tag', secondary=bcdr_test_tags, backref=db.backref('bcdr_test_logs', lazy=LAZY_DYNAMIC))
 
     # Relationships
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(BCDRTestLog.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='BCDRTestLog')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")

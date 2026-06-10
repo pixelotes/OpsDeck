@@ -5,9 +5,12 @@ from .main import login_required
 
 software_bp = Blueprint('software', __name__, url_prefix='/software')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'core_inventory'
+
 @software_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_software():
     page = request.args.get('page', 1, type=int)
     all_software = Software.query.filter_by(is_archived=False).order_by(Software.name.asc()).paginate(page=page, per_page=15)
@@ -15,7 +18,7 @@ def list_software():
 
 @software_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def detail(id):
     software = db.get_or_404(Software, id)
 
@@ -45,10 +48,10 @@ def detail(id):
 
 @software_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def add_software():
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
+        if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
                 return redirect(url_for('software.list_software'))
         owner_type, owner_id = (request.form['owner'].split('_') + [None])[:2]
@@ -74,11 +77,11 @@ def add_software():
 
 @software_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_software(id):
     software = db.get_or_404(Software, id)
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
+        if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
                 return redirect(url_for('software.detail', id=id))
         owner_type, owner_id = (request.form['owner'].split('_') + [None])[:2]

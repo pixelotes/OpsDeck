@@ -10,6 +10,10 @@ from src.utils.timezone_helper import now
 
 requests_bp = Blueprint('requests', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'operations'
+DETAIL_REQUEST = 'requests.detail_request'
+
 
 def _form_context(req=None):
     """Common context for the create/edit form (active records only)."""
@@ -24,7 +28,7 @@ def _form_context(req=None):
 
 
 @requests_bp.route('/', methods=['GET'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def list_requests():
     """List all requests with filtering."""
     status = request.args.get('status')
@@ -46,11 +50,11 @@ def list_requests():
 
 
 @requests_bp.route('/new', methods=['GET', 'POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def new_request():
     """Create a new service request."""
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create requests.', 'danger')
             return redirect(url_for('requests.list_requests'))
         user_id = session.get('user_id')
@@ -93,25 +97,25 @@ def new_request():
         db.session.commit()
 
         flash('Request created successfully.', 'success')
-        return redirect(url_for('requests.detail_request', id=req.id))
+        return redirect(url_for(DETAIL_REQUEST, id=req.id))
 
     return render_template('requests/form.html', today=now(), **_form_context())
 
 
 @requests_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def edit_request(id):
     """Edit an existing request."""
     req = db.get_or_404(Request, id)
 
     if req.status in ['Completed', 'Closed', 'Cancelled']:
         flash('Cannot edit a closed request.', 'danger')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
 
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update requests.', 'danger')
-            return redirect(url_for('requests.detail_request', id=id))
+            return redirect(url_for(DETAIL_REQUEST, id=id))
 
         req.title = request.form.get('title')
         req.request_type = request.form.get('request_type')
@@ -145,28 +149,28 @@ def edit_request(id):
 
         db.session.commit()
         flash('Request updated successfully.', 'success')
-        return redirect(url_for('requests.detail_request', id=req.id))
+        return redirect(url_for(DETAIL_REQUEST, id=req.id))
 
     return render_template('requests/form.html', **_form_context(req))
 
 
-@requests_bp.route('/<int:id>')
-@requires_permission('operations')
+@requests_bp.route('/<int:id>', methods=['GET'])
+@requires_permission(MODULE)
 def detail_request(id):
     req = db.get_or_404(Request, id)
     return render_template('requests/detail.html', req=req)
 
 
 @requests_bp.route('/<int:id>/triage', methods=['POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def triage_request(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to triage requests.', 'danger')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
     if req.status != 'Pending':
         flash('Only pending requests can be sent to triage.', 'warning')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
 
     req.status = 'Triage'
     req.triaged_at = now()
@@ -174,38 +178,38 @@ def triage_request(id):
     db.session.commit()
 
     flash('Request moved to triage.', 'info')
-    return redirect(url_for('requests.detail_request', id=id))
+    return redirect(url_for(DETAIL_REQUEST, id=id))
 
 
 @requests_bp.route('/<int:id>/start', methods=['POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def start_request(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to start requests.', 'danger')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
     if req.status != 'Triage':
         flash('Request must be in triage before work can start.', 'warning')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
 
     req.status = 'In Progress'
     req.started_at = now()
     db.session.commit()
 
     flash('Request is now in progress.', 'info')
-    return redirect(url_for('requests.detail_request', id=id))
+    return redirect(url_for(DETAIL_REQUEST, id=id))
 
 
 @requests_bp.route('/<int:id>/complete', methods=['POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def complete_request(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to complete requests.', 'danger')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
     if req.status != 'In Progress':
         flash('Only in-progress requests can be completed.', 'warning')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
 
     # Optional resolution notes submitted along with completion
     resolution = request.form.get('resolution_notes')
@@ -217,63 +221,63 @@ def complete_request(id):
     db.session.commit()
 
     flash('Request marked as completed.', 'success')
-    return redirect(url_for('requests.detail_request', id=id))
+    return redirect(url_for(DETAIL_REQUEST, id=id))
 
 
 @requests_bp.route('/<int:id>/close', methods=['POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def close_request(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to close requests.', 'danger')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
     if req.status != 'Completed':
         flash('Only completed requests can be closed.', 'warning')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
 
     req.status = 'Closed'
     req.closed_at = now()
     db.session.commit()
 
     flash('Request closed.', 'success')
-    return redirect(url_for('requests.detail_request', id=id))
+    return redirect(url_for(DETAIL_REQUEST, id=id))
 
 
 @requests_bp.route('/<int:id>/cancel', methods=['POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def cancel_request(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to cancel requests.', 'danger')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
     if req.status in ['Completed', 'Closed', 'Cancelled']:
         flash('This request can no longer be cancelled.', 'warning')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
 
     req.status = 'Cancelled'
     req.closed_at = now()
     db.session.commit()
 
     flash('Request cancelled.', 'secondary')
-    return redirect(url_for('requests.detail_request', id=id))
+    return redirect(url_for(DETAIL_REQUEST, id=id))
 
 
 @requests_bp.route('/<int:id>/add_evidence', methods=['POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def add_evidence(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to add evidence.', 'danger')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
 
     if 'file' not in request.files:
         flash('No file part', 'danger')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
 
     file = request.files['file']
     if file.filename == '':
         flash('No selected file', 'danger')
-        return redirect(url_for('requests.detail_request', id=id))
+        return redirect(url_for(DETAIL_REQUEST, id=id))
 
     if file:
         filename = secure_filename(file.filename)
@@ -293,4 +297,4 @@ def add_evidence(id):
 
         flash('Evidence uploaded successfully.', 'success')
 
-    return redirect(url_for('requests.detail_request', id=id))
+    return redirect(url_for(DETAIL_REQUEST, id=id))

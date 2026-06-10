@@ -1,6 +1,7 @@
 from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN
 
 class HiringStage(db.Model):
     """Kanban stages for the hiring pipeline."""
@@ -12,7 +13,7 @@ class HiringStage(db.Model):
     is_hired_stage = db.Column(db.Boolean, default=False)  # Marker for the final stage
     
     # Relationship
-    candidates = db.relationship('Candidate', backref='stage', lazy=True, cascade='all, delete-orphan')
+    candidates = db.relationship('Candidate', backref='stage', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
 
 class Candidate(db.Model):
     """Candidate records for recruitment tracking."""

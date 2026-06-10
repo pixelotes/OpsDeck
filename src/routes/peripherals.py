@@ -2,6 +2,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
 from datetime import datetime
+from urllib.parse import urlparse
 from ..models import db, Peripheral, Asset, Purchase, Supplier, User, PeripheralAssignment
 from ..models.assets import Brand
 from ..models.core import CustomFieldDefinition
@@ -12,17 +13,23 @@ from src.utils.timezone_helper import now
 
 peripherals_bp = Blueprint('peripherals', __name__)
 
-@peripherals_bp.route('/')
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'core_inventory'
+PERIPHERALS = 'peripherals.peripherals'
+PERIPHERAL_DETAIL = 'peripherals.peripheral_detail'
+WRITE_REQUIRED = 'Write access required for this action.'
+
+@peripherals_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def peripherals():
     peripherals = Peripheral.query.filter_by(is_archived=False).all()
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     return render_template('peripherals/list.html', peripherals=peripherals, users=users)
 
-@peripherals_bp.route('/<int:id>')
+@peripherals_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def peripheral_detail(id):
     peripheral = db.get_or_404(Peripheral, id)
     custom_field_definitions = CustomFieldDefinition.query.filter_by(entity_type='Peripheral').all()
@@ -30,14 +37,14 @@ def peripheral_detail(id):
 
 @peripherals_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def new_peripheral():
     custom_field_definitions = CustomFieldDefinition.query.filter_by(entity_type='Peripheral').all()
     
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
-                flash('Write access required for this action.', 'danger')
-                return redirect(url_for('peripherals.peripherals'))
+        if not has_write_permission(MODULE):
+                flash(WRITE_REQUIRED, 'danger')
+                return redirect(url_for(PERIPHERALS))
         serial_number = request.form.get('serial_number')
         serial_number = serial_number if serial_number and serial_number != 'None' else None
         peripheral = Peripheral(
@@ -58,31 +65,36 @@ def new_peripheral():
         )
         db.session.add(peripheral)
         db.session.commit()
+
+        peripheral.save_custom_properties(request.form)
+        db.session.commit()
+
         flash('Peripheral created successfully!', 'success')
-        return redirect(url_for('peripherals.peripherals'))
+        return redirect(url_for(PERIPHERALS))
 
     return render_template('peripherals/form.html',
                             assets=Asset.query.order_by(Asset.name).all(),
                             purchases=Purchase.query.order_by(Purchase.description).all(),
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             brands=Brand.query.order_by(Brand.name).all(),
-                            users=User.query.filter_by(is_archived=False).order_by(User.name).all())
+                            users=User.query.filter_by(is_archived=False).order_by(User.name).all(),
+                            custom_field_definitions=custom_field_definitions)
 
 @peripherals_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_peripheral(id):
     peripheral = db.get_or_404(Peripheral, id)
     
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
-                flash('Write access required for this action.', 'danger')
-                return redirect(url_for('peripherals.peripheral_detail', id=id))
+        if not has_write_permission(MODULE):
+                flash(WRITE_REQUIRED, 'danger')
+                return redirect(url_for(PERIPHERAL_DETAIL, id=id))
         # Enforce EoL Workflow
         new_status = request.form.get('status')
         if new_status in ['Disposed', 'Sold']:
             flash('To dispose of a peripheral, please use the "Record Disposal" action from its detail page. This ensures a proper audit trail.', 'warning')
-            return redirect(url_for('peripherals.peripheral_detail', id=id))
+            return redirect(url_for(PERIPHERAL_DETAIL, id=id))
 
         brand_id_form = request.form.get('brand_id')
         model_id_form = request.form.get('model_id')
@@ -101,9 +113,10 @@ def edit_peripheral(id):
             peripheral.serial_number = serial_number
             peripheral.status = new_status
             peripheral.user_id = request.form.get('user_id') or None
+            peripheral.save_custom_properties(request.form)
             db.session.commit()
             flash('Peripheral updated. Cost cannot be changed because the associated purchase has been validated.', 'info')
-            return redirect(url_for('peripherals.peripheral_detail', id=id))
+            return redirect(url_for(PERIPHERAL_DETAIL, id=id))
 
         # Full update
         peripheral.name = request.form['name']
@@ -122,9 +135,10 @@ def edit_peripheral(id):
         peripheral.supplier_id = request.form.get('supplier_id') or None
         peripheral.user_id = request.form.get('user_id') or None
         
+        peripheral.save_custom_properties(request.form)
         db.session.commit()
         flash('Peripheral updated successfully!', 'success')
-        return redirect(url_for('peripherals.peripheral_detail', id=id))
+        return redirect(url_for(PERIPHERAL_DETAIL, id=id))
 
     return render_template('peripherals/form.html',
                             peripheral=peripheral,
@@ -132,21 +146,22 @@ def edit_peripheral(id):
                             purchases=Purchase.query.order_by(Purchase.description).all(),
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             brands=Brand.query.order_by(Brand.name).all(),
-                            users=User.query.filter_by(is_archived=False).order_by(User.name).all())
+                            users=User.query.filter_by(is_archived=False).order_by(User.name).all(),
+                            custom_field_definitions=CustomFieldDefinition.query.filter_by(entity_type='Peripheral').all())
 
 @peripherals_bp.route('/<int:id>/checkout', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def checkout_peripheral(id):
     peripheral = db.get_or_404(Peripheral, id)
     if peripheral.user:
         flash('This peripheral is already checked out.', 'warning')
-        return redirect(url_for('peripherals.peripheral_detail', id=id))
+        return redirect(url_for(PERIPHERAL_DETAIL, id=id))
 
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
-                flash('Write access required for this action.', 'danger')
-                return redirect(url_for('peripherals.peripheral_detail', id=id))
+        if not has_write_permission(MODULE):
+                flash(WRITE_REQUIRED, 'danger')
+                return redirect(url_for(PERIPHERAL_DETAIL, id=id))
         user_id = request.form.get('user_id')
         notes = request.form.get('notes')
         
@@ -166,33 +181,41 @@ def checkout_peripheral(id):
 
         db.session.commit()
         flash(f'Peripheral "{peripheral.name}" has been checked out to {user.name}.', 'success')
-        return redirect(url_for('peripherals.peripheral_detail', id=id))
+        return redirect(url_for(PERIPHERAL_DETAIL, id=id))
         
     users = User.query.order_by(User.name).filter_by(is_archived=False).all()
     return render_template('peripherals/checkout.html', peripheral=peripheral, users=users)
 
 @peripherals_bp.route('/<int:id>/checkin', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def checkin_peripheral(id):
     peripheral = db.get_or_404(Peripheral, id)
-    redirect_url = request.form.get('redirect_url')
+
+    # Only redirect to a local relative path to avoid open redirects (Sonar).
+    redirect_url = request.form.get('redirect_url', '')
+    parsed_redirect_url = urlparse(redirect_url)
+    safe_redirect_url = (
+        redirect_url
+        if redirect_url and not parsed_redirect_url.scheme and not parsed_redirect_url.netloc
+        else url_for(PERIPHERAL_DETAIL, id=id)
+    )
     
     if not peripheral.user:
         flash('This peripheral is already checked in.', 'warning')
-        return redirect(redirect_url or url_for('peripherals.peripheral_detail', id=id))
+        return redirect(safe_redirect_url)
 
     # REQUIRED: Select return location
     return_location_id = request.form.get('return_location_id')
     if not return_location_id:
         flash('You must select a location to return the peripheral to.', 'danger')
-        return redirect(redirect_url or url_for('peripherals.peripheral_detail', id=id))
+        return redirect(safe_redirect_url)
         
     from ..models import Location
     target_location = db.session.get(Location,return_location_id)
     if not target_location:
          flash('Selected location not found.', 'danger')
-         return redirect(redirect_url or url_for('peripherals.peripheral_detail', id=id))
+         return redirect(safe_redirect_url)
 
     assignment = PeripheralAssignment.query.filter_by(peripheral_id=id, checked_in_date=None).order_by(PeripheralAssignment.checked_out_date.desc()).first()
     
@@ -215,12 +238,12 @@ def checkin_peripheral(id):
         offboarding_item.is_completed = True
     
     db.session.commit()
-    return redirect(redirect_url or url_for('peripherals.peripheral_detail', id=id))
+    return redirect(safe_redirect_url)
 
 
-@peripherals_bp.route('/archived')
+@peripherals_bp.route('/archived', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def archived_peripherals():
     """Displays a list of all archived peripherals."""
     archived = Peripheral.query.filter_by(is_archived=True).order_by(Peripheral.name).all()
@@ -229,19 +252,19 @@ def archived_peripherals():
 
 @peripherals_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def archive_peripheral(id):
     """Sets a peripheral's status to archived."""
     peripheral = db.get_or_404(Peripheral, id)
     peripheral.is_archived = True
     db.session.commit()
     flash(f'Peripheral "{peripheral.name}" has been archived.', 'warning')
-    return redirect(url_for('peripherals.peripherals'))
+    return redirect(url_for(PERIPHERALS))
 
 
 @peripherals_bp.route('/<int:id>/unarchive', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def unarchive_peripheral(id):
     """Restores an archived peripheral to active."""
     peripheral = db.get_or_404(Peripheral, id)
@@ -251,9 +274,9 @@ def unarchive_peripheral(id):
     return redirect(url_for('peripherals.archived_peripherals'))
 
 
-@peripherals_bp.route('/<int:id>/history')
+@peripherals_bp.route('/<int:id>/history', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def peripheral_history(id):
     """Displays the full history for a peripheral as a visual timeline."""
     peripheral = db.get_or_404(Peripheral, id)

@@ -9,12 +9,17 @@ from .main import login_required
 
 credentials_bp = Blueprint('credentials', __name__, url_prefix='/credentials')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'core_inventory'
+DETAIL_CREDENTIAL = 'credentials.detail_credential'
+CREDENTIALS_FORM_HTML = 'credentials/form.html'
+
 # Credential types constant
 CREDENTIAL_TYPES = ['API Key', 'OAuth', 'Service Account', 'SSH Key', 'Password', 'Certificate']
 
 @credentials_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_credentials():
     """
     List all credentials with filtering support and pagination.
@@ -101,7 +106,7 @@ def list_credentials():
 
 @credentials_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def detail_credential(id):
     """
     Show credential details including active secret and secret history.
@@ -119,13 +124,13 @@ def detail_credential(id):
 
 @credentials_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def new_credential():
     """
     Create a new credential with its first secret.
     """
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
+        if not has_write_permission(MODULE):
             flash('Write access required for this action.', 'danger')
             return redirect(url_for('credentials.list_credentials'))
         # Extract form data
@@ -143,7 +148,7 @@ def new_credential():
             flash('Please fill in all required fields.', 'danger')
             usuarios = User.query.filter_by(is_archived=False).order_by(User.name).all()
             return render_template(
-                'credentials/form.html',
+                CREDENTIALS_FORM_HTML,
                 credential=None,
                 credential_types=CREDENTIAL_TYPES,
                 usuarios=usuarios
@@ -158,7 +163,7 @@ def new_credential():
                 flash('Invalid expiry date format.', 'danger')
                 usuarios = User.query.filter_by(is_archived=False).order_by(User.name).all()
                 return render_template(
-                    'credentials/form.html',
+                    CREDENTIALS_FORM_HTML,
                     credential=None,
                     credential_types=CREDENTIAL_TYPES,
                     usuarios=usuarios
@@ -216,7 +221,7 @@ def new_credential():
         db.session.commit()
         
         flash(f'Credential "{name}" created successfully!', 'success')
-        return redirect(url_for('credentials.detail_credential', id=new_credential.id))
+        return redirect(url_for(DETAIL_CREDENTIAL, id=new_credential.id))
     
     # GET request - show form
     usuarios = User.query.filter_by(is_archived=False).order_by(User.name).all()
@@ -232,7 +237,7 @@ def new_credential():
     assets_dict = [{'id': a.id, 'name': a.name} for a in assets]
     
     return render_template(
-        'credentials/form.html',
+        CREDENTIALS_FORM_HTML,
         credential=None,
         credential_types=CREDENTIAL_TYPES,
         usuarios=usuarios,
@@ -244,7 +249,7 @@ def new_credential():
 
 @credentials_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('core_inventory', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_credential(id):
     """
     Edit an existing credential's metadata (not the secret).
@@ -253,9 +258,9 @@ def edit_credential(id):
     credential = db.get_or_404(Credential, id)
     
     if request.method == 'POST':
-        if not has_write_permission('core_inventory'):
+        if not has_write_permission(MODULE):
             flash('Write access required for this action.', 'danger')
-            return redirect(url_for('credentials.detail_credential', id=id))
+            return redirect(url_for(DETAIL_CREDENTIAL, id=id))
         # Extract form data
         name = request.form.get('name')
         cred_type = request.form.get('type')
@@ -269,7 +274,7 @@ def edit_credential(id):
             flash('Please fill in all required fields.', 'danger')
             usuarios = User.query.filter_by(is_archived=False).order_by(User.name).all()
             return render_template(
-                'credentials/form.html',
+                CREDENTIALS_FORM_HTML,
                 credential=credential,
                 credential_types=CREDENTIAL_TYPES,
                 usuarios=usuarios
@@ -308,7 +313,7 @@ def edit_credential(id):
         db.session.commit()
         
         flash(f'Credential "{name}" updated successfully!', 'success')
-        return redirect(url_for('credentials.detail_credential', id=credential.id))
+        return redirect(url_for(DETAIL_CREDENTIAL, id=credential.id))
     
     # GET request - show form
     usuarios = User.query.filter_by(is_archived=False).order_by(User.name).all()
@@ -324,7 +329,7 @@ def edit_credential(id):
     assets_dict = [{'id': a.id, 'name': a.name} for a in assets]
     
     return render_template(
-        'credentials/form.html',
+        CREDENTIALS_FORM_HTML,
         credential=credential,
         credential_types=CREDENTIAL_TYPES,
         usuarios=usuarios,
@@ -336,7 +341,7 @@ def edit_credential(id):
 
 @credentials_bp.route('/<int:id>/rotate', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def rotate_secret(id):
     """
     Rotate the secret for a credential.
@@ -350,7 +355,7 @@ def rotate_secret(id):
     
     if not new_secret_value:
         flash('Secret value is required for rotation.', 'danger')
-        return redirect(url_for('credentials.detail_credential', id=id))
+        return redirect(url_for(DETAIL_CREDENTIAL, id=id))
     
     # Parse expiry date
     expires_at = None
@@ -359,7 +364,7 @@ def rotate_secret(id):
             expires_at = datetime.strptime(expires_at_str, '%Y-%m-%d')
         except ValueError:
             flash('Invalid expiry date format.', 'danger')
-            return redirect(url_for('credentials.detail_credential', id=id))
+            return redirect(url_for(DETAIL_CREDENTIAL, id=id))
     
     # Transaction: Deactivate all existing secrets
     for secret in credential.secrets.all():
@@ -377,11 +382,11 @@ def rotate_secret(id):
     db.session.commit()
     
     flash(f'Secret rotated successfully for "{credential.name}".', 'success')
-    return redirect(url_for('credentials.detail_credential', id=id))
+    return redirect(url_for(DETAIL_CREDENTIAL, id=id))
 
 @credentials_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('core_inventory', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def delete_credential(id):
     """
     Delete a credential and all its associated secrets (cascade).

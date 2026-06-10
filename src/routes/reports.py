@@ -16,9 +16,12 @@ from src.utils.timezone_helper import now, today
 
 reports_bp = Blueprint('reports', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'core_inventory'
+
 @reports_bp.route('/subscription-reports', methods=['GET'])
 @login_required
-@requires_permission('core_inventory')
+@requires_permission(MODULE)
 def subscription_reports():
     local_today = today()
     selected_year = request.args.get('year', default=local_today.year, type=int)
@@ -134,7 +137,7 @@ def subscription_reports():
 
 @reports_bp.route('/asset-reports', methods=['GET'])
 @login_required
-@requires_permission('core_inventory')
+@requires_permission(MODULE)
 def asset_reports():
     assets_by_brand = (
         db.session.query(Brand.name, func.count(Asset.id))
@@ -197,7 +200,7 @@ def asset_reports():
 
 @reports_bp.route('/assets-dashboard', methods=['GET'])
 @login_required
-@requires_permission('core_inventory')
+@requires_permission(MODULE)
 def assets_dashboard():
     """Executive Asset Operations Dashboard with KPIs, health metrics, and lifecycle tracking."""
     from sqlalchemy.orm import joinedload
@@ -381,7 +384,7 @@ def assets_dashboard():
 
 @reports_bp.route('/assets-dashboard/pdf', methods=['GET'])
 @login_required
-@requires_permission('core_inventory')
+@requires_permission(MODULE)
 def assets_dashboard_pdf():
     """Export Assets Dashboard as PDF."""
     from weasyprint import HTML
@@ -688,7 +691,7 @@ def spend_analysis():
 
 @reports_bp.route('/depreciation', methods=['GET'])
 @login_required
-@requires_permission('core_inventory')
+@requires_permission(MODULE)
 def depreciation_report():
     # --- Get filter options from the database ---
     suppliers = Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all()

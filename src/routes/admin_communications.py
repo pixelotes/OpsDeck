@@ -17,6 +17,11 @@ from src.utils.timezone_helper import now, today
 
 admin_communications_bp = Blueprint('admin_communications', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'hr_people'
+LIST_TEMPLATES = 'admin_communications.list_templates'
+ADMIN_EMAIL_TEMPLATE_FORM_HTML = 'admin/email_template_form.html'
+
 
 # ==========================================
 # EMAIL TEMPLATE CRUD
@@ -24,7 +29,7 @@ admin_communications_bp = Blueprint('admin_communications', __name__)
 
 @admin_communications_bp.route('/templates', methods=['GET'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def list_templates():
     """List all email templates."""
     templates = EmailTemplate.query.order_by(EmailTemplate.name).all()
@@ -33,13 +38,13 @@ def list_templates():
 
 @admin_communications_bp.route('/templates/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def new_template():
     """Create a new email template."""
     if request.method == 'POST':
-        if not has_write_permission('hr_people'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create templates.', 'danger')
-            return redirect(url_for('admin_communications.list_templates'))
+            return redirect(url_for(LIST_TEMPLATES))
         name = request.form.get('name')
         subject = request.form.get('subject')
         body_html = request.form.get('body_html')
@@ -47,18 +52,18 @@ def new_template():
         
         if not name or not subject or not body_html:
             flash('Name, subject, and body are required.', 'danger')
-            return render_template('admin/email_template_form.html', template=None)
+            return render_template(ADMIN_EMAIL_TEMPLATE_FORM_HTML, template=None)
         
         # Validate Jinja2 syntax before saving
         is_valid, error = validate_template_syntax(body_html)
         if not is_valid:
             flash(f'Template syntax error: {error}', 'danger')
-            return render_template('admin/email_template_form.html', template=None)
+            return render_template(ADMIN_EMAIL_TEMPLATE_FORM_HTML, template=None)
         
         # Check for duplicate name
         if EmailTemplate.query.filter_by(name=name).first():
             flash(f'A template named "{name}" already exists.', 'danger')
-            return render_template('admin/email_template_form.html', template=None)
+            return render_template(ADMIN_EMAIL_TEMPLATE_FORM_HTML, template=None)
         
         template = EmailTemplate(
             name=name,
@@ -70,20 +75,20 @@ def new_template():
         db.session.commit()
         
         flash(f'Email template "{name}" created successfully.', 'success')
-        return redirect(url_for('admin_communications.list_templates'))
+        return redirect(url_for(LIST_TEMPLATES))
     
-    return render_template('admin/email_template_form.html', template=None)
+    return render_template(ADMIN_EMAIL_TEMPLATE_FORM_HTML, template=None)
 
 
 @admin_communications_bp.route('/templates/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def edit_template(id):
     """Edit an existing email template."""
     template = db.get_or_404(EmailTemplate, id)
 
     if request.method == 'POST':
-        if not has_write_permission('hr_people'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update templates.', 'danger')
             return redirect(url_for('admin_communications.edit_template', id=id))
         name = request.form.get('name')
@@ -94,24 +99,24 @@ def edit_template(id):
         
         if not name or not subject or not body_html:
             flash('Name, subject, and body are required.', 'danger')
-            return render_template('admin/email_template_form.html', template=template)
+            return render_template(ADMIN_EMAIL_TEMPLATE_FORM_HTML, template=template)
         
         # Validate Jinja2 syntax before saving
         is_valid, error = validate_template_syntax(body_html)
         if not is_valid:
             flash(f'Template syntax error: {error}', 'danger')
-            return render_template('admin/email_template_form.html', template=template)
+            return render_template(ADMIN_EMAIL_TEMPLATE_FORM_HTML, template=template)
         
         # Check if system template (prevent updates)
         if template.is_system:
             flash(f'Cannot edit system template "{template.name}".', 'danger')
-            return redirect(url_for('admin_communications.list_templates'))
+            return redirect(url_for(LIST_TEMPLATES))
         
         # Check for duplicate name (excluding current template)
         existing = EmailTemplate.query.filter_by(name=name).first()
         if existing and existing.id != id:
             flash(f'A template named "{name}" already exists.', 'danger')
-            return render_template('admin/email_template_form.html', template=template)
+            return render_template(ADMIN_EMAIL_TEMPLATE_FORM_HTML, template=template)
         
         template.name = name
         template.subject = subject
@@ -122,18 +127,18 @@ def edit_template(id):
         db.session.commit()
         
         flash(f'Email template "{name}" updated successfully.', 'success')
-        return redirect(url_for('admin_communications.list_templates'))
+        return redirect(url_for(LIST_TEMPLATES))
     
-    return render_template('admin/email_template_form.html', template=template)
+    return render_template(ADMIN_EMAIL_TEMPLATE_FORM_HTML, template=template)
 
 
 @admin_communications_bp.route('/templates/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def delete_template(id):
-    if not has_write_permission('hr_people'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete templates.', 'danger')
-        return redirect(url_for('admin_communications.list_templates'))
+        return redirect(url_for(LIST_TEMPLATES))
     """Delete an email template."""
     template = db.get_or_404(EmailTemplate, id)
 
@@ -141,33 +146,33 @@ def delete_template(id):
 
     if template.is_system:
         flash(f'Cannot delete system template "{template.name}".', 'danger')
-        return redirect(url_for('admin_communications.list_templates'))
+        return redirect(url_for(LIST_TEMPLATES))
 
     # Check if template is used in any pack communications
     if template.pack_communications:
         flash(f'Cannot delete template "{template.name}" - it is used in {len(template.pack_communications)} pack communication(s).', 'danger')
-        return redirect(url_for('admin_communications.list_templates'))
+        return redirect(url_for(LIST_TEMPLATES))
     
     # Check if template is used in any scheduled communications
     if template.scheduled_communications:
         flash(f'Cannot delete template "{template.name}" - it is used in {len(template.scheduled_communications)} scheduled communication(s).', 'danger')
-        return redirect(url_for('admin_communications.list_templates'))
+        return redirect(url_for(LIST_TEMPLATES))
     
     name = template.name
     db.session.delete(template)
     db.session.commit()
     
     flash(f'Email template "{name}" deleted.', 'success')
-    return redirect(url_for('admin_communications.list_templates'))
+    return redirect(url_for(LIST_TEMPLATES))
 
 
 @admin_communications_bp.route('/templates/<int:id>/toggle', methods=['POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def toggle_template(id):
-    if not has_write_permission('hr_people'):
+    if not has_write_permission(MODULE):
         flash('Write access required to toggle templates.', 'danger')
-        return redirect(url_for('admin_communications.list_templates'))
+        return redirect(url_for(LIST_TEMPLATES))
     """Toggle template active status."""
     template = db.get_or_404(EmailTemplate, id)
 
@@ -175,21 +180,21 @@ def toggle_template(id):
 
     if template.is_system:
         flash(f'Cannot deactivate system template "{template.name}".', 'danger')
-        return redirect(url_for('admin_communications.list_templates'))
+        return redirect(url_for(LIST_TEMPLATES))
 
     template.is_active = not template.is_active
     db.session.commit()
     
     status = 'activated' if template.is_active else 'deactivated'
     flash(f'Email template "{template.name}" {status}.', 'info')
-    return redirect(url_for('admin_communications.list_templates'))
+    return redirect(url_for(LIST_TEMPLATES))
 
 
 @admin_communications_bp.route('/templates/<int:id>/test-send', methods=['POST'])
 @login_required
-@requires_permission('hr_people')
+@requires_permission(MODULE)
 def test_send_template(id):
-    if not has_write_permission('hr_people'):
+    if not has_write_permission(MODULE):
         return jsonify({'success': False, 'message': 'Write access required to send test emails.'}), 403
     """Send a test email to the current admin user with dummy data."""
     template = db.get_or_404(EmailTemplate, id)

@@ -22,11 +22,20 @@ import random
 
 main_bp = Blueprint('main', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+DASHBOARD = 'main.dashboard'
+DETAIL_CHANGE = 'changes.detail_change'
+DETAIL_CREDENTIAL = 'credentials.detail_credential'
+DETAIL_REQUEST = 'requests.detail_request'
+INCIDENT_DETAIL = 'compliance.incident_detail'
+LOGIN = 'main.login'
+USERS = 'users.users'
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
-            return redirect(url_for('main.login'))
+            return redirect(url_for(LOGIN))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -108,7 +117,7 @@ def verify_ip_and_login(user):
         get_user_modules(user.id)
         
         flash('Logged in successfully', 'success')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for(DASHBOARD))
     
     # --- NEW IP DETECTED: Trigger MFA ---
     
@@ -155,7 +164,7 @@ def mfa_verify():
     """Handle MFA verification."""
     # Check if MFA session exists
     if 'mfa_user_id' not in session:
-        return redirect(url_for('main.login'))
+        return redirect(url_for(LOGIN))
     
     if request.method == 'POST':
         code = request.form.get('code', '').strip()
@@ -170,7 +179,7 @@ def mfa_verify():
             session.pop('mfa_otp', None)
             session.pop('mfa_expiry', None)
             flash('The code has expired. Please log in again.', 'warning')
-            return redirect(url_for('main.login'))
+            return redirect(url_for(LOGIN))
         
         if code == stored_otp:
             # SUCCESS - Get user and complete login
@@ -206,7 +215,7 @@ def mfa_verify():
                 get_user_modules(user.id)
                 
                 flash('Device verified. Welcome.', 'success')
-                return redirect(url_for('main.dashboard'))
+                return redirect(url_for(DASHBOARD))
         
         # FAILURE - Wrong code
         log_audit(
@@ -225,7 +234,7 @@ def mfa_verify():
 def logout():
     session.pop('user_id', None)
     flash('You have been logged out', 'success')
-    return redirect(url_for('main.login'))
+    return redirect(url_for(LOGIN))
 
 
 @main_bp.route('/impersonate/<int:user_id>', methods=['POST'])
@@ -245,7 +254,7 @@ def impersonate(user_id):
             error_message='Unauthorized impersonation attempt - not break-glass admin'
         )
         flash('Unauthorized: Only the break-glass admin can impersonate users.', 'danger')
-        return redirect(url_for('users.users'))
+        return redirect(url_for(USERS))
     
     # Get target user
     target_user = db.get_or_404(User, user_id)
@@ -253,7 +262,7 @@ def impersonate(user_id):
     # Prevent impersonating yourself
     if current_user.id == target_user.id:
         flash('You cannot impersonate yourself.', 'warning')
-        return redirect(url_for('users.users'))
+        return redirect(url_for(USERS))
     
     # Store original user ID and start impersonation
     session['original_user_id'] = current_user.id
@@ -273,7 +282,7 @@ def impersonate(user_id):
     )
     
     flash(f'Now impersonating: {target_user.name} ({target_user.email})', 'info')
-    return redirect(url_for('main.dashboard'))
+    return redirect(url_for(DASHBOARD))
 
 
 @main_bp.route('/stop-impersonate', methods=['POST'])
@@ -284,7 +293,7 @@ def stop_impersonate():
     original_user_id = session.get('original_user_id')
     if not original_user_id:
         flash('You are not currently impersonating anyone.', 'warning')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for(DASHBOARD))
     
     # Get both users for logging
     impersonated_user = db.session.get(User,session['user_id'])
@@ -308,7 +317,7 @@ def stop_impersonate():
     )
     
     flash('Impersonation ended. Returned to your account.', 'success')
-    return redirect(url_for('users.users'))
+    return redirect(url_for(USERS))
 
 
 @main_bp.route('/google/callback')
@@ -324,7 +333,7 @@ def google_callback():
             error_message="Google not authorized"
         )
         flash('Error al autorizar con Google', 'danger')
-        return redirect(url_for('main.login'))
+        return redirect(url_for(LOGIN))
     
     # Get user info from Google
     try:
@@ -337,7 +346,7 @@ def google_callback():
                 error_message=f"Google API error: {resp.status_code}"
             )
             flash('Error al obtener información de Google', 'danger')
-            return redirect(url_for('main.login'))
+            return redirect(url_for(LOGIN))
         
         google_info = resp.json()
         email = google_info.get("email")
@@ -350,7 +359,7 @@ def google_callback():
             error_message=str(e)
         )
         flash('Error al procesar la autenticación de Google', 'danger')
-        return redirect(url_for('main.login'))
+        return redirect(url_for(LOGIN))
     
     # Find user in database
     user = User.query.filter_by(email=email).first()
@@ -372,7 +381,7 @@ def google_callback():
         get_user_modules(user.id)
         
         flash('Logged in successfully via Google', 'success')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for(DASHBOARD))
     else:
         # User not found in database
         log_audit(
@@ -383,7 +392,7 @@ def google_callback():
             error_message="User not found in database"
         )
         flash('No existe un usuario registrado con este email.', 'danger')
-        return redirect(url_for('main.login'))
+        return redirect(url_for(LOGIN))
 
 def password_change_required(f):
     @wraps(f)
@@ -472,7 +481,7 @@ def organizational_health():
             'severity': 'critical',
             'title': inc.title,
             'description': f'{inc.severity} - {inc.status}',
-            'link': url_for('compliance.incident_detail', id=inc.id)
+            'link': url_for(INCIDENT_DETAIL, id=inc.id)
         })
     
     # Overdue maintenance
@@ -504,7 +513,7 @@ def organizational_health():
             'severity': 'critical',
             'title': f'{secret.credential.name} - Credential Expired',
             'description': f'Type: {secret.credential.type}',
-            'link': url_for('credentials.detail_credential', id=secret.credential.id)
+            'link': url_for(DETAIL_CREDENTIAL, id=secret.credential.id)
         })
     
     # Expired certificates (still active)
@@ -558,7 +567,7 @@ def organizational_health():
             'name': secret.credential.name,
             'type': secret.credential.type,
             'days': days,
-            'link': url_for('credentials.detail_credential', id=secret.credential.id)
+            'link': url_for(DETAIL_CREDENTIAL, id=secret.credential.id)
         })
     expirations['identity'].sort(key=lambda x: x['days'])
     
@@ -829,7 +838,7 @@ def get_action_required_alerts(user):
         alerts.append({
             'icon': '🚨',
             'message': f'Incident "{inc.title}" assigned to you ({inc.status})',
-            'link': url_for('compliance.incident_detail', id=inc.id),
+            'link': url_for(INCIDENT_DETAIL, id=inc.id),
             'action_text': 'View incident'
         })
 
@@ -840,7 +849,7 @@ def get_action_required_alerts(user):
         alerts.append({
             'icon': '🔄',
             'message': f'Change "{chg.title}" assigned to you ({chg.status})',
-            'link': url_for('changes.detail_change', id=chg.id),
+            'link': url_for(DETAIL_CHANGE, id=chg.id),
             'action_text': 'View change'
         })
 
@@ -851,7 +860,7 @@ def get_action_required_alerts(user):
         alerts.append({
             'icon': '🙋',
             'message': f'Request "{req.title}" assigned to you ({req.status})',
-            'link': url_for('requests.detail_request', id=req.id),
+            'link': url_for(DETAIL_REQUEST, id=req.id),
             'action_text': 'View request'
         })
 
@@ -928,7 +937,7 @@ def get_my_open_tickets(user):
             tickets.append({
                 'type_label': 'Incident', 'icon': '🚨', 'title': inc.title,
                 'status': inc.status, 'status_class': _TICKET_BADGE['incident'].get(inc.status, 'secondary'),
-                'url': url_for('compliance.incident_detail', id=inc.id),
+                'url': url_for(INCIDENT_DETAIL, id=inc.id),
                 'created_at': inc.created_at, 'sort_dt': inc.created_at,
             })
 
@@ -939,7 +948,7 @@ def get_my_open_tickets(user):
             tickets.append({
                 'type_label': 'Change', 'icon': '🔄', 'title': chg.title,
                 'status': chg.status, 'status_class': _TICKET_BADGE['change'].get(chg.status, 'secondary'),
-                'url': url_for('changes.detail_change', id=chg.id),
+                'url': url_for(DETAIL_CHANGE, id=chg.id),
                 'created_at': chg.created_at, 'sort_dt': chg.created_at,
             })
 
@@ -951,7 +960,7 @@ def get_my_open_tickets(user):
             tickets.append({
                 'type_label': 'Request', 'icon': '🙋', 'title': req.title,
                 'status': req.status, 'status_class': _TICKET_BADGE['request'].get(req.status, 'secondary'),
-                'url': url_for('requests.detail_request', id=req.id),
+                'url': url_for(DETAIL_REQUEST, id=req.id),
                 'created_at': req.created_at, 'sort_dt': req.created_at,
             })
 
@@ -1145,7 +1154,7 @@ def my_dashboard():
             'due_text': f'Expires in {days_left} days',
             'title': f'Update credential: {cred["credential"].name}',
             'description': f'Type: {cred["credential"].type}',
-            'action_url': url_for('credentials.detail_credential', id=cred["credential"].id),
+            'action_url': url_for(DETAIL_CREDENTIAL, id=cred["credential"].id),
             'action_text': 'Update',
             'can_dismiss': True
         })
@@ -1159,7 +1168,7 @@ def my_dashboard():
     ).all():
         prioritized_tasks.append(_ticket_task(
             f'Incident: {inc.title}', f'Severity {inc.severity} · status {inc.status}',
-            url_for('compliance.incident_detail', id=inc.id), 'View incident', None, current_date))
+            url_for(INCIDENT_DETAIL, id=inc.id), 'View incident', None, current_date))
 
     for chg in Change.query.filter(
         Change.assignee_id == user_id,
@@ -1168,7 +1177,7 @@ def my_dashboard():
         due = chg.scheduled_start.date() if chg.scheduled_start else None
         prioritized_tasks.append(_ticket_task(
             f'Change: {chg.title}', f'{chg.change_type} · status {chg.status}',
-            url_for('changes.detail_change', id=chg.id), 'View change', due, current_date))
+            url_for(DETAIL_CHANGE, id=chg.id), 'View change', due, current_date))
 
     for req in Request.query.filter(
         Request.assignee_id == user_id,
@@ -1177,7 +1186,7 @@ def my_dashboard():
         due = req.due_date.date() if req.due_date else None
         prioritized_tasks.append(_ticket_task(
             f'Request: {req.title}', f'{req.request_type} · status {req.status}',
-            url_for('requests.detail_request', id=req.id), 'View request', due, current_date))
+            url_for(DETAIL_REQUEST, id=req.id), 'View request', due, current_date))
 
     # Sort by priority
     prioritized_tasks.sort(key=lambda x: (x['priority'], x['due_text']))
@@ -1500,7 +1509,7 @@ def change_password():
             )
             
             flash('Your password has been updated successfully!', 'success')
-            return redirect(url_for('main.dashboard'))
+            return redirect(url_for(DASHBOARD))
 
     return render_template('change_password.html', forced_change=forced_change)
 
@@ -1641,7 +1650,7 @@ def internal_app_info():
             'error': str(e)
         }), 500
 
-@main_bp.route('/internal/test-email')
+@main_bp.route('/internal/test-email', methods=['GET'])
 @localhost_only
 def internal_test_email():
     """
@@ -1805,7 +1814,7 @@ def internal_health_check():
     return jsonify(health_status), 200
 
 
-@main_bp.route('/internal/test-security')
+@main_bp.route('/internal/test-security', methods=['GET'])
 @localhost_only
 def internal_test_security():
     """

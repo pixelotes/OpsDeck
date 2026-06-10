@@ -11,17 +11,22 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 frameworks_bp = Blueprint('frameworks', __name__, url_prefix='/frameworks')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'compliance'
+CONTROL_DETAIL = 'frameworks.control_detail'
+FRAMEWORKS_FORM_HTML = 'frameworks/form.html'
+
 # --- Rutas Principales del Framework ---
 
 @frameworks_bp.route('/', methods=['GET'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def list():
     """Muestra la lista de todos los frameworks."""
     frameworks = Framework.query.order_by(Framework.name).all()
     return render_template('frameworks/list.html', frameworks=frameworks)
 
 @frameworks_bp.route('/<int:id>', methods=['GET'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def detail(id):
     """Muestra los detalles de un framework y sus controles."""
     framework = db.get_or_404(Framework, id)
@@ -33,9 +38,9 @@ def detail(id):
     )
 
 @frameworks_bp.route('/new', methods=['GET', 'POST'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def create():
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('You do not have permission to create frameworks.', 'danger')
         return redirect(url_for('frameworks.list'))
     """Crea un nuevo framework personalizado."""
@@ -52,7 +57,7 @@ def create():
             flash('El nombre es obligatorio.', 'danger')
             # Devolvemos los datos para "repoblar" el formulario
             return render_template(
-                'frameworks/form.html', 
+                FRAMEWORKS_FORM_HTML, 
                 title="Nuevo Framework", 
                 framework_data=request.form
             ), 400
@@ -73,7 +78,7 @@ def create():
             db.session.rollback()
             flash('Ya existe un framework con ese nombre.', 'danger')
             return render_template(
-                'frameworks/form.html', 
+                FRAMEWORKS_FORM_HTML, 
                 title="Nuevo Framework", 
                 framework_data=request.form
             ), 400
@@ -82,12 +87,12 @@ def create():
             flash(f'Error al crear el framework: {e}', 'danger')
             
     # GET request
-    return render_template('frameworks/form.html', title="Nuevo Framework")
+    return render_template(FRAMEWORKS_FORM_HTML, title="Nuevo Framework")
 
 @frameworks_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def edit(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('You do not have permission to edit frameworks.', 'danger')
         return redirect(url_for('frameworks.detail', id=id))
     """Edita un framework."""
@@ -103,7 +108,7 @@ def edit(id):
             if not name:
                 flash('El nombre es obligatorio.', 'danger')
                 return render_template(
-                    'frameworks/form.html',
+                    FRAMEWORKS_FORM_HTML,
                     framework=framework,
                     title="Editar Framework"
                 ), 400
@@ -126,16 +131,16 @@ def edit(id):
     # GET request
     controls = framework.framework_controls.order_by(FrameworkControl.control_id).all()
     return render_template(
-        'frameworks/form.html',
+        FRAMEWORKS_FORM_HTML,
         framework=framework,  # Pasamos el objeto para rellenar el form
         controls=controls,
         title="Editar Framework"
     )
 
 @frameworks_bp.route('/<int:id>/delete', methods=['POST'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def delete(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         return jsonify({'success': False, 'message': 'You do not have permission to delete frameworks.'}), 403
     """
     Elimina un framework (solo si es 'custom').
@@ -159,9 +164,9 @@ def delete(id):
 # --- Rutas para el Modal de Controles (AJAX) ---
 
 @frameworks_bp.route('/control/add', methods=['POST'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def add_control():
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         return jsonify({'success': False, 'message': 'You do not have permission to modify controls.'}), 403
     """Añade un nuevo control a un framework."""
     framework_id = request.form.get('framework_id')
@@ -193,7 +198,7 @@ def add_control():
         return jsonify({'success': False, 'message': f'Error: {e}'}), 500
 
 @frameworks_bp.route('/control/<int:id>/get_data', methods=['GET'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def get_control_data(id):
     # Esta ruta no necesita 'forms' y puede quedar igual
     control = db.get_or_404(FrameworkControl, id)
@@ -207,9 +212,9 @@ def get_control_data(id):
     })
 
 @frameworks_bp.route('/control/<int:id>/edit', methods=['POST'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def edit_control(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         return jsonify({'success': False, 'message': 'You do not have permission to modify controls.'}), 403
     """Actualiza un control."""
     control = db.get_or_404(FrameworkControl, id)
@@ -235,9 +240,9 @@ def edit_control(id):
         return jsonify({'success': False, 'message': f'Error: {e}'}), 500
 
 @frameworks_bp.route('/control/<int:id>/delete', methods=['POST'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def delete_control(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         return jsonify({'success': False, 'message': 'You do not have permission to modify controls.'}), 403
     """
     Elimina un control.
@@ -261,7 +266,7 @@ def delete_control(id):
 # --- Cross-Framework Control Mapping Routes ---
 
 @frameworks_bp.route('/control/<int:id>/detail', methods=['GET'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def control_detail(id):
     """Displays control detail with cross-mappings and linked evidence."""
     from ..models.core import Tag, Link, Documentation
@@ -312,12 +317,12 @@ def control_detail(id):
 
 
 @frameworks_bp.route('/control/<int:id>/soa', methods=['POST'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def update_control_soa(id):
     """Updates the Statement of Applicability for a framework control."""
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('Write access required to update SOA.', 'danger')
-        return redirect(url_for('frameworks.control_detail', id=id))
+        return redirect(url_for(CONTROL_DETAIL, id=id))
 
     control = db.get_or_404(FrameworkControl, id)
 
@@ -334,36 +339,36 @@ def update_control_soa(id):
         db.session.rollback()
         flash(f'Error updating SOA: {str(e)}', 'danger')
 
-    return redirect(url_for('frameworks.control_detail', id=id))
+    return redirect(url_for(CONTROL_DETAIL, id=id))
 
 
 @frameworks_bp.route('/control/<int:id>/map', methods=['POST'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def map_control(id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('You do not have permission to modify control mappings.', 'danger')
-        return redirect(url_for('frameworks.control_detail', id=id))
+        return redirect(url_for(CONTROL_DETAIL, id=id))
     """Links a control to another control (cross-framework mapping)."""
     control = db.get_or_404(FrameworkControl, id)
     target_control_id = request.form.get('target_control_id')
     
     if not target_control_id:
         flash('Please select a target control.', 'warning')
-        return redirect(url_for('frameworks.control_detail', id=id))
+        return redirect(url_for(CONTROL_DETAIL, id=id))
     
     target_control = db.session.get(FrameworkControl,target_control_id)
     if not target_control:
         flash('Target control not found.', 'danger')
-        return redirect(url_for('frameworks.control_detail', id=id))
+        return redirect(url_for(CONTROL_DETAIL, id=id))
     
     if target_control.id == control.id:
         flash('Cannot map a control to itself.', 'warning')
-        return redirect(url_for('frameworks.control_detail', id=id))
+        return redirect(url_for(CONTROL_DETAIL, id=id))
     
     # Check if already mapped
     if target_control in control.mapped_targets or control in target_control.mapped_targets:
         flash('These controls are already mapped.', 'info')
-        return redirect(url_for('frameworks.control_detail', id=id))
+        return redirect(url_for(CONTROL_DETAIL, id=id))
     
     try:
         control.mapped_targets.append(target_control)
@@ -373,15 +378,15 @@ def map_control(id):
         db.session.rollback()
         flash(f'Error creating mapping: {e}', 'danger')
     
-    return redirect(url_for('frameworks.control_detail', id=id))
+    return redirect(url_for(CONTROL_DETAIL, id=id))
 
 
 @frameworks_bp.route('/control/<int:id>/unmap/<int:target_id>', methods=['POST'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def unmap_control(id, target_id):
-    if not has_write_permission('compliance'):
+    if not has_write_permission(MODULE):
         flash('You do not have permission to modify control mappings.', 'danger')
-        return redirect(url_for('frameworks.control_detail', id=id))
+        return redirect(url_for(CONTROL_DETAIL, id=id))
     """Removes a cross-framework mapping between two controls."""
     control = db.get_or_404(FrameworkControl, id)
     target_control = db.get_or_404(FrameworkControl, target_id)
@@ -394,7 +399,7 @@ def unmap_control(id, target_id):
             target_control.mapped_targets.remove(control)
         else:
             flash('Mapping not found.', 'warning')
-            return redirect(url_for('frameworks.control_detail', id=id))
+            return redirect(url_for(CONTROL_DETAIL, id=id))
         
         db.session.commit()
         flash('Mapping removed.', 'success')
@@ -402,11 +407,11 @@ def unmap_control(id, target_id):
         db.session.rollback()
         flash(f'Error removing mapping: {e}', 'danger')
     
-    return redirect(url_for('frameworks.control_detail', id=id))
+    return redirect(url_for(CONTROL_DETAIL, id=id))
 
 
 @frameworks_bp.route('/api/search-controls', methods=['GET'])
-@requires_permission('compliance')
+@requires_permission(MODULE)
 def search_controls():
     """API to search controls for cross-mapping (for TomSelect)."""
     q = request.args.get('q', '').strip().lower()

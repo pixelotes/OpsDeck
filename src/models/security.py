@@ -2,6 +2,7 @@ from datetime import datetime, date
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from .core import Attachment, Tag
 from .auth import User
 from src.utils.timezone_helper import today, now
@@ -29,7 +30,7 @@ class ComplianceLink(db.Model):
     # Back-reference para que desde FrameworkControl podamos ver los links
     framework_control = db.relationship(
         'FrameworkControl',
-        backref=db.backref('compliance_links', lazy='dynamic', cascade='all, delete-orphan')
+        backref=db.backref('compliance_links', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
     )
 
     @property
@@ -115,7 +116,7 @@ class SecurityIncident(db.Model):
     impact = db.Column(db.String(50), default='Minor') # Minor, Moderate, Significant, Extensive
     data_breach = db.Column(db.Boolean, default=False)
     third_party_impacted = db.Column(db.Boolean, default=False)
-    review = db.relationship('PostIncidentReview', backref='incident', uselist=False, cascade='all, delete-orphan')
+    review = db.relationship('PostIncidentReview', backref='incident', uselist=False, cascade=CASCADE_ALL_DELETE_ORPHAN)
     
     created_at = db.Column(db.DateTime, default=lambda: now())
     resolved_at = db.Column(db.DateTime)
@@ -132,7 +133,7 @@ class SecurityIncident(db.Model):
     assignee = db.relationship('User', foreign_keys=[assignee_id])
 
     # Tags
-    tags = db.relationship('Tag', secondary=incident_tags, backref=db.backref('security_incidents', lazy='dynamic'))
+    tags = db.relationship('Tag', secondary=incident_tags, backref=db.backref('security_incidents', lazy=LAZY_DYNAMIC))
 
     affected_assets = db.relationship('Asset', secondary=incident_assets, backref='incidents')
     affected_users = db.relationship('User', secondary=incident_users, backref='incidents')
@@ -141,13 +142,13 @@ class SecurityIncident(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(SecurityIncident.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='SecurityIncident')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
     
     compliance_links = db.relationship('ComplianceLink',
                             primaryjoin="and_(SecurityIncident.id==foreign(ComplianceLink.linkable_id), "
                                         "ComplianceLink.linkable_type=='SecurityIncident')",
-                            lazy='dynamic', cascade='all, delete-orphan',
+                            lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="compliance_links")
 
 class PostIncidentReview(db.Model):
@@ -171,7 +172,7 @@ class PostIncidentReview(db.Model):
     locked_by = db.relationship('User', foreign_keys=[locked_by_id])
 
     # Relationships
-    timeline_events = db.relationship('IncidentTimelineEvent', backref='review', lazy=True, cascade='all, delete-orphan', order_by='IncidentTimelineEvent.order')
+    timeline_events = db.relationship('IncidentTimelineEvent', backref='review', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='IncidentTimelineEvent.order')
 
 class IncidentTimelineEvent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -316,7 +317,7 @@ class RiskCatalog(db.Model):
     is_custom = db.Column(db.Boolean, default=True)
     
     # Relationships
-    catalog_risks = db.relationship('CatalogRisk', backref='catalog', lazy='dynamic', cascade='all, delete-orphan')
+    catalog_risks = db.relationship('CatalogRisk', backref='catalog', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
 
     def __repr__(self):
         return f'<RiskCatalog {self.name}>'
@@ -375,37 +376,37 @@ class Risk(db.Model):
     link = db.Column(db.String(512))
     
     # Relationships
-    affected_items = db.relationship('RiskAffectedItem', backref='risk', lazy='dynamic', cascade='all, delete-orphan')
+    affected_items = db.relationship('RiskAffectedItem', backref='risk', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
     
     # Context & References (Policy, Documentation, Link)
-    references = db.relationship('RiskReference', backref='risk', lazy='dynamic', cascade='all, delete-orphan')
+    references = db.relationship('RiskReference', backref='risk', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
     
     # Multiple categories (CIA Triad + extended)
     categories = db.relationship(
         'RiskCategory',
         backref='risk',
-        lazy='dynamic',
-        cascade='all, delete-orphan'
+        lazy=LAZY_DYNAMIC,
+        cascade=CASCADE_ALL_DELETE_ORPHAN
     )
     
     # Mitigation activities (Many-to-Many with SecurityActivity)
     mitigation_activities = db.relationship(
         'SecurityActivity',
         secondary=risk_mitigation_activities,
-        backref=db.backref('mitigated_risks', lazy='dynamic'),
-        lazy='dynamic'
+        backref=db.backref('mitigated_risks', lazy=LAZY_DYNAMIC),
+        lazy=LAZY_DYNAMIC
     )
     
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Risk.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Risk')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
                             primaryjoin="and_(Risk.id==foreign(ComplianceLink.linkable_id), "
                                         "ComplianceLink.linkable_type=='Risk')",
-                            lazy='dynamic', cascade='all, delete-orphan',
+                            lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="compliance_links")
 
     @property
@@ -478,7 +479,7 @@ class RiskHistory(db.Model):
     new_value = db.Column(db.String(500))
 
     # Relationships
-    risk = db.relationship('Risk', backref=db.backref('history', lazy='dynamic', order_by='RiskHistory.timestamp.desc()'))
+    risk = db.relationship('Risk', backref=db.backref('history', lazy=LAZY_DYNAMIC, order_by='RiskHistory.timestamp.desc()'))
     user = db.relationship('User')
 
     def __repr__(self):
@@ -543,13 +544,13 @@ class SecurityAssessment(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(SecurityAssessment.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='SecurityAssessment')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
                             primaryjoin="and_(SecurityAssessment.id==foreign(ComplianceLink.linkable_id), "
                                         "ComplianceLink.linkable_type=='SecurityAssessment')",
-                            lazy='dynamic', cascade='all, delete-orphan',
+                            lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="compliance_links")
 
 class AssetInventory(db.Model):
@@ -561,13 +562,13 @@ class AssetInventory(db.Model):
     is_completed = db.Column(db.Boolean, default=False)
 
     # Relationship to all items in this inventory
-    items = db.relationship('AssetInventoryItem', backref='inventory', lazy='dynamic', cascade='all, delete-orphan')
+    items = db.relationship('AssetInventoryItem', backref='inventory', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
     conducted_by = db.relationship('User')
 
     compliance_links = db.relationship('ComplianceLink',
                             primaryjoin="and_(AssetInventory.id==foreign(ComplianceLink.linkable_id), "
                                         "ComplianceLink.linkable_type=='AssetInventory')",
-                            lazy='dynamic', cascade='all, delete-orphan',
+                            lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="compliance_links")
 
 class AssetInventoryItem(db.Model):
@@ -610,8 +611,8 @@ class Framework(db.Model):
     framework_controls = db.relationship(
         'FrameworkControl', 
         backref='framework', 
-        lazy='dynamic', 
-        cascade='all, delete-orphan'
+        lazy=LAZY_DYNAMIC, 
+        cascade=CASCADE_ALL_DELETE_ORPHAN
     )
     
     # <-- REQUISITO: Soporte para attachments (manuales, etc.)
@@ -625,8 +626,8 @@ class Framework(db.Model):
             foreign(Attachment.linkable_id) == Framework.id,
             Attachment.linkable_type == 'Framework'
         ),
-        lazy='dynamic',
-        cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC,
+        cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="attachments" 
     )
 
@@ -672,7 +673,7 @@ class FrameworkControl(db.Model):
         secondary=control_mappings,
         primaryjoin="FrameworkControl.id==control_mappings.c.source_control_id",
         secondaryjoin="FrameworkControl.id==control_mappings.c.target_control_id",
-        backref=db.backref('mapped_sources', lazy='dynamic')
+        backref=db.backref('mapped_sources', lazy=LAZY_DYNAMIC)
     )
 
     def get_all_mappings(self):
@@ -719,7 +720,7 @@ class ComplianceRule(db.Model):
     updated_at = db.Column(db.DateTime, default=lambda: now(), onupdate=lambda: now())
     
     # Relationships
-    control = db.relationship('FrameworkControl', backref=db.backref('rules', lazy='dynamic'))
+    control = db.relationship('FrameworkControl', backref=db.backref('rules', lazy=LAZY_DYNAMIC))
     
     @property
     def total_sla_days(self):

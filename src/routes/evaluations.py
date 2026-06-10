@@ -9,9 +9,13 @@ from src.utils.timezone_helper import now
 
 evaluations_bp = Blueprint('evaluations', __name__, url_prefix='/evaluations')
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'procurement'
+DETAIL = 'evaluations.detail'
+
 @evaluations_bp.route('/kanban', methods=['GET'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def kanban_view():
     """Kanban board view for evaluations"""
     # Group evaluations by status
@@ -27,7 +31,7 @@ def kanban_view():
 
 @evaluations_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def list_evaluations():
     # Start with base query
     query = Opportunity.query
@@ -88,10 +92,10 @@ def list_evaluations():
 
 @evaluations_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def new_evaluation():
     if request.method == 'POST':
-        if not has_write_permission('procurement'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create evaluations.', 'danger')
             return redirect(url_for('evaluations.list_evaluations'))
 
@@ -111,7 +115,7 @@ def new_evaluation():
         db.session.add(evaluation)
         db.session.commit()
         flash('Evaluation created successfully!', 'success')
-        return redirect(url_for('evaluations.detail', id=evaluation.id))
+        return redirect(url_for(DETAIL, id=evaluation.id))
 
     suppliers = Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all()
     contacts = Contact.query.filter_by(is_archived=False).order_by(Contact.name).all()
@@ -130,7 +134,7 @@ def new_evaluation():
 
 @evaluations_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def detail(id):
     evaluation = db.get_or_404(Opportunity, id)
     # Filter out hidden activities and tasks
@@ -143,13 +147,13 @@ def detail(id):
 
 @evaluations_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_evaluation(id):
     evaluation = db.get_or_404(Opportunity, id)
     if request.method == 'POST':
-        if not has_write_permission('procurement'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update evaluations.', 'danger')
-            return redirect(url_for('evaluations.detail', id=id))
+            return redirect(url_for(DETAIL, id=id))
 
         evaluation.name = request.form['name']
         evaluation.status = request.form['status']
@@ -165,7 +169,7 @@ def edit_evaluation(id):
 
         db.session.commit()
         flash('Evaluation updated successfully!', 'success')
-        return redirect(url_for('evaluations.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
     suppliers = Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all()
     contacts = Contact.query.filter_by(is_archived=False).order_by(Contact.name).all()
@@ -186,11 +190,11 @@ def edit_evaluation(id):
 
 @evaluations_bp.route('/<int:id>/add_activity', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def add_activity(id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to add activities.', 'danger')
-        return redirect(url_for('evaluations.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
 
     db.get_or_404(Opportunity, id)
     activity_type = request.form.get('type')
@@ -208,16 +212,16 @@ def add_activity(id):
         db.session.commit()
         flash('Activity added successfully.', 'success')
 
-    return redirect(url_for('evaluations.detail', id=id))
+    return redirect(url_for(DETAIL, id=id))
 
 @evaluations_bp.route('/activity/<int:activity_id>/edit', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_activity(activity_id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to edit activities.', 'danger')
         activity = db.get_or_404(Activity, activity_id)
-        return redirect(url_for('evaluations.detail', id=activity.opportunity_id))
+        return redirect(url_for(DETAIL, id=activity.opportunity_id))
 
     activity = db.get_or_404(Activity, activity_id)
     activity.notes = request.form.get('notes')
@@ -226,32 +230,32 @@ def edit_activity(activity_id):
     db.session.commit()
     flash('Activity updated successfully.', 'success')
 
-    return redirect(url_for('evaluations.detail', id=activity.opportunity_id))
+    return redirect(url_for(DETAIL, id=activity.opportunity_id))
 
 @evaluations_bp.route('/activity/<int:activity_id>/toggle_hidden', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def toggle_activity_hidden(activity_id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to hide/show activities.', 'danger')
         activity = db.get_or_404(Activity, activity_id)
-        return redirect(url_for('evaluations.detail', id=activity.opportunity_id))
+        return redirect(url_for(DETAIL, id=activity.opportunity_id))
 
     activity = db.get_or_404(Activity, activity_id)
     activity.is_hidden = not activity.is_hidden
     db.session.commit()
     flash('Activity visibility updated.', 'info')
 
-    return redirect(url_for('evaluations.detail', id=activity.opportunity_id))
+    return redirect(url_for(DETAIL, id=activity.opportunity_id))
 
 @evaluations_bp.route('/activity/<int:activity_id>/delete', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def delete_activity(activity_id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete activities.', 'danger')
         activity = db.get_or_404(Activity, activity_id)
-        return redirect(url_for('evaluations.detail', id=activity.opportunity_id))
+        return redirect(url_for(DETAIL, id=activity.opportunity_id))
 
     activity = db.get_or_404(Activity, activity_id)
     opportunity_id = activity.opportunity_id
@@ -259,17 +263,17 @@ def delete_activity(activity_id):
     db.session.commit()
     flash('Activity deleted.', 'success')
 
-    return redirect(url_for('evaluations.detail', id=opportunity_id))
+    return redirect(url_for(DETAIL, id=opportunity_id))
 
 # --- Task Management ---
 
 @evaluations_bp.route('/<int:evaluation_id>/add_task', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def add_task(evaluation_id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to add tasks.', 'danger')
-        return redirect(url_for('evaluations.detail', id=evaluation_id))
+        return redirect(url_for(DETAIL, id=evaluation_id))
 
     description = request.form.get('task_description')
     due_date_str = request.form.get('due_date')
@@ -286,16 +290,16 @@ def add_task(evaluation_id):
         db.session.commit()
         flash('Task added.', 'success')
 
-    return redirect(url_for('evaluations.detail', id=evaluation_id))
+    return redirect(url_for(DETAIL, id=evaluation_id))
 
 @evaluations_bp.route('/task/<int:task_id>/toggle', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def toggle_task(task_id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to update tasks.', 'danger')
         task = db.get_or_404(OpportunityTask, task_id)
-        return redirect(url_for('evaluations.detail', id=task.opportunity_id))
+        return redirect(url_for(DETAIL, id=task.opportunity_id))
 
     task = db.get_or_404(OpportunityTask, task_id)
     task.is_completed = not task.is_completed
@@ -306,16 +310,16 @@ def toggle_task(task_id):
     db.session.commit()
     flash('Task status updated.', 'info')
 
-    return redirect(url_for('evaluations.detail', id=task.opportunity_id))
+    return redirect(url_for(DETAIL, id=task.opportunity_id))
 
 @evaluations_bp.route('/task/<int:task_id>/edit', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_task(task_id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to edit tasks.', 'danger')
         task = db.get_or_404(OpportunityTask, task_id)
-        return redirect(url_for('evaluations.detail', id=task.opportunity_id))
+        return redirect(url_for(DETAIL, id=task.opportunity_id))
 
     task = db.get_or_404(OpportunityTask, task_id)
     task.description = request.form.get('description')
@@ -324,32 +328,32 @@ def edit_task(task_id):
     db.session.commit()
     flash('Task updated.', 'success')
 
-    return redirect(url_for('evaluations.detail', id=task.opportunity_id))
+    return redirect(url_for(DETAIL, id=task.opportunity_id))
 
 @evaluations_bp.route('/task/<int:task_id>/toggle_hidden', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def toggle_task_hidden(task_id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to hide/show tasks.', 'danger')
         task = db.get_or_404(OpportunityTask, task_id)
-        return redirect(url_for('evaluations.detail', id=task.opportunity_id))
+        return redirect(url_for(DETAIL, id=task.opportunity_id))
 
     task = db.get_or_404(OpportunityTask, task_id)
     task.is_hidden = not task.is_hidden
     db.session.commit()
     flash('Task visibility updated.', 'info')
 
-    return redirect(url_for('evaluations.detail', id=task.opportunity_id))
+    return redirect(url_for(DETAIL, id=task.opportunity_id))
 
 @evaluations_bp.route('/task/<int:task_id>/delete', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def delete_task(task_id):
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete tasks.', 'danger')
         task = db.get_or_404(OpportunityTask, task_id)
-        return redirect(url_for('evaluations.detail', id=task.opportunity_id))
+        return redirect(url_for(DETAIL, id=task.opportunity_id))
 
     task = db.get_or_404(OpportunityTask, task_id)
     opportunity_id = task.opportunity_id
@@ -357,17 +361,17 @@ def delete_task(task_id):
     db.session.commit()
     flash('Task deleted.', 'success')
 
-    return redirect(url_for('evaluations.detail', id=opportunity_id))
+    return redirect(url_for(DETAIL, id=opportunity_id))
 
 
 # --- API Routes for Kanban ---
 
 @evaluations_bp.route('/api/<int:evaluation_id>/update_status', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def update_status(evaluation_id):
     """API endpoint to update evaluation status (for Kanban drag & drop)"""
-    if not has_write_permission('procurement'):
+    if not has_write_permission(MODULE):
         return jsonify({'success': False, 'error': 'Write access required'}), 403
 
     evaluation = db.get_or_404(Opportunity, evaluation_id)

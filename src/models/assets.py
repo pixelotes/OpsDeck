@@ -3,6 +3,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from .auth import User, Group
 from .core import CustomPropertiesMixin
 from src.utils.timezone_helper import today, now
@@ -49,7 +50,7 @@ class Brand(db.Model):
 
     models = db.relationship(
         'AssetModel', backref='brand', lazy=True,
-        cascade='all, delete-orphan', order_by='AssetModel.name'
+        cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='AssetModel.name'
     )
     assets = db.relationship('Asset', backref='brand', lazy=True)
     peripherals = db.relationship('Peripheral', backref='brand', lazy=True)
@@ -112,7 +113,7 @@ class Asset(db.Model, CustomPropertiesMixin):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Asset.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Asset')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
     
     compliance_links = db.relationship('ComplianceLink',
@@ -120,14 +121,14 @@ class Asset(db.Model, CustomPropertiesMixin):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Asset.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Asset'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
-    history = db.relationship('AssetHistory', backref='asset', lazy=True, cascade='all, delete-orphan', order_by='AssetHistory.changed_at.desc()')
+    history = db.relationship('AssetHistory', backref='asset', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='AssetHistory.changed_at.desc()')
     peripherals = db.relationship('Peripheral', backref='asset', lazy=True)
-    assignments = db.relationship('AssetAssignment', backref='asset', lazy=True, cascade='all, delete-orphan', order_by='AssetAssignment.checked_out_date.desc()')
-    maintenance_logs = db.relationship('MaintenanceLog', backref='asset', lazy='dynamic', cascade='all, delete-orphan')
-    disposal_record = db.relationship('DisposalRecord', backref='asset', uselist=False, cascade='all, delete-orphan')
+    assignments = db.relationship('AssetAssignment', backref='asset', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='AssetAssignment.checked_out_date.desc()')
+    maintenance_logs = db.relationship('MaintenanceLog', backref='asset', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
+    disposal_record = db.relationship('DisposalRecord', backref='asset', uselist=False, cascade=CASCADE_ALL_DELETE_ORPHAN)
     
     created_at = db.Column(db.DateTime, default=lambda: now())
 
@@ -285,8 +286,8 @@ class Peripheral(db.Model, CustomPropertiesMixin):
     serial_number = db.Column(db.String(100), unique=True)
     status = db.Column(db.String(50), nullable=False, default='In Use', index=True)
     is_archived = db.Column(db.Boolean, default=False, nullable=False, index=True)
-    maintenance_logs = db.relationship('MaintenanceLog', backref='peripheral', lazy='dynamic', cascade='all, delete-orphan')
-    disposal_record = db.relationship('DisposalRecord', backref='peripheral', uselist=False, cascade='all, delete-orphan')
+    maintenance_logs = db.relationship('MaintenanceLog', backref='peripheral', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
+    disposal_record = db.relationship('DisposalRecord', backref='peripheral', uselist=False, cascade=CASCADE_ALL_DELETE_ORPHAN)
 
     # --- ADDED/UPDATED FIELDS ---
     brand_id = db.Column(db.Integer, db.ForeignKey('brand.id'), nullable=True, index=True)
@@ -306,11 +307,11 @@ class Peripheral(db.Model, CustomPropertiesMixin):
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'), index=True)
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), index=True)
     
-    assignments = db.relationship('PeripheralAssignment', backref='peripheral', lazy=True, cascade='all, delete-orphan', order_by='PeripheralAssignment.checked_out_date.desc()')
+    assignments = db.relationship('PeripheralAssignment', backref='peripheral', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='PeripheralAssignment.checked_out_date.desc()')
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Peripheral.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Peripheral')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
@@ -318,7 +319,7 @@ class Peripheral(db.Model, CustomPropertiesMixin):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Peripheral.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Peripheral'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
     
@@ -379,7 +380,7 @@ class License(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == License.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'License'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
 
@@ -404,8 +405,8 @@ class Software(db.Model):
 
     # Relationships
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=True)
-    subscriptions = db.relationship('Subscription', backref='software', lazy='dynamic')
-    licenses = db.relationship('License', backref='software', lazy='dynamic')
+    subscriptions = db.relationship('Subscription', backref='software', lazy=LAZY_DYNAMIC)
+    licenses = db.relationship('License', backref='software', lazy=LAZY_DYNAMIC)
     
     supplier = db.relationship('Supplier', backref='software')
 
@@ -421,7 +422,7 @@ class Software(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Software.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Software'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
 
@@ -482,12 +483,12 @@ class MaintenanceLog(db.Model):
     peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'))
     
     assigned_to = db.relationship('User', backref='maintenance_logs')
-    tags = db.relationship('Tag', secondary=maintenance_log_tags, backref=db.backref('maintenance_logs', lazy='dynamic'))
+    tags = db.relationship('Tag', secondary=maintenance_log_tags, backref=db.backref('maintenance_logs', lazy=LAZY_DYNAMIC))
 
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(MaintenanceLog.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='MaintenanceLog')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
@@ -495,7 +496,7 @@ class MaintenanceLog(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == MaintenanceLog.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'MaintenanceLog'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
 
@@ -527,7 +528,7 @@ class DisposalRecord(db.Model):
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(DisposalRecord.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='DisposalRecord')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
 
-    history = db.relationship('DisposalHistory', backref='disposal_record', lazy=True, cascade='all, delete-orphan', order_by='DisposalHistory.changed_at.desc()')
+    history = db.relationship('DisposalHistory', backref='disposal_record', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='DisposalHistory.changed_at.desc()')

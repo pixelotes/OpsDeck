@@ -10,9 +10,13 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 documentation_bp = Blueprint('documentation', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'knowledge_policy'
+DETAIL = 'documentation.detail'
+
 @documentation_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def list_docs():
     """Muestra la lista de documentación, con filtros."""
     
@@ -48,7 +52,7 @@ def list_docs():
 
 @documentation_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def detail(id):
     """Muestra los detalles de una entrada de documentación."""
     doc = db.get_or_404(Documentation, id)
@@ -56,11 +60,11 @@ def detail(id):
 
 @documentation_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def new_doc():
     """Crea una nueva entrada de documentación."""
     if request.method == 'POST':
-        if not has_write_permission('knowledge_policy'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create documentation.', 'danger')
             return redirect(url_for('documentation.list_docs'))
         # Procesar propietario polimórfico
@@ -112,7 +116,7 @@ def new_doc():
                 db.session.commit()
 
         flash('Entrada de documentación creada.', 'success')
-        return redirect(url_for('documentation.detail', id=doc.id))
+        return redirect(url_for(DETAIL, id=doc.id))
 
     # --- Lógica GET ---
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
@@ -125,15 +129,15 @@ def new_doc():
 
 @documentation_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def edit_doc(id):
     """Edita una entrada de documentación existente."""
     doc = db.get_or_404(Documentation, id)
 
     if request.method == 'POST':
-        if not has_write_permission('knowledge_policy'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update documentation.', 'danger')
-            return redirect(url_for('documentation.detail', id=id))
+            return redirect(url_for(DETAIL, id=id))
         # Procesar propietario polimórfico
         owner_full = request.form.get('owner')
         if owner_full:
@@ -180,7 +184,7 @@ def edit_doc(id):
 
         db.session.commit()
         flash('Entrada de documentación actualizada.', 'success')
-        return redirect(url_for('documentation.detail', id=doc.id))
+        return redirect(url_for(DETAIL, id=doc.id))
 
     # --- Lógica GET ---
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
@@ -192,11 +196,11 @@ def edit_doc(id):
 
 @documentation_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def delete_doc(id):
-    if not has_write_permission('knowledge_policy'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete documentation.', 'danger')
-        return redirect(url_for('documentation.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     """Elimina una entrada de documentación."""
     doc = db.get_or_404(Documentation, id)
     
@@ -214,7 +218,7 @@ def delete_doc(id):
 
 @documentation_bp.route('/api/search', methods=['GET'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def search_api():
     """Search documentation by title or filename for TomSelect."""
     from flask import jsonify

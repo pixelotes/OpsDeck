@@ -7,9 +7,13 @@ from ..services.permissions_service import requires_permission, has_write_permis
 
 links_bp = Blueprint('links', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'knowledge_policy'
+DETAIL = 'links.detail'
+
 @links_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def list_links():
     """Muestra la lista de enlaces, con filtros."""
     
@@ -45,7 +49,7 @@ def list_links():
 
 @links_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def detail(id):
     """Muestra los detalles de un enlace."""
     link = db.get_or_404(Link, id)
@@ -53,11 +57,11 @@ def detail(id):
 
 @links_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def new_link():
     """Crea un nuevo enlace."""
     if request.method == 'POST':
-        if not has_write_permission('knowledge_policy'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create links.', 'danger')
             return redirect(url_for('links.list_links'))
         # Procesar propietario polimórfico
@@ -90,7 +94,7 @@ def new_link():
         db.session.commit()
 
         flash('Link created.', 'success')
-        return redirect(url_for('links.detail', id=link.id))
+        return redirect(url_for(DETAIL, id=link.id))
 
     # --- Lógica GET ---
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
@@ -103,15 +107,15 @@ def new_link():
 
 @links_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def edit_link(id):
     """Edita un enlace existente."""
     link = db.get_or_404(Link, id)
 
     if request.method == 'POST':
-        if not has_write_permission('knowledge_policy'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update links.', 'danger')
-            return redirect(url_for('links.detail', id=id))
+            return redirect(url_for(DETAIL, id=id))
         # Procesar propietario polimórfico
         owner_full = request.form.get('owner')
         if owner_full:
@@ -137,7 +141,7 @@ def edit_link(id):
 
         db.session.commit()
         flash('Link updated.', 'success')
-        return redirect(url_for('links.detail', id=link.id))
+        return redirect(url_for(DETAIL, id=link.id))
 
     # --- Lógica GET ---
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
@@ -149,11 +153,11 @@ def edit_link(id):
 
 @links_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('knowledge_policy')
+@requires_permission(MODULE)
 def delete_link(id):
-    if not has_write_permission('knowledge_policy'):
+    if not has_write_permission(MODULE):
         flash('Write access required to delete links.', 'danger')
-        return redirect(url_for('links.detail', id=id))
+        return redirect(url_for(DETAIL, id=id))
     """Elimina un enlace."""
     link = db.get_or_404(Link, id)
     

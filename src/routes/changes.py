@@ -10,8 +10,12 @@ from src.utils.timezone_helper import now
 
 changes_bp = Blueprint('changes', __name__)
 
+# Frequently-referenced literals (avoid duplication, Sonar S1192)
+MODULE = 'operations'
+DETAIL_CHANGE = 'changes.detail_change'
+
 @changes_bp.route('/', methods=['GET'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def list_changes():
     """List all changes with filtering."""
     status = request.args.get('status')
@@ -32,11 +36,11 @@ def list_changes():
     return render_template('changes/list.html', changes=changes)
 
 @changes_bp.route('/new', methods=['GET', 'POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def new_change():
     """Create a new change request."""
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to create change requests.', 'danger')
             return redirect(url_for('changes.list_changes'))
         user_id = session.get('user_id')
@@ -117,7 +121,7 @@ def new_change():
             flash('Change request created successfully.', 'success')
             
         db.session.commit()
-        return redirect(url_for('changes.detail_change', id=change.id))
+        return redirect(url_for(DETAIL_CHANGE, id=change.id))
         
     # GET: Prepare data for form - FILTER ACTIVE ONLY
     users = User.query.filter_by(is_archived=False).all()
@@ -138,7 +142,7 @@ def new_change():
                           change=None)
 
 @changes_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def edit_change(id):
     """Edit an existing change request."""
     change = db.get_or_404(Change, id)
@@ -146,12 +150,12 @@ def edit_change(id):
     # Allow editing only if not final (you might want to restrict this further based on policy)
     if change.status in ['Completed', 'Cancelled', 'Failed']:
         flash('Cannot edit a closed change.', 'danger')
-        return redirect(url_for('changes.detail_change', id=id))
+        return redirect(url_for(DETAIL_CHANGE, id=id))
         
     if request.method == 'POST':
-        if not has_write_permission('operations'):
+        if not has_write_permission(MODULE):
             flash('Write access required to update change requests.', 'danger')
-            return redirect(url_for('changes.detail_change', id=id))
+            return redirect(url_for(DETAIL_CHANGE, id=id))
         change.title = request.form.get('title')
         change.description = request.form.get('description')
         change.change_type = request.form.get('change_type')
@@ -210,7 +214,7 @@ def edit_change(id):
                 
         db.session.commit()
         flash('Change updated successfully.', 'success')
-        return redirect(url_for('changes.detail_change', id=change.id))
+        return redirect(url_for(DETAIL_CHANGE, id=change.id))
 
     # GET: Prepare data for form - FILTER ACTIVE ONLY
     users = User.query.filter_by(is_archived=False).all()
@@ -230,17 +234,17 @@ def edit_change(id):
                           change=change)
 
 @changes_bp.route('/<int:id>', methods=['GET'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def detail_change(id):
     change = db.get_or_404(Change, id)
     return render_template('changes/detail.html', change=change)
 
 @changes_bp.route('/<int:id>/approve', methods=['POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def approve_change(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to approve changes.', 'danger')
-        return redirect(url_for('changes.detail_change', id=id))
+        return redirect(url_for(DETAIL_CHANGE, id=id))
     change = db.get_or_404(Change, id)
     user_id = session.get('user_id')
     user = db.session.get(User,user_id)
@@ -249,7 +253,7 @@ def approve_change(id):
     # Requester cannot approve their own change unless they are admin
     if change.requester_id == user_id and user.role != 'admin':
         flash('Security Violation: You cannot approve your own change request. Segregation of duties required.', 'danger')
-        return redirect(url_for('changes.detail_change', id=id))
+        return redirect(url_for(DETAIL_CHANGE, id=id))
         
     change.status = 'Approved'
     change.approved_by_id = user_id
@@ -257,32 +261,32 @@ def approve_change(id):
     db.session.commit()
     
     flash('Change approved successfully.', 'success')
-    return redirect(url_for('changes.detail_change', id=id))
+    return redirect(url_for(DETAIL_CHANGE, id=id))
 
 @changes_bp.route('/<int:id>/start', methods=['POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def start_change(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to start changes.', 'danger')
-        return redirect(url_for('changes.detail_change', id=id))
+        return redirect(url_for(DETAIL_CHANGE, id=id))
     change = db.get_or_404(Change, id)
     if change.status != 'Approved':
         flash('Change must be approved before starting.', 'warning')
-        return redirect(url_for('changes.detail_change', id=id))
+        return redirect(url_for(DETAIL_CHANGE, id=id))
         
     change.status = 'In Progress'
     change.executed_at = now()
     db.session.commit()
     
     flash('Change execution started.', 'info')
-    return redirect(url_for('changes.detail_change', id=id))
+    return redirect(url_for(DETAIL_CHANGE, id=id))
 
 @changes_bp.route('/<int:id>/complete', methods=['POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def complete_change(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to complete changes.', 'danger')
-        return redirect(url_for('changes.detail_change', id=id))
+        return redirect(url_for(DETAIL_CHANGE, id=id))
     change = db.get_or_404(Change, id)
     
     change.status = 'Completed'
@@ -290,38 +294,38 @@ def complete_change(id):
     db.session.commit()
     
     flash('Change marked as completed.', 'success')
-    return redirect(url_for('changes.detail_change', id=id))
+    return redirect(url_for(DETAIL_CHANGE, id=id))
 
 @changes_bp.route('/<int:id>/cancel', methods=['POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def cancel_change(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to cancel changes.', 'danger')
-        return redirect(url_for('changes.detail_change', id=id))
+        return redirect(url_for(DETAIL_CHANGE, id=id))
     change = db.get_or_404(Change, id)
     change.status = 'Cancelled'
     change.closed_at = now()
     db.session.commit()
     
     flash('Change cancelled.', 'secondary')
-    return redirect(url_for('changes.detail_change', id=id))
+    return redirect(url_for(DETAIL_CHANGE, id=id))
 
 @changes_bp.route('/<int:id>/add_evidence', methods=['POST'])
-@requires_permission('operations')
+@requires_permission(MODULE)
 def add_evidence(id):
-    if not has_write_permission('operations'):
+    if not has_write_permission(MODULE):
         flash('Write access required to add evidence.', 'danger')
-        return redirect(url_for('changes.detail_change', id=id))
+        return redirect(url_for(DETAIL_CHANGE, id=id))
     change = db.get_or_404(Change, id)
     
     if 'file' not in request.files:
         flash('No file part', 'danger')
-        return redirect(url_for('changes.detail_change', id=id))
+        return redirect(url_for(DETAIL_CHANGE, id=id))
         
     file = request.files['file']
     if file.filename == '':
         flash('No selected file', 'danger')
-        return redirect(url_for('changes.detail_change', id=id))
+        return redirect(url_for(DETAIL_CHANGE, id=id))
         
     if file:
         filename = secure_filename(file.filename)
@@ -343,4 +347,4 @@ def add_evidence(id):
         
         flash('Evidence uploaded successfully.', 'success')
         
-    return redirect(url_for('changes.detail_change', id=id))
+    return redirect(url_for(DETAIL_CHANGE, id=id))

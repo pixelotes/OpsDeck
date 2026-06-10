@@ -1,6 +1,7 @@
 from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN
 
 # --- PLANTILLAS Y CONFIGURACIÓN ---
 
@@ -18,7 +19,7 @@ class OnboardingPack(db.Model):
     description = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True)
     
-    items = db.relationship('PackItem', backref='pack', lazy=True, cascade='all, delete-orphan')
+    items = db.relationship('PackItem', backref='pack', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
 
 class PackItem(db.Model):
     """Elementos definidos dentro de un pack de onboarding."""
@@ -75,7 +76,7 @@ class OnboardingProcess(db.Model):
     assigned_buddy = db.relationship('User', foreign_keys=[assigned_buddy_id])
     
     # Relación con los items del checklist
-    items = db.relationship('ProcessItem', backref='onboarding_process', lazy=True, cascade='all, delete-orphan')
+    items = db.relationship('ProcessItem', backref='onboarding_process', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
     user = db.relationship('User', foreign_keys=[user_id])
 
 class OffboardingProcess(db.Model):
@@ -94,7 +95,7 @@ class OffboardingProcess(db.Model):
     manager = db.relationship('User', foreign_keys=[manager_id])
     
     # Relación con los items del checklist
-    items = db.relationship('ProcessItem', backref='offboarding_process', lazy=True, cascade='all, delete-orphan')
+    items = db.relationship('ProcessItem', backref='offboarding_process', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
 
 class ProcessItem(db.Model):
     """

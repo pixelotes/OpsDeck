@@ -8,24 +8,25 @@ from ..services.permissions_service import requires_permission, has_write_permis
 suppliers_bp = Blueprint('suppliers', __name__)
 
 SUPPLIERS_LIST_ENDPOINT = 'suppliers.suppliers'
+MODULE = 'procurement'
 
 @suppliers_bp.route('/', methods=['GET'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def suppliers():
     suppliers = Supplier.query.filter_by(is_archived=False).all()
     return render_template('suppliers/list.html', suppliers=suppliers)
 
 @suppliers_bp.route('/archived', methods=['GET'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def archived_suppliers():
     suppliers = Supplier.query.filter_by(is_archived=True).all()
     return render_template('suppliers/archived.html', suppliers=suppliers)
 
 @suppliers_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def archive_supplier(id):
     supplier = db.get_or_404(Supplier, id)
     supplier.is_archived = True
@@ -36,7 +37,7 @@ def archive_supplier(id):
 
 @suppliers_bp.route('/<int:id>/unarchive', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def unarchive_supplier(id):
     supplier = db.get_or_404(Supplier, id)
     supplier.is_archived = False
@@ -46,10 +47,10 @@ def unarchive_supplier(id):
 
 @suppliers_bp.route('/new', methods=['GET', 'POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def new_supplier():
     if request.method == 'POST':
-        if not has_write_permission('procurement'):
+        if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
                 return redirect(url_for(SUPPLIERS_LIST_ENDPOINT))
         supplier = Supplier(
@@ -72,19 +73,19 @@ def new_supplier():
 
 @suppliers_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def supplier_detail(id):
     supplier = db.get_or_404(Supplier, id)
     return render_template('suppliers/detail.html', supplier=supplier)
 
 @suppliers_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
-@requires_permission('procurement', access_level='READ_ONLY')
+@requires_permission(MODULE, access_level='READ_ONLY')
 def edit_supplier(id):
     supplier = db.get_or_404(Supplier, id)
     
     if request.method == 'POST':
-        if not has_write_permission('procurement'):
+        if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
                 return redirect(url_for('suppliers.supplier_detail', id=id))
         supplier.name = request.form['name']
@@ -105,7 +106,7 @@ def edit_supplier(id):
 
 @suppliers_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission('procurement', access_level='WRITE')
+@requires_permission(MODULE, access_level='WRITE')
 def delete_supplier(id):
     supplier = db.get_or_404(Supplier, id)
     db.session.delete(supplier)

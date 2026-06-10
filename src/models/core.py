@@ -3,6 +3,7 @@ from src.utils.timezone_helper import now
 from sqlalchemy import and_
 from sqlalchemy.orm import foreign
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 
 # Currency conversion rates (EUR base)
 CURRENCY_RATES = {
@@ -60,14 +61,14 @@ class Link(db.Model):
     software = db.relationship('Software', backref='links')
 
     # Relación con Tags (muchos a muchos)
-    tags = db.relationship('Tag', secondary=link_tags, backref=db.backref('links', lazy='dynamic'))
+    tags = db.relationship('Tag', secondary=link_tags, backref=db.backref('links', lazy=LAZY_DYNAMIC))
 
     compliance_links = db.relationship('ComplianceLink',
         primaryjoin=lambda: and_(
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Link.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Link'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
 
@@ -102,13 +103,13 @@ class Documentation(db.Model):
     software = db.relationship('Software', backref='documentation')
 
     # Relación con Tags (muchos a muchos)
-    tags = db.relationship('Tag', secondary=documentation_tags, backref=db.backref('documentation', lazy='dynamic'))
+    tags = db.relationship('Tag', secondary=documentation_tags, backref=db.backref('documentation', lazy=LAZY_DYNAMIC))
     
     # Relación con Attachments (polimórfica)
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Documentation.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Documentation')",
-                            lazy=True, cascade='all, delete-orphan',
+                            lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="attachments")
 
     compliance_links = db.relationship('ComplianceLink',
@@ -116,7 +117,7 @@ class Documentation(db.Model):
             foreign(__import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_id) == Documentation.id,
             __import__('src.models.security', fromlist=['ComplianceLink']).ComplianceLink.linkable_type == 'Documentation'
         ),
-        lazy='dynamic', cascade='all, delete-orphan',
+        lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
         overlaps="compliance_links"
     )
 

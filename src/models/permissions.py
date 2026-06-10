@@ -1,4 +1,5 @@
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 
 import enum
 
@@ -35,9 +36,9 @@ class Permission(db.Model):
     access_level = db.Column(db.Enum(AccessLevel), nullable=False, default=AccessLevel.WRITE)
     
     # Relationships
-    module = db.relationship('Module', backref=db.backref('permissions', lazy='dynamic', cascade='all, delete-orphan'))
-    user = db.relationship('User', backref=db.backref('direct_permissions', lazy='dynamic', cascade='all, delete-orphan'))
-    group = db.relationship('Group', backref=db.backref('permissions', lazy='dynamic', cascade='all, delete-orphan'))
+    module = db.relationship('Module', backref=db.backref('permissions', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN))
+    user = db.relationship('User', backref=db.backref('direct_permissions', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN))
+    group = db.relationship('Group', backref=db.backref('permissions', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN))
     
     # Ensure one permission per module/user or module/group
     __table_args__ = (

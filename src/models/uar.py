@@ -1,6 +1,7 @@
 from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
+from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from .auth import User
 from .security import SecurityIncident
 
@@ -62,7 +63,7 @@ class UARComparison(db.Model):
     updated_at = db.Column(db.DateTime, default=lambda: now(), onupdate=lambda: now())
 
     # Relationships
-    executions = db.relationship('UARExecution', backref='comparison', lazy='dynamic', cascade='all, delete-orphan')
+    executions = db.relationship('UARExecution', backref='comparison', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
 
     def __repr__(self):
         return f'<UARComparison {self.name}>'
@@ -107,7 +108,7 @@ class UARExecution(db.Model):
     enterprise_report_id = db.Column(db.Integer, nullable=True)  # Link to OpsDeck Enterprise Report
 
     # Relationships
-    findings = db.relationship('UARFinding', backref='execution', lazy='dynamic', cascade='all, delete-orphan')
+    findings = db.relationship('UARFinding', backref='execution', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
 
     def __repr__(self):
         return f'<UARExecution {self.id} - {self.status}>'
