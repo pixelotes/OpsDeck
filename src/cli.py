@@ -41,52 +41,25 @@ def register_commands(app):
             print(f"❌ Error: File '{filename}' not found.")
             return
 
-        print(f"{'USER':<30} | {'EMAIL':<30} | {'GENERATED PASSWORD'}")
-        print("-" * 85)
+        from .services.import_service import process
+        with open(filename, 'r', encoding='utf-8-sig') as f:
+            csv_text = f.read()
 
-        with open(filename, 'r', encoding='utf-8') as f:
-            reader = get_csv_reader(f)
-            if not validate_columns(reader, ['name', 'email']):
-                return
+        try:
+            result = process('users', csv_text, commit=True)
+        except ValueError as e:
+            print(f"❌ Error: {e}")
+            return
 
-            count = 0
-            skipped = 0
-            row_num = 0
-            
-            for row in reader:
-                row_num += 1
-                try:
-                    email = row['email'].strip()
-                    name = row['name'].strip()
-                    
-                    if not email or not name:
-                        print(f"⚠️ Row {row_num}: Skipped due to missing name or email.")
-                        continue
-                    
-                    # Check if user already exists
-                    if User.query.filter_by(email=email).first():
-                        skipped += 1
-                        continue
-                    
-                    # Generate random password
-                    random_pw = generate_secure_password()
-                    
-                    # Force role='user' for security reasons
-                    user = User(name=name, email=email, role='user')
-                    user.set_password(random_pw)
-                    
-                    db.session.add(user)
-                    
-                    # Print credentials for admin usage
-                    print(f"{name:<30} | {email:<30} | {random_pw}")
-                    count += 1
-                    
-                except Exception as e:
-                    print(f"❌ Error on row {row_num}: {e}")
-            
-            db.session.commit()
+        if result['notes']:
+            print(f"{'USER':<30} | {'EMAIL':<30} | {'GENERATED PASSWORD'}")
             print("-" * 85)
-            print(f"✅ Process finished. Users created: {count}. Skipped (already existed): {skipped}.")
+            for note in result['notes']:
+                print(f"{note['name']:<30} | {note['email']:<30} | {note['password']}")
+            print("-" * 85)
+        c = result['counts']
+        print(f"✅ Process finished. Users created: {c['create']}. "
+              f"Skipped (already existed): {c['skip']}. Errors: {c['error']}.")
 
     # --- 2. IMPORT SUPPLIERS ---
     @data_import.command('suppliers')

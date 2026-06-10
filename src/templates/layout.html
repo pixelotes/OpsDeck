@@ -666,6 +666,12 @@
                             class="nav-link {% if request.endpoint == 'admin.custom_fields' %}active{% endif %}"
                             href="{{ url_for('admin.custom_fields') }}"><i class="fa-fw fas fa-list-ul"></i>
                             Custom Properties</a></li>
+                    {% if can_write('administration') %}
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.import') %}active{% endif %}"
+                            href="{{ url_for('admin.import_home') }}"><i class="fa-fw fas fa-file-import"></i>
+                            Import Data</a></li>
+                    {% endif %}
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint == 'admin.audit_log' %}active{% endif %}"
                             href="{{ url_for('admin.audit_log') }}"><i class="fa-fw fas fa-history"></i>

@@ -1,5 +1,5 @@
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, session
+    Blueprint, render_template, request, redirect, url_for, flash, session, Response
 )
 from ..models import db, User
 from .main import login_required
@@ -7,6 +7,7 @@ from functools import wraps
 from src.utils.logger import log_audit
 
 from ..services.permissions_service import requires_permission, has_write_permission
+from ..services import import_service
 
 # Admin bp
 admin_bp = Blueprint('admin', __name__)
@@ -385,3 +386,99 @@ def audit_log_detail(id):
         'entity_repr': entry.entity_repr,
         'changes': changes
     })
+
+
+# --------------------------------------------------------------------------- #
+# Bulk CSV import (download template -> upload -> preview -> confirm)
+# --------------------------------------------------------------------------- #
+IMPORT_HOME = 'admin.import_home'
+MSG_UNKNOWN_IMPORT = 'Unknown import type.'
+
+
+@admin_bp.route('/import', methods=['GET'])
+@login_required
+@requires_permission(MODULE, access_level='WRITE')
+def import_home():
+    return render_template('admin/import.html', importers=import_service.IMPORTERS)
+
+
+@admin_bp.route('/import/<type_key>/template', methods=['GET'])
+@login_required
+@requires_permission(MODULE, access_level='WRITE')
+def import_template(type_key):
+    try:
+        csv_text = import_service.template_csv(type_key)
+    except ValueError:
+        flash(MSG_UNKNOWN_IMPORT, 'danger')
+        return redirect(url_for(IMPORT_HOME))
+    return Response(
+        csv_text,
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={type_key}_import_template.csv'},
+    )
+
+
+@admin_bp.route('/import/<type_key>/preview', methods=['POST'])
+@login_required
+@requires_permission(MODULE, access_level='WRITE')
+def import_preview(type_key):
+    try:
+        cfg = import_service.get_importer(type_key)
+    except ValueError:
+        flash(MSG_UNKNOWN_IMPORT, 'danger')
+        return redirect(url_for(IMPORT_HOME))
+
+    file = request.files.get('file')
+    if not file or not file.filename:
+        flash('Please choose a CSV file to upload.', 'danger')
+        return redirect(url_for(IMPORT_HOME))
+    try:
+        csv_text = file.read().decode('utf-8-sig')
+    except UnicodeDecodeError:
+        flash('The file must be a UTF-8 encoded CSV.', 'danger')
+        return redirect(url_for(IMPORT_HOME))
+
+    try:
+        result = import_service.process(type_key, csv_text, commit=False)
+    except ValueError as exc:
+        flash(str(exc), 'danger')
+        return redirect(url_for(IMPORT_HOME))
+
+    return render_template('admin/import_preview.html',
+                           type_key=type_key, cfg=cfg, result=result,
+                           csv_text=csv_text, committed=False)
+
+
+@admin_bp.route('/import/<type_key>/commit', methods=['POST'])
+@login_required
+@requires_permission(MODULE, access_level='WRITE')
+def import_commit(type_key):
+    try:
+        cfg = import_service.get_importer(type_key)
+    except ValueError:
+        flash(MSG_UNKNOWN_IMPORT, 'danger')
+        return redirect(url_for(IMPORT_HOME))
+
+    csv_text = request.form.get('csv_text', '')
+    if not csv_text.strip():
+        flash('Nothing to import.', 'danger')
+        return redirect(url_for(IMPORT_HOME))
+
+    try:
+        result = import_service.process(type_key, csv_text, commit=True)
+    except ValueError as exc:
+        flash(str(exc), 'danger')
+        return redirect(url_for(IMPORT_HOME))
+
+    counts = result['counts']
+    log_audit(
+        event_type='data.import',
+        action='create',
+        target_object=type_key,
+        target_info=f"{counts['create']} created, {counts['skip']} skipped, {counts['error']} errors",
+    )
+    flash(f"Import finished: {counts['create']} created, {counts['skip']} skipped, "
+          f"{counts['error']} error(s).", 'success')
+    return render_template('admin/import_preview.html',
+                           type_key=type_key, cfg=cfg, result=result,
+                           csv_text='', committed=True)
