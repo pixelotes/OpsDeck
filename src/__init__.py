@@ -258,15 +258,21 @@ def create_app(test_config=None):
     # --- REGISTER THE CUSTOM MARKDOWN FILTER ---
     @app.template_filter('markdown')
     def markdown_filter(s):
-        """Convert markdown to HTML with common extensions"""
-        return Markup(markdown.markdown(s, extensions=[
+        """Convert markdown to HTML with common extensions, then sanitize.
+
+        Sanitization is required: the markdown library does NOT strip raw HTML,
+        so unsanitized output of user-supplied text is a stored-XSS vector.
+        """
+        from .utils.sanitize import sanitize_html
+        html = markdown.markdown(s, extensions=[
             'extra',           # Includes tables, fenced code blocks, footnotes, etc.
             'codehilite',      # Syntax highlighting for code blocks
             'nl2br',           # Convert newlines to <br>
             'sane_lists',      # Better list handling
             'toc',             # Table of contents
             'smarty'           # Smart quotes and dashes
-        ]))
+        ])
+        return Markup(sanitize_html(html))
     
     @app.template_filter('nl2br')
     def nl2br_filter(s):

@@ -9,6 +9,7 @@ pytz==2026.2
 gunicorn==23.0.0
 MarkupSafe==3.0.3
 Markdown==3.9
+bleach==6.2.0
 weasyprint==68.0
 Flask-Login==0.6.3
 ecs-logging==2.3.0
