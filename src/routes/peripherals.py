@@ -2,6 +2,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
 from datetime import datetime
+from urllib.parse import urlparse
 from ..models import db, Peripheral, Asset, Purchase, Supplier, User, PeripheralAssignment
 from ..models.assets import Brand
 from ..models.core import CustomFieldDefinition
@@ -18,7 +19,7 @@ PERIPHERALS = 'peripherals.peripherals'
 PERIPHERAL_DETAIL = 'peripherals.peripheral_detail'
 WRITE_REQUIRED = 'Write access required for this action.'
 
-@peripherals_bp.route('/')
+@peripherals_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission(MODULE, access_level='READ_ONLY')
 def peripherals():
@@ -26,7 +27,7 @@ def peripherals():
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     return render_template('peripherals/list.html', peripherals=peripherals, users=users)
 
-@peripherals_bp.route('/<int:id>')
+@peripherals_bp.route('/<int:id>', methods=['GET'])
 @login_required
 @requires_permission(MODULE, access_level='READ_ONLY')
 def peripheral_detail(id):
@@ -64,6 +65,10 @@ def new_peripheral():
         )
         db.session.add(peripheral)
         db.session.commit()
+
+        peripheral.save_custom_properties(request.form)
+        db.session.commit()
+
         flash('Peripheral created successfully!', 'success')
         return redirect(url_for(PERIPHERALS))
 
@@ -72,7 +77,8 @@ def new_peripheral():
                             purchases=Purchase.query.order_by(Purchase.description).all(),
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             brands=Brand.query.order_by(Brand.name).all(),
-                            users=User.query.filter_by(is_archived=False).order_by(User.name).all())
+                            users=User.query.filter_by(is_archived=False).order_by(User.name).all(),
+                            custom_field_definitions=custom_field_definitions)
 
 @peripherals_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -107,6 +113,7 @@ def edit_peripheral(id):
             peripheral.serial_number = serial_number
             peripheral.status = new_status
             peripheral.user_id = request.form.get('user_id') or None
+            peripheral.save_custom_properties(request.form)
             db.session.commit()
             flash('Peripheral updated. Cost cannot be changed because the associated purchase has been validated.', 'info')
             return redirect(url_for(PERIPHERAL_DETAIL, id=id))
@@ -128,6 +135,7 @@ def edit_peripheral(id):
         peripheral.supplier_id = request.form.get('supplier_id') or None
         peripheral.user_id = request.form.get('user_id') or None
         
+        peripheral.save_custom_properties(request.form)
         db.session.commit()
         flash('Peripheral updated successfully!', 'success')
         return redirect(url_for(PERIPHERAL_DETAIL, id=id))
@@ -138,7 +146,8 @@ def edit_peripheral(id):
                             purchases=Purchase.query.order_by(Purchase.description).all(),
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             brands=Brand.query.order_by(Brand.name).all(),
-                            users=User.query.filter_by(is_archived=False).order_by(User.name).all())
+                            users=User.query.filter_by(is_archived=False).order_by(User.name).all(),
+                            custom_field_definitions=CustomFieldDefinition.query.filter_by(entity_type='Peripheral').all())
 
 @peripherals_bp.route('/<int:id>/checkout', methods=['GET', 'POST'])
 @login_required
@@ -182,23 +191,31 @@ def checkout_peripheral(id):
 @requires_permission(MODULE, access_level='WRITE')
 def checkin_peripheral(id):
     peripheral = db.get_or_404(Peripheral, id)
-    redirect_url = request.form.get('redirect_url')
+
+    # Only redirect to a local relative path to avoid open redirects (Sonar).
+    redirect_url = request.form.get('redirect_url', '')
+    parsed_redirect_url = urlparse(redirect_url)
+    safe_redirect_url = (
+        redirect_url
+        if redirect_url and not parsed_redirect_url.scheme and not parsed_redirect_url.netloc
+        else url_for(PERIPHERAL_DETAIL, id=id)
+    )
     
     if not peripheral.user:
         flash('This peripheral is already checked in.', 'warning')
-        return redirect(redirect_url or url_for(PERIPHERAL_DETAIL, id=id))
+        return redirect(safe_redirect_url)
 
     # REQUIRED: Select return location
     return_location_id = request.form.get('return_location_id')
     if not return_location_id:
         flash('You must select a location to return the peripheral to.', 'danger')
-        return redirect(redirect_url or url_for(PERIPHERAL_DETAIL, id=id))
+        return redirect(safe_redirect_url)
         
     from ..models import Location
     target_location = db.session.get(Location,return_location_id)
     if not target_location:
          flash('Selected location not found.', 'danger')
-         return redirect(redirect_url or url_for(PERIPHERAL_DETAIL, id=id))
+         return redirect(safe_redirect_url)
 
     assignment = PeripheralAssignment.query.filter_by(peripheral_id=id, checked_in_date=None).order_by(PeripheralAssignment.checked_out_date.desc()).first()
     
@@ -221,7 +238,7 @@ def checkin_peripheral(id):
         offboarding_item.is_completed = True
     
     db.session.commit()
-    return redirect(redirect_url or url_for(PERIPHERAL_DETAIL, id=id))
+    return redirect(safe_redirect_url)
 
 
 @peripherals_bp.route('/archived', methods=['GET'])
