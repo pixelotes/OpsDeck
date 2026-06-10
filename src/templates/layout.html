@@ -434,7 +434,7 @@
                             href="{{ url_for('compliance.vendor_compliance') }}"><i class="fa-fw fas fa-tasks"></i>
                             Vendor Compliance</a></li>
                     <li class="nav-item"><a
-                            class="nav-link {% if request.endpoint and 'access-review' in request.endpoint %}active{% endif %}"
+                            class="nav-link {% if request.endpoint and ('access_review' in request.endpoint or 'uar_execution' in request.endpoint or 'uar_finding' in request.endpoint) %}active{% endif %}"
                             href="{{ url_for('compliance.access_review') }}"><i class="fa-fw fas fa-user-lock"></i>
                             User Access Review</a></li>
                     <li class="nav-item"><a
