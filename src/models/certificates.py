@@ -108,6 +108,6 @@ class CertificateVersion(db.Model):
             return 0
         # Convert date to datetime for calculation if needed, or strictly use date
         # expires_at is db.Date, today() gives date.
-        today = today()
-        delta = self.expires_at - today
+        today_date = today()
+        delta = self.expires_at - today_date
         return delta.days
