@@ -24,6 +24,13 @@ from src.utils.timezone_helper import today, now
 
 MAX_ROWS = 5000
 _REMOTE_LOCATIONS = {'remote', 'work from home', 'wfh', 'virtual'}
+MSG_MISSING_NAME = 'Missing name'
+DEFAULT_HW_STATUS = 'In Use'
+
+
+def _created(persist):
+    """Standard per-row status message for a row that will be / was created."""
+    return 'Created' if persist else 'Will be created'
 
 
 # --------------------------------------------------------------------------- #
@@ -144,7 +151,7 @@ def _suppliers_init(_rows):
 def _suppliers_handle(row, ctx, persist):
     name = (row.get('name') or '').strip()
     if not name:
-        return 'error', 'Missing name', None
+        return 'error', MSG_MISSING_NAME, None
     if name in ctx['existing'] or name in ctx['seen']:
         return 'skip', 'A supplier with this name already exists', None
     ctx['seen'].add(name)
@@ -157,7 +164,7 @@ def _suppliers_handle(row, ctx, persist):
             website=row.get('website') or None,
             compliance_status=(row.get('compliance_status') or 'Pending'),
         ))
-    return 'create', 'Created' if persist else 'Will be created', None
+    return 'create', _created(persist), None
 
 
 def _contacts_init(_rows):
@@ -168,7 +175,7 @@ def _contacts_handle(row, ctx, persist):
     name = (row.get('name') or '').strip()
     sup_name = (row.get('supplier_name') or '').strip()
     if not name:
-        return 'error', 'Missing name', None
+        return 'error', MSG_MISSING_NAME, None
     if not sup_name:
         return 'error', 'Missing supplier_name', None
     if persist:
@@ -184,7 +191,7 @@ def _contacts_handle(row, ctx, persist):
             role=row.get('role') or None,
             supplier_id=supplier.id,
         ))
-    message = 'Created' if persist else 'Will be created'
+    message = _created(persist)
     if not persist and sup_name not in ctx['suppliers']:
         message += f" (supplier '{sup_name}' will be created)"
     return 'create', message, None
@@ -198,12 +205,13 @@ def _assets_init(_rows):
 def _assets_handle(row, ctx, persist):
     name = (row.get('name') or '').strip()
     if not name:
-        return 'error', 'Missing name', None
+        return 'error', MSG_MISSING_NAME, None
     serial = (row.get('serial_number') or '').strip()
-    if serial and (serial in ctx['serials'] or serial in ctx['seen_serials']):
+    if not serial:
+        return 'error', 'Missing serial_number', None
+    if serial in ctx['serials'] or serial in ctx['seen_serials']:
         return 'skip', 'An asset with this serial number already exists', None
-    if serial:
-        ctx['seen_serials'].add(serial)
+    ctx['seen_serials'].add(serial)
     if persist:
         user_id = _user_id_by_name(row.get('assigned_user'))
         location_id = _resolve_location_id(ctx, row.get('location_name'))
@@ -213,8 +221,8 @@ def _assets_handle(row, ctx, persist):
             name=name,
             brand_id=brand.id if brand else None,
             model_id=model.id if model else None,
-            serial_number=serial or None,
-            status=(row.get('status') or 'In Use'),
+            serial_number=serial,
+            status=(row.get('status') or DEFAULT_HW_STATUS),
             location_id=location_id,
             user_id=user_id,
             purchase_date=_parse_date(row.get('purchase_date')),
@@ -226,13 +234,24 @@ def _assets_handle(row, ctx, persist):
         if user_id:
             db.session.add(AssetAssignment(asset_id=asset.id, user_id=user_id,
                                            checked_out_date=now(), notes='Imported via CSV'))
-    return 'create', 'Created' if persist else 'Will be created', None
+    return 'create', _created(persist), None
+
+
+def _peripherals_init(_rows):
+    return {'serials': {s for (s,) in db.session.query(Peripheral.serial_number).all() if s},
+            'seen_serials': set()}
 
 
 def _peripherals_handle(row, ctx, persist):
     name = (row.get('name') or '').strip()
     if not name:
-        return 'error', 'Missing name', None
+        return 'error', MSG_MISSING_NAME, None
+    serial = (row.get('serial_number') or '').strip()
+    if not serial:
+        return 'error', 'Missing serial_number', None
+    if serial in ctx['serials'] or serial in ctx['seen_serials']:
+        return 'skip', 'A peripheral with this serial number already exists', None
+    ctx['seen_serials'].add(serial)
     if persist:
         user_id = _user_id_by_name(row.get('assigned_user'))
         location_id = _resolve_location_id(ctx, row.get('location_name'))
@@ -241,8 +260,8 @@ def _peripherals_handle(row, ctx, persist):
             name=name,
             type=(row.get('type') or 'Accessory'),
             brand_id=brand.id if brand else None,
-            serial_number=row.get('serial_number') or None,
-            status=(row.get('status') or 'In Use'),
+            serial_number=serial,
+            status=(row.get('status') or DEFAULT_HW_STATUS),
             user_id=user_id,
             location_id=location_id,
         )
@@ -251,7 +270,7 @@ def _peripherals_handle(row, ctx, persist):
         if user_id:
             db.session.add(PeripheralAssignment(peripheral_id=peripheral.id, user_id=user_id,
                                                 checked_out_date=now(), notes='Imported via CSV'))
-    return 'create', 'Created' if persist else 'Will be created', None
+    return 'create', _created(persist), None
 
 
 def _software_init(_rows):
@@ -261,7 +280,7 @@ def _software_init(_rows):
 def _software_handle(row, ctx, persist):
     name = (row.get('name') or '').strip()
     if not name:
-        return 'error', 'Missing name', None
+        return 'error', MSG_MISSING_NAME, None
     if name in ctx['existing'] or name in ctx['seen']:
         return 'skip', 'Software with this name already exists', None
     ctx['seen'].add(name)
@@ -286,7 +305,7 @@ def _software_handle(row, ctx, persist):
             owner_type=owner_type,
             iso_27001_control_references=row.get('iso_27001_controls') or None,
         ))
-    return 'create', 'Created' if persist else 'Will be created', None
+    return 'create', _created(persist), None
 
 
 def _subscriptions_init(_rows):
@@ -297,6 +316,9 @@ def _subscriptions_handle(row, ctx, persist):
     sup_name = (row.get('supplier_name') or '').strip()
     if not sup_name:
         return 'error', 'Missing supplier_name', None
+    name = (row.get('name') or '').strip()
+    if not name:
+        return 'error', MSG_MISSING_NAME, None
     if sup_name not in ctx['suppliers']:
         return 'skip', f"Supplier '{sup_name}' not found (create it first)", None
     if persist:
@@ -317,7 +339,7 @@ def _subscriptions_handle(row, ctx, persist):
             user = User.query.filter_by(email=u_email).first()
             user_id = user.id if user else None
         db.session.add(Subscription(
-            name=row.get('name') or None,
+            name=name,
             subscription_type=(row.get('type') or 'SaaS'),
             description=row.get('description') or None,
             cost=float(row['cost']) if row.get('cost') else 0.0,
@@ -331,13 +353,13 @@ def _subscriptions_handle(row, ctx, persist):
             budget_id=budget_id,
             user_id=user_id,
         ))
-    return 'create', 'Created' if persist else 'Will be created', None
+    return 'create', _created(persist), None
 
 
 def _risks_handle(row, _ctx, persist):
     name = (row.get('name') or '').strip()
     if not name:
-        return 'error', 'Missing name', None
+        return 'error', MSG_MISSING_NAME, None
     try:
         likelihood = int(row['likelihood']) if row.get('likelihood') else 1
         impact = int(row['impact']) if row.get('impact') else 1
@@ -358,7 +380,7 @@ def _risks_handle(row, _ctx, persist):
             cat = raw_cat.strip()
             if cat:
                 db.session.add(RiskCategory(risk_id=risk.id, category=cat))
-    return 'create', 'Created' if persist else 'Will be created', None
+    return 'create', _created(persist), None
 
 
 # --------------------------------------------------------------------------- #
@@ -400,11 +422,11 @@ IMPORTERS = {
         'label': 'Assets',
         'description': ('Create hardware assets. Brand/model/location are matched by name and created if '
                         'missing; assigned_user (by name) creates a checkout. Skips existing serial numbers.'),
-        'required': ['name'],
-        'optional': ['brand', 'model', 'serial_number', 'status', 'location_name',
+        'required': ['name', 'serial_number'],
+        'optional': ['brand', 'model', 'status', 'location_name',
                      'assigned_user', 'purchase_date', 'cost', 'warranty_length'],
         'sample': [{'name': 'Laptop 001', 'brand': 'Dell', 'model': 'XPS 13', 'serial_number': 'SN-001',
-                    'status': 'In Use', 'location_name': 'HQ', 'assigned_user': 'Alice Johnson',
+                    'status': DEFAULT_HW_STATUS, 'location_name': 'HQ', 'assigned_user': 'Alice Johnson',
                     'purchase_date': '2025-01-15', 'cost': '1200', 'warranty_length': '36'}],
         'init': _assets_init,
         'handle': _assets_handle,
@@ -412,10 +434,11 @@ IMPORTERS = {
     'peripherals': {
         'label': 'Peripherals',
         'description': 'Create peripherals. Brand/location matched by name (created if missing); assigned_user creates a checkout.',
-        'required': ['name'],
-        'optional': ['type', 'brand', 'serial_number', 'status', 'location_name', 'assigned_user'],
+        'required': ['name', 'serial_number'],
+        'optional': ['type', 'brand', 'status', 'location_name', 'assigned_user'],
         'sample': [{'name': 'Keyboard 001', 'type': 'Keyboard', 'brand': 'Logitech', 'serial_number': 'KB-001',
-                    'status': 'In Use', 'location_name': 'HQ', 'assigned_user': 'Alice Johnson'}],
+                    'status': DEFAULT_HW_STATUS, 'location_name': 'HQ', 'assigned_user': 'Alice Johnson'}],
+        'init': _peripherals_init,
         'handle': _peripherals_handle,
     },
     'software': {
@@ -432,8 +455,8 @@ IMPORTERS = {
         'label': 'Subscriptions',
         'description': ('Create subscriptions. supplier_name is required and must already exist. '
                         'software/budget/assigned_user are linked by name/email if present.'),
-        'required': ['supplier_name'],
-        'optional': ['name', 'type', 'cost', 'currency', 'renewal_date', 'period_type', 'period_value',
+        'required': ['supplier_name', 'name'],
+        'optional': ['type', 'cost', 'currency', 'renewal_date', 'period_type', 'period_value',
                      'software_name', 'budget_name', 'assigned_user_email', 'auto_renew', 'description'],
         'sample': [{'supplier_name': 'Adobe', 'name': 'Creative Cloud', 'type': 'SaaS', 'cost': '600',
                     'currency': 'EUR', 'renewal_date': '2026-01-01', 'period_type': 'yearly', 'period_value': '1',

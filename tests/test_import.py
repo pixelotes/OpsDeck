@@ -91,7 +91,7 @@ def test_assets_autocreate_dependencies(app, init_database):
     with app.app_context():
         from src.models import Asset, Location
         from src.models.assets import Brand, AssetModel
-        res = imp.process('assets', 'name,brand,model,location_name\nLaptop 1,Dell,XPS 13,HQ\n', commit=True)
+        res = imp.process('assets', 'name,serial_number,brand,model,location_name\nLaptop 1,SN-1,Dell,XPS 13,HQ\n', commit=True)
         assert res['counts']['create'] == 1
         assert Asset.query.filter_by(name='Laptop 1').first() is not None
         assert Brand.query.filter_by(name='Dell').first() is not None
