@@ -214,7 +214,40 @@ def create_app(test_config=None):
     
     # Disable HTTPS enforcement in development (debug mode) or when explicitly disabled
     is_development = app.debug or insecure_transport or os.environ.get('FLASK_ENV') == 'development'
-    talisman.init_app(app, content_security_policy=None, force_https=not is_development)
+
+    # --- Content Security Policy (baseline) ---
+    # All first-party assets are vendored under /static, so 'self' covers them.
+    # 'unsafe-inline' is required by the app's many inline <script>/<style> blocks
+    # and on* handlers; 'unsafe-eval' is required by Mermaid (dagre-d3 compiles
+    # expressions at runtime). The meaningful hardening here is default-src 'self'
+    # plus object-src/base-uri/frame-ancestors/form-action — blocks external script
+    # loading, clickjacking, <base> hijacking and off-site form posts.
+    # Tightening (dropping unsafe-inline/eval) needs an inline-handler refactor and
+    # isolating Mermaid; tracked separately.
+    content_security_policy = {
+        'default-src': "'self'",
+        'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        'style-src': ["'self'", "'unsafe-inline'"],
+        'img-src': ["'self'", 'data:'],
+        'font-src': ["'self'", 'data:'],
+        'connect-src': "'self'",
+        'frame-ancestors': "'self'",
+        'base-uri': "'self'",
+        'form-action': "'self'",
+        'object-src': "'none'",
+    }
+    # Escape hatches (no redeploy needed): CSP_ENABLED=False disables it entirely;
+    # CSP_REPORT_ONLY=True sends Content-Security-Policy-Report-Only (logs violations
+    # in the browser console without blocking) — useful to verify before enforcing.
+    csp_enabled = os.environ.get('CSP_ENABLED', 'True').lower() == 'true'
+    csp_report_only = os.environ.get('CSP_REPORT_ONLY', 'False').lower() == 'true'
+
+    talisman.init_app(
+        app,
+        content_security_policy=(content_security_policy if csp_enabled else None),
+        content_security_policy_report_only=csp_report_only,
+        force_https=not is_development,
+    )
 
     # --- Configure Logging (ECS format with rotation) ---
     configure_logging(app)
