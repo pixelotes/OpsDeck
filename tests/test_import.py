@@ -130,3 +130,42 @@ def test_missing_required_column_raises(app, init_database):
     with app.app_context():
         with pytest.raises(ValueError):
             imp.process('users', 'fullname,mail\nx,y\n', commit=False)
+
+
+def test_locations_preview_and_commit(app, init_database):
+    with app.app_context():
+        from src.models import Location
+        csv_text = 'name,city\nHQ,Madrid\nHQ,Madrid\n'
+        prev = imp.process('locations', csv_text, commit=False)
+        assert prev['counts'] == {'create': 1, 'skip': 1, 'error': 0}
+        imp.process('locations', csv_text, commit=True)
+        assert Location.query.filter_by(name='HQ').count() == 1
+
+
+def test_budgets_amount_validation(app, init_database):
+    with app.app_context():
+        from src.models import Budget
+        res = imp.process('budgets', 'name,amount\nGood,1000\nBad,xyz\n', commit=True)
+        assert res['counts']['create'] == 1
+        assert res['counts']['error'] == 1
+        b = Budget.query.filter_by(name='Good').first()
+        assert b is not None and abs(b.amount - 1000.0) < 0.01
+
+
+def test_asset_models_autocreate_brand(app, init_database):
+    with app.app_context():
+        from src.models.assets import Brand, AssetModel
+        res = imp.process('asset_models', 'name,brand\nXPS 13,Dell\n', commit=True)
+        assert res['counts']['create'] == 1
+        brand = Brand.query.filter_by(name='Dell').first()
+        assert brand is not None
+        assert AssetModel.query.filter_by(name='XPS 13', brand_id=brand.id).first() is not None
+
+
+def test_cost_centers_dedup_by_code(app, init_database):
+    with app.app_context():
+        from src.models import CostCenter
+        csv_text = 'code,name\nCC-1,Eng\nCC-1,Duplicate\n'
+        res = imp.process('cost_centers', csv_text, commit=True)
+        assert res['counts'] == {'create': 1, 'skip': 1, 'error': 0}
+        assert CostCenter.query.filter_by(code='CC-1').count() == 1

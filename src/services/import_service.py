@@ -16,7 +16,7 @@ from ..extensions import db
 from ..models import (
     User, Supplier, Contact, Asset, AssetAssignment, Peripheral,
     PeripheralAssignment, Location, Software, Subscription, Budget,
-    Risk, RiskCategory,
+    Risk, RiskCategory, Tag, CostCenter, PaymentMethod,
 )
 from ..models.assets import Brand, AssetModel
 from ..utils.helpers import generate_secure_password, get_csv_reader
@@ -384,6 +384,167 @@ def _risks_handle(row, _ctx, persist):
 
 
 # --------------------------------------------------------------------------- #
+# Reference / lookup importers (flat, name-keyed)
+# --------------------------------------------------------------------------- #
+def _locations_init(_rows):
+    return {'existing': {n for (n,) in db.session.query(Location.name).all() if n}, 'seen': set()}
+
+
+def _locations_handle(row, ctx, persist):
+    name = (row.get('name') or '').strip()
+    if not name:
+        return 'error', MSG_MISSING_NAME, None
+    if name in ctx['existing'] or name in ctx['seen']:
+        return 'skip', 'A location with this name already exists', None
+    ctx['seen'].add(name)
+    if persist:
+        db.session.add(Location(
+            name=name,
+            address=row.get('address') or None,
+            city=row.get('city') or None,
+            zip_code=row.get('zip_code') or None,
+            country=row.get('country') or None,
+            timezone=row.get('timezone') or None,
+        ))
+    return 'create', _created(persist), None
+
+
+def _tags_init(_rows):
+    return {'existing': {n for (n,) in db.session.query(Tag.name).all() if n}, 'seen': set()}
+
+
+def _tags_handle(row, ctx, persist):
+    name = (row.get('name') or '').strip()
+    if not name:
+        return 'error', MSG_MISSING_NAME, None
+    if name in ctx['existing'] or name in ctx['seen']:
+        return 'skip', 'A tag with this name already exists', None
+    ctx['seen'].add(name)
+    if persist:
+        db.session.add(Tag(name=name))
+    return 'create', _created(persist), None
+
+
+def _brands_init(_rows):
+    return {'existing': {n for (n,) in db.session.query(Brand.name).all() if n}, 'seen': set()}
+
+
+def _brands_handle(row, ctx, persist):
+    name = (row.get('name') or '').strip()
+    if not name:
+        return 'error', MSG_MISSING_NAME, None
+    if name in ctx['existing'] or name in ctx['seen']:
+        return 'skip', 'A brand with this name already exists', None
+    ctx['seen'].add(name)
+    if persist:
+        db.session.add(Brand(name=name, website=row.get('website') or None, notes=row.get('notes') or None))
+    return 'create', _created(persist), None
+
+
+def _cost_centers_init(_rows):
+    return {'existing': {c for (c,) in db.session.query(CostCenter.code).all() if c}, 'seen': set()}
+
+
+def _cost_centers_handle(row, ctx, persist):
+    code = (row.get('code') or '').strip()
+    name = (row.get('name') or '').strip()
+    if not code:
+        return 'error', 'Missing code', None
+    if not name:
+        return 'error', MSG_MISSING_NAME, None
+    if code in ctx['existing'] or code in ctx['seen']:
+        return 'skip', 'A cost center with this code already exists', None
+    ctx['seen'].add(code)
+    if persist:
+        db.session.add(CostCenter(code=code, name=name, description=row.get('description') or None))
+    return 'create', _created(persist), None
+
+
+def _budgets_init(_rows):
+    return {'existing': {n for (n,) in db.session.query(Budget.name).all() if n}, 'seen': set()}
+
+
+def _budgets_handle(row, ctx, persist):
+    name = (row.get('name') or '').strip()
+    amount = (row.get('amount') or '').strip()
+    if not name:
+        return 'error', MSG_MISSING_NAME, None
+    if not amount:
+        return 'error', 'Missing amount', None
+    try:
+        amount_value = float(amount)
+    except ValueError:
+        return 'error', f'Invalid amount: {amount!r}', None
+    if name in ctx['existing'] or name in ctx['seen']:
+        return 'skip', 'A budget with this name already exists', None
+    ctx['seen'].add(name)
+    if persist:
+        budget = Budget(
+            name=name,
+            amount=amount_value,
+            category=row.get('category') or None,
+            currency=(row.get('currency') or 'EUR'),
+            period=(row.get('period') or 'One-time'),
+        )
+        valid_from = _parse_date(row.get('valid_from'))
+        valid_until = _parse_date(row.get('valid_until'))
+        if valid_from:
+            budget.valid_from = valid_from
+        if valid_until:
+            budget.valid_until = valid_until
+        db.session.add(budget)
+    return 'create', _created(persist), None
+
+
+def _payment_methods_init(_rows):
+    return {'existing': {n for (n,) in db.session.query(PaymentMethod.name).all() if n}, 'seen': set()}
+
+
+def _payment_methods_handle(row, ctx, persist):
+    name = (row.get('name') or '').strip()
+    method_type = (row.get('method_type') or '').strip()
+    if not name:
+        return 'error', MSG_MISSING_NAME, None
+    if not method_type:
+        return 'error', 'Missing method_type', None
+    if name in ctx['existing'] or name in ctx['seen']:
+        return 'skip', 'A payment method with this name already exists', None
+    ctx['seen'].add(name)
+    if persist:
+        db.session.add(PaymentMethod(
+            name=name,
+            method_type=method_type,
+            details=row.get('details') or None,
+            expiry_date=_parse_date(row.get('expiry_date')),
+        ))
+    return 'create', _created(persist), None
+
+
+def _asset_models_init(_rows):
+    return {'seen': set()}
+
+
+def _asset_models_handle(row, ctx, persist):
+    name = (row.get('name') or '').strip()
+    brand_name = (row.get('brand') or '').strip()
+    if not name:
+        return 'error', MSG_MISSING_NAME, None
+    if not brand_name:
+        return 'error', 'Missing brand', None
+    key = (brand_name.lower(), name.lower())
+    if key in ctx['seen']:
+        return 'skip', 'This model already exists for the brand', None
+    brand = Brand.query.filter_by(name=brand_name).first()
+    if brand and AssetModel.query.filter_by(name=name, brand_id=brand.id).first():
+        return 'skip', 'This model already exists for the brand', None
+    ctx['seen'].add(key)
+    if persist:
+        brand = _resolve_brand(ctx, brand_name)  # get-or-create the brand
+        db.session.add(AssetModel(name=name, brand_id=brand.id))
+    return 'create', _created(persist), None
+
+
+# --------------------------------------------------------------------------- #
 # Registry
 # --------------------------------------------------------------------------- #
 IMPORTERS = {
@@ -473,6 +634,72 @@ IMPORTERS = {
         'sample': [{'name': 'Data breach', 'likelihood': '3', 'impact': '5',
                     'description': 'Unauthorized access to PII', 'category': 'Security,Compliance'}],
         'handle': _risks_handle,
+    },
+    'locations': {
+        'label': 'Locations',
+        'description': 'Create offices/locations. Skips names that already exist.',
+        'required': ['name'],
+        'optional': ['address', 'city', 'zip_code', 'country', 'timezone'],
+        'sample': [{'name': 'HQ', 'address': '1 Main St', 'city': 'Madrid', 'zip_code': '28001',
+                    'country': 'Spain', 'timezone': 'Europe/Madrid'}],
+        'init': _locations_init,
+        'handle': _locations_handle,
+    },
+    'tags': {
+        'label': 'Tags',
+        'description': 'Create tags. Skips names that already exist.',
+        'required': ['name'],
+        'optional': [],
+        'sample': [{'name': 'SaaS'}, {'name': 'Critical'}],
+        'init': _tags_init,
+        'handle': _tags_handle,
+    },
+    'brands': {
+        'label': 'Brands',
+        'description': 'Create hardware brands. Skips names that already exist.',
+        'required': ['name'],
+        'optional': ['website', 'notes'],
+        'sample': [{'name': 'Dell', 'website': 'https://dell.com', 'notes': ''}],
+        'init': _brands_init,
+        'handle': _brands_handle,
+    },
+    'asset_models': {
+        'label': 'Asset Models',
+        'description': 'Create asset models under a brand. The brand is matched by name and created if missing.',
+        'required': ['name', 'brand'],
+        'optional': [],
+        'sample': [{'name': 'XPS 13', 'brand': 'Dell'}],
+        'init': _asset_models_init,
+        'handle': _asset_models_handle,
+    },
+    'cost_centers': {
+        'label': 'Cost Centers',
+        'description': 'Create cost centers. Skips codes that already exist.',
+        'required': ['code', 'name'],
+        'optional': ['description'],
+        'sample': [{'code': 'CC-100', 'name': 'Engineering', 'description': 'R&D cost center'}],
+        'init': _cost_centers_init,
+        'handle': _cost_centers_handle,
+    },
+    'budgets': {
+        'label': 'Budgets',
+        'description': 'Create budgets. Skips names that already exist. valid_from/valid_until default to the current year.',
+        'required': ['name', 'amount'],
+        'optional': ['category', 'currency', 'period', 'valid_from', 'valid_until'],
+        'sample': [{'name': 'Software & SaaS 2026', 'amount': '150000', 'category': 'Software',
+                    'currency': 'EUR', 'period': 'yearly', 'valid_from': '2026-01-01', 'valid_until': '2026-12-31'}],
+        'init': _budgets_init,
+        'handle': _budgets_handle,
+    },
+    'payment_methods': {
+        'label': 'Payment Methods',
+        'description': 'Create payment methods. Skips names that already exist.',
+        'required': ['name', 'method_type'],
+        'optional': ['details', 'expiry_date'],
+        'sample': [{'name': 'Company Visa', 'method_type': 'Credit Card', 'details': 'Visa ending 1234',
+                    'expiry_date': '2028-12-31'}],
+        'init': _payment_methods_init,
+        'handle': _payment_methods_handle,
     },
 }
 
