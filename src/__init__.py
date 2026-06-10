@@ -669,6 +669,131 @@ def create_app(test_config=None):
             db.session.commit()
             print(f"✓ Admin user created successfully: {email}")
     
+    @app.cli.command("db-doctor")
+    @click.option('--fix', is_flag=True, help='Repair alembic tracking / apply pending migrations where safe.')
+    def db_doctor_command(fix):
+        """Diagnose (and optionally --fix) DB schema vs migration state.
+
+        Verifies alembic version tracking and compares the live schema against
+        the models. Handy after rough deploys where alembic_version drifts.
+        Exits 1 if problems remain.
+        """
+        from sqlalchemy import inspect as sa_inspect, text as sa_text
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+        from alembic.migration import MigrationContext
+        from alembic.autogenerate import compare_metadata
+
+        def _fmt(d):
+            op = d[0]
+            try:
+                if op in ('add_table', 'remove_table'):
+                    return f"{op}: {d[1].name}"
+                if op in ('add_column', 'remove_column'):
+                    return f"{op}: {d[2]}.{d[3].name}"
+                if op.startswith('modify'):
+                    return f"{op}: {d[2]}.{d[3]}"
+            except Exception:
+                pass
+            return str(op)
+
+        with app.app_context():
+            cfg = Config('migrations/alembic.ini')
+            cfg.set_main_option('script_location', 'migrations')
+            script = ScriptDirectory.from_config(cfg)
+            heads = list(script.get_heads())
+            head = heads[0] if len(heads) == 1 else None
+
+            inspector = sa_inspect(db.engine)
+            all_tables = inspector.get_table_names()
+            has_version = 'alembic_version' in all_tables
+            tables = [t for t in all_tables if t != 'alembic_version']
+
+            with db.engine.connect() as conn:
+                ctx = MigrationContext.configure(conn)
+                current = ctx.get_current_revision()
+                diff = compare_metadata(ctx, db.metadata)
+
+            plugin_removes = [d for d in diff if d[0] == 'remove_table']
+            drift = [d for d in diff if d[0] != 'remove_table']
+
+            stale = False
+            if current is not None:
+                try:
+                    script.get_revision(current)
+                except Exception:
+                    stale = True
+
+            tracking_broken = (not has_version) or (current is None) or stale
+            behind = bool(head and current and not stale and current != head)
+            empty = len(tables) == 0
+
+            click.echo("=== Alembic tracking ===")
+            click.echo(f"  Migration head(s): {', '.join(heads) or '(none)'}")
+            click.echo(f"  Tables in DB:      {len(tables)}")
+            if not has_version:
+                tstatus = 'MISSING — no alembic_version table'
+            elif current is None:
+                tstatus = 'EMPTY — alembic_version has no row'
+            elif stale:
+                tstatus = f'STALE — current {current!r} not found in migrations'
+            elif behind:
+                tstatus = f'BEHIND — at {current}, head is {head}'
+            else:
+                tstatus = f'OK — {current}'
+            click.echo(f"  Tracking status:   {tstatus}")
+
+            click.echo("=== Schema vs models ===")
+            if empty:
+                click.echo("  EMPTY DB — no application tables present")
+            elif drift:
+                click.echo(f"  DRIFT — {len(drift)} difference(s) vs models:")
+                for d in drift[:50]:
+                    click.echo(f"    - {_fmt(d)}")
+                if len(drift) > 50:
+                    click.echo(f"    ... and {len(drift) - 50} more")
+            else:
+                click.echo("  OK — schema matches models")
+            if plugin_removes:
+                click.echo(f"  ({len(plugin_removes)} extra table(s) not in models — likely optional plugins)")
+
+            healthy = not (tracking_broken or behind or drift or empty)
+            if healthy:
+                click.echo("\n✓ Database is healthy.")
+                return
+
+            if not fix:
+                click.echo("\n⚠ Issues detected. Re-run with --fix to repair where safe.")
+                raise SystemExit(1)
+
+            from flask_migrate import stamp, upgrade
+            click.echo("\n--- Applying fixes (--fix) ---")
+
+            if empty:
+                upgrade()
+                click.echo("  Empty DB: applied all migrations (upgrade).")
+            elif drift and tracking_broken:
+                click.echo("  Schema differs from models AND tracking is broken.")
+                click.echo("  Not stamping (would mislabel state). Investigate, then: flask db migrate")
+                raise SystemExit(1)
+            elif tracking_broken:
+                if stale and has_version:
+                    with db.engine.connect() as conn:
+                        conn.execute(sa_text('DELETE FROM alembic_version'))
+                        conn.commit()
+                    click.echo("  Cleared stale alembic_version row.")
+                stamp(revision='head')
+                click.echo(f"  Stamped head ({head}). Schema already matched models.")
+            elif behind:
+                upgrade()
+                click.echo("  Applied pending migrations (upgrade).")
+
+            if drift and not empty:
+                click.echo("  NOTE: schema drift vs models remains — generate a migration: flask db migrate")
+                raise SystemExit(1)
+
+            click.echo("✓ Done.")
+
     # --- Seed the db with fake demo data ---
     @app.cli.command("seed-db-demodata")
     def seed_db_command():
