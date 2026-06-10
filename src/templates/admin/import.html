@@ -16,11 +16,18 @@
             <div class="card-header"><i class="fas fa-table me-2"></i>{{ cfg.label }}</div>
             <div class="card-body d-flex flex-column">
                 <p class="text-muted">{{ cfg.description }}</p>
-                <p class="small mb-3">
-                    <strong>Columns:</strong>
-                    {% for c in cfg.required %}<span class="badge bg-secondary">{{ c }}</span> {% endfor %}
-                    {% for c in cfg.optional %}<span class="badge bg-light text-dark border">{{ c }} (optional)</span> {% endfor %}
+                <p class="small mb-1">
+                    <strong>Required columns:</strong>
+                    {% for c in cfg.required %}<span class="badge bg-primary">{{ c }}</span> {% endfor %}
                 </p>
+                {% if cfg.optional %}
+                <p class="small mb-3">
+                    <strong>Optional columns:</strong>
+                    {% for c in cfg.optional %}<span class="badge bg-light text-dark border">{{ c }}</span> {% endfor %}
+                </p>
+                {% else %}
+                <p class="small text-muted mb-3">No optional columns.</p>
+                {% endif %}
                 <div class="mt-auto">
                     <a href="{{ url_for('admin.import_template', type_key=key) }}"
                         class="btn btn-outline-secondary btn-sm mb-3">
