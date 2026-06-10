@@ -662,10 +662,6 @@
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('tags.') %}active{% endif %}"
                             href="{{ url_for('tags.tags') }}"><i class="fa-fw fas fa-tags"></i> Tags</a></li>
-                    <li class="nav-item"><a
-                            class="nav-link {% if request.endpoint == 'admin.custom_fields' %}active{% endif %}"
-                            href="{{ url_for('admin.custom_fields') }}"><i class="fa-fw fas fa-list-ul"></i>
-                            Custom Properties</a></li>
                     {% if can_write('administration') %}
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.import') %}active{% endif %}"
@@ -692,6 +688,10 @@
                             class="nav-link {% if request.endpoint == 'organization.settings' %}active{% endif %}"
                             href="{{ url_for('organization.settings') }}"><i class="fa-fw fas fa-building"></i>
                             Organization</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint == 'admin.custom_fields' %}active{% endif %}"
+                            href="{{ url_for('admin.custom_fields') }}"><i class="fa-fw fas fa-list-ul"></i>
+                            Custom Properties</a></li>
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint == 'admin_notifications.list_events' %}active{% endif %}"
                             href="{{ url_for('admin_notifications.list_events') }}"><i class="fa-fw fas fa-bell"></i>

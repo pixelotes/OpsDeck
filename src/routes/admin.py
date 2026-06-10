@@ -14,6 +14,8 @@ admin_bp = Blueprint('admin', __name__)
 
 # Permission module and frequently-referenced endpoints (avoid duplicated literals)
 MODULE = 'administration'
+# Custom Properties is governed by the Settings module, not Administration.
+SETTINGS_MODULE = 'settings'
 CUSTOM_FIELDS = 'admin.custom_fields'
 LIST_USERS = 'admin.list_users'
 
@@ -135,16 +137,16 @@ from ..models.core import CustomFieldDefinition, CustomFieldValue
 
 @admin_bp.route('/custom-fields', methods=['GET'])
 @login_required
-@requires_permission(MODULE, access_level='READ_ONLY')
+@requires_permission(SETTINGS_MODULE, access_level='READ_ONLY')
 def custom_fields():
     definitions = CustomFieldDefinition.query.order_by(CustomFieldDefinition.entity_type, CustomFieldDefinition.name).all()
     return render_template('admin/custom_fields_list.html', definitions=definitions)
 
 @admin_bp.route('/custom-fields/new', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(SETTINGS_MODULE)
 def create_custom_field():
-    if not has_write_permission(MODULE):
+    if not has_write_permission(SETTINGS_MODULE):
         flash('Write access required to manage custom fields.', 'danger')
         return redirect(url_for(CUSTOM_FIELDS))
     entity_type = request.form.get('entity_type')
@@ -185,9 +187,9 @@ def create_custom_field():
 
 @admin_bp.route('/custom-fields/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(SETTINGS_MODULE)
 def delete_custom_field(id):
-    if not has_write_permission(MODULE):
+    if not has_write_permission(SETTINGS_MODULE):
         flash('Write access required to delete custom fields.', 'danger')
         return redirect(url_for(CUSTOM_FIELDS))
     field = db.get_or_404(CustomFieldDefinition, id)
