@@ -11,12 +11,57 @@ tags_bp = Blueprint('tags', __name__)
 MODULE = 'core_inventory'
 TAGS = 'tags.tags'
 
+# Entity types that can carry a Tag (backref on Tag model) ->
+# (label, icon, relationship attr, detail endpoint, id-arg name)
+_TAG_USAGE = [
+    ('Subscriptions', 'fa-sync-alt', 'subscriptions', 'subscriptions.subscription_detail', 'id'),
+    ('Changes', 'fa-exchange-alt', 'changes', 'changes.detail_change', 'id'),
+    ('Requests', 'fa-inbox', 'requests', 'requests.detail_request', 'id'),
+    ('Security Incidents', 'fa-fire', 'security_incidents', 'compliance.incident_detail', 'id'),
+    ('Documentation', 'fa-book', 'documentation', 'documentation.detail', 'id'),
+    ('Links', 'fa-link', 'links', 'links.detail', 'id'),
+    ('Maintenance Logs', 'fa-tools', 'maintenance_logs', 'maintenance.log_detail', 'id'),
+    ('Purchases', 'fa-shopping-cart', 'purchases', 'purchases.purchase_detail', 'id'),
+    ('Security Activities', 'fa-clipboard-check', 'security_activities', 'activities.activity_detail', 'id'),
+    ('Activity Executions', 'fa-play', 'activity_executions', 'activities.execution_detail', 'id'),
+    ('BCDR Test Logs', 'fa-vial', 'bcdr_test_logs', 'compliance.bcdr_test_log_detail', 'test_id'),
+    ('Campaigns', 'fa-bullhorn', 'campaigns_tagged', 'campaigns.detail', 'id'),
+]
+
+
+def _tag_item_label(obj):
+    """Best-effort human label for a tagged object across heterogeneous models."""
+    for attr in ('name', 'title', 'description', 'version_notes'):
+        value = getattr(obj, attr, None)
+        if value:
+            return str(value)
+    return f"#{obj.id}"
+
 @tags_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission(MODULE)
 def tags():
     all_tags = Tag.query.filter_by(is_archived=False).order_by(Tag.name).all()
     return render_template('tags/list.html', tags=all_tags)
+
+@tags_bp.route('/<int:id>', methods=['GET'])
+@login_required
+@requires_permission(MODULE)
+def tag_detail(id):
+    tag = db.get_or_404(Tag, id)
+    sections = []
+    for label, icon, relname, endpoint, arg in _TAG_USAGE:
+        rel = getattr(tag, relname, None)
+        if rel is None:
+            continue
+        items = sorted(
+            ({'text': _tag_item_label(o), 'url': url_for(endpoint, **{arg: o.id})} for o in rel),
+            key=lambda d: d['text'].lower()
+        )
+        if items:
+            sections.append({'label': label, 'icon': icon, 'count': len(items), 'entries': items})
+    total = sum(s['count'] for s in sections)
+    return render_template('tags/detail.html', tag=tag, sections=sections, total=total)
 
 @tags_bp.route('/archived', methods=['GET'])
 @login_required
