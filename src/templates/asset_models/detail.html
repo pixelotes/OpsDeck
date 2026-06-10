@@ -4,6 +4,7 @@
 {% block title %}{{ model.name }} - {{ super() }}{% endblock %}
 
 {% block content %}
+{{ back_to_list('asset_models.list_models') }}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-cube"></i> {{ model.name }}</h2>
     <div>
@@ -12,7 +13,6 @@
             <i class="fas fa-edit"></i> Edit
         </a>
         {% endif %}
-        {{ back_to_list('asset_models.list_models') }}
     </div>
 </div>
 
