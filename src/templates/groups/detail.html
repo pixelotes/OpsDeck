@@ -1,0 +1,71 @@
+{% extends "layout.html" %}
+{% from "components/back_button.html" import back_to_list %}
+{% block title %}{{ group.name }} - {{ super() }}{% endblock %}
+{% block content %}
+{{ back_to_list('groups.list_groups') }}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-users"></i> {{ group.name }}</h2>
+    <div>
+        {% if can_write('administration') %}
+        <a href="{{ url_for('groups.edit_group', id=group.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-edit"></i> Edit
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if group.description %}
+<p class="text-muted">{{ group.description }}</p>
+{% endif %}
+
+<div class="row">
+    <!-- Members -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-user me-2"></i>Members</span>
+                <span class="badge bg-info">{{ group.users|length }}</span>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for user in group.users|sort(attribute='name') %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('users.user_detail', id=user.id) }}">{{ user.name }}</a>
+                    <small class="text-muted">{{ user.email }}</small>
+                </li>
+                {% else %}
+                <li class="list-group-item text-center text-muted py-4">No members in this group.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Assigned permissions -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-key me-2"></i>Assigned Permissions</span>
+                <span class="badge bg-secondary">{{ permissions|length }}</span>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for perm in permissions %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>{{ perm.module.name }}</span>
+                    {% if perm.access_level.value == 'WRITE' %}
+                    <span class="badge bg-success"><i class="fas fa-check-double me-1"></i>Full Access</span>
+                    {% else %}
+                    <span class="badge bg-primary"><i class="fas fa-eye me-1"></i>Read Only</span>
+                    {% endif %}
+                </li>
+                {% else %}
+                <li class="list-group-item text-center text-muted py-4">
+                    No permissions assigned directly to this group.
+                    {% if can_write('administration') %}
+                    <br><a href="{{ url_for('admin.permissions_matrix') }}">Manage permissions</a>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

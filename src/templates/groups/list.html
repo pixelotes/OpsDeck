@@ -28,7 +28,7 @@
             <tbody>
                 {% for group in groups %}
                 <tr>
-                    <td>{{ group.name }}</td>
+                    <td><a href="{{ url_for('groups.group_detail', id=group.id) }}">{{ group.name }}</a></td>
                     <td>{{ group.description }}</td>
                     <td><span class="badge bg-info">{{ group.users|length }}</span></td>
                     <td>
