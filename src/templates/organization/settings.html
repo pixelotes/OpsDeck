@@ -17,14 +17,14 @@
                     <label for="legal_name" class="form-label">Legal Name</label>
                     <input type="text" class="form-control" id="legal_name" name="legal_name"
                         value="{{ settings.legal_name or '' }}" placeholder="OpsDeck S.L." {% if not
-                        can_write('administration') %}readonly{% endif %}>
+                        can_write('settings') %}readonly{% endif %}>
                     <small class="text-muted">Used in contracts, delivery notes, and official documents.</small>
                 </div>
                 <div class="col-md-6">
                     <label for="tax_id" class="form-label">Tax ID (CIF/NIF)</label>
                     <input type="text" class="form-control" id="tax_id" name="tax_id"
                         value="{{ settings.tax_id or '' }}" placeholder="B-12345678" {% if not
-                        can_write('administration') %}readonly{% endif %}>
+                        can_write('settings') %}readonly{% endif %}>
                     <small class="text-muted">Used in invoices and waste management documentation.</small>
                 </div>
             </div>
@@ -37,21 +37,21 @@
                     <label for="primary_domain" class="form-label">Primary Domain</label>
                     <input type="text" class="form-control" id="primary_domain" name="primary_domain"
                         value="{{ settings.primary_domain or '' }}" placeholder="opsdeck.com" {% if not
-                        can_write('administration') %}readonly{% endif %}>
+                        can_write('settings') %}readonly{% endif %}>
                     <small class="text-muted">Main website/company domain.</small>
                 </div>
                 <div class="col-md-6">
                     <label for="email_domains" class="form-label">Email Domains</label>
                     <input type="text" class="form-control" id="email_domains" name="email_domains"
                         value="{{ settings.email_domains or '' }}" placeholder="empresa.com, empresa.es" {% if not
-                        can_write('administration') %}readonly{% endif %}>
+                        can_write('settings') %}readonly{% endif %}>
                     <small class="text-muted">Comma-separated list. Used for auto-completing user email
                         addresses.</small>
                 </div>
             </div>
 
             <hr>
-            {% if can_write('administration') %}
+            {% if can_write('settings') %}
             <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save Settings</button>
             {% endif %}
         </form>
