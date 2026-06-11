@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block content %}
 {% set theme_color = 'success' if type == 'onboarding' else 'danger' %}
 {% set icon = 'user-plus' if type == 'onboarding' else 'user-minus' %}
@@ -633,9 +634,7 @@
         {% endif %}
 
         <div class="d-grid">
-            <a href="{{ url_for('onboarding.index') }}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-            </a>
+            {{ back_to_list('onboarding.index', label='Back to Dashboard') }}
         </div>
     </div>
 </div>

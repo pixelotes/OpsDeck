@@ -15,6 +15,7 @@ from ..utils.helpers import generate_secure_password
 from ..utils.communications_manager import trigger_workflow_communications, get_process_communications
 from .main import login_required
 from src.utils.timezone_helper import now, today
+from ..utils.redirects import safe_redirect_target
 
 
 onboarding_bp = Blueprint('onboarding', __name__)
@@ -624,7 +625,7 @@ def toggle_item(id):
 def complete_process(type, id):
     if not has_write_permission(MODULE):
         flash('Write access required to complete process.', 'danger')
-        return redirect(request.referrer)
+        return redirect(safe_redirect_target(request.referrer))
     """Marca el proceso entero como completado y archiva usuario si es offboarding."""
     if type == 'onboarding':
         process = db.get_or_404(OnboardingProcess, id)
@@ -972,7 +973,7 @@ def history():
 def transfer_risk(id):
     if not has_write_permission(MODULE):
         flash('Write access required to transfer risks.', 'danger')
-        return redirect(request.referrer)
+        return redirect(safe_redirect_target(request.referrer))
     risk = db.get_or_404(Risk, id)
     new_owner_id = request.form.get('new_owner_id')
     redirect_url = request.form.get('redirect_url')
@@ -996,7 +997,7 @@ def transfer_risk(id):
     else:
         flash(f'Risk "{risk.risk_description[:30]}..." is now unassigned.', 'info')
         
-    return redirect(redirect_url or request.referrer)
+    return redirect(safe_redirect_target(redirect_url or request.referrer))
 
 @onboarding_bp.route('/transfer/service/<int:id>', methods=['POST'])
 @login_required
@@ -1004,7 +1005,7 @@ def transfer_risk(id):
 def transfer_service(id):
     if not has_write_permission(MODULE):
         flash('Write access required to transfer services.', 'danger')
-        return redirect(request.referrer)
+        return redirect(safe_redirect_target(request.referrer))
     service = db.get_or_404(BusinessService, id)
     new_owner_id = request.form.get('new_owner_id')
     redirect_url = request.form.get('redirect_url')
@@ -1028,7 +1029,7 @@ def transfer_service(id):
     else:
         flash(f'Service "{service.name}" is now unassigned.', 'info')
         
-    return redirect(redirect_url or request.referrer)
+    return redirect(safe_redirect_target(redirect_url or request.referrer))
 
 @onboarding_bp.route('/transfer/credential/<int:id>', methods=['POST'])
 @login_required
@@ -1036,7 +1037,7 @@ def transfer_service(id):
 def transfer_credential(id):
     if not has_write_permission(MODULE):
         flash('Write access required to transfer credentials.', 'danger')
-        return redirect(request.referrer)
+        return redirect(safe_redirect_target(request.referrer))
     from ..models.credentials import Credential
     
     credential = db.get_or_404(Credential, id)
@@ -1066,7 +1067,7 @@ def transfer_credential(id):
     else:
         flash(f'Credential "{credential.name}" is now unassigned.', 'info')
         
-    return redirect(redirect_url or request.referrer)
+    return redirect(safe_redirect_target(redirect_url or request.referrer))
 
 
 # ==========================================
@@ -1079,7 +1080,7 @@ def transfer_credential(id):
 def send_communication_now(id):
     if not has_write_permission(MODULE):
         flash('Write access required to send communications.', 'danger')
-        return redirect(request.referrer)
+        return redirect(safe_redirect_target(request.referrer))
     """Force send a scheduled communication immediately."""
     from ..utils.communications_context import get_template_context, render_email_template
     from .. import notifications
@@ -1089,11 +1090,11 @@ def send_communication_now(id):
     
     if comm.status != 'pending':
         flash(f'Communication is already {comm.status}.', 'warning')
-        return redirect(request.referrer or url_for(_EP_INDEX))
+        return redirect(safe_redirect_target(request.referrer, url_for(_EP_INDEX)))
     
     if not comm.recipient_email:
         flash('No recipient email configured for this communication.', 'danger')
-        return redirect(request.referrer or url_for(_EP_INDEX))
+        return redirect(safe_redirect_target(request.referrer, url_for(_EP_INDEX)))
     
     try:
         # Get context and render template
@@ -1124,7 +1125,7 @@ def send_communication_now(id):
         flash(f'Error sending email: {str(e)}', 'danger')
     
     db.session.commit()
-    return redirect(request.referrer or url_for(_EP_INDEX))
+    return redirect(safe_redirect_target(request.referrer, url_for(_EP_INDEX)))
 
 
 @onboarding_bp.route('/communications/<int:id>/cancel', methods=['POST'])
@@ -1133,16 +1134,16 @@ def send_communication_now(id):
 def cancel_communication(id):
     if not has_write_permission(MODULE):
         flash('Write access required to cancel communications.', 'danger')
-        return redirect(request.referrer)
+        return redirect(safe_redirect_target(request.referrer))
     """Cancel a pending scheduled communication."""
     comm = db.get_or_404(ScheduledCommunication, id)
     
     if comm.status != 'pending':
         flash(f'Cannot cancel - communication is already {comm.status}.', 'warning')
-        return redirect(request.referrer or url_for(_EP_INDEX))
+        return redirect(safe_redirect_target(request.referrer, url_for(_EP_INDEX)))
     
     comm.status = 'cancelled'
     db.session.commit()
     
     flash(f'Communication "{comm.template.name}" cancelled.', 'info')
-    return redirect(request.referrer or url_for(_EP_INDEX))
+    return redirect(safe_redirect_target(request.referrer, url_for(_EP_INDEX)))

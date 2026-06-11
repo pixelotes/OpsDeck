@@ -28,7 +28,7 @@
             <tbody>
                 {% for tag in tags %}
                 <tr>
-                    <td><a href="{{ url_for('subscriptions.subscriptions', tag_id=tag.id) }}">{{ tag.name }}</a></td>
+                    <td><a href="{{ url_for('tags.tag_detail', id=tag.id) }}">{{ tag.name }}</a></td>
 
                     <td><span class="badge bg-info">{{ tag.subscriptions.count() }}</span></td>
                     <td>

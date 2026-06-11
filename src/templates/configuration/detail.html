@@ -1,6 +1,8 @@
 {% extends "layout.html" %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block content %}
+{{ back_to_list('configuration.index') }}
 {% from "components/ticket_list.html" import ticket_list %}
 <div class="container-fluid mb-5">
     {# Header #}

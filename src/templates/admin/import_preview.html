@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+{% from "components/back_button.html" import back_to_list %}
+{% block title %}{{ 'Import results' if committed else 'Preview import' }} - {{ super() }}{% endblock %}
+{% block content %}
+{{ back_to_list('admin.import_home', label='Back to Import') }}
+<h2>
+    <i class="fas fa-file-import"></i> {{ cfg.label }} —
+    {{ 'Import results' if committed else 'Preview' }}
+</h2>
+
+<div class="my-3">
+    <span class="badge bg-success fs-6">{{ result.counts.create }} {{ 'created' if committed else 'to create' }}</span>
+    <span class="badge bg-warning text-dark fs-6">{{ result.counts.skip }} skipped</span>
+    <span class="badge bg-danger fs-6">{{ result.counts.error }} error(s)</span>
+</div>
+
+{% if not committed and result.counts.create > 0 %}
+<form action="{{ url_for('admin.import_commit', type_key=type_key) }}" method="POST" class="mb-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <textarea name="csv_text" class="d-none">{{ csv_text }}</textarea>
+    <button type="submit" class="btn btn-success">
+        <i class="fas fa-check"></i> Confirm import ({{ result.counts.create }})
+    </button>
+    <a href="{{ url_for('admin.import_home') }}" class="btn btn-outline-secondary">Cancel</a>
+</form>
+{% elif not committed %}
+<div class="alert alert-warning">Nothing to create — fix the errors/duplicates below and upload again.</div>
+{% endif %}
+
+{% if committed and result.notes %}
+<div class="card mb-4 border-warning">
+    <div class="card-header"><i class="fas fa-key me-2"></i>{{ result.note_label }} — shown once, copy them now</div>
+    <div class="card-body">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>{% for c in result.notes[0].keys() %}<th>{{ c }}</th>{% endfor %}</tr>
+            </thead>
+            <tbody>
+                {% for n in result.notes %}
+                <tr>{% for v in n.values() %}<td><code>{{ v }}</code></td>{% endfor %}</tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-striped mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    {% for c in result.columns %}<th>{{ c }}</th>{% endfor %}
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in result.results %}
+                <tr class="{{ 'table-danger' if r.status == 'error' else ('table-warning' if r.status == 'skip' else '') }}">
+                    <td>{{ r.index }}</td>
+                    {% for c in result.columns %}<td>{{ r.display.get(c, '') }}</td>{% endfor %}
+                    <td>
+                        {% if r.status == 'create' %}
+                        <span class="badge bg-success">{{ r.message }}</span>
+                        {% elif r.status == 'skip' %}
+                        <span class="badge bg-warning text-dark">{{ r.message }}</span>
+                        {% else %}
+                        <span class="badge bg-danger">{{ r.message }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,9 +1,11 @@
 {% extends "layout.html" %}
+{% from "components/back_button.html" import back_to_list %}
 {% from "components/compliance_link_macro.html" import compliance_links %}
 {% from "components/credential_list_macro.html" import credential_list %}
 {% from "components/ticket_list.html" import ticket_list %}
 {% block title %}{{ software.name }} - {{ super() }}{% endblock %}
 {% block content %}
+{{ back_to_list('software.list_software') }}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-compact-disc"></i> {{ software.name }}</h2>
     {% if can_write('core_inventory') %}

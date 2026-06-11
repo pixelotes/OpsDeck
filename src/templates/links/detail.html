@@ -1,9 +1,11 @@
 {% extends "layout.html" %}
+{% from "components/back_button.html" import back_to_list %}
 {% from "components/compliance_link_macro.html" import compliance_links %}
 
 {% block title %}{{ link.name }} - OpsDeck{% endblock %}
 
 {% block content %}
+{{ back_to_list('links.list_links') }}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">{{ link.name }}</h1>
     <div class="btn-toolbar mb-2 mb-md-0">

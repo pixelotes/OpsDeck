@@ -1,8 +1,10 @@
 {% extends "layout.html" %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block title %}{{ framework.name }}{% endblock %}
 
 {% block content %}
+{{ back_to_list('frameworks.list') }}
 <div class="row">
     <div class="col-sm-8">
         <h1 class="mb-0"><i class="fa-solid fa-layer-group me-2"></i>{{ framework.name }}</h1>

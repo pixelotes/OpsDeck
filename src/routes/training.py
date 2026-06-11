@@ -10,6 +10,7 @@ import os
 from werkzeug.utils import secure_filename
 from flask import current_app
 from src.utils.timezone_helper import today
+from ..utils.redirects import safe_redirect_target
 
 
 
@@ -209,7 +210,7 @@ def edit_completion(completion_id):
     
     if not completion:
         flash('Completion record not found.', 'danger')
-        return redirect(request.referrer)
+        return redirect(safe_redirect_target(request.referrer))
 
     # Actualizar campos
     completion.completion_date = datetime.strptime(request.form['completion_date'], '%Y-%m-%d').date()

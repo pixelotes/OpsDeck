@@ -14,7 +14,7 @@ from .main import login_required
 admin_notifications_bp = Blueprint('admin_notifications', __name__)
 
 # Frequently-referenced literals (avoid duplication, Sonar S1192)
-MODULE = 'administration'
+MODULE = 'settings'
 LIST_EVENTS = 'admin_notifications.list_events'
 
 

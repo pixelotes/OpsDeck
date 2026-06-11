@@ -2,8 +2,8 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
 from datetime import datetime
-from urllib.parse import urlparse
 from ..models import db, Peripheral, Asset, Purchase, Supplier, User, PeripheralAssignment
+from ..utils.redirects import safe_redirect_target
 from ..models.assets import Brand
 from ..models.core import CustomFieldDefinition
 from .main import login_required
@@ -192,14 +192,7 @@ def checkout_peripheral(id):
 def checkin_peripheral(id):
     peripheral = db.get_or_404(Peripheral, id)
 
-    # Only redirect to a local relative path to avoid open redirects (Sonar).
-    redirect_url = request.form.get('redirect_url', '')
-    parsed_redirect_url = urlparse(redirect_url)
-    safe_redirect_url = (
-        redirect_url
-        if redirect_url and not parsed_redirect_url.scheme and not parsed_redirect_url.netloc
-        else url_for(PERIPHERAL_DETAIL, id=id)
-    )
+    safe_redirect_url = safe_redirect_target(request.form.get('redirect_url'), url_for(PERIPHERAL_DETAIL, id=id))
     
     if not peripheral.user:
         flash('This peripheral is already checked in.', 'warning')

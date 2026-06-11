@@ -1,0 +1,11 @@
+{# Reusable "back" button for detail pages.
+   Usage:
+     {% from "components/back_button.html" import back_to_list %}
+     {{ back_to_list('peripherals.peripherals') }}
+     {{ back_to_list('compliance.bcdr_detail', label='Back to Plan', id=plan.id) }}
+   Extra keyword args are forwarded to url_for (collected in `kwargs`). #}
+{% macro back_to_list(endpoint, label='Back to List') -%}
+<a href="{{ url_for(endpoint, **kwargs) }}" class="btn btn-sm btn-outline-secondary mb-3">
+    <i class="fas fa-arrow-left"></i> {{ label }}
+</a>
+{%- endmacro %}

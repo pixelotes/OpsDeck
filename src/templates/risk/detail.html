@@ -1,8 +1,10 @@
 {% extends 'layout.html' %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block title %}{{ risk.risk_description|truncate(50) }}{% endblock %}
 
 {% block content %}
+{{ back_to_list('risk.list_risks') }}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <div>
         <h1 class="h2" title="{{ risk.risk_description }}">{{ risk.risk_description|truncate(60) }}</h1>
@@ -29,9 +31,6 @@
             <i class="bi bi-pencil"></i> Edit
         </a>
         {% endif %}
-        <a href="{{ url_for('risk.list_risks') }}" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Back
-        </a>
     </div>
 </div>
 

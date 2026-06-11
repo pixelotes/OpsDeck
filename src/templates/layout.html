@@ -304,7 +304,7 @@
                             href="{{ url_for('licenses.list_licenses') }}"><i class="fa-fw fas fa-id-badge"></i>
                             Licenses</a></li>
                     <li class="nav-item"><a
-                            class="nav-link {% if request.endpoint and request.endpoint.startswith('subscriptions.subscriptions') %}active{% endif %}"
+                            class="nav-link {% if request.endpoint and request.endpoint.startswith('subscriptions.') and not request.endpoint.startswith('subscriptions.calendar') %}active{% endif %}"
                             href="{{ url_for('subscriptions.subscriptions') }}"><i class="fa-fw fas fa-cogs"></i>
                             Subscriptions</a></li>
                     <li class="nav-item"><a
@@ -312,7 +312,7 @@
                             href="{{ url_for('configuration.index') }}"><i class="fa-fw fas fa-sliders-h"></i>
                             CMDB</a></li>
                     <li class="nav-item"><a
-                            class="nav-link {% if request.endpoint == 'credentials.list_credentials' %}active{% endif %}"
+                            class="nav-link {% if request.endpoint and request.endpoint.startswith('credentials.') %}active{% endif %}"
                             href="{{ url_for('credentials.list_credentials') }}"><i class="fa-fw fas fa-key"></i>
                             Credentials</a></li>
                     <li class="nav-item"><a
@@ -434,7 +434,7 @@
                             href="{{ url_for('compliance.vendor_compliance') }}"><i class="fa-fw fas fa-tasks"></i>
                             Vendor Compliance</a></li>
                     <li class="nav-item"><a
-                            class="nav-link {% if request.endpoint and 'access-review' in request.endpoint %}active{% endif %}"
+                            class="nav-link {% if request.endpoint and ('access_review' in request.endpoint or 'uar_execution' in request.endpoint or 'uar_finding' in request.endpoint) %}active{% endif %}"
                             href="{{ url_for('compliance.access_review') }}"><i class="fa-fw fas fa-user-lock"></i>
                             User Access Review</a></li>
                     <li class="nav-item"><a
@@ -662,10 +662,12 @@
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('tags.') %}active{% endif %}"
                             href="{{ url_for('tags.tags') }}"><i class="fa-fw fas fa-tags"></i> Tags</a></li>
+                    {% if can_write('administration') %}
                     <li class="nav-item"><a
-                            class="nav-link {% if request.endpoint == 'admin.custom_fields' %}active{% endif %}"
-                            href="{{ url_for('admin.custom_fields') }}"><i class="fa-fw fas fa-list-ul"></i>
-                            Custom Properties</a></li>
+                            class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.import') %}active{% endif %}"
+                            href="{{ url_for('admin.import_home') }}"><i class="fa-fw fas fa-file-import"></i>
+                            Import Data</a></li>
+                    {% endif %}
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint == 'admin.audit_log' %}active{% endif %}"
                             href="{{ url_for('admin.audit_log') }}"><i class="fa-fw fas fa-history"></i>
@@ -686,6 +688,10 @@
                             class="nav-link {% if request.endpoint == 'organization.settings' %}active{% endif %}"
                             href="{{ url_for('organization.settings') }}"><i class="fa-fw fas fa-building"></i>
                             Organization</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint == 'admin.custom_fields' %}active{% endif %}"
+                            href="{{ url_for('admin.custom_fields') }}"><i class="fa-fw fas fa-list-ul"></i>
+                            Custom Properties</a></li>
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint == 'admin_notifications.list_events' %}active{% endif %}"
                             href="{{ url_for('admin_notifications.list_events') }}"><i class="fa-fw fas fa-bell"></i>

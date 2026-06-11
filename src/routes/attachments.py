@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 from .main import login_required
 from ..models import db, Attachment
 from ..services.permissions_service import has_write_permission, requires_permission
+from ..utils.redirects import safe_redirect_target
 
 attachments_bp = Blueprint('attachments', __name__)
 
@@ -15,12 +16,12 @@ attachments_bp = Blueprint('attachments', __name__)
 def upload_file():
     if 'file' not in request.files:
         flash('No file part', 'danger')
-        return redirect(request.referrer)
+        return redirect(safe_redirect_target(request.referrer))
 
     file = request.files['file']
     if file.filename == '':
         flash('No selected file', 'warning')
-        return redirect(request.referrer)
+        return redirect(safe_redirect_target(request.referrer))
 
     if file:
         original_filename = secure_filename(file.filename)
@@ -95,7 +96,7 @@ def upload_file():
         
         if not perm_key or not has_write_permission(perm_key):
             flash('Write access required to upload files for this object.', 'danger')
-            return redirect(request.referrer)
+            return redirect(safe_redirect_target(request.referrer))
 
         # Create the attachment
         new_attachment = Attachment(
@@ -109,7 +110,7 @@ def upload_file():
         db.session.commit()
         flash('File uploaded successfully!', 'success')
 
-    return redirect(request.referrer)
+    return redirect(safe_redirect_target(request.referrer))
 
 @attachments_bp.route('/download/<int:attachment_id>', methods=['GET'])
 @login_required
@@ -159,7 +160,7 @@ def delete_attachment(attachment_id):
     perm_key = type_to_perm.get(attachment.linkable_type)
     if not perm_key or not has_write_permission(perm_key):
         flash('Write access required to delete this attachment.', 'danger')
-        return redirect(request.referrer)
+        return redirect(safe_redirect_target(request.referrer))
     
     # Store filename before deleting the DB record
     secure_filename_to_delete = attachment.secure_filename
@@ -176,7 +177,7 @@ def delete_attachment(attachment_id):
             # Log this error, but don't block the user
             current_app.logger.error(f"Error deleting file {secure_filename_to_delete}: {e}")
             flash('File record deleted, but the physical file could not be removed.', 'warning')
-            return redirect(request.referrer)
+            return redirect(safe_redirect_target(request.referrer))
 
         flash('Attachment deleted successfully!', 'success')
         
@@ -185,4 +186,4 @@ def delete_attachment(attachment_id):
         current_app.logger.error(f"Error deleting attachment record {attachment_id}: {e}")
         flash('An error occurred while deleting the attachment.', 'danger')
 
-    return redirect(request.referrer)
+    return redirect(safe_redirect_target(request.referrer))

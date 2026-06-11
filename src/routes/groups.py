@@ -18,6 +18,15 @@ def list_groups():
     groups = Group.query.order_by(Group.name).all()
     return render_template('groups/list.html', groups=groups)
 
+@groups_bp.route('/<int:id>', methods=['GET'])
+@login_required
+@requires_permission(MODULE, access_level='READ_ONLY')
+def group_detail(id):
+    group = db.get_or_404(Group, id)
+    # Permissions assigned to this group (if any), sorted by module name.
+    permissions = sorted(group.permissions.all(), key=lambda p: p.module.name)
+    return render_template('groups/detail.html', group=group, permissions=permissions)
+
 @groups_bp.route('/new', methods=['GET', 'POST'])
 @login_required
 @requires_permission(MODULE, access_level='READ_ONLY')

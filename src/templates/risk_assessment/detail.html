@@ -1,6 +1,8 @@
 {% extends 'layout.html' %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block content %}
+{{ back_to_list('risk_assessment.list_assessments') }}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <div>
         <h1 class="h2">{{ assessment.name }}</h1>
@@ -11,9 +13,6 @@
         <span class="text-muted">Created: {{ assessment.created_at.strftime('%Y-%m-%d') }}</span>
     </div>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="{{ url_for('risk_assessment.list_assessments') }}" class="btn btn-sm btn-outline-secondary me-2">
-            <i class="fas fa-arrow-left"></i> Back
-        </a>
         <a href="{{ url_for('risk_assessment.export_pdf', id=assessment.id) }}"
             class="btn btn-sm btn-outline-dark me-2">
             <i class="fas fa-file-pdf"></i> Export PDF

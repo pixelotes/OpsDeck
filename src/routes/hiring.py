@@ -9,6 +9,7 @@ from ..models.onboarding import OnboardingProcess
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
 from src.utils.timezone_helper import now, today, to_utc
+from ..utils.redirects import safe_redirect_target
 
 
 hiring_bp = Blueprint('hiring', __name__)
@@ -230,13 +231,13 @@ def delete_candidate(id):
 def archive_candidate(id):
     if not has_write_permission(MODULE):
         flash('Write access required to archive candidates.', 'danger')
-        return redirect(request.referrer or url_for(BOARD))
+        return redirect(safe_redirect_target(request.referrer, url_for(BOARD)))
     """Archive a candidate."""
     candidate = db.get_or_404(Candidate, id)
     candidate.is_archived = True
     db.session.commit()
     flash(f'Candidate "{candidate.name}" archived.', 'success')
-    return redirect(request.referrer or url_for(BOARD))
+    return redirect(safe_redirect_target(request.referrer, url_for(BOARD)))
 
 @hiring_bp.route('/candidate/<int:id>/unarchive', methods=['POST'])
 @login_required
@@ -244,13 +245,13 @@ def archive_candidate(id):
 def unarchive_candidate(id):
     if not has_write_permission(MODULE):
         flash('Write access required to unarchive candidates.', 'danger')
-        return redirect(request.referrer or url_for('hiring.list_candidates'))
+        return redirect(safe_redirect_target(request.referrer, url_for('hiring.list_candidates')))
     """Unarchive a candidate."""
     candidate = db.get_or_404(Candidate, id)
     candidate.is_archived = False
     db.session.commit()
     flash(f'Candidate "{candidate.name}" unarchived.', 'success')
-    return redirect(request.referrer or url_for('hiring.list_candidates'))
+    return redirect(safe_redirect_target(request.referrer, url_for('hiring.list_candidates')))
 
 @hiring_bp.route('/candidate/<int:id>/resume', methods=['GET'])
 @login_required

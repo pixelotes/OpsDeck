@@ -1,8 +1,10 @@
 {% extends "layout.html" %}
 
+{% from "components/back_button.html" import back_to_list %}
 {% block title %}{{ audit.name }} - Defense Room - OpsDeck{% endblock %}
 
 {% block content %}
+{{ back_to_list('audits.list_audits') }}
 
 {% if not audit.is_locked %}
 <form method="POST" action="{{ url_for('audits.update_audit_items', id=audit.id) }}" id="auditForm"
