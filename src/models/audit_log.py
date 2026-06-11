@@ -38,6 +38,12 @@ class AuditLog(db.Model):
     # Relationship to user (if available)
     user = db.relationship('User', foreign_keys=[user_id], backref='audit_logs')
 
+    # Partial index for the event engine's "unprocessed rows" lookup. Declared
+    # here so the model matches migration 016 (test_models_match_migrations).
+    __table_args__ = (
+        db.Index('ix_audit_log_unprocessed', 'id', postgresql_where=db.text('event_processed = false')),
+    )
+
     def __repr__(self):
         return f'<AuditLog {self.action} {self.entity_type}#{self.entity_id} by {self.user_email}>'
 
