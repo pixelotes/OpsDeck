@@ -137,7 +137,7 @@
             <hr>
 
             <div class="row mb-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label for="user_id" class="form-label">Assigned To User</label>
                     <select class="form-select" id="user_id" name="user_id" {% if not can_write('core_inventory')
                         %}disabled{% endif %}>
@@ -150,7 +150,20 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label for="location_id" class="form-label">Location</label>
+                    <select class="form-select" id="location_id" name="location_id" {% if not can_write('core_inventory')
+                        %}disabled{% endif %}>
+                        <option value="">Select a location...</option>
+                        {% for location in locations %}
+                        <option value="{{ location.id }}" {% if peripheral and peripheral.location_id==location.id %}selected{%
+                            endif %}>
+                            {{ location.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
                     <label for="asset_id" class="form-label">Attached to Asset</label>
                     <select class="form-select" id="asset_id" name="asset_id" {% if not can_write('core_inventory')
                         %}disabled{% endif %}>
