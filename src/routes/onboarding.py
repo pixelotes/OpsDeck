@@ -630,18 +630,18 @@ def complete_process(type, id):
     if type == 'onboarding':
         process = db.get_or_404(OnboardingProcess, id)
         process.status = 'Completed'
-        flash(f'Onboarding de {process.new_hire_name} completado.', 'success')
+        flash(f'Onboarding for {process.new_hire_name} completed.', 'success')
         
     else: # Offboarding
         process = db.get_or_404(OffboardingProcess, id)
         process.status = 'Completed'
         process.departure_date = today() # Fijar fecha real de cierre
         
-        # LÓGICA DE ARCHIVADO AUTOMÁTICO
+        # Automatic archival logic
         if process.user:
             process.user.is_archived = True
-            # Opcional: Limpiar su password o tokens de sesión aquí si tuvieras
-        flash(f'Offboarding completado. El usuario {process.user.name} ha sido archivado.', 'warning')
+            # Optional: clear their password or session tokens here if needed
+        flash(f'Offboarding completed. User {process.user.name} has been archived.', 'warning')
         
     db.session.commit()
     return redirect(url_for(_EP_INDEX))
