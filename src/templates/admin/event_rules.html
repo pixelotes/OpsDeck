@@ -20,7 +20,7 @@
             <label for="entity_type_{{ suffix }}" class="form-label">Entity</label>
             <select name="entity_type" id="entity_type_{{ suffix }}" class="form-select" required>
                 <option value="">-- Select Entity --</option>
-                {% for key, label in entity_catalog.items() %}
+                {% for key, label in entity_catalog|dictsort(by='value') %}
                 <option value="{{ key }}" {% if rule and rule.entity_type == key %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>

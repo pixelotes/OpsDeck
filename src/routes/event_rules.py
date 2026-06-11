@@ -44,6 +44,20 @@ def _apply_form(rule, form):
     rule.discord_webhook_url = form.get('discord_webhook_url') or None
 
 
+def _validation_error(rule):
+    """Return a user-facing error string if the rule is invalid, else None."""
+    if not rule.name or not rule.entity_type:
+        return 'Name and entity type are required.'
+    # The Slack channel field is a channel ID (e.g. C12345) used with the bot
+    # token, not a webhook URL — guard against the common mistake and the
+    # varchar(50) overflow it would cause.
+    sc = rule.slack_target_channel
+    if sc and ('://' in sc or len(sc) > 50):
+        return ('Slack Channel ID must be a short channel ID like "C12345" '
+                '(or left empty to DM the recipient) — not a URL.')
+    return None
+
+
 @event_rules_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission(MODULE)
@@ -70,12 +84,12 @@ def create_rule():
         flash(MSG_WRITE_REQUIRED, 'danger')
         return redirect(url_for(LIST_RULES))
 
-    if not request.form.get('name', '').strip() or not request.form.get('entity_type'):
-        flash('Name and entity type are required.', 'danger')
-        return redirect(url_for(LIST_RULES))
-
     rule = EventRule()
     _apply_form(rule, request.form)
+    error = _validation_error(rule)
+    if error:
+        flash(error, 'danger')
+        return redirect(url_for(LIST_RULES))
     db.session.add(rule)
     db.session.commit()
     flash(f'Event rule "{rule.name}" created.', 'success')
@@ -92,6 +106,11 @@ def update_rule(rule_id):
 
     rule = db.get_or_404(EventRule, rule_id)
     _apply_form(rule, request.form)
+    error = _validation_error(rule)
+    if error:
+        db.session.rollback()
+        flash(error, 'danger')
+        return redirect(url_for(LIST_RULES))
     db.session.commit()
     flash(f'Event rule "{rule.name}" updated.', 'success')
     return redirect(url_for(LIST_RULES))

@@ -169,3 +169,18 @@ def test_create_rule_route(auth_client, app):
         assert rule is not None
         assert rule.entity_type == 'Asset'
         assert rule.channels == ['email']
+
+
+def test_create_rule_rejects_url_in_slack_channel(auth_client, app):
+    """A Slack webhook URL in the channel-ID field is rejected, not a 500."""
+    resp = auth_client.post('/settings/event-rules/create', data={
+        'name': 'Bad slack',
+        'entity_type': 'Asset',
+        'action': 'create',
+        'recipient_mode': 'admins',
+        'channel_slack': 'on',
+        'slack_target_channel': 'https://hooks.slack.com/services/T/B/xxxxxxxxxxxxxxxxxxxxxxxx',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    with app.app_context():
+        assert EventRule.query.filter_by(name='Bad slack').first() is None

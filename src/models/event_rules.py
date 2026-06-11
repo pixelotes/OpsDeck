@@ -17,6 +17,7 @@ from ..extensions import db
 # Keys are the SQLAlchemy class names recorded by the audit listener
 # (AuditLog.entity_type); values are human-readable labels for the dropdown.
 # Deliberately excludes join tables, settings and internal models to avoid noise.
+# The UI sorts these by label; insertion order here does not matter.
 ENTITY_CATALOG = {
     'Asset': 'Asset',
     'Peripheral': 'Peripheral',
@@ -33,6 +34,9 @@ ENTITY_CATALOG = {
     'Request': 'Request',
     'Candidate': 'Candidate',
     'Policy': 'Policy',
+    'User': 'User',
+    'Group': 'Group',
+    'Permission': 'Permission (access grant)',
 }
 
 # Actions a rule can match. 'any' matches create/update/delete.
