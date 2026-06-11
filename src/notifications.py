@@ -637,7 +637,13 @@ def process_communications_queue(app):
                     # WEBHOOK DISPATCH
                     # ============================================
                     success = _send_webhook_notification(app, comm, subject, body_html)
-                    
+
+                elif channel == 'discord':
+                    # ============================================
+                    # DISCORD DISPATCH
+                    # ============================================
+                    success = _send_discord_notification(app, comm, subject, body_html)
+
                 else:
                     # ============================================
                     # EMAIL DISPATCH (default)
@@ -757,17 +763,8 @@ def _send_webhook_notification(app, comm, subject, body_html):
         bool: True if sent successfully, False otherwise
     """
     from .models.notifications import NotificationEvent
-    
-    # Map target_type to event_code for webhook URL lookup
-    event_code_map = {
-        'license': 'LICENSE_EXPIRING',
-        'subscription': 'SUBSCRIPTION_RENEWAL',
-        'credential': 'CREDENTIAL_EXPIRING',
-        'certificate': 'CERTIFICATE_EXPIRING',
-        'compliance_rule': 'COMPLIANCE_BREACH',
-    }
-    
-    event_code = event_code_map.get(comm.target_type, comm.target_type.upper())
+
+    event_code = _EVENT_CODE_BY_TARGET.get(comm.target_type, comm.target_type.upper())
     event = NotificationEvent.query.filter_by(event_code=event_code).first()
     
     webhook_url = event.webhook_url if event else None
@@ -792,8 +789,72 @@ def _send_webhook_notification(app, comm, subject, body_html):
     }
     
     success = send_webhook(app, webhook_url, payload)
-    
+
     if not success:
         comm.error_message = f'Webhook delivery failed to: {webhook_url}'
-    
+
     return success
+
+
+# Map target_type to the event_code that owns its channel configuration
+# (webhook/Discord URLs live on the NotificationEvent).
+_EVENT_CODE_BY_TARGET = {
+    'license': 'LICENSE_EXPIRING',
+    'subscription': 'SUBSCRIPTION_RENEWAL',
+    'credential': 'CREDENTIAL_EXPIRING',
+    'certificate': 'CERTIFICATE_EXPIRING',
+    'compliance_rule': 'COMPLIANCE_BREACH',
+}
+
+
+def _format_discord_message(subject, body_html):
+    """Build a Discord message body (markdown plain text, capped at 2000 chars).
+
+    Discord renders message ``content`` as markdown, so the subject is bolded and
+    the HTML body is reduced to readable plain text.
+    """
+    from .services.slack_service import strip_html_for_slack
+
+    body_text = strip_html_for_slack(body_html or '')
+    content = f"**{subject}**\n\n{body_text}".strip() if body_text else f"**{subject}**"
+    # Discord rejects payloads whose content exceeds 2000 characters.
+    if len(content) > 2000:
+        content = content[:1997] + "..."
+    return content
+
+
+def _send_discord_notification(app, comm, subject, body_html):
+    """Send a notification to a Discord incoming webhook (POST {"content": ...}).
+
+    Discord replies 204 No Content on success (not 200), so this posts directly
+    rather than reusing ``send_webhook`` which only treats 200 as success.
+
+    Returns:
+        bool: True if delivered successfully, False otherwise.
+    """
+    from .models.notifications import NotificationEvent
+
+    event_code = _EVENT_CODE_BY_TARGET.get(comm.target_type, comm.target_type.upper())
+    event = NotificationEvent.query.filter_by(event_code=event_code).first()
+
+    discord_url = event.discord_webhook_url if event else None
+
+    if not discord_url:
+        app.logger.warning(f"Communication {comm.id}: No Discord webhook URL configured for {event_code}, skipping.")
+        comm.error_message = f'No Discord webhook URL configured for event type: {event_code}'
+        return False
+
+    payload = {'content': _format_discord_message(subject, body_html)}
+
+    try:
+        response = requests.post(discord_url, json=payload, timeout=10)
+        if response.status_code in (200, 204):
+            app.logger.info(f"Communication {comm.id}: Sent Discord message, status {response.status_code}")
+            return True
+        app.logger.error(f"Communication {comm.id}: Discord rejected message, status {response.status_code}")
+        comm.error_message = f'Discord delivery failed with status {response.status_code}'
+        return False
+    except Exception as e:
+        app.logger.error(f"Communication {comm.id}: Failed to send Discord message: {e}")
+        comm.error_message = f'Discord delivery error: {str(e)[:200]}'
+        return False

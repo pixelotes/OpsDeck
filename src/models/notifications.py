@@ -45,7 +45,10 @@ class NotificationEvent(db.Model):
     
     # Webhook URL for automated integrations (POST requests with JSON payload)
     webhook_url = db.Column(db.String(500), nullable=True)
-    
+
+    # Discord incoming-webhook URL (POST {"content": "..."}); Discord replies 204 on success
+    discord_webhook_url = db.Column(db.String(500), nullable=True)
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: now())
     updated_at = db.Column(db.DateTime, default=lambda: now(), onupdate=lambda: now())
