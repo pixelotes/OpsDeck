@@ -18,6 +18,12 @@ from src.utils.timezone_helper import now, today as get_today
 
 # --- Notification Functions ---
 
+def _safe_log(value):
+    """Neutralise CR/LF in user-influenced values before logging (prevents log
+    injection / forged log entries — Sonar S5145)."""
+    return str(value).replace('\r', ' ').replace('\n', ' ')
+
+
 def send_email(app, subject, body, to_emails):
     """
     Send email notification using app config.
@@ -33,6 +39,10 @@ def send_email(app, subject, body, to_emails):
         app.logger.warning(f"❌ Email not sent: Missing recipients or EMAIL_USERNAME config")
         return False
     
+    # Sanitised copies for logging (recipients/subject may be user-controlled).
+    safe_recipients = _safe_log(', '.join(to_emails))
+    safe_subject = _safe_log(subject[:50])
+
     try:
         msg = MIMEMultipart()
         sender_name = app.config.get('EMAIL_SENDER_NAME', '')
@@ -47,7 +57,7 @@ def send_email(app, subject, body, to_emails):
         server.login(app.config['EMAIL_USERNAME'], app.config['EMAIL_PASSWORD'])
         server.send_message(msg)
         server.quit()
-        app.logger.info(f"✅ Sent email to {to_emails} | Subject: {subject[:50]}...")
+        app.logger.info(f"✅ Sent email to {safe_recipients} | Subject: {safe_subject}...")
         return True
     
     except SMTPAuthenticationError as e:
@@ -63,17 +73,17 @@ def send_email(app, subject, body, to_emails):
     
     except SMTPRecipientsRefused as e:
         refused = list(e.recipients.keys()) if hasattr(e, 'recipients') else to_emails
-        app.logger.error(f"❌ SMTP Recipients Refused: {refused}")
+        app.logger.error(f"❌ SMTP Recipients Refused: {_safe_log(refused)}")
         app.logger.error("   Server rejected these email addresses as invalid")
         return False
     
     except SMTPException as e:
-        app.logger.error(f"❌ SMTP Error sending to {to_emails}: {str(e)}")
+        app.logger.error(f"❌ SMTP Error sending to {safe_recipients}: {_safe_log(str(e))}")
         app.logger.error(traceback.format_exc())
         return False
     
     except Exception as e:
-        app.logger.error(f"❌ General Email Error to {to_emails}: {type(e).__name__}: {str(e)}")
+        app.logger.error(f"❌ General Email Error to {safe_recipients}: {type(e).__name__}: {_safe_log(str(e))}")
         app.logger.error(traceback.format_exc())
         return False
 
