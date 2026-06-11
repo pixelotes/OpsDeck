@@ -6,7 +6,7 @@ APScheduler==3.11.2
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
 pytz==2026.2
-gunicorn==23.0.0
+gunicorn==26.0.0
 MarkupSafe==3.0.3
 Markdown==3.9
 bleach==6.2.0
