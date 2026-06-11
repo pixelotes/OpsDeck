@@ -23,6 +23,7 @@ from .configuration import *
 from .risk_assessment import *
 from .communications import EmailTemplate, PackCommunication, ScheduledCommunication, Campaign
 from .notifications import NotificationEvent
+from .event_rules import EventRule, ENTITY_CATALOG, EVENT_ACTIONS, RECIPIENT_MODES
 from .finance import FinanceSettings, ExchangeRate
 from .change import Change
 from .request import Request, REQUEST_STATUSES

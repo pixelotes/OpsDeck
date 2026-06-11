@@ -71,14 +71,9 @@ def update_event(event_id):
             flash('Invalid days offset value.', 'danger')
             return redirect(url_for(LIST_EVENTS))
             
-    # Update channels
-    channels = []
-    if 'channel_email' in request.form:
-        channels.append('email')
-    if 'channel_slack' in request.form:
-        channels.append('slack')
-    if 'channel_webhook' in request.form:
-        channels.append('webhook')
+    # Update channels (checkbox name `channel_<key>` -> channel key)
+    channels = [key for key in ('email', 'slack', 'webhook', 'discord')
+                if f'channel_{key}' in request.form]
     event.channels = channels if channels else ['email']  # Default to email
 
     # Update Slack target channel
@@ -86,6 +81,9 @@ def update_event(event_id):
 
     # Update Webhook URL
     event.webhook_url = request.form.get('webhook_url') or None
+
+    # Update Discord webhook URL
+    event.discord_webhook_url = request.form.get('discord_webhook_url') or None
     
     db.session.commit()
     flash(f'Notification "{event.name}" has been updated.', 'success')

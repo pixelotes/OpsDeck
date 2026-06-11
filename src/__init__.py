@@ -133,6 +133,19 @@ def create_app(test_config=None):
     app.config['EMAIL_SENDER_NAME'] = os.environ.get('EMAIL_SENDER_NAME', '')
     app.config['WEBHOOK_URL'] = os.environ.get('WEBHOOK_URL', '')
 
+    # Public base URL of this deployment (e.g. https://opsdeck.acme.com), used to
+    # build absolute, clickable links in notifications ({{ event_url }}). Empty =
+    # links fall back to relative paths (not clickable from email/chat).
+    app.config['APP_BASE_URL'] = os.environ.get('APP_BASE_URL', '').rstrip('/')
+
+    # Behind a reverse proxy (e.g. prod), honour X-Forwarded-* so request.scheme /
+    # host / url reflect the real public origin instead of the internal one. Without
+    # this, absolute URLs (email links, OAuth callbacks) carry the internal host.
+    # Opt-in via TRUST_PROXY so direct/dev deployments are unaffected.
+    if os.environ.get('TRUST_PROXY', '').lower() in ('1', 'true', 'yes', 'on'):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
     # --- Google OAuth Configuration ---
     app.config['GOOGLE_OAUTH_CLIENT_ID'] = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
     app.config['GOOGLE_OAUTH_CLIENT_SECRET'] = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
@@ -425,6 +438,9 @@ def create_app(test_config=None):
     
     from .routes.admin_notifications import admin_notifications_bp
     app.register_blueprint(admin_notifications_bp, url_prefix='/admin/notifications')
+
+    from .routes.event_rules import event_rules_bp
+    app.register_blueprint(event_rules_bp, url_prefix='/settings/event-rules')
     
     from .routes.campaigns import campaigns_bp
     app.register_blueprint(campaigns_bp, url_prefix='/campaigns')
@@ -625,6 +641,17 @@ def create_app(test_config=None):
             args=[app],
             trigger="interval",
             days=1
+        )
+        # Event engine - match committed changes (AuditLog) against EventRules and
+        # enqueue notifications. Runs slightly ahead of the comms queue below.
+        from .services.event_engine import process_event_rules
+        scheduler.add_job(
+            func=process_event_rules,
+            args=[app],
+            trigger="interval",
+            minutes=2,
+            id="event_engine",
+            replace_existing=True
         )
         # Communications engine - process scheduled emails every 5 minutes for faster delivery
         scheduler.add_job(

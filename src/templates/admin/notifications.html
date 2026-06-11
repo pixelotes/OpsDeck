@@ -149,6 +149,14 @@
                                 <i class="fas fa-plug"></i> Webhook
                             </label>
                         </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="channel_discord"
+                                id="channel_discord_{{ event.id }}" {% if 'discord' in (event.channels or [])
+                                %}checked{% endif %}>
+                            <label class="form-check-label" for="channel_discord_{{ event.id }}">
+                                <i class="fab fa-discord"></i> Discord
+                            </label>
+                        </div>
                     </div>
 
                     <div class="mb-3" id="slack_config_{{ event.id }}">
@@ -168,6 +176,16 @@
                         <input type="url" name="webhook_url" id="webhook_url_{{ event.id }}" class="form-control"
                             value="{{ event.webhook_url or '' }}" placeholder="https://your-webhook-endpoint.com">
                         <div class="form-text">POST requests with JSON payload.</div>
+                    </div>
+
+                    <div class="mb-3" id="discord_config_{{ event.id }}">
+                        <label for="discord_webhook_url_{{ event.id }}" class="form-label">
+                            <i class="fab fa-discord"></i> Discord Webhook URL (optional)
+                        </label>
+                        <input type="url" name="discord_webhook_url" id="discord_webhook_url_{{ event.id }}"
+                            class="form-control" value="{{ event.discord_webhook_url or '' }}"
+                            placeholder="https://discord.com/api/webhooks/...">
+                        <div class="form-text">Server Settings → Integrations → Webhooks → Copy Webhook URL.</div>
                     </div>
                 </div>
                 <div class="modal-footer">

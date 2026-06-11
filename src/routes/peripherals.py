@@ -2,7 +2,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
 from datetime import datetime
-from ..models import db, Peripheral, Asset, Purchase, Supplier, User, PeripheralAssignment
+from ..models import db, Peripheral, Asset, Purchase, Supplier, User, PeripheralAssignment, Location
 from ..utils.redirects import safe_redirect_target
 from ..models.assets import Brand
 from ..models.core import CustomFieldDefinition
@@ -61,7 +61,8 @@ def new_peripheral():
             asset_id=request.form.get('asset_id') or None,
             purchase_id=request.form.get('purchase_id') or None,
             supplier_id=request.form.get('supplier_id') or None,
-            user_id=request.form.get('user_id') or None
+            user_id=request.form.get('user_id') or None,
+            location_id=request.form.get('location_id') or None
         )
         db.session.add(peripheral)
         db.session.commit()
@@ -78,6 +79,7 @@ def new_peripheral():
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             brands=Brand.query.order_by(Brand.name).all(),
                             users=User.query.filter_by(is_archived=False).order_by(User.name).all(),
+                            locations=Location.query.order_by(Location.name).all(),
                             custom_field_definitions=custom_field_definitions)
 
 @peripherals_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
@@ -113,6 +115,7 @@ def edit_peripheral(id):
             peripheral.serial_number = serial_number
             peripheral.status = new_status
             peripheral.user_id = request.form.get('user_id') or None
+            peripheral.location_id = request.form.get('location_id') or None
             peripheral.save_custom_properties(request.form)
             db.session.commit()
             flash('Peripheral updated. Cost cannot be changed because the associated purchase has been validated.', 'info')
@@ -134,7 +137,8 @@ def edit_peripheral(id):
         peripheral.purchase_id = request.form.get('purchase_id') or None
         peripheral.supplier_id = request.form.get('supplier_id') or None
         peripheral.user_id = request.form.get('user_id') or None
-        
+        peripheral.location_id = request.form.get('location_id') or None
+
         peripheral.save_custom_properties(request.form)
         db.session.commit()
         flash('Peripheral updated successfully!', 'success')
@@ -147,6 +151,7 @@ def edit_peripheral(id):
                             suppliers=Supplier.query.order_by(Supplier.name).all(),
                             brands=Brand.query.order_by(Brand.name).all(),
                             users=User.query.filter_by(is_archived=False).order_by(User.name).all(),
+                            locations=Location.query.order_by(Location.name).all(),
                             custom_field_definitions=CustomFieldDefinition.query.filter_by(entity_type='Peripheral').all())
 
 @peripherals_bp.route('/<int:id>/checkout', methods=['GET', 'POST'])

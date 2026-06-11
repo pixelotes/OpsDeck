@@ -74,7 +74,7 @@ def new_link():
                 owner_type, owner_id = owner_full.split('-', 1)
                 owner_id = int(owner_id)
             except ValueError:
-                flash('Propietario (Owner) inválido.', 'danger')
+                flash('Invalid owner.', 'danger')
                 return redirect(safe_redirect_target(request.referrer))
 
         # Crear el objeto base
@@ -124,7 +124,7 @@ def edit_link(id):
                 link.owner_type, owner_id_str = owner_full.split('-', 1)
                 link.owner_id = int(owner_id_str)
             except ValueError:
-                flash('Propietario (Owner) inválido.', 'danger')
+                flash('Invalid owner.', 'danger')
                 return redirect(safe_redirect_target(request.referrer))
         else:
             link.owner_type = None
@@ -164,5 +164,5 @@ def delete_link(id):
     
     db.session.delete(link)
     db.session.commit()
-    flash('Enlace eliminado.', 'success')
+    flash('Link deleted.', 'success')
     return redirect(url_for('links.list_links'))

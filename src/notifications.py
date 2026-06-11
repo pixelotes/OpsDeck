@@ -18,6 +18,12 @@ from src.utils.timezone_helper import now, today as get_today
 
 # --- Notification Functions ---
 
+def _safe_log(value):
+    """Neutralise CR/LF in user-influenced values before logging (prevents log
+    injection / forged log entries — Sonar S5145)."""
+    return str(value).replace('\r', ' ').replace('\n', ' ')
+
+
 def send_email(app, subject, body, to_emails):
     """
     Send email notification using app config.
@@ -33,6 +39,10 @@ def send_email(app, subject, body, to_emails):
         app.logger.warning(f"❌ Email not sent: Missing recipients or EMAIL_USERNAME config")
         return False
     
+    # Sanitised copies for logging (recipients/subject may be user-controlled).
+    safe_recipients = _safe_log(', '.join(to_emails))
+    safe_subject = _safe_log(subject[:50])
+
     try:
         msg = MIMEMultipart()
         sender_name = app.config.get('EMAIL_SENDER_NAME', '')
@@ -47,7 +57,7 @@ def send_email(app, subject, body, to_emails):
         server.login(app.config['EMAIL_USERNAME'], app.config['EMAIL_PASSWORD'])
         server.send_message(msg)
         server.quit()
-        app.logger.info(f"✅ Sent email to {to_emails} | Subject: {subject[:50]}...")
+        app.logger.info(f"✅ Sent email to {safe_recipients} | Subject: {safe_subject}...")
         return True
     
     except SMTPAuthenticationError as e:
@@ -63,17 +73,17 @@ def send_email(app, subject, body, to_emails):
     
     except SMTPRecipientsRefused as e:
         refused = list(e.recipients.keys()) if hasattr(e, 'recipients') else to_emails
-        app.logger.error(f"❌ SMTP Recipients Refused: {refused}")
+        app.logger.error(f"❌ SMTP Recipients Refused: {_safe_log(refused)}")
         app.logger.error("   Server rejected these email addresses as invalid")
         return False
     
     except SMTPException as e:
-        app.logger.error(f"❌ SMTP Error sending to {to_emails}: {str(e)}")
+        app.logger.error(f"❌ SMTP Error sending to {safe_recipients}: {_safe_log(str(e))}")
         app.logger.error(traceback.format_exc())
         return False
     
     except Exception as e:
-        app.logger.error(f"❌ General Email Error to {to_emails}: {type(e).__name__}: {str(e)}")
+        app.logger.error(f"❌ General Email Error to {safe_recipients}: {type(e).__name__}: {_safe_log(str(e))}")
         app.logger.error(traceback.format_exc())
         return False
 
@@ -637,7 +647,13 @@ def process_communications_queue(app):
                     # WEBHOOK DISPATCH
                     # ============================================
                     success = _send_webhook_notification(app, comm, subject, body_html)
-                    
+
+                elif channel == 'discord':
+                    # ============================================
+                    # DISCORD DISPATCH
+                    # ============================================
+                    success = _send_discord_notification(app, comm, subject, body_html)
+
                 else:
                     # ============================================
                     # EMAIL DISPATCH (default)
@@ -704,10 +720,19 @@ def _send_slack_notification(app, comm, subject, body_html, slack_service=None):
         bool: True if sent successfully, False otherwise
     """
     from .services.slack_service import SlackService, format_slack_notification
-    
+
+    # Incoming-webhook path: if an event rule provides a Slack webhook URL, POST
+    # to it directly (no bot token needed). Takes precedence over the bot API.
+    if comm.event_rule_id:
+        from .models.event_rules import EventRule
+        rule = db.session.get(EventRule, comm.event_rule_id)
+        if rule and rule.slack_webhook_url:
+            text = format_slack_notification(subject, body_html, None)
+            return _send_slack_incoming_webhook(app, comm, rule.slack_webhook_url, text)
+
     if slack_service is None:
         slack_service = SlackService()
-    
+
     if not slack_service.is_configured:
         app.logger.warning(f"Communication {comm.id}: Slack not configured, skipping.")
         comm.error_message = 'Slack not configured (SLACK_BOT_TOKEN missing)'
@@ -739,8 +764,90 @@ def _send_slack_notification(app, comm, subject, body_html, slack_service=None):
     
     if not success:
         comm.error_message = f'Failed to send Slack message to {target_id}'
-    
+
     return success
+
+
+def _send_slack_incoming_webhook(app, comm, url, text):
+    """Post a message to a Slack incoming webhook (POST {"text": ...}).
+
+    Incoming webhooks need no bot token and reply 200 with body "ok" on success.
+
+    Returns:
+        bool: True if delivered successfully, False otherwise.
+    """
+    try:
+        response = requests.post(url, json={'text': text}, timeout=10)
+        if response.status_code == 200:
+            app.logger.info(f"Communication {comm.id}: Sent Slack incoming-webhook message.")
+            return True
+        app.logger.error(
+            f"Communication {comm.id}: Slack webhook rejected message, status {response.status_code}"
+        )
+        comm.error_message = f'Slack webhook delivery failed with status {response.status_code}'
+        return False
+    except Exception as e:
+        app.logger.error(f"Communication {comm.id}: Failed to send Slack webhook: {e}")
+        comm.error_message = f'Slack webhook delivery error: {str(e)[:200]}'
+        return False
+
+
+def send_test_notification(app, rule, recipient_email):
+    """Send a one-off test notification for an EventRule, immediately (not queued).
+
+    Uses placeholder sample data for every event variable so the recipient can
+    verify channel wiring without creating a real record. Returns {channel: bool}.
+    """
+    from .utils.communications_context import render_email_template
+    from .models.communications import ScheduledCommunication
+
+    base = (app.config.get('APP_BASE_URL') or '').rstrip('/')
+    sample = {
+        'today': get_today(),
+        'recipient_name': 'Test Recipient',
+        'entity_type': rule.entity_type if rule.entity_type and rule.entity_type != '*' else 'TestEntity',
+        'entity_id': 0,
+        'entity': 'TEST_ENTITY',
+        'action': rule.action if rule.action and rule.action != 'any' else 'create',
+        'actor': 'test.user@example.com',
+        'changes': {'sample_field': {'old': 'FOO', 'new': 'BAR'}},
+        'timestamp': now(),
+        'event_url': f'{base}/assets/0' if base else '',
+    }
+
+    if rule.template:
+        subject, body_html = render_email_template(rule.template, sample)
+    else:
+        subject = f"{sample['entity_type']} {sample['action']}"
+        body_html = '<p>This is a test notification from OpsDeck Event Rules.</p>'
+    subject = f'[TEST] {subject}'
+
+    results = {}
+    for channel in (rule.channels or ['email']):
+        # Transient (unsaved) comm so the senders can read per-rule channel config.
+        comm = ScheduledCommunication(
+            event_rule_id=rule.id,
+            recipient_email=recipient_email,
+            recipient_name='Test Recipient',
+            target_type=sample['entity_type'],
+            target_id=0,
+            channel=channel,
+            slack_target_channel=rule.slack_target_channel,
+        )
+        try:
+            if channel == 'slack':
+                ok = _send_slack_notification(app, comm, subject, body_html)
+            elif channel == 'webhook':
+                ok = _send_webhook_notification(app, comm, subject, body_html)
+            elif channel == 'discord':
+                ok = _send_discord_notification(app, comm, subject, body_html)
+            else:
+                ok = send_email(app, subject, body_html, [recipient_email])
+        except Exception as e:
+            app.logger.error(f"Test notification via {channel} failed: {e}")
+            ok = False
+        results[channel] = ok
+    return results
 
 
 def _send_webhook_notification(app, comm, subject, body_html):
@@ -757,21 +864,19 @@ def _send_webhook_notification(app, comm, subject, body_html):
         bool: True if sent successfully, False otherwise
     """
     from .models.notifications import NotificationEvent
-    
-    # Map target_type to event_code for webhook URL lookup
-    event_code_map = {
-        'license': 'LICENSE_EXPIRING',
-        'subscription': 'SUBSCRIPTION_RENEWAL',
-        'credential': 'CREDENTIAL_EXPIRING',
-        'certificate': 'CERTIFICATE_EXPIRING',
-        'compliance_rule': 'COMPLIANCE_BREACH',
-    }
-    
-    event_code = event_code_map.get(comm.target_type, comm.target_type.upper())
-    event = NotificationEvent.query.filter_by(event_code=event_code).first()
-    
-    webhook_url = event.webhook_url if event else None
-    
+
+    # Event-engine comms carry their channel config on the EventRule; legacy
+    # notification comms look it up by event_code on the NotificationEvent.
+    if comm.event_rule_id:
+        from .models.event_rules import EventRule
+        rule = db.session.get(EventRule, comm.event_rule_id)
+        webhook_url = rule.webhook_url if rule else None
+        event_code = f'EVENT_RULE_{comm.event_rule_id}'
+    else:
+        event_code = _EVENT_CODE_BY_TARGET.get(comm.target_type, comm.target_type.upper())
+        event = NotificationEvent.query.filter_by(event_code=event_code).first()
+        webhook_url = event.webhook_url if event else None
+
     if not webhook_url:
         app.logger.warning(f"Communication {comm.id}: No webhook URL configured for {event_code}, skipping.")
         comm.error_message = f'No webhook URL configured for event type: {event_code}'
@@ -792,8 +897,79 @@ def _send_webhook_notification(app, comm, subject, body_html):
     }
     
     success = send_webhook(app, webhook_url, payload)
-    
+
     if not success:
         comm.error_message = f'Webhook delivery failed to: {webhook_url}'
-    
+
     return success
+
+
+# Map target_type to the event_code that owns its channel configuration
+# (webhook/Discord URLs live on the NotificationEvent).
+_EVENT_CODE_BY_TARGET = {
+    'license': 'LICENSE_EXPIRING',
+    'subscription': 'SUBSCRIPTION_RENEWAL',
+    'credential': 'CREDENTIAL_EXPIRING',
+    'certificate': 'CERTIFICATE_EXPIRING',
+    'compliance_rule': 'COMPLIANCE_BREACH',
+}
+
+
+def _format_discord_message(subject, body_html):
+    """Build a Discord message body (markdown plain text, capped at 2000 chars).
+
+    Discord renders message ``content`` as markdown, so the subject is bolded and
+    the HTML body is reduced to readable plain text.
+    """
+    from .services.slack_service import strip_html_for_slack
+
+    body_text = strip_html_for_slack(body_html or '')
+    content = f"**{subject}**\n\n{body_text}".strip() if body_text else f"**{subject}**"
+    # Discord rejects payloads whose content exceeds 2000 characters.
+    if len(content) > 2000:
+        content = content[:1997] + "..."
+    return content
+
+
+def _send_discord_notification(app, comm, subject, body_html):
+    """Send a notification to a Discord incoming webhook (POST {"content": ...}).
+
+    Discord replies 204 No Content on success (not 200), so this posts directly
+    rather than reusing ``send_webhook`` which only treats 200 as success.
+
+    Returns:
+        bool: True if delivered successfully, False otherwise.
+    """
+    from .models.notifications import NotificationEvent
+
+    # Event-engine comms carry their channel config on the EventRule; legacy
+    # notification comms look it up by event_code on the NotificationEvent.
+    if comm.event_rule_id:
+        from .models.event_rules import EventRule
+        rule = db.session.get(EventRule, comm.event_rule_id)
+        discord_url = rule.discord_webhook_url if rule else None
+        event_code = f'EVENT_RULE_{comm.event_rule_id}'
+    else:
+        event_code = _EVENT_CODE_BY_TARGET.get(comm.target_type, comm.target_type.upper())
+        event = NotificationEvent.query.filter_by(event_code=event_code).first()
+        discord_url = event.discord_webhook_url if event else None
+
+    if not discord_url:
+        app.logger.warning(f"Communication {comm.id}: No Discord webhook URL configured for {event_code}, skipping.")
+        comm.error_message = f'No Discord webhook URL configured for event type: {event_code}'
+        return False
+
+    payload = {'content': _format_discord_message(subject, body_html)}
+
+    try:
+        response = requests.post(discord_url, json=payload, timeout=10)
+        if response.status_code in (200, 204):
+            app.logger.info(f"Communication {comm.id}: Sent Discord message, status {response.status_code}")
+            return True
+        app.logger.error(f"Communication {comm.id}: Discord rejected message, status {response.status_code}")
+        comm.error_message = f'Discord delivery failed with status {response.status_code}'
+        return False
+    except Exception as e:
+        app.logger.error(f"Communication {comm.id}: Failed to send Discord message: {e}")
+        comm.error_message = f'Discord delivery error: {str(e)[:200]}'
+        return False

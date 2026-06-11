@@ -4,22 +4,26 @@ Centralises validation of user-influenced redirect targets (form fields like
 `redirect_url` and the `Referer` header) to prevent open redirects — the
 "URL redirection from remote source" class flagged by CodeQL/Sonar.
 """
-from urllib.parse import urlparse
-from flask import request, url_for
+from urllib.parse import urlparse, urlunparse
+from flask import url_for
 
 
 def safe_redirect_target(candidate, fallback=None):
-    """Return ``candidate`` if it is a safe same-site target, else ``fallback``.
+    """Return a safe **same-origin relative** redirect target derived from ``candidate``.
 
-    Accepts:
-      - same-site relative paths (e.g. ``/assets/3``), and
-      - absolute URLs whose host matches the current request host.
-    Rejects external hosts, protocol-relative URLs (``//evil.com``) and any
-    value containing backslashes or CR/LF (which browsers may normalise),
-    falling back to a trusted local URL instead.
+    Any scheme/host in ``candidate`` is discarded — only the path (plus query and
+    fragment) is kept. This is open-redirect-proof (you can never be sent off-site)
+    and, crucially, avoids emitting an *absolute* ``Location``: behind a reverse
+    proxy ``request.host``/``request.url`` may carry an internal scheme/host, and a
+    302 to that internal URL is unreachable from the public site — the browser
+    hangs while the request actually succeeded. A relative target lets the browser
+    resolve it against the real public origin.
 
-    ``fallback`` defaults to the dashboard when not supplied (also covers the
-    case where ``candidate`` is ``None``, e.g. a missing Referer header).
+    Rejects values with backslashes or CR/LF, non-path schemes (``javascript:``),
+    and protocol-relative hosts, falling back to a trusted local URL.
+
+    ``fallback`` defaults to the dashboard (also covers ``candidate`` being ``None``,
+    e.g. a missing Referer header).
     """
     if fallback is None:
         fallback = url_for('main.dashboard')
@@ -33,15 +37,11 @@ def safe_redirect_target(candidate, fallback=None):
 
     parsed = urlparse(candidate)
 
-    # Relative path: no scheme and no host. Must be a single-slash absolute path
-    # ('//host' is protocol-relative and would leave the site).
-    if not parsed.scheme and not parsed.netloc:
-        if candidate.startswith('/') and not candidate.startswith('//'):
-            return candidate
+    # Keep only the path component; drop scheme and host entirely so the result
+    # is always a same-origin relative URL.
+    path = parsed.path or '/'
+    if not path.startswith('/') or path.startswith('//'):
         return fallback
 
-    # Absolute URL: only same-host http(s) is allowed.
-    if parsed.scheme in ('http', 'https') and parsed.netloc == request.host:
-        return candidate
-
-    return fallback
+    relative = urlunparse(('', '', path, parsed.params, parsed.query, parsed.fragment))
+    return relative or fallback

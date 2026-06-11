@@ -88,7 +88,7 @@ def test_delete_link(auth_client, app):
 
     response = auth_client.post(f'/links/{link_id}/delete', follow_redirects=True)
     assert response.status_code == 200
-    assert b'Enlace eliminado.' in response.data
+    assert b'Link deleted.' in response.data
 
     # Verify in DB
     with app.app_context():

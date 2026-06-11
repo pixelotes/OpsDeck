@@ -332,7 +332,7 @@ def google_callback():
             outcome='failure',
             error_message="Google not authorized"
         )
-        flash('Error al autorizar con Google', 'danger')
+        flash('Error authorizing with Google', 'danger')
         return redirect(url_for(LOGIN))
     
     # Get user info from Google
@@ -345,7 +345,7 @@ def google_callback():
                 outcome='failure',
                 error_message=f"Google API error: {resp.status_code}"
             )
-            flash('Error al obtener información de Google', 'danger')
+            flash('Error retrieving information from Google', 'danger')
             return redirect(url_for(LOGIN))
         
         google_info = resp.json()
@@ -358,7 +358,7 @@ def google_callback():
             outcome='failure',
             error_message=str(e)
         )
-        flash('Error al procesar la autenticación de Google', 'danger')
+        flash('Error processing Google authentication', 'danger')
         return redirect(url_for(LOGIN))
     
     # Find user in database
@@ -391,7 +391,7 @@ def google_callback():
             target_object=email,
             error_message="User not found in database"
         )
-        flash('No existe un usuario registrado con este email.', 'danger')
+        flash('No registered user found with this email.', 'danger')
         return redirect(url_for(LOGIN))
 
 def password_change_required(f):

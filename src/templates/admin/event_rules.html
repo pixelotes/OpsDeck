@@ -1,0 +1,289 @@
+{% extends "layout.html" %}
+
+{% block title %}Event Rules - {{ super() }}{% endblock %}
+
+{# Shared form body for both the create and edit modals. `rule` is None when creating. #}
+{% macro rule_form_fields(rule, suffix) %}
+    <div class="mb-3">
+        <label for="name_{{ suffix }}" class="form-label">Name</label>
+        <input type="text" name="name" id="name_{{ suffix }}" class="form-control"
+            value="{{ rule.name if rule else '' }}" required>
+    </div>
+    <div class="mb-3">
+        <label for="description_{{ suffix }}" class="form-label">Description (optional)</label>
+        <input type="text" name="description" id="description_{{ suffix }}" class="form-control"
+            value="{{ rule.description or '' if rule else '' }}">
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label for="entity_type_{{ suffix }}" class="form-label">Entity</label>
+            <select name="entity_type" id="entity_type_{{ suffix }}" class="form-select" required>
+                <option value="">-- Select Entity --</option>
+                {% for key, label in entity_catalog|dictsort(by='value') %}
+                <option value="{{ key }}" {% if rule and rule.entity_type == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="action_{{ suffix }}" class="form-label">Action</label>
+            <select name="action" id="action_{{ suffix }}" class="form-select">
+                {% for act in actions %}
+                <option value="{{ act }}" {% if (rule.action if rule else 'any') == act %}selected{% endif %}>{{ act }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <hr>
+    <h6 class="mb-3">Recipients</h6>
+    <div class="mb-3">
+        <label for="recipient_mode_{{ suffix }}" class="form-label">Send to</label>
+        <select name="recipient_mode" id="recipient_mode_{{ suffix }}" class="form-select">
+            <option value="admins" {% if (rule.recipient_mode if rule else 'admins') == 'admins' %}selected{% endif %}>All admins</option>
+            <option value="role" {% if rule and rule.recipient_mode == 'role' %}selected{% endif %}>A role</option>
+            <option value="emails" {% if rule and rule.recipient_mode == 'emails' %}selected{% endif %}>Specific email addresses</option>
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="recipient_role_{{ suffix }}" class="form-label">Role (when "A role")</label>
+        <select name="recipient_role" id="recipient_role_{{ suffix }}" class="form-select">
+            <option value="">--</option>
+            {% for role in roles %}
+            <option value="{{ role }}" {% if rule and rule.recipient_role == role %}selected{% endif %}>{{ role }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="recipient_emails_{{ suffix }}" class="form-label">Email addresses (when "Specific email addresses")</label>
+        <input type="text" name="recipient_emails" id="recipient_emails_{{ suffix }}" class="form-control"
+            value="{{ rule.recipient_emails or '' if rule else '' }}" placeholder="alice@acme.com, bob@acme.com">
+        <div class="form-text">Comma-separated.</div>
+    </div>
+
+    <hr>
+    <h6 class="mb-3">Delivery Channels</h6>
+    <div class="mb-3">
+        {% set channels = rule.channels if rule else ['email'] %}
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="channel_email" id="channel_email_{{ suffix }}"
+                {% if 'email' in (channels or ['email']) %}checked{% endif %}>
+            <label class="form-check-label" for="channel_email_{{ suffix }}"><i class="fas fa-envelope"></i> Email</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="channel_slack" id="channel_slack_{{ suffix }}"
+                onchange="syncRuleChannels('{{ suffix }}')" {% if 'slack' in (channels or []) %}checked{% endif %}>
+            <label class="form-check-label" for="channel_slack_{{ suffix }}"><i class="fab fa-slack"></i> Slack</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="channel_webhook" id="channel_webhook_{{ suffix }}"
+                onchange="syncRuleChannels('{{ suffix }}')" {% if 'webhook' in (channels or []) %}checked{% endif %}>
+            <label class="form-check-label" for="channel_webhook_{{ suffix }}"><i class="fas fa-plug"></i> Webhook</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="channel_discord" id="channel_discord_{{ suffix }}"
+                onchange="syncRuleChannels('{{ suffix }}')" {% if 'discord' in (channels or []) %}checked{% endif %}>
+            <label class="form-check-label" for="channel_discord_{{ suffix }}"><i class="fab fa-discord"></i> Discord</label>
+        </div>
+    </div>
+
+    <div id="slack_cfg_{{ suffix }}">
+        <div class="mb-3">
+            <label for="slack_webhook_url_{{ suffix }}" class="form-label"><i class="fab fa-slack"></i> Slack Incoming Webhook URL (optional)</label>
+            <input type="url" name="slack_webhook_url" id="slack_webhook_url_{{ suffix }}" class="form-control"
+                value="{{ rule.slack_webhook_url or '' if rule else '' }}" placeholder="https://hooks.slack.com/services/...">
+            <div class="form-text">Easiest option — no bot token needed. If set, this is used and the field below is ignored.</div>
+        </div>
+        <div class="mb-3">
+            <label for="slack_target_channel_{{ suffix }}" class="form-label"><i class="fab fa-slack"></i> Slack Channel ID (optional, bot token)</label>
+            <input type="text" name="slack_target_channel" id="slack_target_channel_{{ suffix }}" class="form-control"
+                value="{{ rule.slack_target_channel or '' if rule else '' }}" placeholder="C12345 (leave empty for DM)">
+            <div class="form-text">Requires SLACK_BOT_TOKEN. A channel ID like C12345, or empty to DM the recipient by email.</div>
+        </div>
+    </div>
+    <div id="webhook_cfg_{{ suffix }}" class="mb-3">
+        <label for="webhook_url_{{ suffix }}" class="form-label"><i class="fas fa-plug"></i> Webhook URL (optional)</label>
+        <input type="url" name="webhook_url" id="webhook_url_{{ suffix }}" class="form-control"
+            value="{{ rule.webhook_url or '' if rule else '' }}" placeholder="https://your-webhook-endpoint.com">
+    </div>
+    <div id="discord_cfg_{{ suffix }}" class="mb-3">
+        <label for="discord_webhook_url_{{ suffix }}" class="form-label"><i class="fab fa-discord"></i> Discord Webhook URL (optional)</label>
+        <input type="url" name="discord_webhook_url" id="discord_webhook_url_{{ suffix }}" class="form-control"
+            value="{{ rule.discord_webhook_url or '' if rule else '' }}" placeholder="https://discord.com/api/webhooks/...">
+    </div>
+
+    <hr>
+    <h6 class="mb-3">Message</h6>
+    <div class="mb-3">
+        <label for="template_id_{{ suffix }}" class="form-label">Template (optional)</label>
+        <select name="template_id" id="template_id_{{ suffix }}" class="form-select">
+            <option value="">-- Select Template --</option>
+            {% for template in templates %}
+            <option value="{{ template.id }}" {% if rule and rule.template_id == template.id %}selected{% endif %}>
+                {{ template.name }} ({{ template.category }})
+            </option>
+            {% endfor %}
+        </select>
+        <div class="form-text">The message body sent on every selected channel. Variables:
+            <code>entity</code>, <code>entity_type</code>, <code>action</code>, <code>actor</code>, <code>changes</code>, <code>event_url</code>.</div>
+    </div>
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-bolt"></i> Event Rules</h2>
+    {% if can_write('settings') %}
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
+        <i class="fas fa-plus"></i> New Rule
+    </button>
+    {% endif %}
+</div>
+
+<div class="alert alert-info">
+    <i class="fas fa-info-circle"></i>
+    Event rules watch committed changes (create / update / delete) on the entities below and fire a notification.
+    Changes are evaluated from the audit log every few minutes, then delivered through the communications queue.
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if rules %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Rule</th>
+                    <th>Trigger</th>
+                    <th>Recipients</th>
+                    <th>Channels</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rule in rules %}
+                <tr>
+                    <td>
+                        <strong>{{ rule.name }}</strong>
+                        {% if rule.description %}<br><small class="text-muted">{{ rule.description }}</small>{% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary">{{ entity_catalog.get(rule.entity_type, rule.entity_type) }}</span>
+                        <span class="badge bg-info text-dark">{{ rule.action }}</span>
+                    </td>
+                    <td>
+                        {% if rule.recipient_mode == 'emails' %}{{ rule.recipient_emails or '-' }}
+                        {% elif rule.recipient_mode == 'role' %}Role: {{ rule.recipient_role or '-' }}
+                        {% else %}All admins{% endif %}
+                    </td>
+                    <td>
+                        {% for ch in (rule.channels or ['email']) %}<span class="badge bg-light text-dark">{{ ch }}</span> {% endfor %}
+                    </td>
+                    <td>
+                        {% if rule.enabled %}
+                        <span class="badge bg-success"><i class="fas fa-check"></i> Enabled</span>
+                        {% else %}
+                        <span class="badge bg-secondary"><i class="fas fa-times"></i> Disabled</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if can_write('settings') %}
+                        <form action="{{ url_for('event_rules.toggle_rule', rule_id=rule.id) }}" method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm {{ 'btn-outline-success' if rule.enabled else 'btn-outline-danger' }}"
+                                title="{{ 'Disable' if rule.enabled else 'Enable' }}">
+                                <i class="fas {{ 'fa-toggle-on' if rule.enabled else 'fa-toggle-off' }}"></i>
+                            </button>
+                        </form>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                            data-bs-target="#editModal{{ rule.id }}" title="Edit"><i class="fas fa-edit"></i></button>
+                        <form action="{{ url_for('event_rules.test_rule', rule_id=rule.id) }}" method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-info" title="Send a test notification with sample data">
+                                <i class="fas fa-paper-plane"></i></button>
+                        </form>
+                        <form action="{{ url_for('event_rules.delete_rule', rule_id=rule.id) }}" method="POST" class="d-inline"
+                            onsubmit="return confirm('Delete this event rule?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="fas fa-trash"></i></button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="alert alert-warning mb-0">
+            <i class="fas fa-exclamation-triangle"></i> No event rules yet. Create one to start notifying on entity changes.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if can_write('settings') %}
+<!-- Create Modal -->
+<div class="modal fade" id="createModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ url_for('event_rules.create_rule') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus"></i> New Event Rule</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {{ rule_form_fields(None, 'new') }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Rule</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modals -->
+{% for rule in rules %}
+<div class="modal fade" id="editModal{{ rule.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ url_for('event_rules.update_rule', rule_id=rule.id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-edit"></i> Edit: {{ rule.name }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {{ rule_form_fields(rule, rule.id) }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+// Show each channel's config section only when its checkbox is ticked.
+function syncRuleChannels(suffix) {
+    ['slack', 'webhook', 'discord'].forEach(function (ch) {
+        var cb = document.getElementById('channel_' + ch + '_' + suffix);
+        var cfg = document.getElementById(ch + '_cfg_' + suffix);
+        if (cb && cfg) cfg.style.display = cb.checked ? '' : 'none';
+    });
+}
+document.addEventListener('DOMContentLoaded', function () {
+    // One modal per rule (suffix = 'new' or the rule id); initialise each.
+    document.querySelectorAll('[id^="channel_slack_"]').forEach(function (cb) {
+        syncRuleChannels(cb.id.replace('channel_slack_', ''));
+    });
+});
+</script>
+{% endblock %}

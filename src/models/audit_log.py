@@ -31,8 +31,18 @@ class AuditLog(db.Model):
     # Change details (JSON for updates: {"field": {"old": x, "new": y}, ...})
     changes = db.Column(db.Text, nullable=True)
 
+    # Event engine: false until the event evaluator has matched this row against
+    # EventRules (set true once handled, so notifications are not repeated).
+    event_processed = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+
     # Relationship to user (if available)
     user = db.relationship('User', foreign_keys=[user_id], backref='audit_logs')
+
+    # Partial index for the event engine's "unprocessed rows" lookup. Declared
+    # here so the model matches migration 016 (test_models_match_migrations).
+    __table_args__ = (
+        db.Index('ix_audit_log_unprocessed', 'id', postgresql_where=db.text('event_processed = false')),
+    )
 
     def __repr__(self):
         return f'<AuditLog {self.action} {self.entity_type}#{self.entity_id} by {self.user_email}>'

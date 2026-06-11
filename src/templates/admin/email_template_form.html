@@ -126,9 +126,24 @@
                 </ul>
 
                 <h6 class="fw-bold">Process</h6>
-                <ul class="mb-0">
+                <ul class="mb-3">
                     <li><code>{{ "{{ pack.name }}" }}</code></li>
                     <li><code>{{ "{{ pack.description }}" }}</code></li>
+                </ul>
+
+                <h6 class="fw-bold text-primary">
+                    <i class="fas fa-bolt me-1"></i>Event Rule Notifications
+                </h6>
+                <p class="text-muted mb-2">Only available in templates used by
+                    <strong>Event Rules</strong> (change-based notifications).</p>
+                <ul class="mb-0">
+                    <li><code>{{ "{{ entity }}" }}</code> — record name</li>
+                    <li><code>{{ "{{ entity_type }}" }}</code> — e.g. Asset</li>
+                    <li><code>{{ "{{ entity_id }}" }}</code> — record ID</li>
+                    <li><code>{{ "{{ action }}" }}</code> — create / update / delete</li>
+                    <li><code>{{ "{{ actor }}" }}</code> — who made the change</li>
+                    <li><code>{{ "{{ changes }}" }}</code> — diff dict (updates only)</li>
+                    <li><code>{{ "{{ timestamp }}" }}</code> — when it happened</li>
                 </ul>
             </div>
         </div>

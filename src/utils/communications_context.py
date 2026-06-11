@@ -24,7 +24,36 @@ def get_template_context(scheduled_comm):
     context = {
         'today': today(),
     }
-    
+
+    # Event-engine comms: build a generic context from the originating AuditLog row.
+    if scheduled_comm.event_rule_id and scheduled_comm.audit_log_id:
+        import json
+        from flask import current_app
+        from ..models.audit_log import AuditLog
+        from ..models.event_rules import ENTITY_DETAIL_PATHS
+        audit = db.session.get(AuditLog, scheduled_comm.audit_log_id)
+        if audit:
+            try:
+                changes = json.loads(audit.changes) if audit.changes else None
+            except (ValueError, TypeError):
+                changes = None
+            # Absolute link to the affected record, if it has a detail page.
+            base = (current_app.config.get('APP_BASE_URL') or '').rstrip('/')
+            path = ENTITY_DETAIL_PATHS.get(audit.entity_type)
+            event_url = f"{base}{path}/{audit.entity_id}" if path and audit.entity_id else ''
+            context.update({
+                'recipient_name': scheduled_comm.recipient_name or 'User',
+                'entity_type': audit.entity_type,
+                'entity_id': audit.entity_id,
+                'entity': audit.entity_repr,
+                'action': audit.action,
+                'actor': audit.user_email or 'system',
+                'changes': changes,
+                'timestamp': audit.timestamp,
+                'event_url': event_url,
+            })
+        return context
+
     if scheduled_comm.target_type == 'onboarding':
         process = db.session.get(OnboardingProcess, scheduled_comm.target_id)
         if process:
@@ -209,26 +238,23 @@ def render_email_template(template_or_campaign, context):
     Returns:
         tuple: (subject, body_html) rendered with Jinja2
     """
-    from jinja2 import UndefinedError
+    from jinja2 import ChainableUndefined
     from jinja2.sandbox import SandboxedEnvironment
-    
-    # Use sandboxed environment for security
-    env = SandboxedEnvironment()
-    
+
+    # Sandboxed for security; ChainableUndefined makes missing variables (and
+    # attribute access on them, e.g. {{ user.name }} when there is no user)
+    # render as empty instead of raising — so a template that references a
+    # variable absent from this event's context degrades gracefully rather than
+    # shipping the raw {{ ... }} markup to a recipient.
+    env = SandboxedEnvironment(undefined=ChainableUndefined)
+
     try:
-        # Render subject
-        subject_template = env.from_string(template_or_campaign.subject)
-        subject = subject_template.render(**context)
-        
-        # Render body
-        body_template = env.from_string(template_or_campaign.body_html)
-        body_html = body_template.render(**context)
-        
+        subject = env.from_string(template_or_campaign.subject).render(**context)
+        body_html = env.from_string(template_or_campaign.body_html).render(**context)
         return subject, body_html
-    except UndefinedError:
-        # Log undefined variable but still render
-        return template_or_campaign.subject, template_or_campaign.body_html
     except Exception as e:
+        # Genuine template errors (not missing variables) fail the send so it is
+        # retried/flagged, rather than delivering broken content.
         raise ValueError(f"Template rendering error: {str(e)}")
 
 

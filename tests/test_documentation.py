@@ -21,7 +21,7 @@ def test_create_documentation(auth_client, app):
     }, follow_redirects=True)
     
     assert response.status_code == 200
-    assert b'Entrada de documentaci\xc3\xb3n creada.' in response.data
+    assert b'Documentation entry created.' in response.data
     
     with app.app_context():
         doc = Documentation.query.filter_by(name='New Doc').first()
@@ -41,7 +41,7 @@ def test_edit_documentation(auth_client, app):
     }, follow_redirects=True)
     
     assert response.status_code == 200
-    assert b'Entrada de documentaci\xc3\xb3n actualizada.' in response.data
+    assert b'Documentation entry updated.' in response.data
     
     with app.app_context():
         doc = db.session.get(Documentation, doc_id)
@@ -58,7 +58,7 @@ def test_delete_documentation(auth_client, app):
     response = auth_client.post(f'/documentation/{doc_id}/delete', follow_redirects=True)
     
     assert response.status_code == 200
-    assert b'Entrada de documentaci\xc3\xb3n eliminada.' in response.data
+    assert b'Documentation entry deleted.' in response.data
     
     with app.app_context():
         doc = db.session.get(Documentation, doc_id)
