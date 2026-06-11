@@ -1058,6 +1058,56 @@ def seed_notification_templates():
     To disable these alerts, contact your system administrator.
 </p>
             """
+        ),
+        # --- Generic Event Rule templates (for the event engine) ---
+        # Context: entity, entity_type, entity_id, action, actor, changes, timestamp, recipient_name.
+        # Defensive {% if %}/{% else %} so a missing variable never breaks rendering.
+        (
+            "Event: Record Created",
+            "New {{ entity_type }} created: {{ entity }}",
+            """
+<h2>{{ entity_type }} created</h2>
+<p>Hello {% if recipient_name %}{{ recipient_name }}{% else %}there{% endif %},</p>
+<p>A new <strong>{{ entity_type }}</strong> was created in OpsDeck.</p>
+<ul>
+    <li><strong>Name:</strong> {% if entity %}{{ entity }}{% else %}(unnamed){% endif %}</li>
+    <li><strong>ID:</strong> {{ entity_id }}</li>
+    <li><strong>Created by:</strong> {{ actor }}</li>
+    {% if timestamp %}<li><strong>When:</strong> {{ timestamp }}</li>{% endif %}
+</ul>
+<p style="color:#6c757d;font-size:12px;">Automated notification from OpsDeck Event Rules.</p>
+            """
+        ),
+        (
+            "Event: Record Updated",
+            "{{ entity_type }} updated: {{ entity }}",
+            """
+<h2>{{ entity_type }} updated</h2>
+<p>Hello {% if recipient_name %}{{ recipient_name }}{% else %}there{% endif %},</p>
+<p>The <strong>{{ entity_type }}</strong> "{{ entity }}" (ID {{ entity_id }}) was updated by {{ actor }}.</p>
+{% if changes %}
+<p>The following fields changed:</p>
+<ul>
+{% for field, vals in changes.items() %}
+    <li><strong>{{ field }}</strong>: {% if vals.old is not none %}{{ vals.old }}{% else %}(empty){% endif %} &rarr; {% if vals.new is not none %}{{ vals.new }}{% else %}(empty){% endif %}</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>No field-level details are available for this change.</p>
+{% endif %}
+<p style="color:#6c757d;font-size:12px;">Automated notification from OpsDeck Event Rules.</p>
+            """
+        ),
+        (
+            "Event: Record Deleted",
+            "{{ entity_type }} deleted: {{ entity }}",
+            """
+<h2>{{ entity_type }} deleted</h2>
+<p>Hello {% if recipient_name %}{{ recipient_name }}{% else %}there{% endif %},</p>
+<p>The <strong>{{ entity_type }}</strong> "{% if entity %}{{ entity }}{% else %}(unnamed){% endif %}" (ID {{ entity_id }}) was deleted by {{ actor }}.</p>
+{% if timestamp %}<p>Deleted at: {{ timestamp }}.</p>{% endif %}
+<p style="color:#6c757d;font-size:12px;">Automated notification from OpsDeck Event Rules.</p>
+            """
         )
     ]
 

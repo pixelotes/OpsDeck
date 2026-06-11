@@ -5,7 +5,7 @@ from src.models.audit_log import AuditLog
 from src.models.event_rules import EventRule
 from src.models.communications import ScheduledCommunication, EmailTemplate
 from src.services.event_engine import process_event_rules
-from src.utils.communications_context import get_template_context
+from src.utils.communications_context import get_template_context, render_email_template
 
 
 def _admin():
@@ -124,6 +124,35 @@ def test_event_template_context(app, init_database):
         assert ctx['action'] == 'create'
         assert ctx['actor'] == 'alice@test.com'
         assert ctx['changes']['status']['new'] == 'retired'
+
+
+class _FakeTemplate:
+    def __init__(self, subject, body_html):
+        self.subject = subject
+        self.body_html = body_html
+
+
+def test_render_missing_var_falls_back_to_empty(app):
+    """A template referencing a variable absent from context renders empty,
+    not the raw {{ ... }} markup."""
+    with app.app_context():
+        tpl = _FakeTemplate('Hi {{ user.name }}', '<p>{{ user.name }} did {{ action }}</p>')
+        subject, body = render_email_template(tpl, {'action': 'create'})
+        assert subject == 'Hi '
+        assert '{{' not in body
+        assert 'did create' in body
+
+
+def test_render_changes_if_else(app):
+    """The seeded-style if/else over `changes` renders both branches safely."""
+    with app.app_context():
+        body = ('{% if changes %}{% for f, v in changes.items() %}{{ f }}:{{ v.new }} '
+                '{% endfor %}{% else %}none{% endif %}')
+        tpl = _FakeTemplate('s', body)
+        _, with_ch = render_email_template(tpl, {'changes': {'status': {'old': 'a', 'new': 'b'}}})
+        _, without = render_email_template(tpl, {'changes': None})
+        assert with_ch.strip() == 'status:b'
+        assert without == 'none'
 
 
 def test_create_rule_route(auth_client, app):
