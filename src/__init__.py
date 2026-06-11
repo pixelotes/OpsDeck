@@ -138,6 +138,14 @@ def create_app(test_config=None):
     # links fall back to relative paths (not clickable from email/chat).
     app.config['APP_BASE_URL'] = os.environ.get('APP_BASE_URL', '').rstrip('/')
 
+    # Behind a reverse proxy (e.g. prod), honour X-Forwarded-* so request.scheme /
+    # host / url reflect the real public origin instead of the internal one. Without
+    # this, absolute URLs (email links, OAuth callbacks) carry the internal host.
+    # Opt-in via TRUST_PROXY so direct/dev deployments are unaffected.
+    if os.environ.get('TRUST_PROXY', '').lower() in ('1', 'true', 'yes', 'on'):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
     # --- Google OAuth Configuration ---
     app.config['GOOGLE_OAUTH_CLIENT_ID'] = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
     app.config['GOOGLE_OAUTH_CLIENT_SECRET'] = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')

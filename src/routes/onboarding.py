@@ -1013,17 +1013,20 @@ def transfer_service(id):
     # Update owner
     service.owner_id = int(new_owner_id) if new_owner_id else None
     
-    # Auto-complete related offboarding item if exists
+    # Auto-complete related offboarding item if exists.
+    # Offboarding creates these items with item_type 'ServiceOwnership' (see the
+    # offboarding generator); the previous 'Service' filter never matched, so the
+    # owner changed but the checklist item stayed open.
     offboarding_item = ProcessItem.query.filter_by(
-        item_type='Service', 
-        linked_object_id=id, 
+        item_type='ServiceOwnership',
+        linked_object_id=id,
         is_completed=False
     ).first()
     if offboarding_item and offboarding_item.offboarding_process_id:
         offboarding_item.is_completed = True
-        
+
     db.session.commit()
-    
+
     if service.owner:
         flash(f'Service "{service.name}" transferred to {service.owner.name}.', 'success')
     else:
