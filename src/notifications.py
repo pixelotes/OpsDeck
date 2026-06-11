@@ -764,11 +764,18 @@ def _send_webhook_notification(app, comm, subject, body_html):
     """
     from .models.notifications import NotificationEvent
 
-    event_code = _EVENT_CODE_BY_TARGET.get(comm.target_type, comm.target_type.upper())
-    event = NotificationEvent.query.filter_by(event_code=event_code).first()
-    
-    webhook_url = event.webhook_url if event else None
-    
+    # Event-engine comms carry their channel config on the EventRule; legacy
+    # notification comms look it up by event_code on the NotificationEvent.
+    if comm.event_rule_id:
+        from .models.event_rules import EventRule
+        rule = db.session.get(EventRule, comm.event_rule_id)
+        webhook_url = rule.webhook_url if rule else None
+        event_code = f'EVENT_RULE_{comm.event_rule_id}'
+    else:
+        event_code = _EVENT_CODE_BY_TARGET.get(comm.target_type, comm.target_type.upper())
+        event = NotificationEvent.query.filter_by(event_code=event_code).first()
+        webhook_url = event.webhook_url if event else None
+
     if not webhook_url:
         app.logger.warning(f"Communication {comm.id}: No webhook URL configured for {event_code}, skipping.")
         comm.error_message = f'No webhook URL configured for event type: {event_code}'
@@ -834,10 +841,17 @@ def _send_discord_notification(app, comm, subject, body_html):
     """
     from .models.notifications import NotificationEvent
 
-    event_code = _EVENT_CODE_BY_TARGET.get(comm.target_type, comm.target_type.upper())
-    event = NotificationEvent.query.filter_by(event_code=event_code).first()
-
-    discord_url = event.discord_webhook_url if event else None
+    # Event-engine comms carry their channel config on the EventRule; legacy
+    # notification comms look it up by event_code on the NotificationEvent.
+    if comm.event_rule_id:
+        from .models.event_rules import EventRule
+        rule = db.session.get(EventRule, comm.event_rule_id)
+        discord_url = rule.discord_webhook_url if rule else None
+        event_code = f'EVENT_RULE_{comm.event_rule_id}'
+    else:
+        event_code = _EVENT_CODE_BY_TARGET.get(comm.target_type, comm.target_type.upper())
+        event = NotificationEvent.query.filter_by(event_code=event_code).first()
+        discord_url = event.discord_webhook_url if event else None
 
     if not discord_url:
         app.logger.warning(f"Communication {comm.id}: No Discord webhook URL configured for {event_code}, skipping.")

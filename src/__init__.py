@@ -425,6 +425,9 @@ def create_app(test_config=None):
     
     from .routes.admin_notifications import admin_notifications_bp
     app.register_blueprint(admin_notifications_bp, url_prefix='/admin/notifications')
+
+    from .routes.event_rules import event_rules_bp
+    app.register_blueprint(event_rules_bp, url_prefix='/settings/event-rules')
     
     from .routes.campaigns import campaigns_bp
     app.register_blueprint(campaigns_bp, url_prefix='/campaigns')
@@ -625,6 +628,17 @@ def create_app(test_config=None):
             args=[app],
             trigger="interval",
             days=1
+        )
+        # Event engine - match committed changes (AuditLog) against EventRules and
+        # enqueue notifications. Runs slightly ahead of the comms queue below.
+        from .services.event_engine import process_event_rules
+        scheduler.add_job(
+            func=process_event_rules,
+            args=[app],
+            trigger="interval",
+            minutes=2,
+            id="event_engine",
+            replace_existing=True
         )
         # Communications engine - process scheduled emails every 5 minutes for faster delivery
         scheduler.add_job(

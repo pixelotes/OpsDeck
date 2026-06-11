@@ -24,7 +24,29 @@ def get_template_context(scheduled_comm):
     context = {
         'today': today(),
     }
-    
+
+    # Event-engine comms: build a generic context from the originating AuditLog row.
+    if scheduled_comm.event_rule_id and scheduled_comm.audit_log_id:
+        import json
+        from ..models.audit_log import AuditLog
+        audit = db.session.get(AuditLog, scheduled_comm.audit_log_id)
+        if audit:
+            try:
+                changes = json.loads(audit.changes) if audit.changes else None
+            except (ValueError, TypeError):
+                changes = None
+            context.update({
+                'recipient_name': scheduled_comm.recipient_name or 'User',
+                'entity_type': audit.entity_type,
+                'entity_id': audit.entity_id,
+                'entity': audit.entity_repr,
+                'action': audit.action,
+                'actor': audit.user_email or 'system',
+                'changes': changes,
+                'timestamp': audit.timestamp,
+            })
+        return context
+
     if scheduled_comm.target_type == 'onboarding':
         process = db.session.get(OnboardingProcess, scheduled_comm.target_id)
         if process:

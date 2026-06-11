@@ -31,6 +31,10 @@ class AuditLog(db.Model):
     # Change details (JSON for updates: {"field": {"old": x, "new": y}, ...})
     changes = db.Column(db.Text, nullable=True)
 
+    # Event engine: false until the event evaluator has matched this row against
+    # EventRules (set true once handled, so notifications are not repeated).
+    event_processed = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+
     # Relationship to user (if available)
     user = db.relationship('User', foreign_keys=[user_id], backref='audit_logs')
 

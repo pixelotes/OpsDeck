@@ -300,6 +300,12 @@ class ScheduledCommunication(db.Model):
     # If null, DM will be sent to recipient resolved by email
     slack_target_channel = db.Column(db.String(50), nullable=True)
     
+    # Event engine provenance (null for legacy NotificationEvent-driven comms):
+    # which rule fired (senders read per-rule channel config) and which committed
+    # change triggered it (source of the template context).
+    event_rule_id = db.Column(db.Integer, db.ForeignKey('event_rule.id'), nullable=True)
+    audit_log_id = db.Column(db.Integer, db.ForeignKey('audit_log.id'), nullable=True)
+
     # Error tracking for failed sends
     error_message = db.Column(db.Text, nullable=True)
     retry_count = db.Column(db.Integer, default=0)
