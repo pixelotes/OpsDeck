@@ -36,10 +36,17 @@
                     <form action="{{ url_for('admin.import_preview', type_key=key) }}" method="POST"
                         enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        {# Custom picker: the native file input renders browser/OS-locale text
+                           ("Seleccionar archivo"…); hide it and show English labels instead. #}
                         <div class="input-group">
-                            <input type="file" name="file" accept=".csv,text/csv" class="form-control" required>
+                            <label class="btn btn-outline-secondary mb-0" for="file_{{ key }}">
+                                <i class="fas fa-folder-open"></i> Choose file
+                            </label>
+                            <span class="form-control text-truncate" id="fname_{{ key }}">No file selected</span>
                             <button type="submit" class="btn btn-primary"><i class="fas fa-eye"></i> Preview</button>
                         </div>
+                        <input type="file" name="file" id="file_{{ key }}" accept=".csv,text/csv" class="d-none"
+                            onchange="document.getElementById('fname_{{ key }}').textContent = this.files.length ? this.files[0].name : 'No file selected';">
                     </form>
                 </div>
             </div>
