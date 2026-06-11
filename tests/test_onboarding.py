@@ -106,7 +106,7 @@ def test_onboarding_process_flow(auth_client, app):
     # 4. Complete Process
     response = auth_client.post(f'/onboarding/process/onboarding/{process_id}/complete', follow_redirects=True)
     assert response.status_code == 200
-    assert b'completado' in response.data
+    assert b'completed' in response.data
     
     with app.app_context():
         process = db.session.get(OnboardingProcess, process_id)

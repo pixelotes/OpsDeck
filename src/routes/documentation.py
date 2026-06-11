@@ -77,7 +77,7 @@ def new_doc():
                 owner_type, owner_id = owner_full.split('-', 1)
                 owner_id = int(owner_id)
             except ValueError:
-                flash('Propietario (Owner) inválido.', 'danger')
+                flash('Invalid owner.', 'danger')
                 return redirect(safe_redirect_target(request.referrer))
 
         # Crear el objeto base
@@ -116,7 +116,7 @@ def new_doc():
                 db.session.add(attachment)
                 db.session.commit()
 
-        flash('Entrada de documentación creada.', 'success')
+        flash('Documentation entry created.', 'success')
         return redirect(url_for(DETAIL, id=doc.id))
 
     # --- Lógica GET ---
@@ -146,7 +146,7 @@ def edit_doc(id):
                 doc.owner_type, owner_id_str = owner_full.split('-', 1)
                 doc.owner_id = int(owner_id_str)
             except ValueError:
-                flash('Propietario (Owner) inválido.', 'danger')
+                flash('Invalid owner.', 'danger')
                 return redirect(safe_redirect_target(request.referrer))
         else:
             doc.owner_type = None
@@ -184,7 +184,7 @@ def edit_doc(id):
                 db.session.add(attachment)
 
         db.session.commit()
-        flash('Entrada de documentación actualizada.', 'success')
+        flash('Documentation entry updated.', 'success')
         return redirect(url_for(DETAIL, id=doc.id))
 
     # --- Lógica GET ---
@@ -214,7 +214,7 @@ def delete_doc(id):
             
     db.session.delete(doc)
     db.session.commit()
-    flash('Entrada de documentación eliminada.', 'success')
+    flash('Documentation entry deleted.', 'success')
     return redirect(url_for('documentation.list_docs'))
 
 @documentation_bp.route('/api/search', methods=['GET'])

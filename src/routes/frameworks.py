@@ -54,7 +54,7 @@ def create():
         
         # Validación manual
         if not name:
-            flash('El nombre es obligatorio.', 'danger')
+            flash('Name is required.', 'danger')
             # Devolvemos los datos para "repoblar" el formulario
             return render_template(
                 FRAMEWORKS_FORM_HTML, 
@@ -76,7 +76,7 @@ def create():
             return redirect(url_for('frameworks.edit', id=new_framework.id))
         except IntegrityError:
             db.session.rollback()
-            flash('Ya existe un framework con ese nombre.', 'danger')
+            flash('A framework with that name already exists.', 'danger')
             return render_template(
                 FRAMEWORKS_FORM_HTML, 
                 title="Nuevo Framework", 
@@ -84,7 +84,7 @@ def create():
             ), 400
         except Exception as e:
             db.session.rollback()
-            flash(f'Error al crear el framework: {e}', 'danger')
+            flash(f'Error creating framework: {e}', 'danger')
             
     # GET request
     return render_template(FRAMEWORKS_FORM_HTML, title="Nuevo Framework")
@@ -106,7 +106,7 @@ def edit(id):
         if framework.is_custom:
             name = request.form.get('name')
             if not name:
-                flash('El nombre es obligatorio.', 'danger')
+                flash('Name is required.', 'danger')
                 return render_template(
                     FRAMEWORKS_FORM_HTML,
                     framework=framework,
@@ -123,10 +123,10 @@ def edit(id):
             return redirect(url_for('frameworks.detail', id=id))
         except IntegrityError:
             db.session.rollback()
-            flash('Ya existe un framework con ese nombre.', 'danger')
+            flash('A framework with that name already exists.', 'danger')
         except Exception as e:
             db.session.rollback()
-            flash(f'Error al actualizar el framework: {e}', 'danger')
+            flash(f'Error updating framework: {e}', 'danger')
 
     # GET request
     controls = framework.framework_controls.order_by(FrameworkControl.control_id).all()
@@ -153,7 +153,7 @@ def delete(id):
     try:
         db.session.delete(framework)
         db.session.commit()
-        flash('Framework eliminado correctamente.', 'success')
+        flash('Framework deleted successfully.', 'success')
         # Devolvemos JSON con la URL a la que redirigir
         return jsonify({'success': True, 'redirect_url': url_for('frameworks.list')})
     except Exception as e:
@@ -255,7 +255,7 @@ def delete_control(id):
     try:
         db.session.delete(control)
         db.session.commit()
-        flash('Control eliminado.', 'success')
+        flash('Control deleted.', 'success')
         # Devolvemos JSON para que la página se recargue
         return jsonify({'success': True, 'reload': True})
     except Exception as e:
