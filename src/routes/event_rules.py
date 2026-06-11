@@ -5,7 +5,8 @@ Admin interface for the event engine: rules that match committed entity changes
 (captured in AuditLog) and fire notifications through the communications queue.
 Lives under the Settings module.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from flask_login import current_user
 from ..extensions import db
 from ..models.event_rules import EventRule, ENTITY_CATALOG, EVENT_ACTIONS, RECIPIENT_MODES
 from ..models.communications import EmailTemplate
@@ -145,4 +146,27 @@ def delete_rule(rule_id):
     db.session.delete(rule)
     db.session.commit()
     flash(f'Event rule "{name}" deleted.', 'success')
+    return redirect(url_for(LIST_RULES))
+
+
+@event_rules_bp.route('/<int:rule_id>/test', methods=['POST'])
+@login_required
+@requires_permission(MODULE)
+def test_rule(rule_id):
+    """Send a one-off test notification with placeholder data to verify wiring."""
+    if not has_write_permission(MODULE):
+        flash(MSG_WRITE_REQUIRED, 'danger')
+        return redirect(url_for(LIST_RULES))
+
+    rule = db.get_or_404(EventRule, rule_id)
+    from ..notifications import send_test_notification
+    results = send_test_notification(current_app._get_current_object(), rule, current_user.email)
+
+    summary = ', '.join(f"{ch} {'✓' if ok else '✗'}" for ch, ok in results.items())
+    if results and all(results.values()):
+        flash(f'Test notification sent ({summary}). Email/Slack DM went to {current_user.email}.', 'success')
+    elif any(results.values()):
+        flash(f'Test partially delivered ({summary}). Check the failed channel\'s config.', 'warning')
+    else:
+        flash(f'Test failed ({summary or "no channels"}). Check the channel configuration.', 'danger')
     return redirect(url_for(LIST_RULES))

@@ -212,6 +212,21 @@ def test_event_url_empty_for_unmapped_entity(app, init_database):
         assert get_template_context(comm)['event_url'] == ''
 
 
+def test_send_test_notification(app, init_database):
+    from unittest.mock import patch, MagicMock
+    from src import notifications
+    with app.app_context():
+        t = _template()
+        rule = _rule(template_id=t.id, channels=['discord'],
+                     discord_webhook_url='https://discord.com/api/webhooks/1/x')
+        resp = MagicMock(status_code=204)
+        with patch('src.notifications.requests.post', return_value=resp) as mock_post:
+            results = notifications.send_test_notification(app, rule, 'me@test.com')
+        assert results == {'discord': True}
+        # sample placeholder data was rendered into the posted content
+        assert 'TEST_ENTITY' in mock_post.call_args[1]['json']['content']
+
+
 def test_create_rule_route(auth_client, app):
     auth_client.post('/settings/event-rules/create', data={
         'name': 'New asset alert',

@@ -782,6 +782,64 @@ def _send_slack_incoming_webhook(app, comm, url, text):
         return False
 
 
+def send_test_notification(app, rule, recipient_email):
+    """Send a one-off test notification for an EventRule, immediately (not queued).
+
+    Uses placeholder sample data for every event variable so the recipient can
+    verify channel wiring without creating a real record. Returns {channel: bool}.
+    """
+    from .utils.communications_context import render_email_template
+    from .models.communications import ScheduledCommunication
+
+    base = (app.config.get('APP_BASE_URL') or '').rstrip('/')
+    sample = {
+        'today': get_today(),
+        'recipient_name': 'Test Recipient',
+        'entity_type': rule.entity_type if rule.entity_type and rule.entity_type != '*' else 'TestEntity',
+        'entity_id': 0,
+        'entity': 'TEST_ENTITY',
+        'action': rule.action if rule.action and rule.action != 'any' else 'create',
+        'actor': 'test.user@example.com',
+        'changes': {'sample_field': {'old': 'FOO', 'new': 'BAR'}},
+        'timestamp': now(),
+        'event_url': f'{base}/assets/0' if base else '',
+    }
+
+    if rule.template:
+        subject, body_html = render_email_template(rule.template, sample)
+    else:
+        subject = f"{sample['entity_type']} {sample['action']}"
+        body_html = '<p>This is a test notification from OpsDeck Event Rules.</p>'
+    subject = f'[TEST] {subject}'
+
+    results = {}
+    for channel in (rule.channels or ['email']):
+        # Transient (unsaved) comm so the senders can read per-rule channel config.
+        comm = ScheduledCommunication(
+            event_rule_id=rule.id,
+            recipient_email=recipient_email,
+            recipient_name='Test Recipient',
+            target_type=sample['entity_type'],
+            target_id=0,
+            channel=channel,
+            slack_target_channel=rule.slack_target_channel,
+        )
+        try:
+            if channel == 'slack':
+                ok = _send_slack_notification(app, comm, subject, body_html)
+            elif channel == 'webhook':
+                ok = _send_webhook_notification(app, comm, subject, body_html)
+            elif channel == 'discord':
+                ok = _send_discord_notification(app, comm, subject, body_html)
+            else:
+                ok = send_email(app, subject, body_html, [recipient_email])
+        except Exception as e:
+            app.logger.error(f"Test notification via {channel} failed: {e}")
+            ok = False
+        results[channel] = ok
+    return results
+
+
 def _send_webhook_notification(app, comm, subject, body_html):
     """
     Send a notification via Webhook (HTTP POST with JSON payload).
