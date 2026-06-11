@@ -28,13 +28,19 @@ def get_template_context(scheduled_comm):
     # Event-engine comms: build a generic context from the originating AuditLog row.
     if scheduled_comm.event_rule_id and scheduled_comm.audit_log_id:
         import json
+        from flask import current_app
         from ..models.audit_log import AuditLog
+        from ..models.event_rules import ENTITY_DETAIL_PATHS
         audit = db.session.get(AuditLog, scheduled_comm.audit_log_id)
         if audit:
             try:
                 changes = json.loads(audit.changes) if audit.changes else None
             except (ValueError, TypeError):
                 changes = None
+            # Absolute link to the affected record, if it has a detail page.
+            base = (current_app.config.get('APP_BASE_URL') or '').rstrip('/')
+            path = ENTITY_DETAIL_PATHS.get(audit.entity_type)
+            event_url = f"{base}{path}/{audit.entity_id}" if path and audit.entity_id else ''
             context.update({
                 'recipient_name': scheduled_comm.recipient_name or 'User',
                 'entity_type': audit.entity_type,
@@ -44,6 +50,7 @@ def get_template_context(scheduled_comm):
                 'actor': audit.user_email or 'system',
                 'changes': changes,
                 'timestamp': audit.timestamp,
+                'event_url': event_url,
             })
         return context
 

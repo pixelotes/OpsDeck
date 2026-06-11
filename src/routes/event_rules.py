@@ -40,6 +40,7 @@ def _apply_form(rule, form):
     rule.template_id = int(template_id) if template_id else None
     rule.channels = _channels_from_form(form)
     rule.slack_target_channel = form.get('slack_target_channel') or None
+    rule.slack_webhook_url = form.get('slack_webhook_url') or None
     rule.webhook_url = form.get('webhook_url') or None
     rule.discord_webhook_url = form.get('discord_webhook_url') or None
 

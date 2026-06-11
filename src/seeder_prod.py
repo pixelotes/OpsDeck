@@ -1075,6 +1075,7 @@ def seed_notification_templates():
     <li><strong>Created by:</strong> {{ actor }}</li>
     {% if timestamp %}<li><strong>When:</strong> {{ timestamp }}</li>{% endif %}
 </ul>
+{% if event_url %}<p><a href="{{ event_url }}">View {{ entity_type }}</a></p>{% endif %}
 <p style="color:#6c757d;font-size:12px;">Automated notification from OpsDeck Event Rules.</p>
             """
         ),
@@ -1095,6 +1096,7 @@ def seed_notification_templates():
 {% else %}
 <p>No field-level details are available for this change.</p>
 {% endif %}
+{% if event_url %}<p><a href="{{ event_url }}">View {{ entity_type }}</a></p>{% endif %}
 <p style="color:#6c757d;font-size:12px;">Automated notification from OpsDeck Event Rules.</p>
             """
         ),

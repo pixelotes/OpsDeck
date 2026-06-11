@@ -18,7 +18,10 @@ from ..extensions import db
 # (AuditLog.entity_type); values are human-readable labels for the dropdown.
 # Deliberately excludes join tables, settings and internal models to avoid noise.
 # The UI sorts these by label; insertion order here does not matter.
+# '*' is a wildcard matching every entity type — useful for a single rule that
+# fires on, say, all deletions ({{ entity }}/{{ entity_type }} name the record).
 ENTITY_CATALOG = {
+    '*': 'All entities',
     'Asset': 'Asset',
     'Peripheral': 'Peripheral',
     'License': 'License',
@@ -37,6 +40,25 @@ ENTITY_CATALOG = {
     'User': 'User',
     'Group': 'Group',
     'Permission': 'Permission (access grant)',
+}
+
+# Maps entity_type -> detail-page path prefix (the detail route is /<prefix>/<id>).
+# Used to build {{ event_url }} in event notifications. Entities without a clean
+# detail page are omitted (no event_url is produced for them).
+ENTITY_DETAIL_PATHS = {
+    'Asset': '/assets',
+    'Peripheral': '/peripherals',
+    'Subscription': '/subscriptions',
+    'Credential': '/credentials',
+    'Certificate': '/certificates',
+    'Contract': '/contracts',
+    'Supplier': '/suppliers',
+    'Request': '/requests',
+    'Change': '/changes',
+    'Risk': '/risk',
+    'Candidate': '/hiring/candidate',
+    'User': '/users',
+    'Group': '/groups',
 }
 
 # Actions a rule can match. 'any' matches create/update/delete.
@@ -71,7 +93,8 @@ class EventRule(db.Model):
 
     # Delivery channels (mirrors NotificationEvent; destination config lives per-rule)
     channels = db.Column(db.JSON, default=lambda: ["email"])
-    slack_target_channel = db.Column(db.String(50), nullable=True)
+    slack_target_channel = db.Column(db.String(50), nullable=True)   # bot-API channel ID (C12345)
+    slack_webhook_url = db.Column(db.String(500), nullable=True)     # incoming webhook (takes precedence)
     webhook_url = db.Column(db.String(500), nullable=True)
     discord_webhook_url = db.Column(db.String(500), nullable=True)
 
@@ -85,6 +108,6 @@ class EventRule(db.Model):
         """True if this rule should fire for the given audit entry."""
         if not self.enabled:
             return False
-        if self.entity_type != entity_type:
+        if self.entity_type != '*' and self.entity_type != entity_type:
             return False
         return self.action == 'any' or self.action == action

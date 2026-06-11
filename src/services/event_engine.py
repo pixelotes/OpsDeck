@@ -63,6 +63,27 @@ def _enqueue_for_rule(db, rule, audit, recipients):
     return created
 
 
+def _process_audit_row(app, db, audit, candidate_rules):
+    """Apply candidate rules to one audit row; return the number enqueued."""
+    enqueued = 0
+    for rule in candidate_rules:
+        if not rule.matches(audit.entity_type, audit.action):
+            continue
+        if not rule.template_id:
+            app.logger.warning(
+                f"Event engine: rule '{rule.name}' has no template, skipping audit {audit.id}."
+            )
+            continue
+        recipients = _resolve_recipients(rule)
+        if not recipients:
+            app.logger.warning(
+                f"Event engine: rule '{rule.name}' resolved no recipients, skipping audit {audit.id}."
+            )
+            continue
+        enqueued += _enqueue_for_rule(db, rule, audit, recipients)
+    return enqueued
+
+
 def process_event_rules(app):
     """Match unprocessed AuditLog rows against EventRules and enqueue notifications."""
     from ..extensions import db
@@ -73,9 +94,14 @@ def process_event_rules(app):
         rules = EventRule.query.filter_by(enabled=True).all()
 
         # Index enabled rules by entity_type so we only touch audit rows that matter.
+        # Wildcard ('*') rules are kept aside and checked against every row.
         rules_by_entity = {}
+        wildcard_rules = []
         for rule in rules:
-            rules_by_entity.setdefault(rule.entity_type, []).append(rule)
+            if rule.entity_type == '*':
+                wildcard_rules.append(rule)
+            else:
+                rules_by_entity.setdefault(rule.entity_type, []).append(rule)
 
         # Always drain the queue (mark rows processed) even with no rules, so the
         # backlog of "unprocessed" rows does not grow unbounded once enabled.
@@ -93,22 +119,8 @@ def process_event_rules(app):
 
         enqueued = 0
         for audit in pending:
-            for rule in rules_by_entity.get(audit.entity_type, []):
-                if not rule.matches(audit.entity_type, audit.action):
-                    continue
-                if not rule.template_id:
-                    app.logger.warning(
-                        f"Event engine: rule '{rule.name}' has no template, skipping audit {audit.id}."
-                    )
-                    continue
-                recipients = _resolve_recipients(rule)
-                if not recipients:
-                    app.logger.warning(
-                        f"Event engine: rule '{rule.name}' resolved no recipients, skipping audit {audit.id}."
-                    )
-                    continue
-                enqueued += _enqueue_for_rule(db, rule, audit, recipients)
-
+            candidates = rules_by_entity.get(audit.entity_type, []) + wildcard_rules
+            enqueued += _process_audit_row(app, db, audit, candidates)
             audit.event_processed = True
 
         db.session.commit()

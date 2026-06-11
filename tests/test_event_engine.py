@@ -155,6 +155,63 @@ def test_render_changes_if_else(app):
         assert without == 'none'
 
 
+def test_wildcard_rule_matches_any_entity(app, init_database):
+    with app.app_context():
+        _admin()
+        t = _template()
+        rule = _rule(template_id=t.id, entity_type='*', action='delete')
+        a1 = _audit(entity_type='Asset', action='delete', entity_id=1)
+        a2 = _audit(entity_type='Subscription', action='delete', entity_id=2)
+        _audit(entity_type='Asset', action='create', entity_id=3)  # wrong action, no match
+
+        process_event_rules(app)
+
+        comms = ScheduledCommunication.query.filter_by(event_rule_id=rule.id).all()
+        assert {c.audit_log_id for c in comms} == {a1.id, a2.id}
+
+
+def test_slack_incoming_webhook_used_when_set(app, init_database):
+    from unittest.mock import patch, MagicMock
+    from src import notifications
+    with app.app_context():
+        _admin()
+        t = _template()
+        rule = _rule(template_id=t.id, channels=['slack'],
+                     slack_webhook_url='https://hooks.slack.com/services/T/B/zzz')
+        _audit()
+        process_event_rules(app)
+        comm = ScheduledCommunication.query.filter_by(event_rule_id=rule.id, channel='slack').first()
+        assert comm is not None
+
+        resp = MagicMock(status_code=200)
+        with patch('src.notifications.requests.post', return_value=resp) as mock_post:
+            ok = notifications._send_slack_notification(app, comm, 'Subj', '<p>body</p>')
+        assert ok is True
+        url, kwargs = mock_post.call_args[0][0], mock_post.call_args[1]
+        assert url == 'https://hooks.slack.com/services/T/B/zzz'
+        assert 'text' in kwargs['json']
+
+
+def test_event_url_built_for_mapped_entity(app, init_database):
+    with app.app_context():
+        app.config['APP_BASE_URL'] = 'https://ops.example.com'
+        _admin(); t = _template(); rule = _rule(template_id=t.id, entity_type='Asset')
+        _audit(entity_type='Asset', entity_id=42)
+        process_event_rules(app)
+        comm = ScheduledCommunication.query.filter_by(event_rule_id=rule.id).first()
+        assert get_template_context(comm)['event_url'] == 'https://ops.example.com/assets/42'
+
+
+def test_event_url_empty_for_unmapped_entity(app, init_database):
+    with app.app_context():
+        app.config['APP_BASE_URL'] = 'https://ops.example.com'
+        _admin(); t = _template(); rule = _rule(template_id=t.id, entity_type='Permission', action='create')
+        _audit(entity_type='Permission', entity_id=5)
+        process_event_rules(app)
+        comm = ScheduledCommunication.query.filter_by(event_rule_id=rule.id).first()
+        assert get_template_context(comm)['event_url'] == ''
+
+
 def test_create_rule_route(auth_client, app):
     auth_client.post('/settings/event-rules/create', data={
         'name': 'New asset alert',

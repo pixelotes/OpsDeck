@@ -133,6 +133,11 @@ def create_app(test_config=None):
     app.config['EMAIL_SENDER_NAME'] = os.environ.get('EMAIL_SENDER_NAME', '')
     app.config['WEBHOOK_URL'] = os.environ.get('WEBHOOK_URL', '')
 
+    # Public base URL of this deployment (e.g. https://opsdeck.acme.com), used to
+    # build absolute, clickable links in notifications ({{ event_url }}). Empty =
+    # links fall back to relative paths (not clickable from email/chat).
+    app.config['APP_BASE_URL'] = os.environ.get('APP_BASE_URL', '').rstrip('/')
+
     # --- Google OAuth Configuration ---
     app.config['GOOGLE_OAUTH_CLIENT_ID'] = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
     app.config['GOOGLE_OAUTH_CLIENT_SECRET'] = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')

@@ -710,10 +710,19 @@ def _send_slack_notification(app, comm, subject, body_html, slack_service=None):
         bool: True if sent successfully, False otherwise
     """
     from .services.slack_service import SlackService, format_slack_notification
-    
+
+    # Incoming-webhook path: if an event rule provides a Slack webhook URL, POST
+    # to it directly (no bot token needed). Takes precedence over the bot API.
+    if comm.event_rule_id:
+        from .models.event_rules import EventRule
+        rule = db.session.get(EventRule, comm.event_rule_id)
+        if rule and rule.slack_webhook_url:
+            text = format_slack_notification(subject, body_html, None)
+            return _send_slack_incoming_webhook(app, comm, rule.slack_webhook_url, text)
+
     if slack_service is None:
         slack_service = SlackService()
-    
+
     if not slack_service.is_configured:
         app.logger.warning(f"Communication {comm.id}: Slack not configured, skipping.")
         comm.error_message = 'Slack not configured (SLACK_BOT_TOKEN missing)'
@@ -745,8 +754,32 @@ def _send_slack_notification(app, comm, subject, body_html, slack_service=None):
     
     if not success:
         comm.error_message = f'Failed to send Slack message to {target_id}'
-    
+
     return success
+
+
+def _send_slack_incoming_webhook(app, comm, url, text):
+    """Post a message to a Slack incoming webhook (POST {"text": ...}).
+
+    Incoming webhooks need no bot token and reply 200 with body "ok" on success.
+
+    Returns:
+        bool: True if delivered successfully, False otherwise.
+    """
+    try:
+        response = requests.post(url, json={'text': text}, timeout=10)
+        if response.status_code == 200:
+            app.logger.info(f"Communication {comm.id}: Sent Slack incoming-webhook message.")
+            return True
+        app.logger.error(
+            f"Communication {comm.id}: Slack webhook rejected message, status {response.status_code}"
+        )
+        comm.error_message = f'Slack webhook delivery failed with status {response.status_code}'
+        return False
+    except Exception as e:
+        app.logger.error(f"Communication {comm.id}: Failed to send Slack webhook: {e}")
+        comm.error_message = f'Slack webhook delivery error: {str(e)[:200]}'
+        return False
 
 
 def _send_webhook_notification(app, comm, subject, body_html):

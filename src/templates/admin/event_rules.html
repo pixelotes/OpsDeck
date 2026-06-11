@@ -35,19 +35,6 @@
         </div>
     </div>
 
-    <div class="mb-3">
-        <label for="template_id_{{ suffix }}" class="form-label">Email Template</label>
-        <select name="template_id" id="template_id_{{ suffix }}" class="form-select">
-            <option value="">-- Select Template --</option>
-            {% for template in templates %}
-            <option value="{{ template.id }}" {% if rule and rule.template_id == template.id %}selected{% endif %}>
-                {{ template.name }} ({{ template.category }})
-            </option>
-            {% endfor %}
-        </select>
-        <div class="form-text">Template variables: <code>entity</code>, <code>entity_type</code>, <code>action</code>, <code>actor</code>, <code>changes</code>.</div>
-    </div>
-
     <hr>
     <h6 class="mb-3">Recipients</h6>
     <div class="mb-3">
@@ -85,34 +72,60 @@
         </div>
         <div class="form-check">
             <input class="form-check-input" type="checkbox" name="channel_slack" id="channel_slack_{{ suffix }}"
-                {% if 'slack' in (channels or []) %}checked{% endif %}>
+                onchange="syncRuleChannels('{{ suffix }}')" {% if 'slack' in (channels or []) %}checked{% endif %}>
             <label class="form-check-label" for="channel_slack_{{ suffix }}"><i class="fab fa-slack"></i> Slack</label>
         </div>
         <div class="form-check">
             <input class="form-check-input" type="checkbox" name="channel_webhook" id="channel_webhook_{{ suffix }}"
-                {% if 'webhook' in (channels or []) %}checked{% endif %}>
+                onchange="syncRuleChannels('{{ suffix }}')" {% if 'webhook' in (channels or []) %}checked{% endif %}>
             <label class="form-check-label" for="channel_webhook_{{ suffix }}"><i class="fas fa-plug"></i> Webhook</label>
         </div>
         <div class="form-check">
             <input class="form-check-input" type="checkbox" name="channel_discord" id="channel_discord_{{ suffix }}"
-                {% if 'discord' in (channels or []) %}checked{% endif %}>
+                onchange="syncRuleChannels('{{ suffix }}')" {% if 'discord' in (channels or []) %}checked{% endif %}>
             <label class="form-check-label" for="channel_discord_{{ suffix }}"><i class="fab fa-discord"></i> Discord</label>
         </div>
     </div>
-    <div class="mb-3">
-        <label for="slack_target_channel_{{ suffix }}" class="form-label"><i class="fab fa-slack"></i> Slack Channel ID (optional)</label>
-        <input type="text" name="slack_target_channel" id="slack_target_channel_{{ suffix }}" class="form-control"
-            value="{{ rule.slack_target_channel or '' if rule else '' }}" placeholder="C12345 (leave empty for DM)">
+
+    <div id="slack_cfg_{{ suffix }}">
+        <div class="mb-3">
+            <label for="slack_webhook_url_{{ suffix }}" class="form-label"><i class="fab fa-slack"></i> Slack Incoming Webhook URL (optional)</label>
+            <input type="url" name="slack_webhook_url" id="slack_webhook_url_{{ suffix }}" class="form-control"
+                value="{{ rule.slack_webhook_url or '' if rule else '' }}" placeholder="https://hooks.slack.com/services/...">
+            <div class="form-text">Easiest option — no bot token needed. If set, this is used and the field below is ignored.</div>
+        </div>
+        <div class="mb-3">
+            <label for="slack_target_channel_{{ suffix }}" class="form-label"><i class="fab fa-slack"></i> Slack Channel ID (optional, bot token)</label>
+            <input type="text" name="slack_target_channel" id="slack_target_channel_{{ suffix }}" class="form-control"
+                value="{{ rule.slack_target_channel or '' if rule else '' }}" placeholder="C12345 (leave empty for DM)">
+            <div class="form-text">Requires SLACK_BOT_TOKEN. A channel ID like C12345, or empty to DM the recipient by email.</div>
+        </div>
     </div>
-    <div class="mb-3">
+    <div id="webhook_cfg_{{ suffix }}" class="mb-3">
         <label for="webhook_url_{{ suffix }}" class="form-label"><i class="fas fa-plug"></i> Webhook URL (optional)</label>
         <input type="url" name="webhook_url" id="webhook_url_{{ suffix }}" class="form-control"
             value="{{ rule.webhook_url or '' if rule else '' }}" placeholder="https://your-webhook-endpoint.com">
     </div>
-    <div class="mb-3">
+    <div id="discord_cfg_{{ suffix }}" class="mb-3">
         <label for="discord_webhook_url_{{ suffix }}" class="form-label"><i class="fab fa-discord"></i> Discord Webhook URL (optional)</label>
         <input type="url" name="discord_webhook_url" id="discord_webhook_url_{{ suffix }}" class="form-control"
             value="{{ rule.discord_webhook_url or '' if rule else '' }}" placeholder="https://discord.com/api/webhooks/...">
+    </div>
+
+    <hr>
+    <h6 class="mb-3">Message</h6>
+    <div class="mb-3">
+        <label for="template_id_{{ suffix }}" class="form-label">Template (optional)</label>
+        <select name="template_id" id="template_id_{{ suffix }}" class="form-select">
+            <option value="">-- Select Template --</option>
+            {% for template in templates %}
+            <option value="{{ template.id }}" {% if rule and rule.template_id == template.id %}selected{% endif %}>
+                {{ template.name }} ({{ template.category }})
+            </option>
+            {% endfor %}
+        </select>
+        <div class="form-text">The message body sent on every selected channel. Variables:
+            <code>entity</code>, <code>entity_type</code>, <code>action</code>, <code>actor</code>, <code>changes</code>, <code>event_url</code>.</div>
     </div>
 {% endmacro %}
 
@@ -249,4 +262,23 @@
 </div>
 {% endfor %}
 {% endif %}
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+// Show each channel's config section only when its checkbox is ticked.
+function syncRuleChannels(suffix) {
+    ['slack', 'webhook', 'discord'].forEach(function (ch) {
+        var cb = document.getElementById('channel_' + ch + '_' + suffix);
+        var cfg = document.getElementById(ch + '_cfg_' + suffix);
+        if (cb && cfg) cfg.style.display = cb.checked ? '' : 'none';
+    });
+}
+document.addEventListener('DOMContentLoaded', function () {
+    // One modal per rule (suffix = 'new' or the rule id); initialise each.
+    document.querySelectorAll('[id^="channel_slack_"]').forEach(function (cb) {
+        syncRuleChannels(cb.id.replace('channel_slack_', ''));
+    });
+});
+</script>
 {% endblock %}
