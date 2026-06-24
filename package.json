@@ -12,7 +12,7 @@
         "bootstrap": "^5.3.8",
         "chart.js": "^4.5.1",
         "easymde": "^2.21.0",
-        "fullcalendar": "^6.1.20",
+        "fullcalendar": "^6.1.21",
         "html2canvas": "^1.4.1",
         "mermaid": "^11.15.0",
         "orgchart.js": "^0.0.4",
