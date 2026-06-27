@@ -7,19 +7,19 @@
         "build-assets": "node copy-assets.js"
     },
     "dependencies": {
-        "@fortawesome/fontawesome-free": "^7.2.0",
+        "@fortawesome/fontawesome-free": "^7.3.0",
         "@popperjs/core": "^2.11.8",
         "bootstrap": "^5.3.8",
         "chart.js": "^4.5.1",
         "easymde": "^2.21.0",
-        "fullcalendar": "^6.1.20",
+        "fullcalendar": "^6.1.21",
         "html2canvas": "^1.4.1",
-        "mermaid": "^11.15.0",
+        "mermaid": "^11.16.0",
         "orgchart.js": "^0.0.4",
         "simple-datatables": "^10.2.0",
         "sortablejs": "^1.15.7",
         "suneditor": "^3.1.4",
-        "swagger-ui-dist": "5.32.6",
+        "swagger-ui-dist": "5.32.8",
         "tom-select": "^2.6.1"
     }
 }
