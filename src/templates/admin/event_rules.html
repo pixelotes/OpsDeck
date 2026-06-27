@@ -36,6 +36,38 @@
     </div>
 
     <hr>
+    <div class="mb-3">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="advanced_conditions_enabled" id="advanced_conditions_enabled_{{ suffix }}"
+                {% if rule and rule.advanced_conditions_enabled %}checked{% endif %}
+                onchange="document.getElementById('advanced_conditions_{{ suffix }}').style.display = this.checked ? 'block' : 'none';">
+            <label class="form-check-label" for="advanced_conditions_enabled_{{ suffix }}">Advanced Attribute Filter</label>
+        </div>
+        <div class="form-text">Optional. Fire this event only if a specific attribute matches a value (e.g. location contains NYC).</div>
+    </div>
+    <div id="advanced_conditions_{{ suffix }}" style="display: {{ 'block' if rule and rule.advanced_conditions_enabled else 'none' }};">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="condition_attribute_{{ suffix }}" class="form-label">Attribute</label>
+                <input type="text" name="condition_attribute" id="condition_attribute_{{ suffix }}" class="form-control"
+                    value="{{ rule.condition_attribute or '' if rule else '' }}" placeholder="location.name">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="condition_operator_{{ suffix }}" class="form-label">Operator</label>
+                <select name="condition_operator" id="condition_operator_{{ suffix }}" class="form-select">
+                    <option value="equals" {% if rule and rule.condition_operator == 'equals' %}selected{% endif %}>Equals</option>
+                    <option value="not_equals" {% if rule and rule.condition_operator == 'not_equals' %}selected{% endif %}>Not Equals</option>
+                    <option value="contains" {% if rule and rule.condition_operator == 'contains' %}selected{% endif %}>Contains (Regex)</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="condition_value_{{ suffix }}" class="form-label">Value</label>
+                <input type="text" name="condition_value" id="condition_value_{{ suffix }}" class="form-control"
+                    value="{{ rule.condition_value or '' if rule else '' }}" placeholder="NYC">
+            </div>
+        </div>
+    </div>
+    <hr>
     <h6 class="mb-3">Recipients</h6>
     <div class="mb-3">
         <label for="recipient_mode_{{ suffix }}" class="form-label">Send to</label>

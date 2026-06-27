@@ -86,6 +86,11 @@ class EventRule(db.Model):
     recipient_mode = db.Column(db.String(20), nullable=False, default='admins')  # emails/role/admins
     recipient_emails = db.Column(db.Text, nullable=True)   # comma-separated, when mode='emails'
     recipient_role = db.Column(db.String(50), nullable=True)  # role slug, when mode='role'
+    # Advanced Conditions
+    advanced_conditions_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    condition_attribute = db.Column(db.String(100), nullable=True)
+    condition_operator = db.Column(db.String(20), nullable=True)
+    condition_value = db.Column(db.String(255), nullable=True)
 
     # Message
     template_id = db.Column(db.Integer, db.ForeignKey('email_template.id'), nullable=True)

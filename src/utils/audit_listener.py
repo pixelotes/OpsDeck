@@ -132,7 +132,7 @@ def _record_change(session, obj, action):
 
         ip_address = request.remote_addr
 
-    # Get changes for updates
+    # Get changes
     changes_json = None
     if action == 'update':
         changes = _get_changes(obj)
@@ -141,7 +141,33 @@ def _record_change(session, obj, action):
         else:
             # If no actual changes, skip the audit entry
             return
+    elif action in ('create', 'delete'):
+        # Snapshot the entire object state so the event engine can evaluate advanced rules
+        snapshot = {}
+        insp = inspect(obj)
+        for attr in insp.attrs:
+            if attr.key in EXCLUDED_FIELDS:
+                continue
+            # For relationships, capture a display value if present
+            is_relationship = False
+            try:
+                is_relationship = attr.key in insp.mapper.relationships
+            except Exception:
+                pass
 
+            if is_relationship:
+                rel_obj = getattr(obj, attr.key, None)
+                if rel_obj:
+                    name_val = getattr(rel_obj, 'name', None) or getattr(rel_obj, 'title', None)
+                    if name_val:
+                        snapshot[attr.key + '.name'] = {'old': None, 'new': name_val} if action == 'create' else {'old': name_val, 'new': None}
+            else:
+                val = getattr(obj, attr.key, None)
+                val = _serialize_value(val)
+                snapshot[attr.key] = {'old': None, 'new': val} if action == 'create' else {'old': val, 'new': None}
+                
+        if snapshot:
+            changes_json = json.dumps(snapshot, ensure_ascii=False)
     # Create audit entry dict
     audit_entry = {
         'user_id': user_id,

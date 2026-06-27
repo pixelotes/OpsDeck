@@ -60,10 +60,14 @@ def reports_data(app):
         )
         db.session.add(subscription)
 
+        # Create brands first to avoid autoflush warnings
+        brand_dell = _brand("Dell")
+        brand_hp = _brand("HP")
+
         # Create assets
         asset1 = Asset(
             name="Laptop 01",
-            brand=_brand("Dell"),
+            brand=brand_dell,
             status="In Use",
             supplier_id=supplier.id,
             user_id=user.id,
@@ -73,21 +77,23 @@ def reports_data(app):
             purchase_date=today() - timedelta(days=365),
             warranty_length=24
         )
+        db.session.add(asset1)
+
         asset2 = Asset(
             name="Laptop 02",
-            brand=_brand("HP"),
+            brand=brand_hp,
             status="Available",
             cost=1200.0,
             currency="USD",
             purchase_date=today() - timedelta(days=730)
         )
-        db.session.add_all([asset1, asset2])
+        db.session.add(asset2)
         db.session.commit()
 
         # Create peripheral
         peripheral = Peripheral(
             name="Monitor",
-            brand=_brand("Dell"),
+            brand=brand_dell,
             supplier_id=supplier.id,
             user_id=user.id,
             cost=300.0,
