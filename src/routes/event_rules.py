@@ -44,6 +44,11 @@ def _apply_form(rule, form):
     rule.slack_webhook_url = form.get('slack_webhook_url') or None
     rule.webhook_url = form.get('webhook_url') or None
     rule.discord_webhook_url = form.get('discord_webhook_url') or None
+    
+    rule.advanced_conditions_enabled = form.get('advanced_conditions_enabled') == 'on'
+    rule.condition_attribute = form.get('condition_attribute') or None
+    rule.condition_operator = form.get('condition_operator') or None
+    rule.condition_value = form.get('condition_value') or None
 
 
 def _validation_error(rule):

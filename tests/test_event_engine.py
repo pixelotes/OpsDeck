@@ -73,6 +73,65 @@ def test_engine_enqueues_on_match(app, init_database):
         assert db.session.get(AuditLog, audit.id).event_processed is True
 
 
+def test_engine_advanced_condition_equals(app, init_database):
+    with app.app_context():
+        _admin()
+        t = _template()
+        # Rule expects location_name == 'NYC'
+        rule = _rule(template_id=t.id, action='delete')
+        rule.advanced_conditions_enabled = True
+        rule.condition_attribute = 'location_name'
+        rule.condition_operator = 'equals'
+        rule.condition_value = 'NYC'
+        # Matching audit (simulating delete snapshot)
+        changes = {'location_name': {'old': 'NYC', 'new': None}}
+        audit = _audit(changes=changes, action='delete')
+
+        process_event_rules(app)
+        
+        comms = ScheduledCommunication.query.filter_by(event_rule_id=rule.id).all()
+        assert len(comms) == 1
+        assert db.session.get(AuditLog, audit.id).event_processed is True
+
+def test_engine_advanced_condition_unmet(app, init_database):
+    with app.app_context():
+        _admin()
+        t = _template()
+        rule = _rule(template_id=t.id, action='delete')
+        rule.advanced_conditions_enabled = True
+        rule.condition_attribute = 'location_name'
+        rule.condition_operator = 'equals'
+        rule.condition_value = 'NYC'
+        # Non-matching audit
+        changes = {'location_name': {'old': 'London', 'new': None}}
+        audit = _audit(changes=changes, action='delete')
+
+        process_event_rules(app)
+        
+        comms = ScheduledCommunication.query.filter_by(event_rule_id=rule.id).all()
+        assert len(comms) == 0
+        assert db.session.get(AuditLog, audit.id).event_processed is True
+
+def test_engine_advanced_condition_contains(app, init_database):
+    with app.app_context():
+        _admin()
+        t = _template()
+        rule = _rule(template_id=t.id)
+        rule.advanced_conditions_enabled = True
+        rule.condition_attribute = 'location_name'
+        rule.condition_operator = 'contains'
+        rule.condition_value = 'NYC'
+        
+        changes = {'location_name': {'old': None, 'new': 'Office NYC 2'}}
+        audit = _audit(changes=changes, action='create')
+
+        process_event_rules(app)
+        
+        comms = ScheduledCommunication.query.filter_by(event_rule_id=rule.id).all()
+        assert len(comms) == 1
+        assert db.session.get(AuditLog, audit.id).event_processed is True
+
+
 def test_engine_marks_processed_without_match(app, init_database):
     with app.app_context():
         _admin()

@@ -63,12 +63,80 @@ def _enqueue_for_rule(db, rule, audit, recipients):
     return created
 
 
+def _evaluate_advanced_conditions(rule, audit):
+    """Evaluate advanced condition operators against audit log changes or live entity."""
+    import re
+    import json
+    if not getattr(rule, 'advanced_conditions_enabled', False):
+        return True
+
+    attr = rule.condition_attribute
+    if not attr:
+        return True
+
+    # Determine the value at the time of the event
+    actual_value = None
+    
+    # Read from the serialized snapshot in AuditLog (handles all actions including delete now)
+    if audit.changes:
+        try:
+            changes_dict = json.loads(audit.changes)
+            # For updates, check the 'new' value. For deletes, check 'old'. For create, 'new'.
+            if attr in changes_dict:
+                field_data = changes_dict[attr]
+                if audit.action == 'delete':
+                    actual_value = field_data.get('old')
+                else:
+                    actual_value = field_data.get('new')
+        except Exception:
+            pass
+
+    # Fallback for create/update if not found in changes (fetch from live DB)
+    if actual_value is None and audit.action in ('create', 'update') and audit.entity_id:
+        from ..extensions import db
+        
+        # Need to dynamically load the class based on entity_type
+        import sys
+        models_module = sys.modules.get('src.models')
+        if models_module and hasattr(models_module, audit.entity_type):
+            EntityClass = getattr(models_module, audit.entity_type)
+            entity = db.session.get(EntityClass, audit.entity_id)
+            if entity:
+                # Traverse attributes (e.g. location.name)
+                parts = attr.split('.')
+                curr = entity
+                for part in parts:
+                    curr = getattr(curr, part, None)
+                    if curr is None:
+                        break
+                actual_value = curr
+
+    # Evaluate the operator
+    op = rule.condition_operator
+    val_str = str(actual_value).lower() if actual_value is not None else ""
+    cond_val = str(rule.condition_value).lower() if rule.condition_value else ""
+
+    if op == 'equals':
+        return val_str == cond_val
+    elif op == 'not_equals':
+        return val_str != cond_val
+    elif op == 'contains':
+        pattern = f".*{re.escape(cond_val)}.*"
+        return bool(re.search(pattern, val_str, re.IGNORECASE))
+    
+    return True
+
+
 def _process_audit_row(app, db, audit, candidate_rules):
     """Apply candidate rules to one audit row; return the number enqueued."""
     enqueued = 0
     for rule in candidate_rules:
         if not rule.matches(audit.entity_type, audit.action):
             continue
+        
+        if not _evaluate_advanced_conditions(rule, audit):
+            continue
+
         if not rule.template_id:
             app.logger.warning(
                 f"Event engine: rule '{rule.name}' has no template, skipping audit {audit.id}."
