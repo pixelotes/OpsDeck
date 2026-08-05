@@ -81,6 +81,9 @@ jobs:
       - name: Run migration tests
         env:
           DATABASE_URL: postgresql://opsdeck:opsdeck@localhost:5432/opsdeck_test
+          # These tests drop the public schema; the service DB above is throwaway.
+          # Explicit here so the job does not depend on the database name alone.
+          ALLOW_DESTRUCTIVE_DB_TESTS: '1'
           PYTHONPATH: ./src
         run: |
           pytest tests/test_migrations.py -v

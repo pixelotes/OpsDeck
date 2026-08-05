@@ -5,16 +5,41 @@ These tests verify that Alembic migrations apply cleanly against a real
 PostgreSQL database. They require DATABASE_URL to point to a Postgres
 instance (the CI workflow provides one automatically).
 
-Skipped when DATABASE_URL is not set or points to SQLite.
+WARNING: every test in here runs ``DROP SCHEMA public CASCADE`` against
+DATABASE_URL, before and after itself. They must therefore only ever run against
+a throwaway database, and they refuse to run against anything else.
+
+The guard is the database *name*: it has to contain "test" (CI uses
+``opsdeck_test``). This is what stops a plain ``pytest tests/`` inside the
+development container — where DATABASE_URL points at the development database —
+from silently wiping it. Set ALLOW_DESTRUCTIVE_DB_TESTS=1 to run them against a
+disposable database whose name does not say so.
+
+Skipped when DATABASE_URL is not set, points to SQLite, or is not disposable.
 """
 import os
 import pytest
+from urllib.parse import urlsplit
 from sqlalchemy import create_engine, inspect, text
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
+
+
+def _is_disposable(url):
+    """True when the target database is safe to drop: its name says it is a test DB."""
+    if os.environ.get('ALLOW_DESTRUCTIVE_DB_TESTS') == '1':
+        return True
+    return 'test' in urlsplit(url).path.lstrip('/').lower()
+
+
+DESTRUCTIVE_ALLOWED = _is_disposable(DATABASE_URL)
+
 requires_postgres = pytest.mark.skipif(
-    'postgresql' not in DATABASE_URL,
-    reason='Requires PostgreSQL (set DATABASE_URL)'
+    'postgresql' not in DATABASE_URL or not DESTRUCTIVE_ALLOWED,
+    reason='Requires a disposable PostgreSQL database: set DATABASE_URL to one whose '
+           'name contains "test", or set ALLOW_DESTRUCTIVE_DB_TESTS=1. These tests '
+           'drop the public schema, so they never run against a database that is not '
+           'marked as throwaway.'
 )
 
 
@@ -33,7 +58,17 @@ def _make_app():
 
 
 def _clean_db(engine):
-    """Drop all tables so migrations start from scratch."""
+    """Drop all tables so migrations start from scratch.
+
+    Re-checks the guard rather than trusting the skipif: this function destroys a
+    schema, so it should be impossible to reach by accident if someone calls it
+    directly or removes the marker from a test.
+    """
+    if not DESTRUCTIVE_ALLOWED:
+        raise RuntimeError(
+            'Refusing to drop the schema of a database that is not marked as '
+            f'disposable: {urlsplit(DATABASE_URL).path.lstrip("/") or "<unset>"}'
+        )
     with engine.connect() as conn:
         conn.execute(text('DROP SCHEMA public CASCADE'))
         conn.execute(text('CREATE SCHEMA public'))
