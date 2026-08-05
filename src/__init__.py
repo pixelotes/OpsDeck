@@ -410,6 +410,9 @@ def create_app(test_config=None):
     from .routes.requests import requests_bp
     app.register_blueprint(requests_bp, url_prefix='/requests')
 
+    from .routes.roadmaps import roadmaps_bp
+    app.register_blueprint(roadmaps_bp, url_prefix='/roadmaps')
+
     from .routes.audits import audits_bp
     app.register_blueprint(audits_bp)
     from .routes.services import services_bp

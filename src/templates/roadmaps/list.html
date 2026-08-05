@@ -1,0 +1,129 @@
+{% extends "layout.html" %}
+
+{% block title %}Roadmaps - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-map-signs"></i> Roadmaps</h2>
+    <div>
+        <button class="btn btn-outline-success" onclick="exportTableToCSV('roadmaps-table', 'roadmaps.csv')">
+            <i class="fas fa-file-csv"></i> Export to CSV
+        </button>
+        {% if can_write('roadmaps') %}
+        <a href="{{ url_for('roadmaps.new_roadmap') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> New Roadmap
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label for="status" class="form-label mb-0 small">Status</label>
+                <select class="form-select form-select-sm no-tom" id="status" name="status"
+                    onchange="this.form.submit()">
+                    <option value="">All</option>
+                    {% for status in statuses %}
+                    <option value="{{ status }}" {% if current_status==status %}selected{% endif %}>
+                        {{ status|replace('_', ' ')|title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if current_status %}
+            <div class="col-auto">
+                <a href="{{ url_for('roadmaps.list_roadmaps') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped datatable" id="roadmaps-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Owner</th>
+                        <th>Timeline</th>
+                        <th>Goals</th>
+                        <th>Initiatives</th>
+                        <th>Progress</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for roadmap in roadmaps %}
+                    <tr>
+                        <td><a href="{{ url_for('roadmaps.edit_roadmap', id=roadmap.id) }}">{{ roadmap.name }}</a></td>
+                        <td><span class="badge bg-{{ roadmap.status_color }}">{{ roadmap.status|replace('_', ' ')|title
+                                }}</span></td>
+                        <td>
+                            {% if roadmap.owner %}
+                            {{ roadmap.owner.name }}
+                            {% else %}
+                            <span class="text-muted">No owner</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if roadmap.date_range_label %}
+                            {{ roadmap.date_range_label }}
+                            {% else %}
+                            <span class="text-muted">No periods</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ roadmap.goal_count }}</td>
+                        <td>{{ roadmap.initiative_count }}</td>
+                        <td>
+                            {% set progress = roadmap.progress %}
+                            <div class="progress" style="height: 18px; min-width: 80px;" role="progressbar"
+                                aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
+                                <div class="progress-bar" style="width: {{ progress }}%;">{{ progress }}%</div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if can_write('roadmaps') %}
+                            <a href="{{ url_for('roadmaps.edit_roadmap', id=roadmap.id) }}"
+                                class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <form action="{{ url_for('roadmaps.delete_roadmap', id=roadmap.id) }}" method="POST"
+                                class="d-inline"
+                                data-confirm='Delete this roadmap? Its periods, goals, initiatives and dependencies will also be deleted.'>
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="text-muted small">Read Only</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center">No roadmaps found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='vendor/simple-datatables/umd/simple-datatables.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (document.getElementById('roadmaps-table')) {
+            new simpleDatatables.DataTable("#roadmaps-table");
+        }
+    });
+</script>
+{% endblock %}

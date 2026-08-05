@@ -1,15 +1,16 @@
 """
-Roadmaps domain service tests.
+Roadmaps module tests.
 
-Covers the step↔date translation, dependency-graph guards, finish-to-start
-propagation and the Gantt payload. No routes yet — those arrive with the
-blueprint in a later phase.
+Covers the domain service (step↔date translation, dependency-graph guards,
+finish-to-start propagation, Gantt payload) and the roadmap CRUD routes with
+their RBAC enforcement.
 """
 from datetime import date
 
 import pytest
 
 from src.extensions import db
+from src.models import User, Module, Permission, AccessLevel
 from src.models.roadmaps import (Roadmap, RoadmapPeriod, RoadmapGoal, RoadmapInitiative,
                                  RoadmapDependency, STEPS_PER_PERIOD)
 from src.services.roadmaps_service import (
@@ -363,3 +364,302 @@ def test_bundle_excludes_other_roadmaps_dependencies(roadmap):
     assert {i['name'] for i in payload['initiatives']} == {'A', 'B'}
     assert len(payload['dependencies']) == 1
     assert payload['dependencies'][0]['predecessor_id'] == a.id
+
+
+# --- route helpers -----------------------------------------------------------
+
+def _login(client, email, password='password'):
+    return client.post('/login', data={'email': email, 'password': password},
+                       follow_redirects=True)
+
+
+def _grant(app, email, access_level):
+    """Create a plain user holding `access_level` on the roadmaps module."""
+    from src.services.permissions_cache import permissions_cache
+    with app.app_context():
+        module = Module.query.filter_by(slug='roadmaps').first()
+        if not module:
+            module = Module(name='Roadmaps', slug='roadmaps')
+            db.session.add(module)
+            db.session.flush()
+        user = User(name=email, email=email, role='user')
+        user.set_password('password')
+        db.session.add(user)
+        db.session.flush()
+        if access_level is not None:
+            db.session.add(Permission(module_id=module.id, user_id=user.id,
+                                      access_level=access_level))
+        db.session.commit()
+        permissions_cache.invalidate()
+
+
+def _seeded_roadmap(app):
+    """A committed roadmap with one dated quarter, usable from route tests."""
+    with app.app_context():
+        rm = Roadmap(name='Route Roadmap', status='active')
+        db.session.add(rm)
+        db.session.flush()
+        db.session.add(RoadmapPeriod(roadmap_id=rm.id, label='Q1 2027', position=0,
+                                     start_date=Q1_START, end_date=Q1_END))
+        db.session.commit()
+        return rm.id
+
+
+# --- RBAC --------------------------------------------------------------------
+
+def test_list_requires_login(client, init_database):
+    response = client.get('/roadmaps/')
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+
+
+def test_user_without_the_module_is_redirected(client, app, init_database):
+    _grant(app, 'noaccess@test.com', None)
+    _login(client, 'noaccess@test.com')
+
+    response = client.get('/roadmaps/')
+    assert response.status_code == 302
+
+
+def test_read_only_user_can_read_but_not_write(client, app, init_database):
+    _grant(app, 'readonly@test.com', AccessLevel.READ_ONLY)
+    _login(client, 'readonly@test.com')
+
+    assert client.get('/roadmaps/').status_code == 200
+
+    response = client.post('/roadmaps/new', data={'name': 'Should not exist'},
+                           follow_redirects=True)
+    assert response.status_code == 200
+    with app.app_context():
+        assert Roadmap.query.filter_by(name='Should not exist').first() is None
+
+
+def test_read_only_user_cannot_delete(client, app, init_database):
+    roadmap_id = _seeded_roadmap(app)
+    _grant(app, 'readonly2@test.com', AccessLevel.READ_ONLY)
+    _login(client, 'readonly2@test.com')
+
+    client.post(f'/roadmaps/{roadmap_id}/delete', follow_redirects=True)
+    with app.app_context():
+        assert db.session.get(Roadmap, roadmap_id) is not None
+
+
+def test_write_user_can_create(client, app, init_database):
+    _grant(app, 'writer@test.com', AccessLevel.WRITE)
+    _login(client, 'writer@test.com')
+
+    client.post('/roadmaps/new', data={'name': 'Written Roadmap'}, follow_redirects=True)
+    with app.app_context():
+        assert Roadmap.query.filter_by(name='Written Roadmap').first() is not None
+
+
+# --- CRUD --------------------------------------------------------------------
+
+def test_list_shows_existing_roadmaps(auth_client, app, init_database):
+    _seeded_roadmap(app)
+    response = auth_client.get('/roadmaps/')
+    assert response.status_code == 200
+    assert b'Route Roadmap' in response.data
+
+
+def test_list_status_filter(auth_client, app, init_database):
+    _seeded_roadmap(app)          # status 'active'
+    assert b'Route Roadmap' in auth_client.get('/roadmaps/?status=active').data
+    assert b'Route Roadmap' not in auth_client.get('/roadmaps/?status=draft').data
+
+
+def test_new_form_loads(auth_client, init_database):
+    assert auth_client.get('/roadmaps/new').status_code == 200
+
+
+def test_edit_form_loads(auth_client, app, init_database):
+    roadmap_id = _seeded_roadmap(app)
+    response = auth_client.get(f'/roadmaps/{roadmap_id}/edit')
+    assert response.status_code == 200
+    assert b'Q1 2027' in response.data
+
+
+def test_edit_unknown_roadmap_is_404(auth_client, init_database):
+    assert auth_client.get('/roadmaps/999999/edit').status_code == 404
+
+
+def test_create_with_periods(auth_client, app, init_database):
+    auth_client.post('/roadmaps/new', data={
+        'name': 'Fresh Roadmap',
+        'description': 'Planning for next year',
+        'status': 'active',
+        'period_id': ['', ''],
+        'period_label': ['Q1 2027', 'Q2 2027'],
+        'period_start': ['2027-01-01', '2027-04-01'],
+        'period_end': ['2027-03-31', '2027-06-30'],
+    }, follow_redirects=True)
+
+    with app.app_context():
+        roadmap = Roadmap.query.filter_by(name='Fresh Roadmap').first()
+        assert roadmap is not None
+        assert roadmap.status == 'active'
+        periods = roadmap.periods.all()
+        assert [p.label for p in periods] == ['Q1 2027', 'Q2 2027']
+        assert periods[0].start_date == date(2027, 1, 1)
+        assert [p.position for p in periods] == [0, 1]
+
+
+def test_create_rejects_blank_name(auth_client, app, init_database):
+    auth_client.post('/roadmaps/new', data={'name': '   '}, follow_redirects=True)
+    with app.app_context():
+        assert Roadmap.query.count() == 0
+
+
+def test_create_rejects_inverted_period_dates(auth_client, app, init_database):
+    auth_client.post('/roadmaps/new', data={
+        'name': 'Bad Dates',
+        'period_id': [''],
+        'period_label': ['Q1 2027'],
+        'period_start': ['2027-03-31'],
+        'period_end': ['2027-01-01'],
+    }, follow_redirects=True)
+
+    with app.app_context():
+        assert Roadmap.query.filter_by(name='Bad Dates').first() is None
+
+
+def test_unknown_status_falls_back_to_draft(auth_client, app, init_database):
+    auth_client.post('/roadmaps/new', data={'name': 'Odd Status', 'status': 'bogus'},
+                     follow_redirects=True)
+    with app.app_context():
+        assert Roadmap.query.filter_by(name='Odd Status').first().status == 'draft'
+
+
+def test_blank_period_rows_are_ignored(auth_client, app, init_database):
+    """The form leaves empty rows behind; they must not become periods."""
+    auth_client.post('/roadmaps/new', data={
+        'name': 'Sparse',
+        'period_id': ['', ''],
+        'period_label': ['Q1 2027', '   '],
+        'period_start': ['2027-01-01', ''],
+        'period_end': ['2027-03-31', ''],
+    }, follow_redirects=True)
+
+    with app.app_context():
+        assert Roadmap.query.filter_by(name='Sparse').first().period_count == 1
+
+
+def test_edit_updates_header_and_periods(auth_client, app, init_database):
+    roadmap_id = _seeded_roadmap(app)
+    with app.app_context():
+        period_id = db.session.get(Roadmap, roadmap_id).periods.first().id
+
+    auth_client.post(f'/roadmaps/{roadmap_id}/edit', data={
+        'name': 'Renamed Roadmap',
+        'status': 'archived',
+        'period_id': [str(period_id), ''],
+        'period_label': ['Q1 2027 (revised)', 'Q2 2027'],
+        'period_start': ['2027-01-01', '2027-04-01'],
+        'period_end': ['2027-03-31', '2027-06-30'],
+    }, follow_redirects=True)
+
+    with app.app_context():
+        roadmap = db.session.get(Roadmap, roadmap_id)
+        assert roadmap.name == 'Renamed Roadmap'
+        assert roadmap.status == 'archived'
+        assert [p.label for p in roadmap.periods.all()] == ['Q1 2027 (revised)', 'Q2 2027']
+
+
+def test_edit_drops_periods_left_out_of_the_form(auth_client, app, init_database):
+    roadmap_id = _seeded_roadmap(app)
+
+    auth_client.post(f'/roadmaps/{roadmap_id}/edit', data={
+        'name': 'Route Roadmap',
+        'status': 'active',
+    }, follow_redirects=True)
+
+    with app.app_context():
+        assert db.session.get(Roadmap, roadmap_id).period_count == 0
+
+
+def test_edit_cannot_hijack_another_roadmaps_period(auth_client, app, init_database):
+    """A period id from a different roadmap must not be re-parented by the form."""
+    victim_id = _seeded_roadmap(app)
+    with app.app_context():
+        victim_period_id = db.session.get(Roadmap, victim_id).periods.first().id
+        attacker = Roadmap(name='Attacker', status='draft')
+        db.session.add(attacker)
+        db.session.commit()
+        attacker_id = attacker.id
+
+    auth_client.post(f'/roadmaps/{attacker_id}/edit', data={
+        'name': 'Attacker',
+        'status': 'draft',
+        'period_id': [str(victim_period_id)],
+        'period_label': ['Stolen'],
+        'period_start': [''],
+        'period_end': [''],
+    }, follow_redirects=True)
+
+    with app.app_context():
+        victim_period = db.session.get(RoadmapPeriod, victim_period_id)
+        assert victim_period.roadmap_id == victim_id
+        assert victim_period.label == 'Q1 2027'
+        # The attacker got a brand-new period instead of the victim's.
+        attacker_periods = db.session.get(Roadmap, attacker_id).periods.all()
+        assert [p.label for p in attacker_periods] == ['Stolen']
+        assert attacker_periods[0].id != victim_period_id
+
+
+def test_edit_recomputes_initiative_dates_after_period_change(auth_client, app, init_database):
+    """Changing a period's dates must drag its initiatives' planned dates along."""
+    roadmap_id = _seeded_roadmap(app)
+    with app.app_context():
+        roadmap = db.session.get(Roadmap, roadmap_id)
+        goal = RoadmapGoal(roadmap_id=roadmap.id, name='Goal', position=0)
+        db.session.add(goal)
+        db.session.flush()
+        db.session.add(RoadmapInitiative(goal_id=goal.id, name='Work',
+                                         start_step=1, end_step=STEPS_PER_PERIOD))
+        db.session.commit()
+        period_id = roadmap.periods.first().id
+
+    auth_client.post(f'/roadmaps/{roadmap_id}/edit', data={
+        'name': 'Route Roadmap',
+        'status': 'active',
+        'period_id': [str(period_id)],
+        'period_label': ['Q1 2027'],
+        'period_start': ['2027-02-01'],
+        'period_end': ['2027-05-31'],
+    }, follow_redirects=True)
+
+    with app.app_context():
+        initiative = db.session.get(Roadmap, roadmap_id).initiatives.first()
+        assert initiative.planned_start_date == date(2027, 2, 1)
+        assert initiative.planned_end_date == date(2027, 5, 31)
+
+
+def test_delete_removes_the_whole_tree(auth_client, app, init_database):
+    roadmap_id = _seeded_roadmap(app)
+    with app.app_context():
+        goal = RoadmapGoal(roadmap_id=roadmap_id, name='Goal', position=0)
+        db.session.add(goal)
+        db.session.flush()
+        db.session.add(RoadmapInitiative(goal_id=goal.id, name='Work', start_step=1, end_step=4))
+        db.session.commit()
+
+    auth_client.post(f'/roadmaps/{roadmap_id}/delete', follow_redirects=True)
+
+    with app.app_context():
+        assert db.session.get(Roadmap, roadmap_id) is None
+        assert RoadmapPeriod.query.count() == 0
+        assert RoadmapGoal.query.count() == 0
+        assert RoadmapInitiative.query.count() == 0
+
+
+def test_sidebar_entry_is_gated_by_the_module(client, app, init_database):
+    """The nav section only renders for users holding the roadmaps module."""
+    # 'roadmaps-menu' is the collapse id of the sidebar section, so it only appears
+    # when that section renders — unlike '/roadmaps/', which the page body also uses.
+    _grant(app, 'reader3@test.com', AccessLevel.READ_ONLY)
+    _login(client, 'reader3@test.com')
+    assert b'roadmaps-menu' in client.get('/', follow_redirects=True).data
+
+    _grant(app, 'outsider@test.com', None)
+    _login(client, 'outsider@test.com')
+    assert b'roadmaps-menu' not in client.get('/', follow_redirects=True).data

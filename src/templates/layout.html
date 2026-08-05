@@ -378,6 +378,18 @@
                 </div>
                 {% endif %}
 
+                {% if has_permission('roadmaps') %}
+                <hr class="text-white">
+                <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#roadmaps-menu"
+                    aria-expanded="false">Roadmaps <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
+                <div class="collapse" id="roadmaps-menu" data-bs-parent="#sidebar-accordion">
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.blueprint == 'roadmaps' %}active{% endif %}"
+                            href="{{ url_for('roadmaps.list_roadmaps') }}"><i class="fa-fw fas fa-map-signs"></i>
+                            Roadmaps</a></li>
+                </div>
+                {% endif %}
+
                 {% if has_permission('risk_governance') %}
                 <hr class="text-white">
                 <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#risk-governance-menu"
