@@ -1435,3 +1435,69 @@ def test_seeded_roadmaps_render(auth_client, seeded_roadmaps):
         for initiative in roadmap.initiatives.all():
             assert auth_client.get(
                 f'/roadmaps/{roadmap.id}/initiatives/{initiative.id}').status_code == 200
+
+
+# --- API type handling -------------------------------------------------------
+
+def test_api_coerces_scalar_text_like_a_form_would(auth_client, app, init_database):
+    """A number where a string belongs is a client slip, not an internal error."""
+    ids = _api_roadmap(app)
+    response = auth_client.patch(
+        f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}', json={'name': 123})
+
+    assert response.status_code == 200
+    with app.app_context():
+        assert db.session.get(RoadmapInitiative, ids['a_id']).name == '123'
+
+
+def test_api_rejects_structured_field_values(auth_client, app, init_database):
+    """A list or dict must not reach the database as its repr, nor raise a 500."""
+    ids = _api_roadmap(app)
+    for value in (['a'], {'b': 1}):
+        response = auth_client.patch(
+            f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+            json={'description': value})
+        assert response.status_code == 400
+        assert response.is_json
+
+    with app.app_context():
+        assert db.session.get(RoadmapInitiative, ids['a_id']).description == ''
+
+
+def test_api_rejects_an_unparseable_date_instead_of_clearing_it(auth_client, app,
+                                                               init_database):
+    """Silently wiping a period's date on garbage input is worse than refusing."""
+    ids = _api_roadmap(app)
+    with app.app_context():
+        period_id = db.session.get(Roadmap, ids['roadmap_id']).periods.first().id
+
+    for value in ('not-a-date', 20270101, '2027-13-45'):
+        response = auth_client.patch(
+            f'/roadmaps/{ids["roadmap_id"]}/api/periods/{period_id}',
+            json={'start_date': value})
+        assert response.status_code == 400, value
+
+    with app.app_context():
+        assert db.session.get(RoadmapPeriod, period_id).start_date == Q1_START
+
+
+def test_api_clears_a_date_when_explicitly_blank(auth_client, app, init_database):
+    """An explicit null still means "no date", which the guard above must not block."""
+    ids = _api_roadmap(app)
+    with app.app_context():
+        period_id = db.session.get(Roadmap, ids['roadmap_id']).periods.first().id
+
+    assert auth_client.patch(f'/roadmaps/{ids["roadmap_id"]}/api/periods/{period_id}',
+                             json={'start_date': None}).status_code == 200
+    with app.app_context():
+        assert db.session.get(RoadmapPeriod, period_id).start_date is None
+
+
+def test_api_error_bodies_carry_a_message(auth_client, app, init_database):
+    """The Gantt surfaces error.message inline, so it must not be empty."""
+    ids = _api_roadmap(app)
+    response = auth_client.patch(
+        f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+        data='{oops', content_type='application/json')
+    assert response.status_code == 400
+    assert response.get_json()['error']

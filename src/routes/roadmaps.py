@@ -6,7 +6,7 @@ from functools import wraps
 
 from flask import (Blueprint, render_template, request, redirect, url_for, flash,
                    jsonify, current_app, abort, Response)
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, HTTPException
 
 from ..models import (db, User, Roadmap, RoadmapPeriod, RoadmapGoal, RoadmapInitiative,
                       RoadmapDependency, ROADMAP_STATUSES, INITIATIVE_STATUSES,
@@ -28,8 +28,14 @@ WRITE_REQUIRED = 'Write access required to modify roadmaps.'
 
 
 def _parse_date(value):
-    """Parse a YYYY-MM-DD form value, returning None for blanks or garbage."""
+    """Parse a YYYY-MM-DD value, returning None for blanks or garbage.
+
+    Non-strings are handled rather than raising: a JSON client can send a number where
+    a date belongs, and that must not surface as a 500.
+    """
     if not value:
+        return None
+    if not isinstance(value, str):
         return None
     try:
         return datetime.strptime(value.strip(), '%Y-%m-%d').date()
@@ -403,8 +409,12 @@ def api_endpoint(f):
     def wrapper(*args, **kwargs):
         try:
             return f(*args, **kwargs)
-        except BadRequest:
-            return _json_error('Malformed request body.', 400)
+        except BadRequest as error:
+            return _json_error(error.description or 'Malformed request body.', 400)
+        except HTTPException:
+            # abort() and friends already carry the right status; turning those into a
+            # 500 below would hide them.
+            raise
         except (ValueError, TypeError):
             return _json_error('Invalid field value.', 400)
         except Exception:
@@ -431,6 +441,20 @@ def _body():
     return parsed
 
 
+def _field_body():
+    """Body for the endpoints that map keys onto model fields, all of which are scalar.
+
+    Rejecting structures once, up front, is what lets the field appliers coerce with
+    str() without a list or dict reaching the database as its repr — or blowing up as a
+    500 on .strip(). Bulk endpoints like reorder take a real structure, so they use
+    _body directly.
+    """
+    parsed = _body()
+    if any(isinstance(value, (list, dict)) for value in parsed.values()):
+        raise BadRequest('Field values must be scalars.')
+    return parsed
+
+
 def _as_int(value, default=None):
     """Coerce a JSON value to int, mapping blanks to `default`."""
     if value is None or value == '':
@@ -439,7 +463,31 @@ def _as_int(value, default=None):
 
 
 def _clean_text(value, limit):
-    return (value or '').strip()[:limit]
+    """Trim and cap a text field, coercing scalars the way a form submission would."""
+    if value is None:
+        return ''
+    return str(value).strip()[:limit]
+
+
+def _clean_long_text(value):
+    """Trim an uncapped text field, coercing scalars like _clean_text does."""
+    if value is None:
+        return ''
+    return str(value).strip()
+
+
+def _date_or_error(value, label):
+    """(date|None, error). An explicit blank clears the date; garbage is rejected.
+
+    Returning None for unparseable input would silently wipe a period's date, which is
+    worse than refusing the request.
+    """
+    if value is None or value == '':
+        return None, None
+    parsed = _parse_date(value)
+    if parsed is None:
+        return None, f'{label} must be a date in YYYY-MM-DD format.'
+    return parsed, None
 
 
 def _scoped_period(roadmap_id, period_id):
@@ -494,9 +542,13 @@ def _apply_period_fields(period, body):
 
     start, end = period.start_date, period.end_date
     if 'start_date' in body:
-        start = _parse_date(body['start_date'])
+        start, error = _date_or_error(body['start_date'], 'Start date')
+        if error:
+            return error
     if 'end_date' in body:
-        end = _parse_date(body['end_date'])
+        end, error = _date_or_error(body['end_date'], 'End date')
+        if error:
+            return error
     if start and end and end < start:
         return 'A period cannot end before it starts.'
     period.start_date, period.end_date = start, end
@@ -515,7 +567,7 @@ def _apply_goal_fields(goal, body):
         goal.name = name
 
     if 'description' in body:
-        goal.description = (body['description'] or '').strip()
+        goal.description = _clean_long_text(body['description'])
 
     if 'color' in body:
         color = _clean_text(body['color'], 7)
@@ -548,7 +600,7 @@ def _apply_initiative_fields(initiative, body):
         initiative.name = name
 
     if 'description' in body:
-        initiative.description = (body['description'] or '').strip()
+        initiative.description = _clean_long_text(body['description'])
 
     if 'status' in body:
         if body['status'] not in INITIATIVE_STATUSES:
@@ -628,7 +680,7 @@ def api_create_period(roadmap_id):
 
     period = RoadmapPeriod(roadmap_id=roadmap_id,
                            position=_next_position(RoadmapPeriod, roadmap_id=roadmap_id))
-    error = _apply_period_fields(period, _body())
+    error = _apply_period_fields(period, _field_body())
     if error:
         return _json_error(error, 400)
 
@@ -649,7 +701,7 @@ def api_update_period(roadmap_id, period_id):
     if not period:
         return _json_error(NOT_IN_ROADMAP, 404)
 
-    error = _apply_period_fields(period, _body())
+    error = _apply_period_fields(period, _field_body())
     if error:
         return _json_error(error, 400)
 
@@ -690,7 +742,7 @@ def api_create_goal(roadmap_id):
 
     goal = RoadmapGoal(roadmap_id=roadmap_id, color=DEFAULT_GOAL_COLOR,
                        position=_next_position(RoadmapGoal, roadmap_id=roadmap_id))
-    error = _apply_goal_fields(goal, _body())
+    error = _apply_goal_fields(goal, _field_body())
     if error:
         return _json_error(error, 400)
 
@@ -709,7 +761,7 @@ def api_update_goal(roadmap_id, goal_id):
     if not goal:
         return _json_error(NOT_IN_ROADMAP, 404)
 
-    error = _apply_goal_fields(goal, _body())
+    error = _apply_goal_fields(goal, _field_body())
     if error:
         return _json_error(error, 400)
 
@@ -739,7 +791,7 @@ def api_delete_goal(roadmap_id, goal_id):
 @requires_permission_api(MODULE, 'WRITE')
 @api_endpoint
 def api_create_initiative(roadmap_id):
-    body = _body()
+    body = _field_body()
 
     goal = _scoped_goal(roadmap_id, _as_int(body.get('goal_id')))
     if not goal:
@@ -772,7 +824,7 @@ def api_update_initiative(roadmap_id, initiative_id):
     if not initiative:
         return _json_error(NOT_IN_ROADMAP, 404)
 
-    body = _body()
+    body = _field_body()
 
     # Moving between goals is a reparent, so the target goal needs checking too.
     if 'goal_id' in body:
@@ -845,7 +897,7 @@ def api_reorder_initiatives(roadmap_id):
 @requires_permission_api(MODULE, 'WRITE')
 @api_endpoint
 def api_create_dependency(roadmap_id):
-    body = _body()
+    body = _field_body()
 
     predecessor = _scoped_initiative(roadmap_id, _as_int(body.get('predecessor_id')))
     successor = _scoped_initiative(roadmap_id, _as_int(body.get('successor_id')))

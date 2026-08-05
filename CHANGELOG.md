@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Subscription spend in the Spend Analysis report**: recurring subscription cost is now reconstructed from billing history — each past billing occurrence is valued at the price and seat count effective on that date (from CostHistory) — and shown alongside one-off purchases, with a "Spend by Month (EUR)" summary. Defaults to the trailing 12 months when no date range is given
 
 ### Changed
+- Unauthenticated requests to in-app JSON endpoints (any path containing `/api/`, or a request that explicitly asks for JSON) now get a `401` with a JSON body instead of a `302` redirect to the login page. Affects the fetch/XHR endpoints behind search, drift detection, the renewal calendar, onboarding pickers and similar: an expired session used to arrive at those callers as HTML that they parsed as if it were data, so the failure was silent. Browser navigation still redirects as before
 - Subscription seat changes made from the subscription page (add / add-all / remove user) now record a CostHistory entry for per-user plans, so historical spend stays accurate
 - **Spend Analysis** totals are now normalised to EUR (previously summed mixed currencies as if EUR)
 - **My Dashboard "Your Pending Tasks"** now lists only items assigned to you; the notification bell and the My Tasks counter likewise show only assigned items (incidents, changes, requests) — never tickets you opened
