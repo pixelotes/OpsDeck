@@ -30,6 +30,9 @@
         <a href="{{ url_for('roadmaps.list_roadmaps') }}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left"></i> Back
         </a>
+        <a href="{{ url_for('roadmaps.export', id=roadmap.id) }}" class="btn btn-outline-success">
+            <i class="fas fa-file-csv"></i> Export to CSV
+        </a>
         {% if writable %}
         <a href="{{ url_for('roadmaps.edit_roadmap', id=roadmap.id) }}" class="btn btn-outline-primary">
             <i class="fas fa-edit"></i> Edit roadmap
@@ -77,7 +80,7 @@
 
 <div class="card">
     <div class="card-body p-0">
-        <div id="roadmap-gantt" data-api-base="{{ api_base }}"
+        <div id="roadmap-gantt" data-api-base="{{ api_base }}" data-initiative-base="{{ initiative_base }}"
             data-can-write="{{ 'true' if writable else 'false' }}" data-csrf-token="{{ csrf_token() }}"
             data-steps-per-period="{{ steps_per_period }}">
             <div class="rg-empty"><i class="fas fa-spinner fa-spin"></i> Loading roadmap…</div>

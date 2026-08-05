@@ -1,14 +1,17 @@
+import csv
+import io
 import re
 from datetime import datetime
 from functools import wraps
 
 from flask import (Blueprint, render_template, request, redirect, url_for, flash,
-                   jsonify, current_app)
+                   jsonify, current_app, abort, Response)
 from werkzeug.exceptions import BadRequest
 
 from ..models import (db, User, Roadmap, RoadmapPeriod, RoadmapGoal, RoadmapInitiative,
                       RoadmapDependency, ROADMAP_STATUSES, INITIATIVE_STATUSES,
                       INITIATIVE_PRIORITIES, DEFAULT_GOAL_COLOR, STEPS_PER_PERIOD)
+from ..models.core import CustomFieldDefinition
 from .main import login_required
 from ..services.permissions_service import (requires_permission, requires_permission_api,
                                             has_write_permission)
@@ -115,6 +118,28 @@ def _form_context(roadmap=None):
     }
 
 
+def _step_label(step, periods):
+    """Human label for a step, e.g. "Q1 2027 (2/4)". Falls back to the raw step."""
+    if not periods:
+        return str(step)
+    index = max(0, min((step - 1) // STEPS_PER_PERIOD, len(periods) - 1))
+    within = (step - 1) % STEPS_PER_PERIOD + 1
+    return f'{periods[index].label} ({within}/{STEPS_PER_PERIOD})'
+
+
+def _schedule_labels(initiative, periods):
+    return {
+        'start': _step_label(initiative.start_step, periods),
+        'end': _step_label(initiative.end_step, periods),
+    }
+
+
+def _csv_filename(name):
+    """Filename for an export, stripped of anything that could break the header."""
+    base = re.sub(r'[^A-Za-z0-9 _.-]', '_', name or '').strip() or 'roadmap'
+    return f'{base}.csv'
+
+
 @roadmaps_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission(MODULE)
@@ -173,10 +198,14 @@ def detail(id):
     """The interactive Gantt view. Goals and initiatives are managed from here."""
     roadmap = db.get_or_404(Roadmap, id)
 
-    # Derived from url_for rather than hardcoded, so it survives a change of prefix.
+    # Both derived from url_for rather than hardcoded, so they survive a prefix change.
+    # The script appends an initiative id to initiative_base, hence trimming the 0.
     api_base = url_for('roadmaps.api_data', roadmap_id=roadmap.id)[:-len('/data')]
+    initiative_base = url_for('roadmaps.initiative_detail', id=roadmap.id,
+                              initiative_id=0)[:-1]
 
     return render_template('roadmaps/detail.html', roadmap=roadmap, api_base=api_base,
+                           initiative_base=initiative_base,
                            steps_per_period=STEPS_PER_PERIOD,
                            default_goal_color=DEFAULT_GOAL_COLOR)
 
@@ -214,6 +243,114 @@ def edit_roadmap(id):
         return redirect(url_for('roadmaps.edit_roadmap', id=roadmap.id))
 
     return render_template('roadmaps/form.html', **_form_context(roadmap))
+
+
+def _initiative_form_payload():
+    """Normalise the initiative form into the dict shape the API validator expects.
+
+    Reusing _apply_initiative_fields keeps one set of validation rules for the JSON API
+    and for this page. Checkboxes need explicit handling: an unchecked box submits
+    nothing at all, which the "only keys present are touched" contract would otherwise
+    read as "leave it alone".
+    """
+    payload = {}
+    for field in ('name', 'description', 'status', 'priority', 'progress', 'points',
+                  'external_ref', 'external_url', 'owner_id'):
+        if field in request.form:
+            payload[field] = request.form.get(field)
+    payload['is_new'] = 'is_new' in request.form
+    return payload
+
+
+@roadmaps_bp.route('/<int:id>/initiatives/<int:initiative_id>', methods=['GET', 'POST'])
+@login_required
+@requires_permission(MODULE)
+def initiative_detail(id, initiative_id):
+    """Full page for one initiative: the deep-linkable counterpart to the Gantt panel."""
+    roadmap = db.get_or_404(Roadmap, id)
+    initiative = _scoped_initiative(id, initiative_id)
+    if not initiative:
+        abort(404)
+
+    here = url_for('roadmaps.initiative_detail', id=id, initiative_id=initiative_id)
+
+    if request.method == 'POST':
+        if not has_write_permission(MODULE):
+            flash(WRITE_REQUIRED, 'danger')
+            return redirect(here)
+
+        error = _apply_initiative_fields(initiative, _initiative_form_payload())
+        if error:
+            flash(error, 'danger')
+            return redirect(here)
+
+        db.session.commit()
+        log_audit('roadmap.initiative_updated', 'update',
+                  target_object=f'RoadmapInitiative:{initiative.id}')
+        flash('Initiative updated successfully.', 'success')
+        return redirect(here)
+
+    return render_template(
+        'roadmaps/initiative_detail.html',
+        roadmap=roadmap,
+        initiative=initiative,
+        predecessors=[(d, d.predecessor) for d in initiative.incoming_dependencies.all()],
+        successors=[(d, d.successor) for d in initiative.outgoing_dependencies.all()],
+        schedule=_schedule_labels(initiative, roadmap.periods.all()),
+        users=User.query.filter_by(is_archived=False).order_by(User.name).all(),
+        statuses=INITIATIVE_STATUSES,
+        priorities=INITIATIVE_PRIORITIES,
+        custom_field_definitions=CustomFieldDefinition.query.filter_by(
+            entity_type='RoadmapInitiative').all(),
+    )
+
+
+@roadmaps_bp.route('/<int:id>/export', methods=['GET'])
+@login_required
+@requires_permission(MODULE)
+def export(id):
+    """CSV of every initiative in the roadmap, in Gantt order."""
+    roadmap = db.get_or_404(Roadmap, id)
+    periods = roadmap.periods.all()
+
+    header = ['Goal', 'Initiative', 'Status', 'Priority', 'Progress', 'Points',
+              'Start', 'End', 'Duration (periods)', 'Planned start', 'Planned end',
+              'Overdue', 'New', 'External ref', 'External URL', 'Owner', 'Description']
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(header)
+
+    for goal in roadmap.goals.all():
+        for initiative in goal.initiatives.all():
+            writer.writerow([
+                goal.name,
+                initiative.name,
+                initiative.status,
+                initiative.priority,
+                f'{initiative.progress}%',
+                '' if initiative.points is None else initiative.points,
+                _step_label(initiative.start_step, periods),
+                _step_label(initiative.end_step, periods),
+                initiative.duration_periods,
+                initiative.planned_start_date.isoformat() if initiative.planned_start_date else '',
+                initiative.planned_end_date.isoformat() if initiative.planned_end_date else '',
+                'Yes' if initiative.is_overdue else 'No',
+                'Yes' if initiative.is_new else 'No',
+                initiative.external_ref,
+                initiative.external_url or '',
+                initiative.owner.name if initiative.owner else '',
+                initiative.description,
+            ])
+
+    log_audit('roadmap.exported', 'read', target_object=f'Roadmap:{roadmap.id}')
+    # Quoted because a sanitised name can still contain spaces; _csv_filename has
+    # already stripped quotes and control characters, so this cannot break the header.
+    return Response(
+        buffer.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{_csv_filename(roadmap.name)}"'},
+    )
 
 
 @roadmaps_bp.route('/<int:id>/delete', methods=['POST'])

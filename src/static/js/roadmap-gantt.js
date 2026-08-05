@@ -26,6 +26,8 @@
 
     const CONFIG = {
         apiBase: root.dataset.apiBase,
+        // Prefix to append an initiative id to, for the full detail page.
+        initiativeBase: root.dataset.initiativeBase,
         canWrite: root.dataset.canWrite === 'true',
         csrfToken: root.dataset.csrfToken,
         stepsPerPeriod: parseInt(root.dataset.stepsPerPeriod, 10) || 4,
@@ -816,6 +818,12 @@
             (goal ? '<span class="badge me-2" style="background:' + esc(goal.color) + '">' +
                 esc(goal.name) + '</span>' : '') +
             esc(scheduleLabel(initiative)) + '</p>' +
+
+            (CONFIG.initiativeBase
+                ? '<a class="btn btn-sm btn-outline-secondary mb-3" href="' +
+                  esc(CONFIG.initiativeBase + initiative.id) + '">' +
+                  '<i class="fas fa-external-link-alt"></i> Open full details</a>'
+                : '') +
 
             '<div class="mb-3"><label class="form-label" for="rg-panel-name">Name</label>' +
             '<input type="text" class="form-control" id="rg-panel-name" value="' +

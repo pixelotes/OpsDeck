@@ -1145,3 +1145,176 @@ def test_creating_a_roadmap_lands_on_the_gantt(auth_client, app, init_database):
     with app.app_context():
         created = Roadmap.query.filter_by(name='Landing').first()
     assert response.headers['Location'].endswith(f'/roadmaps/{created.id}')
+
+
+# --- initiative detail page --------------------------------------------------
+
+def test_initiative_detail_renders(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.get(
+        f'/roadmaps/{ids["roadmap_id"]}/initiatives/{ids["a_id"]}')
+
+    assert response.status_code == 200
+    body = response.data
+    assert b'>A<' in body or b'A</h2>' in body
+    assert b'Schedule' in body
+    assert b'Dependencies' in body
+    assert 'Q1 2027 (1/4)'.encode() in body      # step label for start_step=1
+
+
+def test_initiative_detail_shows_dependencies_both_ways(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/dependencies',
+                     json={'predecessor_id': ids['a_id'], 'successor_id': ids['b_id']})
+
+    successor_page = auth_client.get(
+        f'/roadmaps/{ids["roadmap_id"]}/initiatives/{ids["b_id"]}').data
+    assert b'Depends on' in successor_page
+    assert f'/initiatives/{ids["a_id"]}'.encode() in successor_page
+
+    predecessor_page = auth_client.get(
+        f'/roadmaps/{ids["roadmap_id"]}/initiatives/{ids["a_id"]}').data
+    assert b'Blocks' in predecessor_page
+    assert f'/initiatives/{ids["b_id"]}'.encode() in predecessor_page
+
+
+def test_initiative_detail_rejects_an_initiative_from_another_roadmap(auth_client, app,
+                                                                     init_database):
+    ids = _api_roadmap(app)
+    other = _api_roadmap(app)
+    assert auth_client.get(
+        f'/roadmaps/{ids["roadmap_id"]}/initiatives/{other["a_id"]}').status_code == 404
+
+
+def test_initiative_detail_is_read_only_without_write_access(client, app, init_database):
+    ids = _api_roadmap(app)
+    _grant(app, 'initreader@test.com', AccessLevel.READ_ONLY)
+    _login(client, 'initreader@test.com')
+
+    body = client.get(f'/roadmaps/{ids["roadmap_id"]}/initiatives/{ids["a_id"]}').data
+    assert b'initiative-edit' not in body
+    assert b'Save changes' not in body
+
+
+def test_initiative_detail_post_updates_fields(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/initiatives/{ids["a_id"]}', data={
+        'name': 'A renamed',
+        'status': 'in_progress',
+        'priority': 'very_high',
+        'progress': '70',
+        'points': '13',
+        'external_ref': 'JIRA-9',
+        'external_url': 'https://example.test/JIRA-9',
+        'description': 'Some **markdown**.',
+        'is_new': 'on',
+    }, follow_redirects=True)
+
+    with app.app_context():
+        initiative = db.session.get(RoadmapInitiative, ids['a_id'])
+        assert initiative.name == 'A renamed'
+        assert initiative.status == 'in_progress'
+        assert initiative.priority == 'very_high'
+        assert initiative.progress == 70
+        assert initiative.points == 13
+        assert initiative.external_ref == 'JIRA-9'
+        assert initiative.is_new is True
+
+
+def test_initiative_detail_post_clears_the_new_flag_when_unchecked(auth_client, app,
+                                                                  init_database):
+    """An unchecked box submits nothing, so the form payload has to say False explicitly."""
+    ids = _api_roadmap(app)
+    with app.app_context():
+        db.session.get(RoadmapInitiative, ids['a_id']).is_new = True
+        db.session.commit()
+
+    auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/initiatives/{ids["a_id"]}',
+                     data={'name': 'A'}, follow_redirects=True)
+
+    with app.app_context():
+        assert db.session.get(RoadmapInitiative, ids['a_id']).is_new is False
+
+
+def test_initiative_detail_post_reuses_the_api_validation(auth_client, app, init_database):
+    """The page and the API share one set of rules, so a bad value is rejected here too."""
+    ids = _api_roadmap(app)
+    auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/initiatives/{ids["a_id"]}',
+                     data={'name': 'A', 'status': 'invented'}, follow_redirects=True)
+
+    with app.app_context():
+        assert db.session.get(RoadmapInitiative, ids['a_id']).status == 'planned'
+
+
+def test_initiative_detail_post_clamps_progress(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/initiatives/{ids["a_id"]}',
+                     data={'name': 'A', 'progress': '400'}, follow_redirects=True)
+    with app.app_context():
+        assert db.session.get(RoadmapInitiative, ids['a_id']).progress == 100
+
+
+def test_initiative_detail_post_is_blocked_for_read_only(client, app, init_database):
+    ids = _api_roadmap(app)
+    _grant(app, 'initreader2@test.com', AccessLevel.READ_ONLY)
+    _login(client, 'initreader2@test.com')
+
+    client.post(f'/roadmaps/{ids["roadmap_id"]}/initiatives/{ids["a_id"]}',
+                data={'name': 'Hacked'}, follow_redirects=True)
+    with app.app_context():
+        assert db.session.get(RoadmapInitiative, ids['a_id']).name == 'A'
+
+
+def test_gantt_links_to_the_initiative_page(auth_client, app, init_database):
+    """The panel needs a prefix it can append an id to."""
+    ids = _api_roadmap(app)
+    body = auth_client.get(f'/roadmaps/{ids["roadmap_id"]}').data
+    expected = f'data-initiative-base="/roadmaps/{ids["roadmap_id"]}/initiatives/"'.encode()
+    assert expected in body
+
+
+# --- CSV export --------------------------------------------------------------
+
+def test_export_returns_csv(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.get(f'/roadmaps/{ids["roadmap_id"]}/export')
+
+    assert response.status_code == 200
+    assert response.mimetype == 'text/csv'
+    assert response.headers['Content-Disposition'] == 'attachment; filename="API Roadmap.csv"'
+
+    rows = response.get_data(as_text=True).strip().splitlines()
+    assert rows[0].startswith('Goal,Initiative,Status,Priority,Progress,Points')
+    assert len(rows) == 3                      # header plus the two initiatives
+    assert 'Q1 2027 (1/4)' in rows[1]
+
+
+def test_export_filename_is_sanitised(auth_client, app, init_database):
+    """The roadmap name reaches a response header, so quotes and newlines must not."""
+    with app.app_context():
+        roadmap = Roadmap(name='Bad"name\r\nInjected: yes', status='draft')
+        db.session.add(roadmap)
+        db.session.commit()
+        roadmap_id = roadmap.id
+
+    response = auth_client.get(f'/roadmaps/{roadmap_id}/export')
+    disposition = response.headers['Content-Disposition']
+
+    # The quote, CR and LF from the name are gone, so neither the quoted filename nor
+    # the header block can be broken out of, and no extra header was injected.
+    assert disposition == 'attachment; filename="Bad_name__Injected_ yes.csv"'
+    assert 'Injected' not in response.headers
+
+
+def test_export_requires_the_module(client, app, init_database):
+    ids = _api_roadmap(app)
+    _grant(app, 'exportoutsider@test.com', None)
+    _login(client, 'exportoutsider@test.com')
+    assert client.get(f'/roadmaps/{ids["roadmap_id"]}/export').status_code == 302
+
+
+def test_export_is_available_to_read_only_users(client, app, init_database):
+    ids = _api_roadmap(app)
+    _grant(app, 'exportreader@test.com', AccessLevel.READ_ONLY)
+    _login(client, 'exportreader@test.com')
+    assert client.get(f'/roadmaps/{ids["roadmap_id"]}/export').status_code == 200
