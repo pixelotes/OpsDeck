@@ -16,6 +16,7 @@ from src.models.roadmaps import (Roadmap, RoadmapPeriod, RoadmapGoal, RoadmapIni
 from src.services.roadmaps_service import (
     step_bounds, recompute_dates, creates_cycle, cascade_reschedule,
     sync_dependency_lags, bundle)
+from src.utils.timezone_helper import today
 
 
 Q1_START, Q1_END = date(2027, 1, 1), date(2027, 3, 31)
@@ -1318,3 +1319,119 @@ def test_export_is_available_to_read_only_users(client, app, init_database):
     _grant(app, 'exportreader@test.com', AccessLevel.READ_ONLY)
     _login(client, 'exportreader@test.com')
     assert client.get(f'/roadmaps/{ids["roadmap_id"]}/export').status_code == 200
+
+
+# --- demo seeder -------------------------------------------------------------
+
+@pytest.fixture
+def seeded_roadmaps(init_database):
+    """Run only the roadmap part of the demo seeder."""
+    from src.seeder import seed_roadmaps
+
+    people = [User(name=f'Seed User {n}', email=f'seed{n}@test.com', role='user')
+              for n in range(3)]
+    for person in people:
+        person.set_password('password')
+    db.session.add_all(people)
+    db.session.commit()
+
+    seed_roadmaps(people)
+    return people
+
+
+def test_seeder_creates_two_roadmaps(seeded_roadmaps):
+    roadmaps = Roadmap.query.order_by(Roadmap.name).all()
+    assert len(roadmaps) == 2
+    assert {r.status for r in roadmaps} == {'active', 'draft'}
+
+
+def test_seeded_roadmaps_are_owned(seeded_roadmaps):
+    for roadmap in Roadmap.query.all():
+        assert roadmap.owner is not None
+
+
+def test_seeded_periods_are_ordered_and_dated(seeded_roadmaps):
+    for roadmap in Roadmap.query.all():
+        periods = roadmap.periods.all()
+        assert periods
+        assert [p.position for p in periods] == list(range(len(periods)))
+        for period in periods:
+            assert period.start_date and period.end_date
+            assert period.start_date < period.end_date
+        # Consecutive and non-overlapping.
+        for earlier, later in zip(periods, periods[1:]):
+            assert earlier.end_date < later.start_date
+
+
+def test_seeded_roadmap_straddles_today(seeded_roadmaps):
+    """The active roadmap has to span the present, or the demo shows no today marker."""
+    active = Roadmap.query.filter_by(status='active').one()
+    periods = active.periods.all()
+    assert periods[0].start_date <= today() <= periods[-1].end_date
+
+
+def test_seeded_initiatives_have_derived_dates(seeded_roadmaps):
+    """recompute_dates ran, so no initiative is left without planned dates."""
+    for roadmap in Roadmap.query.all():
+        initiatives = roadmap.initiatives.all()
+        assert initiatives
+        for initiative in initiatives:
+            assert initiative.planned_start_date is not None
+            assert initiative.planned_end_date is not None
+            assert initiative.planned_start_date <= initiative.planned_end_date
+            assert 1 <= initiative.start_step <= initiative.end_step
+
+
+def test_seeded_dependencies_are_consistent(seeded_roadmaps):
+    """Lags match the positions, which is the invariant cascade_reschedule preserves."""
+    dependencies = RoadmapDependency.query.all()
+    assert dependencies
+    for dep in dependencies:
+        predecessor = db.session.get(RoadmapInitiative, dep.predecessor_id)
+        successor = db.session.get(RoadmapInitiative, dep.successor_id)
+        assert successor.start_step == predecessor.end_step + dep.lag
+
+
+def test_seeded_dependencies_are_acyclic(seeded_roadmaps):
+    """Every edge must already satisfy the guard the API applies to new links."""
+    for dep in RoadmapDependency.query.all():
+        db.session.delete(dep)
+        db.session.flush()
+        assert creates_cycle(dep.predecessor_id, dep.successor_id) is False
+        db.session.rollback()
+
+
+def test_seeded_active_roadmap_has_a_converging_dependency(seeded_roadmaps):
+    """The diamond is the point of the demo data: it shows rescheduling picking a winner."""
+    active = Roadmap.query.filter_by(status='active').one()
+    counts = {}
+    for dep in RoadmapDependency.query.all():
+        successor = db.session.get(RoadmapInitiative, dep.successor_id)
+        if successor.roadmap.id == active.id:
+            counts[dep.successor_id] = counts.get(dep.successor_id, 0) + 1
+    assert max(counts.values()) >= 2
+
+
+def test_seeded_active_roadmap_shows_mixed_progress(seeded_roadmaps):
+    active = Roadmap.query.filter_by(status='active').one()
+    statuses = {i.status for i in active.initiatives.all()}
+    assert statuses == {'planned', 'in_progress', 'done'}
+    assert 0 < active.progress < 100
+    assert active.overdue_count > 0
+
+
+def test_seeded_draft_roadmap_has_not_started(seeded_roadmaps):
+    draft = Roadmap.query.filter_by(status='draft').one()
+    assert {i.status for i in draft.initiatives.all()} == {'planned'}
+    assert draft.progress == 0
+
+
+def test_seeded_roadmaps_render(auth_client, seeded_roadmaps):
+    """Guards against demo data the views cannot actually display."""
+    for roadmap in Roadmap.query.all():
+        assert auth_client.get(f'/roadmaps/{roadmap.id}').status_code == 200
+        assert auth_client.get(f'/roadmaps/{roadmap.id}/api/data').status_code == 200
+        assert auth_client.get(f'/roadmaps/{roadmap.id}/export').status_code == 200
+        for initiative in roadmap.initiatives.all():
+            assert auth_client.get(
+                f'/roadmaps/{roadmap.id}/initiatives/{initiative.id}').status_code == 200

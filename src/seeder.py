@@ -10,15 +10,163 @@ from .models import (
     EmailTemplate, NotificationEvent, Change, Request,
     SecurityActivity, ActivityExecution,
     OnboardingPack, PackItem, ProcessTemplate,
-    OnboardingProcess, OffboardingProcess, ProcessItem, PackCommunication
+    OnboardingProcess, OffboardingProcess, ProcessItem, PackCommunication,
+    Roadmap, RoadmapPeriod, RoadmapGoal, RoadmapInitiative, RoadmapDependency
 )
 from .models.assets import Brand, AssetModel
 from .models.hiring import HiringStage, Candidate
+from .services.roadmaps_service import recompute_dates
 from . import create_app
 from src.utils.timezone_helper import now, today
 
 
 fake = Faker()
+
+def seed_roadmaps(users):
+    """Seed two demo roadmaps: an active one mid-flight and a draft for next year.
+
+    Kept out of seed_data so it can be exercised on its own, and so the step arithmetic
+    stays readable instead of being buried in a 1500-line function.
+    """
+    print("Creating roadmaps...")
+
+    def _quarter(year, quarter):
+        """Calendar bounds of a quarter, as (label, start, end)."""
+        first_month = (quarter - 1) * 3 + 1
+        start = date(year, first_month, 1)
+        end = (date(year, 12, 31) if quarter == 4
+               else date(year, first_month + 3, 1) - timedelta(days=1))
+        return f'Q{quarter} {year}', start, end
+
+    def _build(name, description, status, owner, quarters, goals, initiatives, dependencies):
+        """Assemble a roadmap from plain tuples.
+
+        Steps are 1-based on a grid of four per quarter, so an initiative covering a whole
+        quarter runs from 4n+1 to 4n+4. Lags are derived from the positions given rather
+        than hardcoded, which keeps every dependency consistent with where its initiatives
+        actually sit — the same invariant cascade_reschedule maintains.
+        """
+        roadmap = Roadmap(name=name, description=description, status=status,
+                          owner_id=owner.id)
+        db.session.add(roadmap)
+        db.session.flush()
+
+        for position, (label, start, end) in enumerate(quarters):
+            db.session.add(RoadmapPeriod(roadmap_id=roadmap.id, label=label,
+                                         start_date=start, end_date=end,
+                                         position=position))
+
+        goal_rows = {}
+        for position, (goal_name, color) in enumerate(goals):
+            goal = RoadmapGoal(roadmap_id=roadmap.id, name=goal_name, color=color,
+                               position=position)
+            db.session.add(goal)
+            db.session.flush()
+            goal_rows[goal_name] = goal
+
+        initiative_rows = {}
+        for position, spec in enumerate(initiatives):
+            (goal_name, title, start_step, end_step, state, priority, progress, points,
+             is_new, ref) = spec
+            initiative = RoadmapInitiative(
+                goal_id=goal_rows[goal_name].id, name=title, start_step=start_step,
+                end_step=end_step, status=state, priority=priority, progress=progress,
+                points=points, is_new=is_new, external_ref=ref, position=position,
+                owner_id=owner.id)
+            db.session.add(initiative)
+            db.session.flush()
+            initiative_rows[title] = initiative
+
+        for predecessor_title, successor_title in dependencies:
+            predecessor = initiative_rows[predecessor_title]
+            successor = initiative_rows[successor_title]
+            db.session.add(RoadmapDependency(
+                predecessor_id=predecessor.id, successor_id=successor.id,
+                lag=successor.start_step - predecessor.end_step))
+
+        db.session.flush()
+        recompute_dates(roadmap)
+        return roadmap
+
+    # Anchored on the current year so the demo always straddles today: quarters already
+    # past carry overdue work, later ones are still planned.
+    year = today().year
+
+    _build(
+        name=f'IT & Security {year}-{year + 1}',
+        description=('Security and infrastructure programme for the current planning '
+                     'cycle. Owned by Engineering, reviewed quarterly.'),
+        status='active',
+        owner=users[0],                          # Alice Johnson, VP of Engineering
+        quarters=([_quarter(year, q) for q in (1, 2, 3, 4)] +
+                  [_quarter(year + 1, q) for q in (1, 2)]),
+        goals=[('Identity & Access', '#2E5F9E'),
+               ('Infrastructure resilience', '#2F9E5F'),
+               ('Compliance readiness', '#9E5F2E')],
+        # goal, name, start_step, end_step, status, priority, progress, points, new, ref
+        initiatives=[
+            ('Identity & Access', 'MFA rollout',
+             1, 4, 'done', 'high', 100, 8, False, 'ITSEC-101'),
+            ('Identity & Access', 'SSO migration',
+             5, 8, 'in_progress', 'high', 40, 13, False, 'ITSEC-102'),
+            ('Identity & Access', 'Privileged access review',
+             9, 12, 'planned', 'medium', 0, 5, True, 'ITSEC-103'),
+            ('Infrastructure resilience', 'Backup modernisation',
+             1, 6, 'in_progress', 'medium', 60, 8, False, 'ITSEC-104'),
+            ('Infrastructure resilience', 'DR test automation',
+             7, 10, 'planned', 'low', 0, 5, False, 'ITSEC-105'),
+            ('Infrastructure resilience', 'Network segmentation',
+             9, 16, 'planned', 'very_high', 0, 21, True, 'ITSEC-106'),
+            ('Compliance readiness', 'ISO 27001 gap analysis',
+             1, 2, 'done', 'medium', 100, 3, False, 'ITSEC-107'),
+            ('Compliance readiness', 'Policy refresh',
+             3, 6, 'in_progress', 'medium', 25, 5, False, 'ITSEC-108'),
+            ('Compliance readiness', 'Evidence automation',
+             17, 20, 'planned', 'high', 0, 13, True, 'ITSEC-109'),
+            ('Compliance readiness', 'Certification audit',
+             21, 24, 'planned', 'very_high', 0, 8, False, 'ITSEC-110'),
+        ],
+        # Evidence automation converges two chains, which is what makes the automatic
+        # rescheduling visible: it follows whichever predecessor ends later.
+        dependencies=[
+            ('MFA rollout', 'SSO migration'),
+            ('SSO migration', 'Privileged access review'),
+            ('Backup modernisation', 'DR test automation'),
+            ('ISO 27001 gap analysis', 'Policy refresh'),
+            ('Policy refresh', 'Evidence automation'),
+            ('Network segmentation', 'Evidence automation'),
+            ('Evidence automation', 'Certification audit'),
+        ],
+    )
+
+    _build(
+        name=f'Digital Workplace {year + 1}',
+        description='Draft plan for next year, not yet approved.',
+        status='draft',
+        owner=users[2],                          # Charlie Brown, Engineering Manager
+        quarters=[_quarter(year + 1, q) for q in (1, 2, 3, 4)],
+        goals=[('Collaboration tooling', '#5F2E9E'),
+               ('Endpoint experience', '#9E2E5F')],
+        initiatives=[
+            ('Collaboration tooling', 'Consolidate chat platforms',
+             1, 4, 'planned', 'high', 0, 13, True, 'DW-201'),
+            ('Collaboration tooling', 'Intranet refresh',
+             5, 8, 'planned', 'low', 0, 8, True, 'DW-202'),
+            ('Endpoint experience', 'Zero-touch provisioning',
+             1, 6, 'planned', 'high', 0, 13, True, 'DW-203'),
+            ('Endpoint experience', 'Laptop refresh wave 1',
+             7, 10, 'planned', 'medium', 0, 5, True, 'DW-204'),
+            ('Endpoint experience', 'Device health telemetry',
+             11, 14, 'planned', 'medium', 0, 8, True, 'DW-205'),
+        ],
+        dependencies=[
+            ('Consolidate chat platforms', 'Intranet refresh'),
+            ('Zero-touch provisioning', 'Laptop refresh wave 1'),
+            ('Laptop refresh wave 1', 'Device health telemetry'),
+        ],
+    )
+    db.session.commit()
+
 
 def seed_data(app=None):
     """Seeds the database with a comprehensive set of demo data."""
@@ -1391,5 +1539,7 @@ to wrap things up smoothly:</p>
         db.session.add_all(_make_offboarding_items(off_inprogress, completed_upto=2))
         db.session.add_all(_make_offboarding_items(off_completed, completed_upto=-1))
         db.session.commit()
+
+        seed_roadmaps(users)
 
         print("Database seeded successfully!")
