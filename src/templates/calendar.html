@@ -2,21 +2,20 @@
 {% block title %}Renewal Calendar - {{ super() }}{% endblock %}
 
 {% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/simple-calendar-js/simple-calendar-js.min.css') }}">
 <style>
-    .fc-event-main-frame {
+    /* SimpleCalendarJS customization */
+    .scjs .scjs-event {
         font-size: 12px;
         line-height: 1.4;
     }
-    .fc-event-title, .fc-event-cost {
-        /* This is the key change: forces each element to a new line */
-        display: block;
-    }
-    .fc-event-title {
+    .scjs-event-title {
         font-weight: bold;
     }
-    .fc-event-cost {
+    .scjs-event-cost {
         font-weight: normal;
         opacity: 0.8;
+        display: block;
     }
 </style>
 {% endblock %}
@@ -38,38 +37,52 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script src="{{ url_for('static', filename='vendor/fullcalendar/js/fullcalendar.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/simple-calendar-js/simple-calendar-js.min.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,listWeek'
+
+    // SimpleCalendarJS has no built-in OS/app theme detection; it toggles
+    // dark styles purely via the .uc-dark class, so sync it with OpsDeck's theme.
+    function syncCalendarTheme() {
+        const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        calendarEl.classList.toggle('uc-dark', isDark);
+    }
+    syncCalendarTheme();
+    window.addEventListener('themechange', syncCalendarTheme);
+
+    const calendar = new SimpleCalendarJs('#calendar', {
+        defaultView: 'month',
+        locale: 'es-ES',
+        fetchEvents: async (startDate, endDate) => {
+            // startDate/endDate are JS Date objects; format as YYYY-MM-DD
+            // (the backend rejects Date.toString() output like "Wed Nov 01 2025...")
+            const start = startDate.toISOString().slice(0, 10);
+            const end = endDate.toISOString().slice(0, 10);
+            const response = await fetch(`{{ url_for('subscriptions.calendar_events') }}?start=${start}&end=${end}`);
+            if (!response.ok) {
+                console.error('Failed to fetch calendar events');
+                return [];
+            }
+            const events = await response.json();
+
+            // SimpleCalendarJS reads .color (not backgroundColor) and filters out
+            // any event missing .end (t.end >= range.start fails on undefined), so
+            // every all-day single-date event needs an explicit end equal to start.
+            return events.map(event => ({
+                ...event,
+                color: event.backgroundColor,
+                end: event.start,
+                allDay: true
+            }));
         },
-        events: "{{ url_for('subscriptions.calendar_events') }}",
-        eventClick: function(info) {
-            info.jsEvent.preventDefault(); 
-            if (info.event.url) {
-                window.location.href = info.event.url;
+        onEventClick: (event) => {
+            if (event.url) {
+                window.location.href = event.url;
             }
         },
-        eventContent: function(arg) {
-            let props = arg.event.extendedProps;
-            let innerHtml = `
-                <div class="fc-event-main-frame">
-                    <div class="fc-event-title-container">
-                        <div class="fc-event-title fc-sticky">${props.name}</div>
-                    </div><br/>
-                    <div class="fc-event-cost">${props.cost_eur}</div>
-                </div>`;
-
-            return { html: innerHtml };
-        }
+        firstDayOfWeek: 1 // Monday as first day of week (EU default)
     });
-    calendar.render();
 });
 </script>
 {% endblock %}

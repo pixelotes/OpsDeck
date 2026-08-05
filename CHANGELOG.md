@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Grouped the three ticket types (Changes, Requests, Incidents) together in the sidebar
 - Cache static assets aggressively with mtime-based cache busting, and relaxed API rate limits
 - Disposal records now link their disposal partner to a Supplier record (previously free text), shown as a link on disposal/asset/peripheral detail. Migration backfills the link by matching the existing text to a supplier name; unmatched values are not preserved
+- **Renewal Calendar**: Replaced FullCalendar (v6) with SimpleCalendarJS. FullCalendar v7 dropped its global/IIFE bundle in favor of ESM-only builds, which our static-asset pipeline (script-tag based, no bundler) can't consume, and v6 has had no updates since December 2024. SimpleCalendarJS is a maintained, zero-dependency, script-tag-compatible alternative with a comparable feature set
+- Updated Node dependencies: @fortawesome/fontawesome-free, mermaid, simple-datatables, suneditor, swagger-ui-dist, tom-select (patch/minor bumps)
+- Updated Python dependencies: APScheduler, pytz, Markdown, slack_sdk, cryptography, boto3 (patch/minor bumps)
 
 ### Fixed
 - Evidence download links on change and request detail pages (used the filename instead of the attachment id, causing a routing error)
