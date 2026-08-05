@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from datetime import datetime
 from ..models import db
 from ..models.contracts import Contract, ContractItem
@@ -224,7 +224,7 @@ def delete_contract(id):
 # --- Helpers ---
 
 def _get_model_class(item_type):
-    from ..models.assets import Asset, License
+    from ..models.assets import License
     from ..models.procurement import Subscription
     from ..models.services import BusinessService
     

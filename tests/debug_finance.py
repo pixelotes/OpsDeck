@@ -1,5 +1,3 @@
-from src import db
-from src.models import Budget
 import traceback
 
 def test_purchase_cost_calculation(auth_client, app):

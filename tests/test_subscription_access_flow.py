@@ -75,7 +75,6 @@ class TestSubscriptionAccessFlow:
     def test_onboarding_integration(self, auth_client, init_database, setup_data):
         """Test onboarding flow with subscription pack item."""
         db = init_database
-        admin = setup_data['admin']
         subscription = setup_data['subscription']
 
         # 1. Create Pack with Subscription Item

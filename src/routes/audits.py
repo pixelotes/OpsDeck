@@ -773,7 +773,7 @@ def export_defense_pack(id):
     from flask import send_file
     import os
 
-    audit = db.get_or_404(ComplianceAudit, id)
+    db.get_or_404(ComplianceAudit, id)  # 404s on an unknown audit
 
     try:
         # Generate the export pack

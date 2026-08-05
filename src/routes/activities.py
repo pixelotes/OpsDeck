@@ -2,7 +2,7 @@ import os
 import uuid
 from werkzeug.utils import secure_filename
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, jsonify
-from datetime import datetime, date
+from datetime import datetime
 from ..models import db, SecurityActivity, ActivityExecution, User, Group, Tag, Attachment, ActivityRelatedObject
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission

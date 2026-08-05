@@ -1,6 +1,5 @@
 import logging
 from flask import current_app, request, has_request_context
-from datetime import datetime
 
 def log_audit(event_type, action, target_object=None, outcome='success', **kwargs):
     """

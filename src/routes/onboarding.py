@@ -156,7 +156,7 @@ def add_pack_communication(pack_id):
         flash('Write access required to add communications.', 'danger')
         return redirect(url_for(PACK_DETAIL, id=pack_id))
     """Add a communication rule to a pack."""
-    pack = db.get_or_404(OnboardingPack, pack_id)
+    db.get_or_404(OnboardingPack, pack_id)  # 404s on an unknown pack
     
     template_id = request.form.get('template_id')
     offset_days = request.form.get('offset_days', 0)
@@ -872,7 +872,7 @@ def add_user_to_course(process_id, item_id):
     if not has_write_permission(MODULE):
         flash('Write access required to add user to course.', 'danger')
         return redirect(url_for(_EP_ONBOARDING, id=process_id))
-    from datetime import date, timedelta
+    from datetime import timedelta
     from ..models import CourseAssignment
     
     process = db.get_or_404(OnboardingProcess, process_id)

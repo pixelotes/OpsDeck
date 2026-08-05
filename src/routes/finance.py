@@ -65,12 +65,6 @@ def exchange_rates():
                 'values': [round(r.rate, 4) for r in rates]
             }
     
-    # Get all current rates (latest only)
-    latest_rates = db.session.query(ExchangeRate)\
-        .distinct(ExchangeRate.currency_code)\
-        .order_by(ExchangeRate.currency_code, ExchangeRate.fetched_at.desc())\
-        .all()
-    
     # Get latest rate for each currency
     current_rates = {}
     all_currencies = db.session.query(ExchangeRate.currency_code).distinct().all()

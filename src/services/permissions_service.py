@@ -1,11 +1,9 @@
-from flask import session, redirect, url_for, flash, request, abort, render_template, jsonify
+from flask import session, redirect, url_for, flash, request, render_template, jsonify
 from functools import wraps
-from ..models import db, User, Group, Permission, Module, AccessLevel
+from ..models import db, User, Permission, Module, AccessLevel
 from .permissions_cache import permissions_cache
 
-from src.utils.logger import log_audit
 import logging
-import sys
 
 # Configure logger
 logger = logging.getLogger(__name__)

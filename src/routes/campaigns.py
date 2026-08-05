@@ -477,7 +477,7 @@ def retry_failed(id):
     Reset all failed communications for this campaign to pending,
     allowing them to be retried by the communications queue processor.
     """
-    campaign = db.get_or_404(Campaign, id)
+    db.get_or_404(Campaign, id)  # 404s on an unknown campaign
     
     # Find all failed communications for this campaign
     failed_comms = ScheduledCommunication.query.filter_by(

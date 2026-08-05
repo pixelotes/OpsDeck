@@ -4,7 +4,6 @@ Notification Event Configuration Model
 Maps system events (like license expiry, subscription renewal) to email templates,
 allowing admins to configure which notifications are enabled and which templates to use.
 """
-from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
 

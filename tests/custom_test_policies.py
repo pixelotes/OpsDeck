@@ -1,4 +1,3 @@
-import pytest
 from src.models import User, Policy, PolicyVersion, db, PolicyAcknowledgement
 from src.utils.timezone_helper import today
 
@@ -28,7 +27,6 @@ def test_my_policies_flow(client, app):
         db.session.add(version)
         db.session.commit()
         
-        user_id = user.id
         version_id = version.id
 
     # Login

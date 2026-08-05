@@ -1,7 +1,7 @@
 # src/api.py
 from flask import request, current_app, jsonify, g
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from flask_smorest import Blueprint
 from .extensions import db
 from .models import User, Asset, Peripheral, License, Subscription
 from .models.services import BusinessService

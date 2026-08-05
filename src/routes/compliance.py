@@ -6,7 +6,6 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from datetime import datetime
 from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, AssetInventory, AssetInventoryItem, Asset, BCDRPlan, BCDRTestLog, Subscription, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog, Attachment, Framework, FrameworkControl, ComplianceLink, ComplianceRule, Risk, Policy
 from ..models.activities import SecurityActivity
-from ..models.communications import Campaign
 from ..models.core import Tag
 from ..models.uar import UARComparison, UARExecution, UARFinding
 from ..models.services import BusinessService
@@ -492,7 +491,7 @@ def get_all_tags():
             'id': t.id,
             'name': t.name
         } for t in tags])
-    except Exception as e:
+    except Exception:
         return jsonify([]), 500
 
 @compliance_bp.route('/json/maintenance-types', methods=['GET'])
@@ -2105,9 +2104,7 @@ def drift_dashboard():
     """
     Compliance drift detection dashboard showing timeline and regressions.
     """
-    from ..services.compliance_drift_service import get_drift_detector
 
-    detector = get_drift_detector()
 
     # Get all active frameworks
     frameworks = Framework.query.filter_by(is_active=True).all()

@@ -1,9 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from .main import login_required
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import requires_permission
 from ..extensions import db
 from ..models.configuration import Configuration, ConfigurationVersion
-from ..models import User
 from ..utils.differ import get_semantic_diff
 import json
 

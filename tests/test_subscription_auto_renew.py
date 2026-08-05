@@ -4,8 +4,7 @@ Tests for Subscription auto_renew flag behavior
 Verifies that the auto_renew flag is properly respected in renewal calculations.
 """
 import pytest
-from datetime import date, timedelta
-from dateutil.relativedelta import relativedelta
+from datetime import timedelta
 
 from src.models.procurement import Subscription, Supplier
 from src.extensions import db

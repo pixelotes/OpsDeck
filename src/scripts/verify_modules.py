@@ -1,5 +1,5 @@
 from src import create_app
-from src.models import db, Module
+from src.models import Module
 
 def verify():
     app = create_app()

@@ -1,9 +1,8 @@
-from datetime import datetime, date
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
-from .core import Attachment, Tag
+from .core import Attachment
 from .auth import User
 from src.utils.timezone_helper import today, now
 

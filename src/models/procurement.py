@@ -1,5 +1,5 @@
 import calendar
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import foreign, validates
 from sqlalchemy import and_

@@ -1,4 +1,4 @@
-from src.models.services import ServiceDependency, BusinessService
+from src.models.services import ServiceDependency
 
 
 def get_full_dependency_tree(root_service, direction='upstream', visited=None, edges=None):

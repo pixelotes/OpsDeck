@@ -2,7 +2,6 @@ import os
 import uuid
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, send_from_directory
 from werkzeug.utils import secure_filename
-from datetime import date
 from ..extensions import db
 from ..models.hiring import HiringStage, Candidate
 from ..models.onboarding import OnboardingProcess
@@ -32,7 +31,7 @@ def board():
     stages = HiringStage.query.order_by(HiringStage.order).all()
 
     # Filter 'Hired' and 'Rejected' candidates > 15 days
-    from datetime import datetime, timedelta
+    from datetime import timedelta
     cutoff_date = now() - timedelta(days=15)
 
     for stage in stages:
@@ -411,7 +410,7 @@ def move_candidate():
             flash(f'🎉 Candidate "{candidate.name}" hired! Onboarding process initiated.', 'success')
             return jsonify({'status': 'success', 'action': 'onboarding_started'})
         else:
-            flash(f'Candidate moved to Hired. (Onboarding already exists)', 'info')
+            flash('Candidate moved to Hired. (Onboarding already exists)', 'info')
     
     return jsonify({'status': 'success'})
 
@@ -431,11 +430,14 @@ def manage_stages():
 @login_required
 @requires_permission(MODULE)
 def new_stage():
+    """Create a new hiring stage."""
     if not has_write_permission(MODULE):
         flash('Write access required to create stages.', 'danger')
         return redirect(url_for(MANAGE_STAGES))
-    """Create a new hiring stage."""
-    
+
+    name = request.form.get('name', '').strip()
+    is_hired_stage = 'is_hired_stage' in request.form
+
     if not name:
         flash('Stage name is required.', 'danger')
         return redirect(url_for(MANAGE_STAGES))

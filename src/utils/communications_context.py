@@ -4,10 +4,9 @@ Communications Context Factory
 Builds context dictionaries for Jinja2 template rendering based on
 the target process type.
 """
-from datetime import datetime
 from ..extensions import db
 from ..models.onboarding import OnboardingProcess, OffboardingProcess
-from src.utils.timezone_helper import now, today
+from src.utils.timezone_helper import today
 
 
 

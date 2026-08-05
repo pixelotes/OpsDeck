@@ -6,13 +6,13 @@ saved searches, and result previews.
 """
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Query
 from ..extensions import db
 from ..models.auth import User
 from ..models.assets import Asset
 from ..models.uar import UARExecution, UARFinding
-from ..models.security import Framework, FrameworkControl, ComplianceRule, SecurityIncident
+from ..models.security import FrameworkControl, SecurityIncident
 from ..models.procurement import Supplier, Subscription
 from ..models.services import BusinessService
 from src.utils.timezone_helper import now

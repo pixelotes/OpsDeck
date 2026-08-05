@@ -7,7 +7,7 @@ from .models import (
     BCDRPlan, BCDRTestLog, Course, CourseAssignment, Group, Policy, PolicyVersion, Opportunity,
     Documentation, Link, Software, License, Framework, FrameworkControl, ComplianceLink, ComplianceRule,
     BusinessService, ServiceComponent, ComplianceAudit, Contact, RiskAssessment,
-    EmailTemplate, NotificationEvent, Change, Request,
+    EmailTemplate, Change, Request,
     SecurityActivity, ActivityExecution,
     OnboardingPack, PackItem, ProcessTemplate,
     OnboardingProcess, OffboardingProcess, ProcessItem, PackCommunication,

@@ -219,7 +219,7 @@ def add_action(id):
         flash('Write access required to add actions.', 'danger')
         return redirect(url_for(DETAIL, id=id))
 
-    requirement = db.get_or_404(Requirement, id)
+    db.get_or_404(Requirement, id)  # 404s on an unknown requirement
     action_type = request.form.get('action_type', 'Note')
     description = request.form.get('description')
 

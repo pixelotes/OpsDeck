@@ -39,12 +39,20 @@ jobs:
           exit-code: '1' # Fail the pipeline if vulns are found
           severity: 'CRITICAL,HIGH' # Only look for these severities
 
-      # Step 5: Run unit tests (SQLite in-memory, no DB required)
+      # Step 5: Static analysis (config and rule rationale in pyproject.toml)
+      - name: Lint (ruff)
+        run: |
+          ruff check src tests
+
+      # Step 6: Run unit tests (SQLite in-memory, no DB required)
+      # Coverage floor lives in pyproject.toml under [tool.coverage.report]; the run
+      # fails if it drops below it.
       - name: Run unit tests
         env:
           PYTHONPATH: ./src
         run: |
-          pytest --disable-warnings --ignore=tests/test_migrations.py
+          pytest --disable-warnings --ignore=tests/test_migrations.py \
+            --cov=src --cov-report=term-missing
 
   integration:
     runs-on: ubuntu-latest

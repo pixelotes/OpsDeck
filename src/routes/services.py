@@ -1,5 +1,4 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
-from flask_login import current_user
 from ..services.permissions_service import requires_permission, has_write_permission
 from ..models.services import BusinessService, ServiceComponent, ServiceDependency, DependencyType
 from ..models.auth import User
@@ -16,7 +15,6 @@ from ..utils.dependency_graph import get_full_dependency_tree
 import os
 import uuid
 
-from ..services.permissions_service import requires_permission
 from .main import login_required
 
 services_bp = Blueprint('services', __name__, 

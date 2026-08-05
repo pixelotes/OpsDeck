@@ -2,7 +2,7 @@ from flask import (
     Blueprint, render_template, request, url_for
 )
 # --- UPDATED: Import Asset, Peripheral, License ---
-from ..models import Location, User, Supplier, Asset, Peripheral
+from ..models import Location, User, Supplier
 from .main import login_required
 
 treeview_bp = Blueprint('treeview', __name__)

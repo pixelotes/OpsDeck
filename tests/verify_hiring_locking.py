@@ -16,7 +16,7 @@ def test_stage_locking():
         # Note: The actual check is in the route, so this unit test just verifies the concept
         # or we can use the test client to hit the route.
         
-        with app.test_client() as client:
+        with app.test_client():
             # Login as admin (mock or use specific test user if setup)
             # For simplicity, we'll assume the route protection works if we read the code, 
             # but let's try to query the database to see they stick around.

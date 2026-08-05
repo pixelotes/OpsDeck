@@ -5,7 +5,6 @@ Provides a flexible, polymorphic system for managing email templates and
 scheduled communications for HR processes (Onboarding, Offboarding) with 
 extensibility for mass campaigns and security bulletins.
 """
-from datetime import datetime
 from ..extensions import db
 from .constants import LAZY_DYNAMIC
 from src.utils.timezone_helper import now, today
@@ -248,7 +247,6 @@ class Campaign(db.Model):
         # ongoing → finished: All emails processed (no pending, no failed needing retry)
         if self.status == 'ongoing':
             # Check if there are any pending retries among failed emails
-            from sqlalchemy import and_
             pending_retries = ScheduledCommunication.query.filter(
                 ScheduledCommunication.target_type == 'campaign',
                 ScheduledCommunication.target_id == self.id,

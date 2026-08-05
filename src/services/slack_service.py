@@ -122,7 +122,6 @@ class SlackService:
             return None
         
         try:
-            from slack_sdk.errors import SlackApiError
             
             response = client.users_lookupByEmail(email=email)
             
@@ -172,7 +171,6 @@ class SlackService:
             return False
         
         try:
-            from slack_sdk.errors import SlackApiError
             
             response = client.chat_postMessage(
                 channel=target_id,

@@ -1,0 +1,51 @@
+# Tooling configuration. The project is packaged as a container, not as a
+# distribution, so there is no [project] table here — only tool settings.
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["migrations/versions", "src/static", "node_modules"]
+
+[tool.ruff.lint]
+# Deliberately narrow. The codebase had never been linted, and a broad rule set
+# reports over six thousand findings — a gate nobody can turn green is a gate that
+# gets disabled. These are the rules that catch mistakes rather than style:
+#   E9  syntax and indentation errors
+#   F   pyflakes: undefined names, unused imports and variables, redefinitions
+#
+# F821 (undefined name) alone found two live crashes when this was introduced: a
+# hiring-stage route that never read its form, and a decorator calling abort()
+# without importing it.
+#
+# Widening this list is the intended next step, one rule family at a time, each
+# with its cleanup in its own commit. Candidates in rough order of value: B
+# (bugbear), SIM, C4, UP.
+select = ["E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Package __init__ modules exist to re-export, so "unused" is what they are for.
+"**/__init__.py" = ["F401", "F403", "F405"]
+# The models package deliberately star-imports each domain module so that
+# `from src.models import X` works for every model without listing hundreds of names.
+"src/models/__init__.py" = ["F401", "F403", "F405"]
+# Test helpers assert on imported fixtures and symbols that ruff cannot see as used.
+"tests/conftest.py" = ["F401"]
+
+[tool.coverage.run]
+source = ["src"]
+# Alembic revisions are exercised by tests/test_migrations.py against a real database,
+# not by the unit suite, so counting them would misreport the floor either way.
+omit = ["src/scripts/*"]
+
+[tool.coverage.report]
+# A floor to ratchet upward, not a target. It sits one point under the measured 55% so
+# a genuine regression fails the build while ordinary noise does not. Raise it whenever
+# coverage climbs; never lower it to make a build pass.
+fail_under = 54
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

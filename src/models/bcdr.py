@@ -1,10 +1,7 @@
-from datetime import datetime, date
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
-from .core import Tag
-from .auth import User
 from src.utils.timezone_helper import today, now
 
 # --- Association Tables for BCDR ---

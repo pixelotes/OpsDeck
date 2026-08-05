@@ -1,7 +1,5 @@
-from src.models import Configuration, ConfigurationVersion, User
-from src import db
+from src.models import Configuration, User
 import json
-from sqlalchemy import inspect
 
 def test_configuration_lifecycle(auth_client, app):
     """

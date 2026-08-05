@@ -1,7 +1,5 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file
-from .main import login_required
 from ..models import db, RiskAssessment, RiskAssessmentItem, Risk
-from datetime import datetime
 from ..services.permissions_service import requires_permission, has_write_permission
 import io
 from src.utils.timezone_helper import now

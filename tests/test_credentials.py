@@ -12,7 +12,7 @@ from src import create_app
 from src.models import db, User
 from src.models.credentials import Credential, CredentialSecret
 from datetime import timedelta
-from src.utils.timezone_helper import now, today
+from src.utils.timezone_helper import now
 
 def run_credentials_test():
     """Test the credentials functionality"""

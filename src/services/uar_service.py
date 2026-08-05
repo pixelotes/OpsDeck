@@ -4,7 +4,7 @@ UAR Automation Service
 Handles execution of automated User Access Review comparisons,
 alert processing, and incident creation.
 """
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 from flask import current_app, url_for, Flask
 from ..extensions import db
@@ -688,4 +688,4 @@ def run_scheduled_uar_comparisons(app: Flask) -> None:
                 current_app.logger.error(f"[UAR] Failed to execute comparison {comparison.id}: {e}", exc_info=True)
 
         db.session.commit()
-        current_app.logger.info(f"[UAR] Scheduled UAR comparisons completed")
+        current_app.logger.info("[UAR] Scheduled UAR comparisons completed")

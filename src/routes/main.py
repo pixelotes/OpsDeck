@@ -1,17 +1,17 @@
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
+    Blueprint, render_template, request, redirect, url_for, flash, session, jsonify,
+    current_app, abort
 )
 import os
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
-from markupsafe import Markup
 from functools import wraps
-from datetime import date, timedelta, datetime
+from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from ..models import db, User, UserKnownIP, Subscription, NotificationSetting, Asset, Supplier, Contact, Purchase, Peripheral, Location, PaymentMethod, License, MaintenanceLog
-from ..models.security import SecurityIncident, Risk, Framework, FrameworkControl
-from ..models.credentials import Credential, CredentialSecret
-from ..models.certificates import Certificate, CertificateVersion
+from ..models.security import SecurityIncident, Risk, Framework
+from ..models.credentials import CredentialSecret
+from ..models.certificates import CertificateVersion
 from ..models.audits import ComplianceAudit
 from ..services.permissions_service import requires_permission, get_user_modules, user_has_module_access
 from ..services.finance_service import renewal_occurrences_in_range
@@ -1054,7 +1054,7 @@ def my_dashboard():
     ).all()
 
     # ----- PENDING CREDENTIALS (those expiring soon shared with me) -----
-    from ..models.credentials import CredentialSecret, Credential
+    from ..models.credentials import CredentialSecret
     expiring_credentials = []
     try:
         # Get credentials where user has access

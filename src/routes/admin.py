@@ -1,9 +1,8 @@
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, session, Response
+    Blueprint, render_template, request, redirect, url_for, flash, Response
 )
 from ..models import db, User
 from .main import login_required
-from functools import wraps
 from src.utils.logger import log_audit
 
 from ..services.permissions_service import requires_permission, has_write_permission

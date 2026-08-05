@@ -173,7 +173,6 @@ class ComplianceAudit(db.Model):
             evidence_months: Number of months to look back for evidence
             sample_size: Optional limit on evidence items per control (random sample)
         """
-        from .security import ComplianceRule
         from ..services.compliance_service import get_compliance_evaluator
         
         evaluator = get_compliance_evaluator()
@@ -234,7 +233,7 @@ class ComplianceAudit(db.Model):
         Returns:
             datetime or date object, or None if not found
         """
-        from datetime import datetime, date
+        from datetime import date
         
         date_field_map = {
             'ActivityExecution': 'execution_date',

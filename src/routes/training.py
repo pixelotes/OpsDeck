@@ -1,7 +1,7 @@
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, session
 )
-from datetime import date, timedelta, datetime
+from datetime import timedelta, datetime
 from ..models import db, Course, User, Group, CourseAssignment, CourseCompletion, Attachment
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission

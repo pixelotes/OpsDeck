@@ -1,4 +1,3 @@
-from datetime import datetime
 from src.utils.timezone_helper import now
 from werkzeug.security import generate_password_hash, check_password_hash
 from ..extensions import db
@@ -90,19 +89,16 @@ class User(db.Model, CustomPropertiesMixin): # Add UserMixin here if using Flask
         errors = []
 
         # Check for active assets
-        from .assets import Asset
         active_assets = [a for a in self.assets if not a.is_archived]
         if active_assets:
             errors.append(f"User has {len(active_assets)} active asset(s) assigned")
 
         # Check for active peripherals
-        from .assets import Peripheral
         active_peripherals = [p for p in self.peripherals if not p.is_archived]
         if active_peripherals:
             errors.append(f"User has {len(active_peripherals)} active peripheral(s) assigned")
 
         # Check for active licenses
-        from .assets import License
         active_licenses = [l for l in self.licenses if not l.is_archived]
         if active_licenses:
             errors.append(f"User has {len(active_licenses)} active license(s) assigned")

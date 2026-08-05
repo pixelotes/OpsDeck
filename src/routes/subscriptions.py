@@ -1,9 +1,9 @@
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, jsonify
 )
-from datetime import datetime, date
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from ..models import db, Subscription, Supplier, Contact, PaymentMethod, Tag, CostHistory, Software, Budget, User
+from ..models import db, Subscription, Supplier, Contact, PaymentMethod, Tag, Software, Budget, User
 from ..models.procurement import log_subscription_cost_change
 from ..services.finance_service import get_conversion_rate
 from ..services.permissions_service import requires_permission, has_write_permission

@@ -4,7 +4,7 @@ from flask import (
 from ..models import db
 from ..models.assets import Brand, AssetModel, Asset, Peripheral
 from .main import login_required
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import requires_permission
 from src.utils.logger import log_audit
 
 

@@ -1,6 +1,4 @@
 """Tests for Organization Settings feature."""
-import pytest
-from src import db
 from src.models import OrganizationSettings
 
 

@@ -6,7 +6,6 @@ Unified search interface with faceted filtering across all entity types.
 from flask import Blueprint, render_template, request, jsonify, session
 from datetime import datetime
 from ..services.search_service import get_search_service
-from ..services.permissions_service import requires_permission
 from .main import login_required
 
 search_bp = Blueprint('search', __name__)
@@ -189,8 +188,6 @@ def api_get_suggestions():
     Returns:
         JSON list of suggestions
     """
-    query = request.args.get('q', '').strip()
-    entity_type = request.args.get('entity_type', 'assets')
 
     # TODO: Implement intelligent suggestions based on entity type
     # For now, return empty list

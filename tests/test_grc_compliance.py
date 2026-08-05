@@ -5,9 +5,8 @@ from src.models import (
     User, Policy, PolicyVersion, PolicyAcknowledgement, 
     Course, CourseAssignment, CourseCompletion, Attachment
 )
-from flask import session
 from datetime import timedelta
-from src.utils.timezone_helper import now, today
+from src.utils.timezone_helper import now
 
 # --- Tests 5, 6: Policies ---
 

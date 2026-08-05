@@ -3,7 +3,6 @@
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, jsonify
 )
-from .main import login_required
 from src.models import db, Framework, FrameworkControl
 from sqlalchemy.exc import IntegrityError
 from ..services.permissions_service import requires_permission, has_write_permission

@@ -1,4 +1,3 @@
-from datetime import datetime
 from src.utils.timezone_helper import now
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_

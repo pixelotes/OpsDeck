@@ -424,7 +424,6 @@ def create_app(test_config=None):
     app.register_blueprint(onboarding_bp, url_prefix='/onboarding')
     from .routes.risk_assessment import risk_assessment_bp
     app.register_blueprint(risk_assessment_bp)
-    from .routes.credentials import credentials_bp
     from .routes.certificates import certificates_bp
     app.register_blueprint(credentials_bp)
     app.register_blueprint(certificates_bp)
@@ -1055,7 +1054,7 @@ def create_app(test_config=None):
                 warnings = summary.get('warnings', 0)
                 recommendations = summary.get('recommendations', 0)
                 
-                print(f"\nSummary:")
+                print("\nSummary:")
                 if critical > 0:
                     print(f"  🔴 Critical Issues: {critical}")
                 if warnings > 0:
@@ -1067,7 +1066,7 @@ def create_app(test_config=None):
                     print("  ✅ No critical issues or warnings found")
                 
                 # Show detailed checks
-                print(f"\nDetailed Checks:")
+                print("\nDetailed Checks:")
                 print("-" * 60)
                 
                 checks = data.get('checks', {})
@@ -1092,7 +1091,7 @@ def create_app(test_config=None):
                 # Show warnings
                 warnings_list = data.get('warnings', [])
                 if warnings_list:
-                    print(f"\n⚠️  Warnings:")
+                    print("\n⚠️  Warnings:")
                     print("-" * 60)
                     for warning in warnings_list:
                         print(f"  • {warning}")
@@ -1100,7 +1099,7 @@ def create_app(test_config=None):
                 # Show recommendations
                 recommendations_list = data.get('recommendations', [])
                 if recommendations_list:
-                    print(f"\n💡 Recommendations:")
+                    print("\n💡 Recommendations:")
                     print("-" * 60)
                     for rec in recommendations_list:
                         print(f"  • {rec}")

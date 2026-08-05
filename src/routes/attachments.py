@@ -6,7 +6,7 @@ from flask import (
 from werkzeug.utils import secure_filename
 from .main import login_required
 from ..models import db, Attachment
-from ..services.permissions_service import has_write_permission, requires_permission
+from ..services.permissions_service import has_write_permission
 from ..utils.redirects import safe_redirect_target
 
 attachments_bp = Blueprint('attachments', __name__)

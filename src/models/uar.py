@@ -1,9 +1,6 @@
-from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
-from .auth import User
-from .security import SecurityIncident
 
 
 class UARComparison(db.Model):

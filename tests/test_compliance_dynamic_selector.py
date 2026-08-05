@@ -1,6 +1,4 @@
-import pytest
-from flask import url_for
-from src.models import db, Asset, Policy, Risk, User, Supplier
+from src.models import db, Asset, Policy
 
 def test_linkable_objects_endpoint_auth(client):
     """Ensure endpoint requires authentication."""
