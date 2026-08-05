@@ -90,3 +90,72 @@ def test_create_stage_requires_the_module(client, app, init_database):
     assert response.status_code == 302
     with app.app_context():
         assert HiringStage.query.count() == 0
+
+
+# --- deletion guards ---------------------------------------------------------
+#
+# These replace tests/verify_hiring_locking.py, a script that ran against the real
+# database, printed its findings and asserted nothing — its own comments conceded it
+# was "assuming the route protection works if we read the code". The protection is
+# real, so it is worth testing rather than assuming.
+
+def test_delete_stage(auth_client, app, init_database):
+    auth_client.post('/hr/hiring/stages/new', data={'name': 'Take-home task'},
+                     follow_redirects=True)
+    with app.app_context():
+        stage_id = HiringStage.query.filter_by(name='Take-home task').one().id
+
+    auth_client.post(f'/hr/hiring/stages/{stage_id}/delete', follow_redirects=True)
+    with app.app_context():
+        assert db.session.get(HiringStage, stage_id) is None
+
+
+def test_system_stages_cannot_be_deleted(auth_client, app, init_database):
+    """Applied/Offer/Hired/Rejected carry pipeline semantics the app depends on."""
+    protected = ['Applied', 'Offer', 'Hired', 'Rejected']
+    with app.app_context():
+        db.session.add_all(HiringStage(name=name, order=index)
+                           for index, name in enumerate(protected))
+        db.session.commit()
+        ids = {s.name: s.id for s in HiringStage.query.all()}
+
+    for name in protected:
+        response = auth_client.post(f'/hr/hiring/stages/{ids[name]}/delete',
+                                    follow_redirects=True)
+        assert response.status_code == 200
+
+    with app.app_context():
+        assert HiringStage.query.count() == len(protected)
+
+
+def test_a_stage_with_candidates_cannot_be_deleted(auth_client, app, init_database):
+    """Deleting it would orphan the candidates sitting in that column."""
+    from src.models.hiring import Candidate
+
+    with app.app_context():
+        stage = HiringStage(name='Screening', order=0)
+        db.session.add(stage)
+        db.session.flush()
+        db.session.add(Candidate(name='Ada Lovelace', email='ada@test.com',
+                                 stage_id=stage.id))
+        db.session.commit()
+        stage_id = stage.id
+
+    auth_client.post(f'/hr/hiring/stages/{stage_id}/delete', follow_redirects=True)
+    with app.app_context():
+        assert db.session.get(HiringStage, stage_id) is not None
+
+
+def test_delete_stage_needs_write_access(client, app, init_database):
+    with app.app_context():
+        stage = HiringStage(name='Screening', order=0)
+        db.session.add(stage)
+        db.session.commit()
+        stage_id = stage.id
+
+    _grant(app, 'hrreader2@test.com', AccessLevel.READ_ONLY)
+    _login(client, 'hrreader2@test.com')
+
+    client.post(f'/hr/hiring/stages/{stage_id}/delete', follow_redirects=True)
+    with app.app_context():
+        assert db.session.get(HiringStage, stage_id) is not None
