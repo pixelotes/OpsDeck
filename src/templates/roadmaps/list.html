@@ -60,7 +60,7 @@
                 <tbody>
                     {% for roadmap in roadmaps %}
                     <tr>
-                        <td><a href="{{ url_for('roadmaps.edit_roadmap', id=roadmap.id) }}">{{ roadmap.name }}</a></td>
+                        <td><a href="{{ url_for('roadmaps.detail', id=roadmap.id) }}">{{ roadmap.name }}</a></td>
                         <td><span class="badge bg-{{ roadmap.status_color }}">{{ roadmap.status|replace('_', ' ')|title
                                 }}</span></td>
                         <td>

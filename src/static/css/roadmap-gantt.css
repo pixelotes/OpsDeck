@@ -1,0 +1,313 @@
+/*
+ * Roadmap Gantt view.
+ *
+ * Everything is expressed in Bootstrap's CSS variables, so the whole chart follows
+ * the app's light/dark theme without any JavaScript: switching data-bs-theme on
+ * <html> re-resolves these values. The only exception is the dependency overlay,
+ * whose stroke colours are applied imperatively on SVG elements — those are
+ * published here as --rg-* custom properties and read back by the script, so the
+ * palette still lives in one place.
+ */
+
+#roadmap-gantt {
+    --rg-label-width: 340px;
+    --rg-row-height: 42px;
+    --rg-bar-height: 26px;
+    --rg-dep-color: #8a94a3;
+    --rg-critical-color: #e5484d;
+    --rg-today-color: #d9480f;
+
+    position: relative;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+[data-bs-theme="dark"] #roadmap-gantt {
+    --rg-dep-color: #7d8797;
+    --rg-critical-color: #ff6b6e;
+    --rg-today-color: #ff922b;
+}
+
+#roadmap-gantt.rg-compact {
+    --rg-row-height: 30px;
+    --rg-bar-height: 18px;
+    --rg-label-width: 260px;
+}
+
+/* --- rows and header ---------------------------------------------------- */
+
+.rg-row {
+    display: grid;
+    align-items: stretch;
+    min-height: var(--rg-row-height);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.rg-row:last-child {
+    border-bottom: 0;
+}
+
+.rg-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--bs-body-bg);
+    border-bottom: 2px solid var(--bs-border-color);
+    font-weight: 600;
+}
+
+.rg-head .rg-period {
+    padding: 0.35rem 0.5rem;
+    border-left: 1px solid var(--bs-border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    font-size: 0.85rem;
+}
+
+.rg-head .rg-period small {
+    font-weight: 400;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.rg-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.5rem;
+    min-width: 0;
+    font-size: 0.9rem;
+}
+
+.rg-label .rg-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.rg-label .rg-name:hover {
+    text-decoration: underline;
+}
+
+.rg-sum {
+    background: var(--bs-tertiary-bg);
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color);
+}
+
+.rg-sum-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid var(--bs-border-color);
+}
+
+/* --- goal swimlane header ----------------------------------------------- */
+
+.rg-goal-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.6rem;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.rg-goal-header .rg-goal-name {
+    flex: 1 1 auto;
+}
+
+.rg-drop-target {
+    outline: 2px dashed var(--bs-primary);
+    outline-offset: -2px;
+}
+
+/* --- track and bars ----------------------------------------------------- */
+
+.rg-track {
+    position: relative;
+    min-width: 0;
+}
+
+.rg-cellgrid {
+    position: absolute;
+    inset: 0;
+    display: grid;
+}
+
+.rg-cellgrid > div {
+    border-left: 1px solid var(--bs-border-color);
+}
+
+.rg-cellgrid > div.rg-zebra {
+    background: var(--bs-tertiary-bg);
+}
+
+.rg-bar {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: var(--rg-bar-height);
+    border-radius: 4px;
+    overflow: visible;
+    cursor: default;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+#roadmap-gantt.rg-writable .rg-bar {
+    cursor: grab;
+}
+
+.rg-bar.rg-critical {
+    outline: 2px solid var(--rg-critical-color);
+    outline-offset: 1px;
+}
+
+.rg-bar-inner {
+    position: relative;
+    height: 100%;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rg-progress {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.rg-bar-text {
+    position: relative;
+    font-size: 0.7rem;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+    white-space: nowrap;
+}
+
+/* Resize handles and the dependency origin, only interactive when writable. */
+.rg-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 7px;
+    cursor: ew-resize;
+    display: none;
+}
+
+.rg-handle-l {
+    left: -1px;
+}
+
+.rg-handle-r {
+    right: -1px;
+}
+
+.rg-dep-handle {
+    position: absolute;
+    right: -13px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--bs-body-bg);
+    border: 2px solid var(--rg-dep-color);
+    cursor: crosshair;
+    display: none;
+}
+
+#roadmap-gantt.rg-writable .rg-handle,
+#roadmap-gantt.rg-writable .rg-dep-handle {
+    display: block;
+}
+
+.rg-bar:hover .rg-dep-handle {
+    border-color: var(--bs-primary);
+}
+
+/* --- badges in the label column ----------------------------------------- */
+
+.rg-grip {
+    cursor: grab;
+    color: var(--bs-secondary-color);
+    flex: 0 0 auto;
+}
+
+.rg-points {
+    flex: 0 0 auto;
+    font-size: 0.7rem;
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+}
+
+.rg-priority,
+.rg-flag {
+    flex: 0 0 auto;
+    font-size: 0.75rem;
+}
+
+.rg-row-actions {
+    flex: 0 0 auto;
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+.rg-row:hover .rg-row-actions {
+    opacity: 1;
+}
+
+/* --- overlays ----------------------------------------------------------- */
+
+#rg-dep-svg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+
+#rg-dep-svg path {
+    pointer-events: stroke;
+    cursor: pointer;
+}
+
+.rg-today-line {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    background: var(--rg-today-color);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.rg-today-label {
+    position: absolute;
+    top: 0;
+    left: 3px;
+    font-size: 0.65rem;
+    white-space: nowrap;
+    color: var(--rg-today-color);
+}
+
+.rg-empty {
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--bs-secondary-color);
+}
+
+.rg-dragging {
+    opacity: 0.45;
+}

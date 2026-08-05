@@ -1066,3 +1066,82 @@ def test_api_non_numeric_step_is_a_client_error(auth_client, app, init_database)
         json={'start_step': 'soon'})
     assert response.status_code == 400
     assert response.is_json
+
+
+# --- Gantt view (detail) -----------------------------------------------------
+
+def test_detail_renders_the_gantt_container(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.get(f'/roadmaps/{ids["roadmap_id"]}')
+
+    assert response.status_code == 200
+    body = response.data
+    assert b'API Roadmap' in body
+    assert b'id="roadmap-gantt"' in body
+    assert b'roadmap-gantt.js' in body
+    assert b'roadmap-gantt.css' in body
+
+
+def test_detail_passes_a_usable_api_base(auth_client, app, init_database):
+    """The container's api_base must match the real endpoint prefix."""
+    ids = _api_roadmap(app)
+    response = auth_client.get(f'/roadmaps/{ids["roadmap_id"]}')
+
+    expected = f'data-api-base="/roadmaps/{ids["roadmap_id"]}/api"'.encode()
+    assert expected in response.data
+    # And that prefix + /data is in fact served.
+    assert auth_client.get(f'/roadmaps/{ids["roadmap_id"]}/api/data').status_code == 200
+
+
+def test_detail_declares_write_access_for_a_writer(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    body = auth_client.get(f'/roadmaps/{ids["roadmap_id"]}').data
+
+    assert b'data-can-write="true"' in body
+    assert b'rg-goal-modal' in body
+
+
+def test_detail_is_read_only_without_write_access(client, app, init_database):
+    """Read-only users get the chart but no editing affordances at all."""
+    ids = _api_roadmap(app)
+    _grant(app, 'ganttreader@test.com', AccessLevel.READ_ONLY)
+    _login(client, 'ganttreader@test.com')
+
+    response = client.get(f'/roadmaps/{ids["roadmap_id"]}')
+    assert response.status_code == 200
+    body = response.data
+    assert b'data-can-write="false"' in body
+    assert b'rg-goal-modal' not in body
+    assert b'rg-panel-save' not in body
+    assert b'Read only' in body
+
+
+def test_detail_requires_the_module(client, app, init_database):
+    ids = _api_roadmap(app)
+    _grant(app, 'ganttoutsider@test.com', None)
+    _login(client, 'ganttoutsider@test.com')
+
+    assert client.get(f'/roadmaps/{ids["roadmap_id"]}').status_code == 302
+
+
+def test_detail_unknown_roadmap_is_404(auth_client, init_database):
+    assert auth_client.get('/roadmaps/999999').status_code == 404
+
+
+def test_detail_exposes_the_step_grid_size(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    body = auth_client.get(f'/roadmaps/{ids["roadmap_id"]}').data
+    assert f'data-steps-per-period="{STEPS_PER_PERIOD}"'.encode() in body
+
+
+def test_list_links_to_the_gantt(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    body = auth_client.get('/roadmaps/').data
+    assert f'href="/roadmaps/{ids["roadmap_id"]}"'.encode() in body
+
+
+def test_creating_a_roadmap_lands_on_the_gantt(auth_client, app, init_database):
+    response = auth_client.post('/roadmaps/new', data={'name': 'Landing'})
+    with app.app_context():
+        created = Roadmap.query.filter_by(name='Landing').first()
+    assert response.headers['Location'].endswith(f'/roadmaps/{created.id}')

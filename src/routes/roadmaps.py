@@ -160,9 +160,25 @@ def new_roadmap():
 
         log_audit('roadmap.created', 'create', target_object=f'Roadmap:{roadmap.id}')
         flash('Roadmap created successfully.', 'success')
-        return redirect(url_for('roadmaps.edit_roadmap', id=roadmap.id))
+        # Straight to the Gantt: the next step is adding goals, which happens there.
+        return redirect(url_for('roadmaps.detail', id=roadmap.id))
 
     return render_template('roadmaps/form.html', **_form_context())
+
+
+@roadmaps_bp.route('/<int:id>', methods=['GET'])
+@login_required
+@requires_permission(MODULE)
+def detail(id):
+    """The interactive Gantt view. Goals and initiatives are managed from here."""
+    roadmap = db.get_or_404(Roadmap, id)
+
+    # Derived from url_for rather than hardcoded, so it survives a change of prefix.
+    api_base = url_for('roadmaps.api_data', roadmap_id=roadmap.id)[:-len('/data')]
+
+    return render_template('roadmaps/detail.html', roadmap=roadmap, api_base=api_base,
+                           steps_per_period=STEPS_PER_PERIOD,
+                           default_goal_color=DEFAULT_GOAL_COLOR)
 
 
 @roadmaps_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
