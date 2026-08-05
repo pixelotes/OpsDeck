@@ -5,7 +5,7 @@ Covers the domain service (step↔date translation, dependency-graph guards,
 finish-to-start propagation, Gantt payload) and the roadmap CRUD routes with
 their RBAC enforcement.
 """
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -195,21 +195,46 @@ def test_shortcut_edge_is_not_a_cycle(roadmap):
 
 # --- cascade_reschedule ------------------------------------------------------
 
-def test_cascade_pushes_a_linear_chain_forward(roadmap):
-    goal = _goal(roadmap)
+@pytest.fixture
+def wide_roadmap(init_database):
+    """Six dated quarters (24 steps) and one goal.
+
+    Cascade behaviour and grid clamping are different concerns, so the tests for the
+    former use a roadmap with room to move: with the two-quarter fixture every chain
+    would immediately hit the end and the assertions would be about clamping instead.
+    """
+    rm = Roadmap(name='Wide', status='active')
+    db.session.add(rm)
+    db.session.flush()
+    for index in range(6):
+        year, quarter = (2027 + index // 4), (index % 4) + 1
+        first_month = (quarter - 1) * 3 + 1
+        start = date(year, first_month, 1)
+        end = (date(year, 12, 31) if quarter == 4
+               else date(year, first_month + 3, 1) - timedelta(days=1))
+        db.session.add(RoadmapPeriod(roadmap_id=rm.id, label=f'Q{quarter} {year}',
+                                     position=index, start_date=start, end_date=end))
+    db.session.add(RoadmapGoal(roadmap_id=rm.id, name='Goal', position=0))
+    db.session.commit()
+    return rm
+
+
+def test_cascade_pushes_a_linear_chain_forward(wide_roadmap):
+    goal = _goal(wide_roadmap)
     a, b = _initiative(goal, 'A', 1, 4), _initiative(goal, 'B', 5, 8)
     _link(a, b, lag=1)
 
     a.end_step = 8            # user stretched A
     db.session.flush()
-    moved = cascade_reschedule(a.id)
+    result = cascade_reschedule(a.id)
 
-    assert [m.id for m in moved] == [b.id]
+    assert [m.id for m in result.moved] == [b.id]
+    assert result.clamped == []
     assert (b.start_step, b.end_step) == (9, 12)
 
 
-def test_cascade_preserves_duration(roadmap):
-    goal = _goal(roadmap)
+def test_cascade_preserves_duration(wide_roadmap):
+    goal = _goal(wide_roadmap)
     a, b = _initiative(goal, 'A', 1, 4), _initiative(goal, 'B', 5, 12)
     _link(a, b, lag=1)
     original_duration = b.end_step - b.start_step
@@ -221,9 +246,9 @@ def test_cascade_preserves_duration(roadmap):
     assert b.end_step - b.start_step == original_duration
 
 
-def test_cascade_pulls_a_successor_back(roadmap):
+def test_cascade_pulls_a_successor_back(wide_roadmap):
     """The finish-to-start constraint is exact, so slack is closed too."""
-    goal = _goal(roadmap)
+    goal = _goal(wide_roadmap)
     a, b = _initiative(goal, 'A', 1, 4), _initiative(goal, 'B', 20, 23)
     _link(a, b, lag=1)
 
@@ -232,14 +257,14 @@ def test_cascade_pulls_a_successor_back(roadmap):
     assert (b.start_step, b.end_step) == (5, 8)
 
 
-def test_cascade_takes_the_latest_predecessor_on_a_diamond(roadmap):
+def test_cascade_takes_the_latest_predecessor_on_a_diamond(wide_roadmap):
     """Converging paths must resolve to the *latest* constraint, not the last one walked.
 
     X fans out to A (short) and B (long), and both feed D. A naive implementation
     that writes D once per predecessor lands it at 13 or 17 depending on traversal
     order; taking the maximum makes it deterministically 17.
     """
-    goal = _goal(roadmap)
+    goal = _goal(wide_roadmap)
     x = _initiative(goal, 'X', 1, 4)
     a = _initiative(goal, 'A', 5, 8)
     b = _initiative(goal, 'B', 5, 12)
@@ -259,17 +284,19 @@ def test_cascade_takes_the_latest_predecessor_on_a_diamond(roadmap):
     assert (d.start_step, d.end_step) == (17, 20)
 
 
-def test_cascade_is_stable_when_nothing_needs_moving(roadmap):
-    goal = _goal(roadmap)
+def test_cascade_is_stable_when_nothing_needs_moving(wide_roadmap):
+    goal = _goal(wide_roadmap)
     a, b = _initiative(goal, 'A', 1, 4), _initiative(goal, 'B', 5, 8)
     _link(a, b, lag=1)
 
-    assert cascade_reschedule(a.id) == []
+    result = cascade_reschedule(a.id)
+    assert result.moved == []
+    assert result.clamped == []
 
 
-def test_cascade_clamps_to_the_first_step(roadmap):
+def test_cascade_clamps_to_the_first_step(wide_roadmap):
     """A large negative lag must not push a successor off the start of the grid."""
-    goal = _goal(roadmap)
+    goal = _goal(wide_roadmap)
     a, b = _initiative(goal, 'A', 1, 4), _initiative(goal, 'B', 5, 8)
     _link(a, b, lag=-10)
 
@@ -278,26 +305,104 @@ def test_cascade_clamps_to_the_first_step(roadmap):
     assert (b.start_step, b.end_step) == (1, 4)
 
 
-def test_cascade_refreshes_planned_dates(roadmap):
-    goal = _goal(roadmap)
+def test_cascade_refreshes_planned_dates(wide_roadmap):
+    goal = _goal(wide_roadmap)
     a, b = _initiative(goal, 'A', 1, 4), _initiative(goal, 'B', 5, 8)
     _link(a, b, lag=1)
-    recompute_dates(roadmap)
-    assert b.planned_start_date == Q2_START
+    recompute_dates(wide_roadmap)
+    before = b.planned_start_date
 
     a.end_step = 8
     db.session.flush()
     cascade_reschedule(a.id)
 
-    # B now starts at step 9, i.e. beyond the last period, so its date clamps into
-    # Q2 — the point being that it moved rather than keeping the stale Q2_START.
     assert b.start_step == 9
-    assert b.planned_start_date != Q2_START
-    assert b.planned_start_date == step_bounds(9, roadmap.periods.all())[0]
+    assert b.planned_start_date != before
+    assert b.planned_start_date == step_bounds(9, wide_roadmap.periods.all())[0]
 
 
 def test_cascade_on_unknown_initiative_is_a_noop(init_database):
-    assert cascade_reschedule(999999) == []
+    result = cascade_reschedule(999999)
+    assert result.moved == []
+    assert result.clamped == []
+
+
+# --- cascade grid clamping ---------------------------------------------------
+
+def test_cascade_keeps_a_successor_inside_the_grid(roadmap):
+    """Two quarters is eight steps, so a chain that needs step 9 has to stop short."""
+    goal = _goal(roadmap)
+    a, b = _initiative(goal, 'A', 1, 4), _initiative(goal, 'B', 5, 8)
+    _link(a, b, lag=1)
+
+    a.end_step = 8            # B would need to start at 9, past the last step
+    db.session.flush()
+    result = cascade_reschedule(a.id)
+
+    # Latest start that still leaves room for B's four steps.
+    assert (b.start_step, b.end_step) == (5, 8)
+    assert [i.id for i in result.clamped] == [b.id]
+
+
+def test_clamping_preserves_duration_rather_than_truncating(roadmap):
+    goal = _goal(roadmap)
+    a, b = _initiative(goal, 'A', 1, 4), _initiative(goal, 'B', 5, 8)
+    _link(a, b, lag=1)
+    duration = b.end_step - b.start_step
+
+    a.end_step = 8
+    db.session.flush()
+    cascade_reschedule(a.id)
+
+    assert b.end_step - b.start_step == duration
+    assert b.end_step <= roadmap.period_count * STEPS_PER_PERIOD
+
+
+def test_clamping_reports_every_initiative_that_did_not_fit(roadmap):
+    """A whole chain squeezed against the end must all be reported, not just the first."""
+    goal = _goal(roadmap)
+    a = _initiative(goal, 'A', 1, 4)
+    b = _initiative(goal, 'B', 5, 8)
+    c = _initiative(goal, 'C', 5, 8, position=2)
+    _link(a, b, lag=1)
+    _link(b, c, lag=1)
+
+    a.end_step = 8
+    db.session.flush()
+    result = cascade_reschedule(a.id)
+
+    assert {i.id for i in result.clamped} == {b.id, c.id}
+
+
+def test_an_initiative_longer_than_the_roadmap_starts_at_the_beginning(roadmap):
+    """Nothing can make it fit, so the sane fallback is step 1 rather than a negative."""
+    goal = _goal(roadmap)
+    a = _initiative(goal, 'A', 1, 4)
+    b = _initiative(goal, 'B', 5, 40)          # 36 steps, grid is 8
+    _link(a, b, lag=1)
+
+    cascade_reschedule(a.id)
+
+    assert b.start_step == 1
+
+
+def test_cascade_does_not_clamp_when_there_are_no_periods(init_database):
+    """With no grid there is nothing to clamp against, so the constraint wins."""
+    rm = Roadmap(name='Gridless', status='draft')
+    db.session.add(rm)
+    db.session.flush()
+    goal = RoadmapGoal(roadmap_id=rm.id, name='Goal', position=0)
+    db.session.add(goal)
+    db.session.flush()
+    a, b = _initiative(goal, 'A', 1, 4), _initiative(goal, 'B', 5, 8)
+    _link(a, b, lag=1)
+
+    a.end_step = 8
+    db.session.flush()
+    result = cascade_reschedule(a.id)
+
+    assert (b.start_step, b.end_step) == (9, 12)
+    assert result.clamped == []
 
 
 # --- sync_dependency_lags ----------------------------------------------------
@@ -669,13 +774,21 @@ def test_sidebar_entry_is_gated_by_the_module(client, app, init_database):
 # --- API helpers -------------------------------------------------------------
 
 def _api_roadmap(app):
-    """A committed roadmap with one quarter, one goal and two initiatives."""
+    """A committed roadmap with two quarters, one goal and two initiatives.
+
+    Two periods, not one: the initiatives below occupy steps 1-8, and an eight-step grid
+    is what makes that a position the Gantt could actually have produced.
+    """
     with app.app_context():
         rm = Roadmap(name='API Roadmap', status='active')
         db.session.add(rm)
         db.session.flush()
-        db.session.add(RoadmapPeriod(roadmap_id=rm.id, label='Q1 2027', position=0,
-                                     start_date=Q1_START, end_date=Q1_END))
+        db.session.add_all([
+            RoadmapPeriod(roadmap_id=rm.id, label='Q1 2027', position=0,
+                          start_date=Q1_START, end_date=Q1_END),
+            RoadmapPeriod(roadmap_id=rm.id, label='Q2 2027', position=1,
+                          start_date=Q2_START, end_date=Q2_END),
+        ])
         goal = RoadmapGoal(roadmap_id=rm.id, name='Goal', position=0)
         db.session.add(goal)
         db.session.flush()
@@ -730,7 +843,7 @@ def test_api_data_returns_the_bundle(auth_client, app, init_database):
     payload = auth_client.get(f'/roadmaps/{ids["roadmap_id"]}/api/data').get_json()
 
     assert payload['roadmap']['name'] == 'API Roadmap'
-    assert len(payload['periods']) == 1
+    assert len(payload['periods']) == 2
     assert len(payload['goals']) == 1
     assert len(payload['initiatives']) == 2
     assert payload['roadmap']['steps_per_period'] == STEPS_PER_PERIOD
@@ -747,14 +860,14 @@ def test_api_data_unknown_roadmap_is_json_404(auth_client, init_database):
 def test_api_create_period(auth_client, app, init_database):
     ids = _api_roadmap(app)
     response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/periods',
-                                json={'label': 'Q2 2027', 'start_date': '2027-04-01',
-                                      'end_date': '2027-06-30'})
+                                json={'label': 'Q3 2027', 'start_date': '2027-07-01',
+                                      'end_date': '2027-09-30'})
     assert response.status_code == 201
 
     with app.app_context():
         periods = db.session.get(Roadmap, ids['roadmap_id']).periods.all()
-        assert [p.label for p in periods] == ['Q1 2027', 'Q2 2027']
-        assert periods[1].position == 1
+        assert [p.label for p in periods] == ['Q1 2027', 'Q2 2027', 'Q3 2027']
+        assert periods[2].position == 2
 
 
 def test_api_create_period_requires_a_label(auth_client, app, init_database):
@@ -794,7 +907,7 @@ def test_api_delete_period(auth_client, app, init_database):
     assert auth_client.delete(
         f'/roadmaps/{ids["roadmap_id"]}/api/periods/{period_id}').status_code == 200
     with app.app_context():
-        assert db.session.get(Roadmap, ids['roadmap_id']).period_count == 0
+        assert db.session.get(Roadmap, ids['roadmap_id']).period_count == 1
 
 
 # --- API goals ---------------------------------------------------------------
@@ -915,13 +1028,42 @@ def test_api_moving_an_initiative_cascades_to_dependents(auth_client, app, init_
     auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/dependencies',
                      json={'predecessor_id': ids['a_id'], 'successor_id': ids['b_id'],
                            'lag': 1})
+    # A third quarter, so pushing B to step 9 has somewhere to land: without the room
+    # the cascade would clamp instead, which the clamping tests cover separately.
+    auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/periods',
+                     json={'label': 'Q3 2027', 'start_date': '2027-07-01',
+                           'end_date': '2027-09-30'})
 
-    auth_client.patch(f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
-                      json={'start_step': 1, 'end_step': 8})
+    response = auth_client.patch(
+        f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+        json={'start_step': 1, 'end_step': 8})
 
+    assert 'warning' not in response.get_json()
     with app.app_context():
         b = db.session.get(RoadmapInitiative, ids['b_id'])
         assert (b.start_step, b.end_step) == (9, 12)
+
+
+def test_api_warns_when_a_cascade_runs_out_of_roadmap(auth_client, app, init_database):
+    """Clamping keeps the timeline inside its periods, at the cost of a dependency that
+    no longer holds — so the response has to say so rather than report a plain success."""
+    ids = _api_roadmap(app)
+    auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/dependencies',
+                     json={'predecessor_id': ids['a_id'], 'successor_id': ids['b_id'],
+                           'lag': 1})
+
+    response = auth_client.patch(
+        f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+        json={'start_step': 1, 'end_step': 8})
+
+    payload = response.get_json()
+    assert payload['clamped'] == 1
+    assert 'end of the roadmap' in payload['warning']
+
+    with app.app_context():
+        b = db.session.get(RoadmapInitiative, ids['b_id'])
+        # Pinned to the last position where its four steps still fit.
+        assert (b.start_step, b.end_step) == (5, 8)
 
 
 def test_api_reparent_initiative_between_goals(auth_client, app, init_database):

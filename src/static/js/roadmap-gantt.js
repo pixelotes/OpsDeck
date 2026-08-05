@@ -64,14 +64,18 @@
             .replace(/'/g, '&#39;');
     }
 
-    function status(message, isError) {
+    /** Inline feedback next to the toolbar. `level` is 'ok', 'warn' or 'error'. */
+    function status(message, level) {
         const el = document.getElementById('rg-status');
         if (!el) {
             return;
         }
+        const tone = { error: 'text-danger', warn: 'text-warning' }[level] || 'text-muted';
         el.textContent = message;
-        el.className = isError ? 'small text-danger' : 'small text-muted';
-        if (!isError) {
+        el.className = 'small ' + tone;
+
+        // Warnings and errors stay put: they tell the user something needs doing.
+        if (!level || level === 'ok') {
             window.setTimeout(function () {
                 if (el.textContent === message) {
                     el.textContent = '';
@@ -104,14 +108,20 @@
         return payload;
     }
 
-    /** Run a mutation, report failures inline, and refresh from the server. */
+    /** Run a mutation, report the outcome inline, and refresh from the server. */
     async function mutate(promiseFactory, successMessage) {
         try {
-            await promiseFactory();
-            status(successMessage || 'Saved');
+            const payload = await promiseFactory();
+            // A warning means the write succeeded but the schedule had to compromise,
+            // so it replaces the success message rather than flashing past behind it.
+            if (payload && payload.warning) {
+                status(payload.warning, 'warn');
+            } else {
+                status(successMessage || 'Saved');
+            }
             await load();
         } catch (error) {
-            status(error.message, true);
+            status(error.message, 'error');
         }
     }
 

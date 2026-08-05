@@ -650,6 +650,22 @@ def _apply_initiative_fields(initiative, body):
     return None
 
 
+def _clamp_warning(clamped):
+    """Extra response fields when a cascade could not honour a dependency.
+
+    A clamped initiative sits earlier than its predecessors demand because there was no
+    room left in the roadmap, so the timeline looks valid while it is not. The client
+    surfaces this; leaving it out would make the compromise invisible.
+    """
+    if not clamped:
+        return {}
+    return {
+        'clamped': len(clamped),
+        'warning': (f'{len(clamped)} initiative(s) hit the end of the roadmap and could '
+                    f'not be scheduled after their dependencies. Add a period to fit them.'),
+    }
+
+
 def _next_position(model, **filters):
     rows = model.query.filter_by(**filters).all()
     return max((row.position for row in rows), default=-1) + 1
@@ -838,17 +854,18 @@ def api_update_initiative(roadmap_id, initiative_id):
     if error:
         return _json_error(error, 400)
 
+    clamped = []
     if moved:
         # The drag defines the intended gap to each predecessor, then dependents
         # follow. cascade_reschedule refreshes the planned dates on its way out.
         sync_dependency_lags(initiative.id)
-        cascade_reschedule(initiative.id)
+        clamped = cascade_reschedule(initiative.id).clamped
 
     db.session.commit()
 
     log_audit('roadmap.initiative_updated', 'update',
               target_object=f'RoadmapInitiative:{initiative_id}')
-    return jsonify({'ok': True})
+    return jsonify({'ok': True, **_clamp_warning(clamped)})
 
 
 @roadmaps_bp.route('/<int:roadmap_id>/api/initiatives/<int:initiative_id>', methods=['DELETE'])
@@ -918,12 +935,12 @@ def api_create_dependency(roadmap_id):
                                    successor_id=successor.id, lag=lag)
     db.session.add(dependency)
     db.session.flush()
-    cascade_reschedule(predecessor.id)
+    clamped = cascade_reschedule(predecessor.id).clamped
     db.session.commit()
 
     log_audit('roadmap.dependency_created', 'create',
               target_object=f'RoadmapDependency:{dependency.id}')
-    return jsonify({'id': dependency.id, 'lag': lag}), 201
+    return jsonify({'id': dependency.id, 'lag': lag, **_clamp_warning(clamped)}), 201
 
 
 @roadmaps_bp.route('/<int:roadmap_id>/api/dependencies/<int:dependency_id>', methods=['DELETE'])

@@ -11,7 +11,7 @@ of truth; ``planned_start_date`` / ``planned_end_date`` are derived from them.
 
 None of these functions commit — callers own the transaction boundary.
 """
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 from datetime import date
 
 from ..extensions import db
@@ -146,7 +146,17 @@ def _topological_order(node_ids: List[int]) -> List[int]:
     return order
 
 
-def cascade_reschedule(initiative_id: int) -> List[RoadmapInitiative]:
+class RescheduleResult(NamedTuple):
+    """Outcome of a cascade: what moved, and what could not be placed properly.
+
+    ``clamped`` matters to the caller because a clamped initiative is the one case where
+    the schedule stops being truthful — see cascade_reschedule.
+    """
+    moved: List[RoadmapInitiative]
+    clamped: List[RoadmapInitiative]
+
+
+def cascade_reschedule(initiative_id: int) -> RescheduleResult:
     """Propagate finish-to-start constraints downstream after an initiative moved.
 
     Each dependent is placed so that ``start_step == max(pred.end_step + lag)`` over
@@ -155,17 +165,30 @@ def cascade_reschedule(initiative_id: int) -> List[RoadmapInitiative]:
     the later one wins, regardless of traversal order.
 
     Descendants are visited in topological order so a node is only moved once its own
-    predecessors are final. Positions are clamped to step 1, since negative or zero
-    lags can otherwise push a chain off the start of the grid.
+    predecessors are final.
+
+    Positions are kept inside the roadmap's grid: at least step 1, since negative lags
+    would otherwise push a chain off the start, and at most far enough left that the bar
+    still ends on the last step. Duration is always preserved, which is what makes the
+    upper clamp lossy: an initiative that cannot start where its predecessors demand
+    ends up earlier than the constraint requires, possibly overlapping them. That is a
+    schedule which looks valid and is not, so those initiatives come back in
+    ``clamped`` for the caller to report — the roadmap needs another period.
 
     Also refreshes planned dates, because they must never drift from the steps.
-    Returns the initiatives that moved. Does not commit.
+    Does not commit.
     """
     root = db.session.get(RoadmapInitiative, initiative_id)
     if not root:
-        return []
+        return RescheduleResult([], [])
+
+    roadmap = root.roadmap
+    # Zero periods means no grid to clamp against; leave the steps alone in that case.
+    total_steps = (roadmap.periods.count() * STEPS_PER_PERIOD) if roadmap else 0
 
     moved: List[RoadmapInitiative] = []
+    clamped: List[RoadmapInitiative] = []
+
     for node_id in _topological_order(_descendants(initiative_id)):
         initiative = db.session.get(RoadmapInitiative, node_id)
         if not initiative:
@@ -183,17 +206,29 @@ def cascade_reschedule(initiative_id: int) -> List[RoadmapInitiative]:
         if not required:
             continue
 
-        new_start = max(1, max(required))
+        duration = initiative.end_step - initiative.start_step
+        wanted = max(required)
+        new_start = wanted
+
+        if total_steps:
+            # Latest start that still leaves room for the whole bar. Negative when the
+            # initiative is longer than the entire roadmap, hence the max(1, ...) below:
+            # nothing can make that one fit, so it starts at the beginning.
+            latest_start = total_steps - duration
+            new_start = min(new_start, latest_start)
+        new_start = max(1, new_start)
+
+        if new_start < wanted:
+            clamped.append(initiative)
+
         if initiative.start_step != new_start:
-            duration = initiative.end_step - initiative.start_step
             initiative.start_step = new_start
             initiative.end_step = new_start + duration
             moved.append(initiative)
 
-    roadmap = root.roadmap
     if roadmap:
         recompute_dates(roadmap)
-    return moved
+    return RescheduleResult(moved, clamped)
 
 
 def sync_dependency_lags(initiative_id: int) -> None:
