@@ -1181,6 +1181,7 @@ def seed_modules():
         ("Procurement", "procurement", "Management of suppliers, requirements, evaluations, and contracts."),
         ("Core Inventory", "core_inventory", "Inventory of services, assets, peripherals, software, licenses, and CMDB."),
         ("Operations", "operations", "Operational management including renewals, warranties, changes, and maintenance."),
+        ("Roadmaps", "roadmaps", "Strategic roadmaps: quarterly planning of goals and initiatives."),
         ("Risk & Governance", "risk_governance", "Risk register, catalog, assessments and governance dashboard."),
         ("Compliance", "compliance", "Compliance frameworks, inventory, assessments and monitoring."),
         ("Knowledge & Policy", "knowledge_policy", "Documentation, links, policies, certificates and training."),

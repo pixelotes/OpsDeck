@@ -12,8 +12,8 @@ def verify():
         
         expected_slugs = [
             "health_dashboard", "procurement", "core_inventory", "operations",
-            "risk_governance", "compliance", "knowledge_policy", "finance",
-            "hr_people", "communications", "administration", "settings"
+            "roadmaps", "risk_governance", "compliance", "knowledge_policy",
+            "finance", "hr_people", "communications", "administration", "settings"
         ]
         
         found_slugs = [m.slug for m in modules]
