@@ -663,3 +663,406 @@ def test_sidebar_entry_is_gated_by_the_module(client, app, init_database):
     _grant(app, 'outsider@test.com', None)
     _login(client, 'outsider@test.com')
     assert b'roadmaps-menu' not in client.get('/', follow_redirects=True).data
+
+
+# --- API helpers -------------------------------------------------------------
+
+def _api_roadmap(app):
+    """A committed roadmap with one quarter, one goal and two initiatives."""
+    with app.app_context():
+        rm = Roadmap(name='API Roadmap', status='active')
+        db.session.add(rm)
+        db.session.flush()
+        db.session.add(RoadmapPeriod(roadmap_id=rm.id, label='Q1 2027', position=0,
+                                     start_date=Q1_START, end_date=Q1_END))
+        goal = RoadmapGoal(roadmap_id=rm.id, name='Goal', position=0)
+        db.session.add(goal)
+        db.session.flush()
+        a = RoadmapInitiative(goal_id=goal.id, name='A', start_step=1, end_step=4)
+        b = RoadmapInitiative(goal_id=goal.id, name='B', start_step=5, end_step=8, position=1)
+        db.session.add_all([a, b])
+        db.session.commit()
+        return {'roadmap_id': rm.id, 'goal_id': goal.id, 'a_id': a.id, 'b_id': b.id}
+
+
+# --- API authentication and authorisation ------------------------------------
+
+def test_api_returns_json_401_when_not_logged_in(client, app, init_database):
+    """A fetch() client must get JSON, not a 302 to the HTML login page."""
+    ids = _api_roadmap(app)
+    response = client.get(f'/roadmaps/{ids["roadmap_id"]}/api/data')
+
+    assert response.status_code == 401
+    assert response.is_json
+    assert 'error' in response.get_json()
+
+
+def test_api_returns_json_403_without_the_module(client, app, init_database):
+    ids = _api_roadmap(app)
+    _grant(app, 'apinoaccess@test.com', None)
+    _login(client, 'apinoaccess@test.com')
+
+    response = client.get(f'/roadmaps/{ids["roadmap_id"]}/api/data')
+    assert response.status_code == 403
+    assert response.is_json
+
+
+def test_api_read_only_can_read_but_not_write(client, app, init_database):
+    ids = _api_roadmap(app)
+    _grant(app, 'apireader@test.com', AccessLevel.READ_ONLY)
+    _login(client, 'apireader@test.com')
+
+    assert client.get(f'/roadmaps/{ids["roadmap_id"]}/api/data').status_code == 200
+
+    response = client.post(f'/roadmaps/{ids["roadmap_id"]}/api/goals',
+                           json={'name': 'Nope'})
+    assert response.status_code == 403
+    assert response.is_json
+    with app.app_context():
+        assert RoadmapGoal.query.filter_by(name='Nope').first() is None
+
+
+# --- API read ----------------------------------------------------------------
+
+def test_api_data_returns_the_bundle(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    payload = auth_client.get(f'/roadmaps/{ids["roadmap_id"]}/api/data').get_json()
+
+    assert payload['roadmap']['name'] == 'API Roadmap'
+    assert len(payload['periods']) == 1
+    assert len(payload['goals']) == 1
+    assert len(payload['initiatives']) == 2
+    assert payload['roadmap']['steps_per_period'] == STEPS_PER_PERIOD
+
+
+def test_api_data_unknown_roadmap_is_json_404(auth_client, init_database):
+    response = auth_client.get('/roadmaps/999999/api/data')
+    assert response.status_code == 404
+    assert response.is_json
+
+
+# --- API periods -------------------------------------------------------------
+
+def test_api_create_period(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/periods',
+                                json={'label': 'Q2 2027', 'start_date': '2027-04-01',
+                                      'end_date': '2027-06-30'})
+    assert response.status_code == 201
+
+    with app.app_context():
+        periods = db.session.get(Roadmap, ids['roadmap_id']).periods.all()
+        assert [p.label for p in periods] == ['Q1 2027', 'Q2 2027']
+        assert periods[1].position == 1
+
+
+def test_api_create_period_requires_a_label(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/periods',
+                                json={'label': '  '})
+    assert response.status_code == 400
+
+
+def test_api_create_period_rejects_inverted_dates(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/periods',
+                                json={'label': 'Bad', 'start_date': '2027-06-30',
+                                      'end_date': '2027-04-01'})
+    assert response.status_code == 400
+
+
+def test_api_update_period_recomputes_initiative_dates(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    with app.app_context():
+        period_id = db.session.get(Roadmap, ids['roadmap_id']).periods.first().id
+
+    auth_client.patch(f'/roadmaps/{ids["roadmap_id"]}/api/periods/{period_id}',
+                      json={'start_date': '2027-02-01', 'end_date': '2027-05-31'})
+
+    with app.app_context():
+        a = db.session.get(RoadmapInitiative, ids['a_id'])
+        assert a.planned_start_date == date(2027, 2, 1)
+        assert a.planned_end_date == date(2027, 5, 31)
+
+
+def test_api_delete_period(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    with app.app_context():
+        period_id = db.session.get(Roadmap, ids['roadmap_id']).periods.first().id
+
+    assert auth_client.delete(
+        f'/roadmaps/{ids["roadmap_id"]}/api/periods/{period_id}').status_code == 200
+    with app.app_context():
+        assert db.session.get(Roadmap, ids['roadmap_id']).period_count == 0
+
+
+# --- API goals ---------------------------------------------------------------
+
+def test_api_create_and_update_goal(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    created = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/goals',
+                               json={'name': 'Second goal', 'color': '#AA1122'})
+    assert created.status_code == 201
+    goal_id = created.get_json()['id']
+
+    assert auth_client.patch(f'/roadmaps/{ids["roadmap_id"]}/api/goals/{goal_id}',
+                             json={'name': 'Renamed'}).status_code == 200
+    with app.app_context():
+        goal = db.session.get(RoadmapGoal, goal_id)
+        assert goal.name == 'Renamed'
+        assert goal.color == '#AA1122'
+
+
+def test_api_goal_rejects_a_bad_colour(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/goals',
+                                json={'name': 'Goal', 'color': 'red'})
+    assert response.status_code == 400
+
+
+def test_api_delete_goal_takes_its_initiatives(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    assert auth_client.delete(
+        f'/roadmaps/{ids["roadmap_id"]}/api/goals/{ids["goal_id"]}').status_code == 200
+    with app.app_context():
+        assert RoadmapInitiative.query.count() == 0
+
+
+# --- API initiatives ---------------------------------------------------------
+
+def test_api_create_initiative(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/initiatives',
+                                json={'goal_id': ids['goal_id'], 'name': 'C',
+                                      'start_step': 1, 'end_step': 2, 'points': 5})
+    assert response.status_code == 201
+
+    with app.app_context():
+        created = db.session.get(RoadmapInitiative, response.get_json()['id'])
+        assert created.name == 'C'
+        assert created.points == 5
+        assert created.planned_start_date == Q1_START
+
+
+def test_api_create_initiative_requires_a_goal_in_this_roadmap(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    other = _api_roadmap(app)
+
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/initiatives',
+                                json={'goal_id': other['goal_id'], 'name': 'Sneaky'})
+    assert response.status_code == 404
+
+
+def test_api_create_initiative_requires_a_name(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/initiatives',
+                                json={'goal_id': ids['goal_id'], 'name': '   '})
+    assert response.status_code == 400
+
+
+def test_api_initiative_clamps_progress(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    auth_client.patch(f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+                      json={'progress': 500})
+    with app.app_context():
+        assert db.session.get(RoadmapInitiative, ids['a_id']).progress == 100
+
+    auth_client.patch(f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+                      json={'progress': -20})
+    with app.app_context():
+        assert db.session.get(RoadmapInitiative, ids['a_id']).progress == 0
+
+
+def test_api_initiative_rejects_unknown_status_and_priority(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    url = f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}'
+
+    assert auth_client.patch(url, json={'status': 'invented'}).status_code == 400
+    assert auth_client.patch(url, json={'priority': 'urgent'}).status_code == 400
+    with app.app_context():
+        initiative = db.session.get(RoadmapInitiative, ids['a_id'])
+        assert initiative.status == 'planned'
+        assert initiative.priority == 'medium'
+
+
+def test_api_initiative_rejects_inverted_steps(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.patch(
+        f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+        json={'start_step': 8, 'end_step': 2})
+    assert response.status_code == 400
+
+
+def test_api_initiative_rejects_step_zero(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.patch(
+        f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+        json={'start_step': 0})
+    assert response.status_code == 400
+
+
+def test_api_initiative_rejects_unknown_owner(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.patch(
+        f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+        json={'owner_id': 999999})
+    assert response.status_code == 400
+
+
+def test_api_moving_an_initiative_cascades_to_dependents(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/dependencies',
+                     json={'predecessor_id': ids['a_id'], 'successor_id': ids['b_id'],
+                           'lag': 1})
+
+    auth_client.patch(f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+                      json={'start_step': 1, 'end_step': 8})
+
+    with app.app_context():
+        b = db.session.get(RoadmapInitiative, ids['b_id'])
+        assert (b.start_step, b.end_step) == (9, 12)
+
+
+def test_api_reparent_initiative_between_goals(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    second = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/goals',
+                              json={'name': 'Second'}).get_json()['id']
+
+    auth_client.patch(f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+                      json={'goal_id': second})
+    with app.app_context():
+        assert db.session.get(RoadmapInitiative, ids['a_id']).goal_id == second
+
+
+def test_api_reorder_initiatives(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/reorder',
+                                json={'items': [
+                                    {'id': ids['a_id'], 'goal_id': ids['goal_id'], 'position': 1},
+                                    {'id': ids['b_id'], 'goal_id': ids['goal_id'], 'position': 0},
+                                ]})
+    assert response.status_code == 200
+    with app.app_context():
+        assert db.session.get(RoadmapInitiative, ids['a_id']).position == 1
+        assert db.session.get(RoadmapInitiative, ids['b_id']).position == 0
+
+
+def test_api_reorder_rejects_a_foreign_initiative(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    other = _api_roadmap(app)
+
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/reorder',
+                                json={'items': [{'id': other['a_id'], 'position': 0}]})
+    assert response.status_code == 404
+
+
+def test_api_delete_initiative(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    assert auth_client.delete(
+        f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}').status_code == 200
+    with app.app_context():
+        assert db.session.get(RoadmapInitiative, ids['a_id']) is None
+
+
+# --- API dependencies --------------------------------------------------------
+
+def test_api_create_dependency_defaults_the_lag_to_the_drawn_gap(auth_client, app, init_database):
+    """A ends at 4 and B starts at 5, so the implied lag is 1 and nothing moves."""
+    ids = _api_roadmap(app)
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/dependencies',
+                                json={'predecessor_id': ids['a_id'],
+                                      'successor_id': ids['b_id']})
+    assert response.status_code == 201
+    assert response.get_json()['lag'] == 1
+
+    with app.app_context():
+        b = db.session.get(RoadmapInitiative, ids['b_id'])
+        assert (b.start_step, b.end_step) == (5, 8)
+
+
+def test_api_dependency_rejects_a_cycle(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/dependencies',
+                     json={'predecessor_id': ids['a_id'], 'successor_id': ids['b_id']})
+
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/dependencies',
+                                json={'predecessor_id': ids['b_id'],
+                                      'successor_id': ids['a_id']})
+    assert response.status_code == 400
+    assert 'cycle' in response.get_json()['error'].lower()
+
+
+def test_api_dependency_rejects_a_duplicate(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    payload = {'predecessor_id': ids['a_id'], 'successor_id': ids['b_id']}
+    auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/dependencies', json=payload)
+
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/dependencies', json=payload)
+    assert response.status_code == 409
+
+
+def test_api_dependency_rejects_a_foreign_initiative(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    other = _api_roadmap(app)
+
+    response = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/dependencies',
+                                json={'predecessor_id': ids['a_id'],
+                                      'successor_id': other['b_id']})
+    assert response.status_code == 404
+
+
+def test_api_delete_dependency(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    created = auth_client.post(f'/roadmaps/{ids["roadmap_id"]}/api/dependencies',
+                               json={'predecessor_id': ids['a_id'],
+                                     'successor_id': ids['b_id']}).get_json()
+
+    assert auth_client.delete(
+        f'/roadmaps/{ids["roadmap_id"]}/api/dependencies/{created["id"]}').status_code == 200
+    with app.app_context():
+        assert RoadmapDependency.query.count() == 0
+
+
+# --- API cross-roadmap isolation --------------------------------------------
+
+def test_api_cannot_touch_another_roadmaps_children(auth_client, app, init_database):
+    """Every child lookup is scoped, so a foreign id is a 404 rather than an edit."""
+    ids = _api_roadmap(app)
+    other = _api_roadmap(app)
+    base = f'/roadmaps/{ids["roadmap_id"]}/api'
+
+    with app.app_context():
+        other_period_id = db.session.get(Roadmap, other['roadmap_id']).periods.first().id
+
+    assert auth_client.patch(f'{base}/periods/{other_period_id}',
+                             json={'label': 'Hijacked'}).status_code == 404
+    assert auth_client.patch(f'{base}/goals/{other["goal_id"]}',
+                             json={'name': 'Hijacked'}).status_code == 404
+    assert auth_client.patch(f'{base}/initiatives/{other["a_id"]}',
+                             json={'name': 'Hijacked'}).status_code == 404
+    assert auth_client.delete(f'{base}/initiatives/{other["a_id"]}').status_code == 404
+
+    with app.app_context():
+        assert db.session.get(RoadmapPeriod, other_period_id).label == 'Q1 2027'
+        assert db.session.get(RoadmapGoal, other['goal_id']).name == 'Goal'
+        assert db.session.get(RoadmapInitiative, other['a_id']).name == 'A'
+
+
+# --- API error handling ------------------------------------------------------
+
+def test_api_malformed_body_is_a_client_error(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.patch(
+        f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+        data='{not json', content_type='application/json')
+    assert response.status_code == 400
+    assert response.is_json
+
+
+def test_api_non_numeric_step_is_a_client_error(auth_client, app, init_database):
+    ids = _api_roadmap(app)
+    response = auth_client.patch(
+        f'/roadmaps/{ids["roadmap_id"]}/api/initiatives/{ids["a_id"]}',
+        json={'start_step': 'soon'})
+    assert response.status_code == 400
+    assert response.is_json

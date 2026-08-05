@@ -6,7 +6,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import atexit
 import click
-from flask import Flask, session, render_template, request, redirect, url_for
+from flask import Flask, session, render_template, request, redirect, url_for, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
 import ecs_logging
 from flask_limiter import Limiter
@@ -589,6 +589,14 @@ def create_app(test_config=None):
         # Check by path since flask-smorest uses different endpoint naming
         if request.path and request.path.startswith('/api/v1'):
             return None
+
+        # 5. Las peticiones de tipo API deben fallar como JSON, no con un 302 a la
+        # página de login: un cliente fetch() parsearía ese HTML como si fuera la
+        # respuesta y el fallo de autenticación pasaría desapercibido.
+        wants_json = ('/api/' in (request.path or '')
+                      or request.accept_mimetypes.best == 'application/json')
+        if wants_json:
+            return jsonify({'error': 'Authentication required.'}), 401
 
         # Si llegamos aquí, bloquear y redirigir a login
         # Guardar la URL solicitada para redirigir después del login

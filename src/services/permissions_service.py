@@ -1,4 +1,4 @@
-from flask import session, redirect, url_for, flash, request, abort, render_template
+from flask import session, redirect, url_for, flash, request, abort, render_template, jsonify
 from functools import wraps
 from ..models import db, User, Group, Permission, Module, AccessLevel
 from .permissions_cache import permissions_cache
@@ -162,6 +162,46 @@ def requires_permission(module_slug, access_level='READ_ONLY'):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+def requires_permission_api(module_slug, access_level='READ_ONLY'):
+    """
+    JSON-returning sibling of requires_permission, for endpoints consumed by fetch().
+
+    requires_permission answers a denial with flash() + redirect(). That is right for a
+    browser navigation and wrong for an API client: the caller receives a 302 to an HTML
+    page and parses it as if it were the payload, so the failure is silent. This returns
+    401/403 with a JSON body instead.
+
+    access_level can be 'READ_ONLY' or 'WRITE'.
+    """
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user_id = session.get('user_id')
+            user = db.session.get(User, user_id) if user_id else None
+            if not user:
+                return jsonify({'error': 'Authentication required.'}), 401
+
+            # Admin bypass
+            if user.role == 'admin':
+                return f(*args, **kwargs)
+
+            perms = permissions_cache.get(user_id)
+            if perms is None:
+                get_user_modules(user_id)
+                perms = permissions_cache.get(user_id)
+            perms = perms or {}
+
+            if module_slug not in perms:
+                return jsonify({'error': f"No access to the {module_slug} module."}), 403
+
+            if access_level == 'WRITE' and perms.get(module_slug) != 'WRITE':
+                return jsonify({'error': f"Read-only access to the {module_slug} module."}), 403
+
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
 
 def has_write_permission(module_slug):
     """
