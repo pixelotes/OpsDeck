@@ -54,15 +54,25 @@ def app():
 def init_database(app):
     """
     Resets the database for each test.
+
+    The permissions cache is cleared alongside it. It is a module-level singleton keyed
+    by user id, so without this it survives drop_all() and goes on describing rows that
+    no longer exist: a test that granted permissions to user 2 would silently hand them
+    to whatever user 2 happens to be in the next test.
     """
+    from src.services.permissions_cache import permissions_cache
+
     with app.app_context():
         db.drop_all()
         db.create_all()
-        
+        permissions_cache.invalidate()
+
         # Make sure UPLOAD_FOLDER exists
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        
+
         yield db
+
+        permissions_cache.invalidate()
 
 @pytest.fixture(scope='function')
 def client(app, init_database):
