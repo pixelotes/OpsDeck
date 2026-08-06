@@ -5,7 +5,8 @@ from flask import (
 )
 from src.models import db, Framework, FrameworkControl
 from sqlalchemy.exc import IntegrityError
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 
 
 frameworks_bp = Blueprint('frameworks', __name__, url_prefix='/frameworks')
@@ -410,7 +411,7 @@ def unmap_control(id, target_id):
 
 
 @frameworks_bp.route('/api/search-controls', methods=['GET'])
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def search_controls():
     """API to search controls for cross-mapping (for TomSelect)."""
     q = request.args.get('q', '').strip().lower()

@@ -10,7 +10,8 @@ from ..models.core import Tag
 from ..models.uar import UARComparison, UARExecution, UARFinding
 from ..models.services import BusinessService
 from .main import login_required
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 from ..services.uar_service import UARAutomationService
 from ..utils.uar_engine import AccessReviewEngine
 from src.utils.timezone_helper import now
@@ -2117,7 +2118,7 @@ def drift_dashboard():
 
 @compliance_bp.route('/drift/api/timeline/<int:framework_id>')
 @login_required
-@requires_permission(MODULE_COMPLIANCE)
+@requires_permission_api(MODULE_COMPLIANCE)
 def api_drift_timeline(framework_id):
     """
     API endpoint to get drift timeline for a framework.
@@ -2143,7 +2144,7 @@ def api_drift_timeline(framework_id):
 
 @compliance_bp.route('/drift/api/detect', methods=['POST'])
 @login_required
-@requires_permission(MODULE_COMPLIANCE)
+@requires_permission_api(MODULE_COMPLIANCE)
 def api_detect_drift():
     """
     API endpoint to manually trigger drift detection.
@@ -2182,7 +2183,7 @@ def api_detect_drift():
 
 @compliance_bp.route('/drift/api/snapshot', methods=['POST'])
 @login_required
-@requires_permission(MODULE_COMPLIANCE)
+@requires_permission_api(MODULE_COMPLIANCE)
 def api_create_snapshot():
     """
     API endpoint to manually create a compliance snapshot.

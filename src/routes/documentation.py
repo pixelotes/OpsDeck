@@ -6,7 +6,8 @@ from flask import (
 from werkzeug.utils import secure_filename
 from ..models import db, Documentation, Tag, User, Group, Software, Attachment
 from .main import login_required
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 from ..utils.redirects import safe_redirect_target
 
 documentation_bp = Blueprint('documentation', __name__)
@@ -219,7 +220,7 @@ def delete_doc(id):
 
 @documentation_bp.route('/api/search', methods=['GET'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def search_api():
     """Search documentation by title or filename for TomSelect."""
     from flask import jsonify

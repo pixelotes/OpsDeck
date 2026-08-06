@@ -4,7 +4,8 @@ from flask import (
 from datetime import datetime
 from ..models import db, Opportunity, Activity, OpportunityTask, Supplier, Contact, Risk, Budget
 from .main import login_required
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 from src.utils.timezone_helper import now
 
 evaluations_bp = Blueprint('evaluations', __name__, url_prefix='/evaluations')
@@ -368,7 +369,7 @@ def delete_task(task_id):
 
 @evaluations_bp.route('/api/<int:evaluation_id>/update_status', methods=['POST'])
 @login_required
-@requires_permission(MODULE, access_level='READ_ONLY')
+@requires_permission_api(MODULE, access_level='READ_ONLY')
 def update_status(evaluation_id):
     """API endpoint to update evaluation status (for Kanban drag & drop)"""
     if not has_write_permission(MODULE):

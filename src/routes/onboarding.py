@@ -1,4 +1,5 @@
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime
 from ..extensions import db
@@ -75,7 +76,7 @@ def list_packs():
 
 @onboarding_bp.route('/api/packs', methods=['GET'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def packs_api():
     """API to get active packs for dropdowns."""
     packs = OnboardingPack.query.filter_by(is_active=True).all()
@@ -83,7 +84,7 @@ def packs_api():
 
 @onboarding_bp.route('/api/users', methods=['GET'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def users_api():
     """API to get active users for dropdowns."""
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()

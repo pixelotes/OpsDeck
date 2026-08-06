@@ -11,7 +11,8 @@ from ..models.policy import Policy
 from ..models.core import Documentation, Link
 from datetime import datetime
 from src.utils.logger import log_audit
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 
 risk_bp = Blueprint('risk', __name__)
 
@@ -517,7 +518,7 @@ def remove_affected_item(item_id):
     return redirect(url_for(DETAIL, id=risk_id))
 
 @risk_bp.route('/api/items/<item_type>', methods=['GET'])
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def api_get_items(item_type):
     """API endpoint to fetch items by type for dynamic selector."""
     model_map = {
@@ -549,7 +550,7 @@ def api_get_items(item_type):
 
 
 @risk_bp.route('/api/references/<ref_type>', methods=['GET'])
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def api_get_references(ref_type):
     """API endpoint to fetch reference items by type for dynamic selector."""
     model_map = {

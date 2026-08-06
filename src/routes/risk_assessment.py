@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file
 from ..models import db, RiskAssessment, RiskAssessmentItem, Risk
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 import io
 from src.utils.timezone_helper import now
 
@@ -288,7 +289,7 @@ def delete_evidence(id, evidence_id):
 
 
 @risk_assessment_bp.route('/api/linkable-objects/<linkable_type>', methods=['GET'])
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def get_linkable_objects(linkable_type):
     """API endpoint to get objects of a specific type for linking as evidence."""
     from flask import jsonify

@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                            requires_permission_api)
 from ..models.services import BusinessService, ServiceComponent, ServiceDependency, DependencyType
 from ..models.auth import User
 from ..models.core import CostCenter, Documentation, Link, Attachment
@@ -341,6 +342,7 @@ def delete_component(comp_id):
 
 @services_bp.route('/api/search-components/<component_type>', methods=['GET'])
 @login_required
+@requires_permission_api(MODULE)
 def search_components(component_type):
     """Search infrastructure components by type for TomSelect remote mode."""
     q = request.args.get('q', '').strip().lower()

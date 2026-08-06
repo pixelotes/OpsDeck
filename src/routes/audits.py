@@ -13,7 +13,8 @@ import os
 import uuid
 from datetime import datetime
 from werkzeug.utils import secure_filename
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 from src.utils.timezone_helper import now
 
 
@@ -512,7 +513,7 @@ def unlink_evidence(id):
 
 @audits_bp.route('/api/control/<int:id>/status', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def api_update_control_status(id):
     if not has_write_permission(MODULE):
         return jsonify({'success': False, 'error': 'Write access required'}), 403
@@ -619,7 +620,7 @@ def delete_audit(id):
 
 @audits_bp.route('/api/search-linkable', methods=['GET'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def search_linkable_api():
     """Search for linkable objects by type and query.
        If query is empty, returns all non-archived objects of that type.
