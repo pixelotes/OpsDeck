@@ -9,6 +9,85 @@ import logging
 # Configure logger
 logger = logging.getLogger(__name__)
 
+#: Which module governs each entity type, keyed by model class name.
+#:
+#: Lived in routes/attachments.py as ATTACHMENT_PERMISSIONS, which undersold it: the
+#: question "which module governs a Supplier" has nothing to do with attachments, and
+#: search needed the same answer. One map, so a new entity type is declared once and
+#: every consumer agrees.
+ENTITY_MODULES = {
+    'ActivityExecution': 'operations',
+    'Asset': 'core_inventory',
+    'AuditControlItem': 'compliance',
+    'BCDRPlan': 'operations',
+    'BCDRTestLog': 'operations',
+    'BusinessService': 'core_inventory',
+    'Change': 'operations',
+    'ComplianceAudit': 'compliance',
+    'Contact': 'procurement',
+    'Contract': 'procurement',
+    'CourseCompletion': 'knowledge_policy',
+    'DisposalRecord': 'operations',
+    'Documentation': 'knowledge_policy',
+    'FrameworkControl': 'compliance',
+    'MaintenanceLog': 'operations',
+    'Peripheral': 'core_inventory',
+    'Policy': 'knowledge_policy',
+    'PolicyVersion': 'knowledge_policy',
+    'Purchase': 'finance',
+    'Request': 'operations',
+    'Risk': 'risk_governance',
+    'RiskAssessmentItem': 'risk_governance',
+    'RoadmapInitiative': 'roadmaps',
+    'SecurityAssessment': 'compliance',
+    'SecurityIncident': 'operations',
+    'Software': 'core_inventory',
+    'Subscription': 'core_inventory',
+    'Supplier': 'procurement',
+    'UARExecution': 'compliance',
+    'UARFinding': 'compliance',
+    'User': 'administration',
+}
+
+
+def readable_modules(user_id):
+    """The set of module slugs this user may read, or None meaning "everything".
+
+    None rather than the full set of slugs so an admin does not depend on the caller
+    knowing what the full set is: a consumer filtering by membership would otherwise
+    have to special-case admins itself, and forgetting to is a silent over-share.
+    """
+    user = db.session.get(User, user_id) if user_id else None
+    if not user:
+        return set()
+    if user.role == 'admin':
+        return None
+
+    perms = permissions_cache.get(user_id)
+    if perms is None:
+        get_user_modules(user_id)
+        perms = permissions_cache.get(user_id)
+    return set((perms or {}).keys())
+
+
+def can_read_entity(entity_name, allowed_modules):
+    """Whether an entity type is readable given the result of readable_modules().
+
+    Fails closed on an unmapped entity type: a new searchable model that nobody
+    classified stays invisible rather than becoming readable by everyone, which is the
+    failure that matters here.
+    """
+    module = ENTITY_MODULES.get(entity_name)
+    if module is None:
+        logger.warning(
+            'Entity type %r has no module in ENTITY_MODULES; treating as unreadable.',
+            entity_name)
+        return False
+    if allowed_modules is None:
+        return True
+    return module in allowed_modules
+
+
 def get_user_modules(user_id):
     """
     Resolves the list of modules a user has access to.

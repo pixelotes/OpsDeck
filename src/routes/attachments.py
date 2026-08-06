@@ -6,44 +6,20 @@ from flask import (
 from werkzeug.utils import secure_filename
 from .main import login_required
 from ..models import db, Attachment
-from ..services.permissions_service import has_write_permission, user_has_module_access
+from ..services.permissions_service import (has_write_permission, user_has_module_access,
+                                            ENTITY_MODULES)
 from ..utils.redirects import safe_redirect_target
 
 attachments_bp = Blueprint('attachments', __name__)
 
 # Which module governs an attachment, by the type of object it hangs off. Every
 # linkable_type in use must appear here: the three routes below resolve access through
-# this map, and an unlisted type is refused rather than waved through. Slugs come from
-# the MODULE constant of the blueprint that owns each object.
-ATTACHMENT_PERMISSIONS = {
-    'ActivityExecution': 'operations',
-    'Asset': 'core_inventory',
-    'AuditControlItem': 'compliance',
-    'BCDRPlan': 'operations',
-    'BCDRTestLog': 'operations',
-    'BusinessService': 'core_inventory',
-    'Change': 'operations',
-    'ComplianceAudit': 'compliance',
-    'Contract': 'procurement',
-    'CourseCompletion': 'knowledge_policy',
-    'DisposalRecord': 'operations',
-    'Documentation': 'knowledge_policy',
-    'MaintenanceLog': 'operations',
-    'Peripheral': 'core_inventory',
-    'Policy': 'knowledge_policy',
-    'PolicyVersion': 'knowledge_policy',
-    'Purchase': 'finance',
-    'Request': 'operations',
-    'Risk': 'risk_governance',
-    'RiskAssessmentItem': 'risk_governance',
-    'RoadmapInitiative': 'roadmaps',
-    'SecurityAssessment': 'compliance',
-    'SecurityIncident': 'operations',
-    'Software': 'core_inventory',
-    'Subscription': 'core_inventory',
-    'Supplier': 'procurement',
-    'User': 'administration',
-}
+# this map, and an unlisted type is refused rather than waved through.
+#
+# The map itself now lives in permissions_service as ENTITY_MODULES, because search needs
+# the same answers and two copies of "which module owns a Supplier" would diverge. Kept
+# under the old name since that is what these routes and their tests read.
+ATTACHMENT_PERMISSIONS = ENTITY_MODULES
 
 # Form field carrying the target id -> the linkable_type it denotes. Checked in this
 # order, first one present wins, mirroring what the upload form submits.

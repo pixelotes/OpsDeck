@@ -13,7 +13,9 @@ from ..models.security import SecurityIncident, Risk, Framework
 from ..models.credentials import CredentialSecret
 from ..models.certificates import CertificateVersion
 from ..models.audits import ComplianceAudit
-from ..services.permissions_service import requires_permission, get_user_modules, user_has_module_access
+from ..services.permissions_service import (requires_permission, get_user_modules,
+                                            user_has_module_access, readable_modules,
+                                            can_read_entity)
 from ..services.finance_service import renewal_occurrences_in_range
 from src import limiter
 from src import notifications
@@ -1407,69 +1409,81 @@ def search():
     search_term = f'%{query}%'
     limit = 5
 
+    # This box searches six models owned by four different modules, so what governs it
+    # cannot be a decorator on the route. Each block is gated on the module that owns the
+    # object, so the quick search shows a user exactly what they could reach by
+    # navigating — no more.
+    allowed = readable_modules(session.get('user_id'))
+
     # Search Subscriptions
-    subscriptions = Subscription.query.filter(Subscription.name.ilike(search_term), Subscription.is_archived == False).limit(limit).all()
-    for item in subscriptions:
-        results.append({
-            'name': item.name,
-            'type': 'Subscription',
-            'url': url_for('subscriptions.subscription_detail', id=item.id)
-        })
+    if can_read_entity('Subscription', allowed):
+        subscriptions = Subscription.query.filter(Subscription.name.ilike(search_term), Subscription.is_archived == False).limit(limit).all()
+        for item in subscriptions:
+            results.append({
+                'name': item.name,
+                'type': 'Subscription',
+                'url': url_for('subscriptions.subscription_detail', id=item.id)
+            })
 
     # Search Assets
-    assets = Asset.query.filter(
-        or_(
-            Asset.name.ilike(search_term),
-            Asset.serial_number.ilike(search_term)
-        ), Asset.is_archived == False
-    ).limit(limit).all()
-    for item in assets:
-        results.append({
-            'name': item.name,
-            'type': 'Asset',
-            'url': url_for('assets.asset_detail', id=item.id)
-        })
+    if can_read_entity('Asset', allowed):
+        assets = Asset.query.filter(
+            or_(
+                Asset.name.ilike(search_term),
+                Asset.serial_number.ilike(search_term)
+            ), Asset.is_archived == False
+        ).limit(limit).all()
+        for item in assets:
+            results.append({
+                'name': item.name,
+                'type': 'Asset',
+                'url': url_for('assets.asset_detail', id=item.id)
+            })
 
     # Search Suppliers
-    suppliers = Supplier.query.filter(Supplier.name.ilike(search_term), Supplier.is_archived == False).limit(limit).all()
-    for item in suppliers:
-        results.append({
-            'name': item.name,
-            'type': 'Supplier',
-            'url': url_for('suppliers.supplier_detail', id=item.id)
-        })
+    if can_read_entity('Supplier', allowed):
+        suppliers = Supplier.query.filter(Supplier.name.ilike(search_term), Supplier.is_archived == False).limit(limit).all()
+        for item in suppliers:
+            results.append({
+                'name': item.name,
+                'type': 'Supplier',
+                'url': url_for('suppliers.supplier_detail', id=item.id)
+            })
 
     # Search Contacts
-    contacts = Contact.query.options(joinedload(Contact.supplier)).filter(Contact.name.ilike(search_term), Contact.is_archived == False).limit(limit).all()
-    for item in contacts:
-        results.append({
-            'name': f"{item.name} ({item.supplier.name})",
-            'type': 'Contact',
-            'url': url_for('contacts.contact_detail', id=item.id)
-        })
-    
+    if can_read_entity('Contact', allowed):
+        contacts = Contact.query.options(joinedload(Contact.supplier)).filter(Contact.name.ilike(search_term), Contact.is_archived == False).limit(limit).all()
+        for item in contacts:
+            results.append({
+                'name': f"{item.name} ({item.supplier.name})",
+                'type': 'Contact',
+                'url': url_for('contacts.contact_detail', id=item.id)
+            })
+
     # Search Purchases
-    purchases = Purchase.query.filter(Purchase.description.ilike(search_term)).limit(limit).all()
-    for item in purchases:
-        results.append({
-            'name': item.description,
-            'type': 'Purchase',
-            'url': url_for('purchases.purchase_detail', id=item.id)
-        })
+    if can_read_entity('Purchase', allowed):
+        purchases = Purchase.query.filter(Purchase.description.ilike(search_term)).limit(limit).all()
+        for item in purchases:
+            results.append({
+                'name': item.description,
+                'type': 'Purchase',
+                'url': url_for('purchases.purchase_detail', id=item.id)
+            })
 
     # Search Peripherals
-    peripherals = Peripheral.query.filter(
-        or_(
-            Peripheral.name.ilike(search_term),
-            Peripheral.serial_number.ilike(search_term)
-        ), Peripheral.is_archived == False
-    ).limit(limit).all()
-    for item in peripherals:
-        results.append({
-            'name': item.name,
-            'type': 'Peripheral',
-            'url': url_for('peripherals.edit_peripheral', id=item.id)
-        })
+    if can_read_entity('Peripheral', allowed):
+        peripherals = Peripheral.query.filter(
+            or_(
+                Peripheral.name.ilike(search_term),
+                Peripheral.serial_number.ilike(search_term)
+            ), Peripheral.is_archived == False
+        ).limit(limit).all()
+        for item in peripherals:
+            results.append({
+                'name': item.name,
+                'type': 'Peripheral',
+                'url': url_for('peripherals.edit_peripheral', id=item.id)
+            })
 
     return jsonify(results)
 

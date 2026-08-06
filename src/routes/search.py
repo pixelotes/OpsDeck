@@ -94,7 +94,8 @@ def api_search():
         entity_types=entity_types,
         filters=filters,
         limit=limit,
-        offset=offset
+        offset=offset,
+        user_id=session.get('user_id')
     )
 
     return jsonify(results)
@@ -117,8 +118,10 @@ def api_get_facets():
     entity_types_str = request.args.get('entity_types', '')
     entity_types = [et.strip() for et in entity_types_str.split(',') if et.strip()] if entity_types_str else None
 
-    if not entity_types:
-        entity_types = search_service.supported_entities
+    # Facet counts are data. Asking for the status breakdown of an entity type you cannot
+    # search would otherwise report how many of each there are.
+    permitted = search_service.readable_entities(session.get('user_id'))
+    entity_types = [et for et in entity_types if et in permitted] if entity_types else permitted
 
     facets = search_service._generate_facets(entity_types, {})
 
