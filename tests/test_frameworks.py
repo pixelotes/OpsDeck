@@ -209,7 +209,9 @@ def test_add_control_fail_on_builtin(auth_client, app):
     assert response.status_code == 403 # Forbidden
     json_data = response.get_json()
     assert json_data['success'] is False
-    assert "incorporados" in json_data['message']
+    # Asserts on the reason rather than an exact sentence, so rewording the message
+    # does not break the test while still checking it explains itself.
+    assert 'built-in' in json_data['message'].lower()
     
     # Nothing was added
     with app.app_context():
@@ -262,7 +264,9 @@ def test_delete_control_fail_on_builtin(auth_client, app):
     assert response.status_code == 403 # Forbidden
     json_data = response.get_json()
     assert json_data['success'] is False
-    assert "incorporados" in json_data['message']
+    # Asserts on the reason rather than an exact sentence, so rewording the message
+    # does not break the test while still checking it explains itself.
+    assert 'built-in' in json_data['message'].lower()
     
     # The control is still in the database
     with app.app_context():
@@ -319,7 +323,9 @@ def test_delete_framework_fail_on_builtin(auth_client, app):
     assert response.status_code == 403 # Forbidden
     json_data = response.get_json()
     assert json_data['success'] is False
-    assert "incorporados" in json_data['message']
+    # Asserts on the reason rather than an exact sentence, so rewording the message
+    # does not break the test while still checking it explains itself.
+    assert 'built-in' in json_data['message'].lower()
     
     # It is still in the database
     with app.app_context():

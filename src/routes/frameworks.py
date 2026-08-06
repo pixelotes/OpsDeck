@@ -147,7 +147,7 @@ def delete(id):
     """
     framework = db.get_or_404(Framework, id)
     if not framework.is_custom:
-        return jsonify({'success': False, 'message': 'No se pueden eliminar los frameworks incorporados.'}), 403
+        return jsonify({'success': False, 'message': 'Built-in frameworks cannot be deleted.'}), 403
         
     try:
         db.session.delete(framework)
@@ -179,7 +179,7 @@ def add_control():
 
     fw = db.get_or_404(Framework, framework_id)
     if not fw.is_custom:
-        return jsonify({'success': False, 'message': 'No se pueden añadir controles a frameworks incorporados.'}), 403
+        return jsonify({'success': False, 'message': 'Controls cannot be added to a built-in framework.'}), 403
 
     try:
         new_control = FrameworkControl(
@@ -202,7 +202,7 @@ def get_control_data(id):
     # Esta ruta no necesita 'forms' y puede quedar igual
     control = db.get_or_404(FrameworkControl, id)
     if not control.framework.is_custom:
-         return jsonify({'error': 'No se pueden editar controles de frameworks incorporados.'}), 403
+         return jsonify({'error': 'Controls of a built-in framework cannot be edited.'}), 403
     return jsonify({
         'control_id_text': control.control_id,
         'name': control.name,
@@ -218,7 +218,7 @@ def edit_control(id):
     """Actualiza un control."""
     control = db.get_or_404(FrameworkControl, id)
     if not control.framework.is_custom:
-        return jsonify({'success': False, 'message': 'No se pueden editar controles de frameworks incorporados.'}), 403
+        return jsonify({'success': False, 'message': 'Controls of a built-in framework cannot be edited.'}), 403
         
     control_id_text = request.form.get('control_id_text')
     name = request.form.get('name')
@@ -249,7 +249,7 @@ def delete_control(id):
     """
     control = db.get_or_404(FrameworkControl, id)
     if not control.framework.is_custom:
-        return jsonify({'success': False, 'message': 'No se pueden eliminar controles de frameworks incorporados.'}), 403
+        return jsonify({'success': False, 'message': 'Controls cannot be removed from a built-in framework.'}), 403
 
     try:
         db.session.delete(control)

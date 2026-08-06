@@ -76,7 +76,7 @@
                             if (window.tomSelectInitialized) return;
                             window.tomSelectInitialized = true;
 
-                            // --- 1. Inicializar Tags (Multiselect + Creación) ---
+                            // --- 1. Initialise tags (multiselect, with creation) ---
                             // Check if element exists first (modal might be hidden/shown)
                             const tagEl = document.querySelector("#linkTags");
                             if (tagEl) {
@@ -88,7 +88,7 @@
                                 });
                             }
 
-                            // --- 2. Configurar el Selector Dinámico de Objetos ---
+                            // --- 2. Wire up the dynamic object selector ---
                             const objectSelectEl = document.querySelector("#linkObjectId");
                             const typeSelect = document.getElementById('linkObjectType');
 
@@ -124,7 +124,7 @@
                                     }
                                 });
 
-                                // --- 3. Lógica de "Cascada" (Type -> Object) ---
+                                // --- 3. Cascading behaviour: type drives the object list ---
                                 typeSelect.addEventListener('change', function () {
                                     objectSelect.enable();
                                     objectSelect.clear();
