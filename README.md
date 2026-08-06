@@ -73,7 +73,7 @@ docker-compose up -d --build
 - **Compliance Drift Detection** — Daily snapshots with automatic alerting when controls regress. Timeline visualization over configurable periods.
 - **Audit Defense Interface** — Immutable compliance snapshots, continuous evidence linking, and exportable evidence packages for auditors.
 - **Service Dependency Mapping** — Understand which assets, vendors, and systems support business services. Impact analysis for incidents and changes.
-- **Universal Search** — Search across assets, users, incidents, findings, vendors, and compliance controls with faceted filtering.
+- **Universal Search** — Search across assets, users, incidents, findings, vendors, and compliance controls with faceted filtering. Results are scoped to the modules each user can read.
 - **REST API** — Programmatic access with bearer token authentication. OpenAPI documentation at `/swagger-ui`.
 
 ## Documentation
