@@ -63,9 +63,8 @@
                                         onsubmit="return confirm('Delete stage {{ stage.name }}? This will fail if it has candidates.');">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                         <button type="submit" class="btn btn-sm btn-outline-danger" {{ 'disabled' if
-                                            stage.candidates or stage.name in ['Applied', 'Offer' , 'Hired' , 'Rejected'
-                                            ] else '' }}
-                                            title="{{ 'System stage' if stage.name in ['Applied', 'Offer', 'Hired', 'Rejected'] else 'Has candidates' if stage.candidates else 'Delete' }}">
+                                            stage.candidates or stage.is_system else '' }}
+                                            title="{{ 'System stage' if stage.is_system else 'Has candidates' if stage.candidates else 'Delete' }}">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </form>

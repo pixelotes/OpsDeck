@@ -488,21 +488,40 @@ def seed_production_frameworks():
         print("Production frameworks already exist. No changes made.")
 
     # Seed Hiring Stages
+    #
+    # (name, order, is_hired_stage, is_system, is_terminal)
     from .models.hiring import HiringStage
-    if not HiringStage.query.first():
+    standard_stages = [
+        ('Applied', 1, False, True, False),
+        ('Screening', 2, False, False, False),
+        ('Interview', 3, False, False, False),
+        ('Offer', 4, False, True, False),
+        ('Hired', 5, True, True, True),
+        ('Rejected', 6, False, True, True),
+    ]
+
+    first_run = not HiringStage.query.first()
+    # On a fresh database create the whole pipeline. Afterwards only the system stages
+    # are ensured: this runs on every container start, so restoring the optional ones
+    # too would resurrect stages an administrator deliberately removed, while leaving
+    # out the system ones would break deletion guards and the board's archiving.
+    to_ensure = standard_stages if first_run else [s for s in standard_stages if s[3]]
+
+    created = []
+    for name, order, is_hired, is_system, is_terminal in to_ensure:
+        existing = HiringStage.query.filter(
+            db.func.lower(HiringStage.name) == name.lower()).first()
+        if existing:
+            continue
+        created.append(HiringStage(name=name, order=order, is_hired_stage=is_hired,
+                                   is_system=is_system, is_terminal=is_terminal))
+
+    if created:
         print("Seeding hiring stages...")
-        stages = [
-            HiringStage(name='Applied', order=1),
-            HiringStage(name='Screening', order=2),
-            HiringStage(name='Interview', order=3),
-            HiringStage(name='Offer', order=4),
-            HiringStage(name='Hired', order=5, is_hired_stage=True),
-            HiringStage(name='Rejected', order=6)
-        ]
-        db.session.add_all(stages)
+        db.session.add_all(created)
         try:
             db.session.commit()
-            print(f"Hiring stages seeded successfully ({len(stages)} stages).")
+            print(f"Hiring stages seeded successfully ({len(created)} stages).")
         except Exception as e:
             db.session.rollback()
             print(f"Error seeding hiring stages: {e}")

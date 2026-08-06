@@ -23,10 +23,9 @@ MANAGE_STAGES = 'hiring.manage_stages'
 def _stage_name_taken(name, exclude_id=None):
     """True if another stage already carries this name, compared case-insensitively.
 
-    hiring_stage.name has no unique constraint, and duplicates are worse than untidy:
-    delete_stage refuses to remove the system stages by *name*, so a second 'Hired' or
-    'Applied' cannot be cleaned up through the UI once it exists. Both the create and
-    the rename route go through here.
+    The database enforces uniqueness too; this check runs first so the user gets a
+    message instead of an IntegrityError, and it compares case-insensitively, which a
+    plain UNIQUE constraint cannot. Both the create and the rename route go through it.
     """
     query = HiringStage.query.filter(db.func.lower(HiringStage.name) == name.strip().lower())
     if exclude_id is not None:
@@ -45,12 +44,14 @@ def board():
     """Main Kanban board view for hiring pipeline."""
     stages = HiringStage.query.order_by(HiringStage.order).all()
 
-    # Filter 'Hired' and 'Rejected' candidates > 15 days
+    # Terminal stages only show candidates touched in the last 15 days, so finished
+    # pipelines do not pile up on the board. Keyed on the flag, not the name, so a
+    # renamed or translated stage keeps the behaviour.
     from datetime import timedelta
     cutoff_date = now() - timedelta(days=15)
 
     for stage in stages:
-        if stage.name in ['Hired', 'Rejected']:
+        if stage.is_terminal:
             # Filter logic: Keep if updated recently AND not archived
             # Convert naive updated_at to timezone-aware before comparison
             stage.display_candidates = [c for c in stage.candidates if not c.is_archived and c.updated_at and to_utc(c.updated_at) >= cutoff_date]
@@ -485,9 +486,9 @@ def delete_stage(id):
     """Delete a hiring stage."""
     stage = db.get_or_404(HiringStage, id)
     
-    # Protected stages
-    PROTECTED_STAGES = ['Applied', 'Offer', 'Hired', 'Rejected']
-    if stage.name in PROTECTED_STAGES:
+    # System stages carry pipeline semantics the app depends on. Checked through the
+    # flag rather than a name list, so renaming one does not shed its protection.
+    if stage.is_system:
         flash(f'Cannot delete system stage "{stage.name}".', 'danger')
         return redirect(url_for(MANAGE_STAGES))
 
