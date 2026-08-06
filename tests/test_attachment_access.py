@@ -203,3 +203,85 @@ def test_upload_succeeds_with_write_access(client, app, init_database):
         assert attachment.linkable_type == 'Asset'
         assert os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'],
                                            attachment.secure_filename))
+
+
+# --- request size limit ------------------------------------------------------
+
+def test_the_upload_limit_defaults_to_five_megabytes(app):
+    assert app.config['MAX_UPLOAD_MB'] == 5
+    assert app.config['MAX_CONTENT_LENGTH'] == 5 * 1024 * 1024
+
+
+def test_the_upload_limit_comes_from_the_environment(monkeypatch):
+    from src import create_app
+
+    monkeypatch.setenv('MAX_UPLOAD_MB', '12')
+    created = create_app(test_config={'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+                                      'TESTING': True, 'SECRET_KEY': 'x'})
+    assert created.config['MAX_CONTENT_LENGTH'] == 12 * 1024 * 1024
+
+
+def test_a_nonsense_limit_falls_back_to_the_default(monkeypatch):
+    """A typo in the env must not leave the app with no limit at all."""
+    from src import create_app
+
+    for value in ('', 'lots', '0', '-3'):
+        monkeypatch.setenv('MAX_UPLOAD_MB', value)
+        created = create_app(test_config={'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+                                          'TESTING': True, 'SECRET_KEY': 'x'})
+        assert created.config['MAX_CONTENT_LENGTH'] >= 1024 * 1024, value
+
+
+def test_an_oversized_upload_is_refused_and_writes_nothing(client, app, init_database):
+    """A browser form gets a redirect with a flash, as every other upload error does."""
+    _user_with(app, 'bigupload@test.com', {'core_inventory': AccessLevel.WRITE})
+    _login(client, 'bigupload@test.com')
+
+    with app.app_context():
+        upload_folder = app.config['UPLOAD_FOLDER']
+        os.makedirs(upload_folder, exist_ok=True)
+        before = set(os.listdir(upload_folder))
+        oversized = b'x' * (app.config['MAX_CONTENT_LENGTH'] + 1024)
+
+    response = client.post('/attachments/upload', data={
+        'file': (io.BytesIO(oversized), 'huge.pdf'),
+        'asset_id': '1',
+    }, content_type='multipart/form-data')
+
+    assert response.status_code == 302
+    with app.app_context():
+        assert set(os.listdir(app.config['UPLOAD_FOLDER'])) == before
+        assert Attachment.query.filter_by(filename='huge.pdf').first() is None
+
+
+def test_the_oversize_redirect_carries_a_message(client, app, init_database):
+    _user_with(app, 'bigupload3@test.com', {'core_inventory': AccessLevel.WRITE})
+    _login(client, 'bigupload3@test.com')
+
+    with app.app_context():
+        oversized = b'x' * (app.config['MAX_CONTENT_LENGTH'] + 1024)
+
+    response = client.post('/attachments/upload', data={
+        'file': (io.BytesIO(oversized), 'huge.pdf'),
+        'asset_id': '1',
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'too large' in response.data
+    assert b'5 MB' in response.data
+
+
+def test_the_oversize_response_says_what_the_limit_is(client, app, init_database):
+    """A bare Werkzeug 413 page tells the user nothing actionable."""
+    _user_with(app, 'bigupload2@test.com', {'core_inventory': AccessLevel.WRITE})
+    _login(client, 'bigupload2@test.com')
+
+    with app.app_context():
+        oversized = b'x' * (app.config['MAX_CONTENT_LENGTH'] + 1024)
+
+    response = client.post('/attachments/upload', data={
+        'file': (io.BytesIO(oversized), 'huge.pdf'),
+        'asset_id': '1',
+    }, content_type='multipart/form-data', headers={'Accept': 'application/json'})
+
+    assert response.status_code == 413
+    assert '5 MB' in response.get_json()['error']

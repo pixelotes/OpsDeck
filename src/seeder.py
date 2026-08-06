@@ -22,6 +22,87 @@ from src.utils.timezone_helper import now, today
 
 fake = Faker()
 
+
+def _ensure(model, key, objects):
+    """Insert whichever of `objects` are not in the database yet; return them all.
+
+    `key` names the attribute that identifies a row the way a person would — a
+    supplier's name, a user's email — so a second run recognises what the first one
+    made instead of making it again.
+
+    The full list comes back in the order given, existing rows included, because the
+    sections downstream refer to their inputs positionally (users[8], suppliers[2]).
+    Returning only the new ones would shift those indices and silently wire the demo
+    data to the wrong records.
+    """
+    if not objects:
+        return []
+
+    values = [getattr(obj, key) for obj in objects]
+    column = getattr(model, key)
+    # no_autoflush because the objects passed in are often built but not yet added, and
+    # letting this query flush them half-wired produces a stream of SAWarnings.
+    with db.session.no_autoflush:
+        existing = {getattr(row, key): row
+                    for row in model.query.filter(column.in_(values)).all()}
+
+    result = []
+    for obj in objects:
+        found = existing.get(getattr(obj, key))
+        if found is not None:
+            result.append(found)
+        else:
+            db.session.add(obj)
+            result.append(obj)
+
+    db.session.flush()
+    return result
+
+
+def _ensure_one(model, key, obj):
+    """_ensure for a single record, for the one-off objects later sections refer to."""
+    return _ensure(model, key, [obj])[0]
+
+
+def _link(collection, *items):
+    """Add to a relationship collection only what is not linked already.
+
+    Association tables carry a unique (left, right) pair, so a plain append would fail
+    the second time the seeder runs.
+    """
+    for item in items:
+        if item is not None and item not in collection:
+            collection.append(item)
+
+
+def _is_empty(model):
+    """True when a table holds nothing, used to guard records with no natural key."""
+    return model.query.first() is None
+
+
+def _add_if_absent(model, objects):
+    """Insert `objects` only when their table is still empty.
+
+    For records with nothing to recognise them by — assignments, executions, cost
+    history, checklist items — where matching on a natural key is not possible. It is
+    all-or-nothing per table, which is the most a second run can safely assume.
+
+    Objects are expunged when skipped: assigning a relationship before this call can
+    pull them into the session, and they would then be inserted regardless of the guard.
+    """
+    objects = list(objects)
+    with db.session.no_autoflush:
+        empty = _is_empty(model)
+    if not empty:
+        for obj in objects:
+            if obj in db.session:
+                db.session.expunge(obj)
+        return []
+
+    db.session.add_all(objects)
+    db.session.flush()
+    return objects
+
 def seed_roadmaps(users):
     """Seed two demo roadmaps: an active one mid-flight and a draft for next year.
 
@@ -46,6 +127,13 @@ def seed_roadmaps(users):
         than hardcoded, which keeps every dependency consistent with where its initiatives
         actually sit — the same invariant cascade_reschedule maintains.
         """
+        # A demo roadmap exists whole or not at all, so there is nothing to merge:
+        # period labels and goal names are only unique within their roadmap, which a
+        # global key match cannot express.
+        existing = Roadmap.query.filter_by(name=name).first()
+        if existing:
+            return existing
+
         roadmap = Roadmap(name=name, description=description, status=status,
                           owner_id=owner.id)
         db.session.add(roadmap)
@@ -169,15 +257,23 @@ def seed_roadmaps(users):
 
 
 def seed_data(app=None):
-    """Seeds the database with a comprehensive set of demo data."""
+    """Seeds the database with a comprehensive set of demo data.
+
+    Idempotent: re-running it adds only what is missing. That matters because the
+    seeder grows — when a module like Roadmaps arrives, its demo data has to be able
+    to land on a database that was already seeded, which previously meant editing rows
+    by hand. It also means a partially seeded database can be topped up rather than
+    dropped.
+
+    Master entities are matched on their natural key through _ensure() below. Derived
+    records that have no such key — assignments, executions, cost history, checklist
+    items — are created only when their section is empty, since there is nothing to
+    recognise them by.
+    """
     if app is None:
         app = create_app()
     with app.app_context():
-        if Supplier.query.first():
-            print("Database already contains data. Aborting seed.")
-            return
-
-        print("Seeding database with extensive demo data...")
+        print("Seeding demo data (existing records are left as they are)...")
 
         # Hiring stages are seeded by seed-db-prod (which runs before this);
         # just load them here so demo candidates can reference them.
@@ -201,7 +297,7 @@ def seed_data(app=None):
             Supplier(name='Okta', email='info@okta.com'),
             Supplier(name='Palo Alto Networks', email='sales@paloaltonetworks.com')
         ]
-        db.session.add_all(suppliers)
+        suppliers = _ensure(Supplier, 'name', suppliers)
         db.session.commit()
         
         # Add Contacts
@@ -212,7 +308,7 @@ def seed_data(app=None):
             Contact(name='Bob Dell', email='bob@dell.com', phone='555-0103', role='Support Lead', supplier=suppliers[2]),
             Contact(name='Alice Slack', email='alice@slack.com', phone='555-0104', role='CSM', supplier=suppliers[3])
         ]
-        db.session.add_all(contacts)
+        contacts = _ensure(Contact, 'email', contacts)
         db.session.commit()
 
         locations = [
@@ -241,9 +337,9 @@ def seed_data(app=None):
         ]
         tags.extend(activity_category_tags)
         
-        db.session.add_all(locations)
-        db.session.add_all(payment_methods)
-        db.session.add_all(tags)
+        locations = _ensure(Location, 'name', locations)
+        payment_methods = _ensure(PaymentMethod, 'name', payment_methods)
+        tags = _ensure(Tag, 'name', tags)
         db.session.commit()
 
         # 2. Create People, Groups
@@ -269,19 +365,20 @@ def seed_data(app=None):
             User(name='Ian Malcolm', email='ian.m@example.com', department='Engineering', job_title='Junior DevOps Engineer'),
             User(name='Julia Roberts', email='julia.r@example.com', department='Sales', job_title='Sales  Development Rep')
         ]
-        db.session.add_all(users)
+        users = _ensure(User, 'email', users)
         db.session.commit()
 
         group_engineering = Group(name="Engineering", description="All members of the engineering team.")
-        group_engineering.users.extend([users[0], users[2], users[5]])
+        _link(group_engineering.users, users[0], users[2], users[5])
         
         group_sales = Group(name="Sales", description="The global sales team.")
-        group_sales.users.extend([users[4], users[6]])
+        _link(group_sales.users, users[4], users[6])
 
         group_design = Group(name="Design", description="The product and brand design team.")
-        group_design.users.extend([users[3], users[7]])
+        _link(group_design.users, users[3], users[7])
         
-        db.session.add_all([group_engineering, group_sales, group_design])
+        group_engineering, group_sales, group_design = _ensure(
+            Group, 'name', [group_engineering, group_sales, group_design])
         
         db.session.commit()
 
@@ -291,7 +388,7 @@ def seed_data(app=None):
             Budget(name='IT Hardware 2025', category='IT', amount=75000, currency='EUR', period='Yearly'),
             Budget(name='Software & SaaS 2025', category='Software', amount=150000, currency='EUR', period='Yearly'),
         ]
-        db.session.add_all(budgets)
+        budgets = _ensure(Budget, 'name', budgets)
 
         purchase1 = Purchase(description='Annual Adobe Creative Cloud Subscription', purchase_date=date(2024, 11, 1), supplier=suppliers[0], payment_method=payment_methods[0], budget=budgets[1])
         purchase2 = Purchase(description='New Developer Laptops Q4', purchase_date=date(2024, 10, 15), supplier=suppliers[2], payment_method=payment_methods[1], budget=budgets[0])
@@ -299,7 +396,9 @@ def seed_data(app=None):
         purchase4 = Purchase(description='New Macbooks for Design Team', purchase_date=date(2025, 2, 20), supplier=suppliers[6], payment_method=payment_methods[0], budget=budgets[0])
         purchase5 = Purchase(description='Firewall Upgrade for NYC Office', purchase_date=date(2025, 4, 1), supplier=suppliers[13], budget=budgets[0])
         
-        db.session.add_all([purchase1, purchase2, purchase3, purchase4, purchase5])
+        purchase1, purchase2, purchase3, purchase4, purchase5 = _ensure(
+            Purchase, 'description',
+            [purchase1, purchase2, purchase3, purchase4, purchase5])
         db.session.commit()
         
         # 4. Create Assets and Peripherals (with cost)
@@ -311,7 +410,8 @@ def seed_data(app=None):
 
         # Brands + Models
         brand_map = {name: Brand(name=name) for name in ('Dell', 'Apple', 'Microsoft', 'Palo Alto', 'Logitech')}
-        db.session.add_all(brand_map.values())
+        brand_map = dict(zip(brand_map.keys(),
+                             _ensure(Brand, 'name', list(brand_map.values()))))
         db.session.commit()
         model_map = {}
         for brand_name, model_name in [
@@ -323,7 +423,8 @@ def seed_data(app=None):
         ]:
             m = AssetModel(name=model_name, brand=brand_map[brand_name])
             model_map[(brand_name, model_name)] = m
-        db.session.add_all(model_map.values())
+        model_map = dict(zip(model_map.keys(),
+                             _ensure(AssetModel, 'name', list(model_map.values()))))
         db.session.commit()
 
         assets = [
@@ -335,7 +436,7 @@ def seed_data(app=None):
             Asset(name='EOL-LT-001', brand=brand_map['Apple'], model=model_map[('Apple', 'MacBook Pro 13"')], serial_number=fake.uuid4(), status='Awaiting Disposal', location=locations[0], cost=1500, currency='USD', purchase_date=date(2021, 5, 5)),
             Asset(name='FW-NYC-01', brand=brand_map['Palo Alto'], model=model_map[('Palo Alto', 'PA-440')], serial_number=fake.uuid4(), status='In Use', purchase=purchase5, location=locations[0], supplier=suppliers[13], cost=4000, currency='USD', warranty_length=60, purchase_date=purchase5.purchase_date)
         ]
-        db.session.add_all(assets)
+        assets = _ensure(Asset, 'name', assets)
         db.session.commit()
 
         peripherals = [
@@ -345,7 +446,7 @@ def seed_data(app=None):
             Peripheral(name='Keyboard-003', type='Keyboard', brand=brand_map['Apple'], cost=150, currency='EUR', asset=assets[2], user=users[3]),
             Peripheral(name='Mouse-003', type='Mouse', brand=brand_map['Apple'], cost=90, currency='EUR', asset=assets[2], user=users[3]),
         ]
-        db.session.add_all(peripherals)
+        peripherals = _ensure(Peripheral, 'name', peripherals)
         db.session.commit()
         
         # 5. Create Subscriptions and Opportunities
@@ -355,9 +456,12 @@ def seed_data(app=None):
             {'name': 'Microsoft 365 E5', 'type': 'SaaS', 'renewal': date(2026, 1, 1), 'cost': 35000, 'supplier': suppliers[1]},
             {'name': 'Okta Identity Provider', 'type': 'Security', 'renewal': date(2026, 6, 1), 'cost': 12000, 'supplier': suppliers[12]},
         ]
-        for data in subscriptions_data:
-            subscription = Subscription(name=data['name'], subscription_type=data['type'], renewal_date=data['renewal'], cost=data['cost'], supplier=data['supplier'], renewal_period_type='yearly')
-            db.session.add(subscription)
+        _ensure(Subscription, 'name', [
+            Subscription(name=data['name'], subscription_type=data['type'],
+                         renewal_date=data['renewal'], cost=data['cost'],
+                         supplier=data['supplier'], renewal_period_type='yearly')
+            for data in subscriptions_data
+        ])
         
         # Create Requirements
         from src.models.crm import Requirement, RequirementAction, OpportunityTask
@@ -391,10 +495,8 @@ def seed_data(app=None):
             }
         ]
         requirements = []
-        for data in requirements_data:
-            req = Requirement(**data)
-            db.session.add(req)
-            requirements.append(req)
+        requirements = _ensure(Requirement, 'name',
+                               [Requirement(**data) for data in requirements_data])
         db.session.commit()
 
         # Add some actions to requirements
@@ -403,7 +505,7 @@ def seed_data(app=None):
             RequirementAction(requirement=requirements[0], action_type='Meeting', description='Demo scheduled with Druva for next week.'),
             RequirementAction(requirement=requirements[1], action_type='Note', description='Current switches: Cisco 3750X (2015). Warranty expired 2020.'),
         ]
-        db.session.add_all(actions)
+        actions = _ensure(RequirementAction, 'description', actions)
         db.session.commit()
 
         # Create Evaluations (Opportunities) - some linked to requirements
@@ -412,7 +514,7 @@ def seed_data(app=None):
             Opportunity(name="Next-gen firewall refresh", status="Negotiating", potential_value=50000, supplier=suppliers[13], estimated_close_date=date(2025, 12, 1)),
             Opportunity(name="Evaluation: Druva Cloud Backup", status="PoC", potential_value=15000, supplier=suppliers[0], requirement_id=requirements[0].id, estimated_close_date=date(2026, 3, 15)),
         ]
-        db.session.add_all(opportunities)
+        opportunities = _ensure(Opportunity, 'name', opportunities)
         db.session.commit()
 
         # Add some tasks to evaluations
@@ -422,7 +524,7 @@ def seed_data(app=None):
             OpportunityTask(opportunity=opportunities[2], description='Complete 30-day PoC', due_date=date(2026, 3, 10), is_completed=True),
             OpportunityTask(opportunity=opportunities[2], description='Present results to management', due_date=date(2026, 3, 15)),
         ]
-        db.session.add_all(tasks)
+        tasks = _ensure(OpportunityTask, 'description', tasks)
         db.session.commit()
         
         # 6. Create Policies and Courses
@@ -435,15 +537,19 @@ def seed_data(app=None):
             status="Active",
             effective_date=date(2024, 1, 1)
         )
-        policy_v1.groups_to_acknowledge.append(group_engineering)
-        db.session.add_all([policy, policy_v1])
+        _link(policy_v1.groups_to_acknowledge, group_engineering)
+        policy = _ensure_one(Policy, 'title', policy)
+        policy_v1.policy_id = policy.id
+        policy_v1 = _ensure_one(PolicyVersion, 'version_number', policy_v1)
 
-        course = Course(title="Cybersecurity Awareness Training 2025", description="Annual training for all employees on security best practices.", link="http://example.com/training")
-        db.session.add(course)
+        course = _ensure_one(Course, 'title', Course(
+            title="Cybersecurity Awareness Training 2025",
+            description="Annual training for all employees on security best practices.",
+            link="http://example.com/training"))
         db.session.commit()
 
         assignment = CourseAssignment(course_id=course.id, user_id=users[1].id, due_date=today() + timedelta(days=30))
-        db.session.add(assignment)
+        _add_if_absent(CourseAssignment, [assignment])
         
         # 7. Create Compliance & Governance Entities
         print("Creating compliance and governance entities...")
@@ -571,44 +677,44 @@ def seed_data(app=None):
                 mitigation_plan="Immediate rotation and secrets management implementation."
             )
         ]
-        db.session.add_all(risks)
+        risks = _ensure(Risk, 'risk_description', risks)
 
         incident = SecurityIncident(title="Phishing Email Reported by Bob Williams", description="User Bob Williams reported a suspicious email with a link to a fake login page.", severity="SEV-2", impact="Minor", owner=users[0], reported_by=users[1])
-        incident.affected_users.append(users[1])
-        db.session.add(incident)
+        _link(incident.affected_users, users[1])
+        incident = _ensure_one(SecurityIncident, 'title', incident)
         
         bcdr_plan = BCDRPlan(name="Primary Database Failure Plan", description="Steps to restore the main application database from backups.")
-        bcdr_plan.subscriptions.append(Subscription.query.first())
-        db.session.add(bcdr_plan)
+        _link(bcdr_plan.subscriptions, Subscription.query.first())
+        bcdr_plan = _ensure_one(BCDRPlan, 'name', bcdr_plan)
         db.session.commit()
         
         bcdr_test = BCDRTestLog(plan_id=bcdr_plan.id, status="Passed", notes="Successfully restored backup to a staging environment in under 30 minutes.")
-        db.session.add(bcdr_test)
+        _add_if_absent(BCDRTestLog, [bcdr_test])
         
         # 8. Create Lifecycle Events
         print("Creating lifecycle events (maintenance, disposal)...")
         maintenance_log = MaintenanceLog(event_type="Repair", description="Replaced faulty RAM module.", status="Completed", asset=assets[0], assigned_to=users[0])
-        db.session.add(maintenance_log)
+        _ensure(MaintenanceLog, 'description', [maintenance_log])
         
         erasure_log = MaintenanceLog(event_type="Data Erasure", description="NIST 800-88 3-pass wipe performed.", status="Completed", asset=assets[5], assigned_to=users[0])
-        db.session.add(erasure_log)
+        _ensure(MaintenanceLog, 'description', [erasure_log])
 
         ewaste_supplier = Supplier(name="eWaste Inc.", email="contact@ewasteinc.com", compliance_status="Compliant")
-        db.session.add(ewaste_supplier)
+        ewaste_supplier = _ensure_one(Supplier, 'name', ewaste_supplier)
         db.session.flush()
         disposal = DisposalRecord(disposal_method="Recycled", disposal_partner=ewaste_supplier, asset=assets[5])
-        db.session.add(disposal)
+        _add_if_absent(DisposalRecord, [disposal])
 
         # More Maintenances for Asset 0
         m_log2 = MaintenanceLog(event_type="Planned Maintenance", description="Annual hardware diagnostic check.", status="Completed", asset=assets[0], assigned_to=users[8], event_date=date(2024, 12, 10))
         m_log3 = MaintenanceLog(event_type="Upgrade", description="RAM upgrade to 32GB.", status="Completed", asset=assets[0], assigned_to=users[0], event_date=date(2025, 1, 15))
-        db.session.add_all([m_log2, m_log3])
+        _ensure(MaintenanceLog, 'description', [m_log2, m_log3])
         
         # More Erasures (for Asset 5 - EOL-LT-001)
         # It already has one. Let's add one to another asset that is retired? 
         # Or just another log type for Asset 5.
         erasure_log_2 = MaintenanceLog(event_type="Data Erasure", description="Drive physical destruction.", status="Completed", asset=assets[5], assigned_to=users[0], event_date=date(2025, 1, 5))
-        db.session.add(erasure_log_2)
+        _ensure(MaintenanceLog, 'description', [erasure_log_2])
         
         # Asset History (Assignments)
         # Asset 0 (DEV-LT-001) is currently assigned to users[0] (Alice).
@@ -629,7 +735,7 @@ def seed_data(app=None):
             checked_out_date=datetime(2024, 11, 21, 9, 0, 0),
             notes="Primary device."
         )
-        db.session.add_all([assignment_hist, assignment_curr])
+        _add_if_absent(AssetAssignment, [assignment_hist, assignment_curr])
 
         db.session.commit()
 
@@ -641,7 +747,7 @@ def seed_data(app=None):
             Documentation(name="IT Security Policy", description="Comprehensive security policy for all staff.", external_link="https://docs.example.com/security", owner_id=users[0].id, owner_type='User'),
             Documentation(name="Onboarding Guide", description="Guide for new hires.", external_link="https://docs.example.com/onboarding", owner_id=users[7].id, owner_type='User')
         ]
-        db.session.add_all(docs)
+        docs = _ensure(Documentation, 'name', docs)
 
         links = [
             Link(name="Jira", url="https://jira.example.com", description="Issue tracking", owner_id=group_engineering.id, owner_type='Group'),
@@ -649,7 +755,7 @@ def seed_data(app=None):
             Link(name="Figma", url="https://figma.com/files/team/example", description="Design files", owner_id=group_design.id, owner_type='Group'),
             Link(name="Salesforce", url="https://salesforce.com", description="CRM", owner_id=group_sales.id, owner_type='Group')
         ]
-        db.session.add_all(links)
+        links = _ensure(Link, 'name', links)
 
         software_list = [
             Software(name="Visual Studio Code 1.85", description="Code editor by Microsoft", category="Development"),
@@ -657,7 +763,7 @@ def seed_data(app=None):
             Software(name="Zoom 5.17", description="Video conferencing by Zoom Video Communications", category="Communication"),
             Software(name="Adobe Photoshop 2024", description="Image editing by Adobe", category="Design")
         ]
-        db.session.add_all(software_list)
+        software_list = _ensure(Software, 'name', software_list)
         db.session.commit() # Commit to get IDs
 
         licenses = [
@@ -665,14 +771,14 @@ def seed_data(app=None):
             License(name="Slack Business Plus", license_key="SLACK-KEY-123", expiry_date=date(2025, 1, 10), software_id=software_list[1].id, user_id=users[1].id),
             License(name="Adobe Creative Cloud All Apps", license_key="ADOBE-KEY-456", expiry_date=date(2025, 11, 1), software_id=software_list[3].id, user_id=users[3].id)
         ]
-        db.session.add_all(licenses)
+        licenses = _ensure(License, 'name', licenses)
         db.session.commit()
 
         # 10. Create Fake Framework & Compliance Links
         print("Creating fake framework and compliance links...")
         
         fake_framework = Framework(name="Galactic Security Standard (GSS)", description="Standard for security across the galaxy.", is_active=True, is_custom=True)
-        db.session.add(fake_framework)
+        fake_framework = _ensure_one(Framework, 'name', fake_framework)
         db.session.commit()
 
         fake_controls = [
@@ -686,7 +792,7 @@ def seed_data(app=None):
             FrameworkControl(framework_id=fake_framework.id, control_id="GSS.5.1", name="Null Pointer", description="Void reference handling and exception management."),
             FrameworkControl(framework_id=fake_framework.id, control_id="GSS.5.2", name="Secret Cow Level", description="Easter egg implementation and hidden feature access.")
         ]
-        db.session.add_all(fake_controls)
+        fake_controls = _ensure(FrameworkControl, 'control_id', fake_controls)
         db.session.commit()
         
         # Automation Rules
@@ -711,7 +817,7 @@ def seed_data(app=None):
             frequency_days=30, 
             enabled=True
         )
-        db.session.add_all([rule1, rule2])
+        rule1, rule2 = _ensure(ComplianceRule, 'name', [rule1, rule2])
         db.session.commit()
 
         # Link controls to assets/docs
@@ -721,7 +827,7 @@ def seed_data(app=None):
             ComplianceLink(framework_control_id=fake_controls[2].id, linkable_id=software_list[1].id, linkable_type='Software', description="Slack used for encrypted comms (close enough)."),
             ComplianceLink(framework_control_id=fake_controls[3].id, linkable_id=maintenance_log.id, linkable_type='MaintenanceLog', description="Regular maintenance performed on core systems.")
         ]
-        db.session.add_all(compliance_links)
+        _add_if_absent(ComplianceLink, compliance_links)
         
         # 11. User Hierarchy (Managers)
         # 11. User Hierarchy (Managers & Buddies)
@@ -772,26 +878,24 @@ def seed_data(app=None):
             BusinessService(name="Identity Provider (IdP)", description="Centralized authentication (SSO).", owner=users[0], criticality="Tier 1 - Critical", status="Operational"),
             BusinessService(name="Logistics API", description="Integration with shipping providers.", owner=users[4], criticality="Tier 2 - High", status="Pipeline")
         ]
-        db.session.add_all(services)
+        services = _ensure(BusinessService, 'name', services)
         db.session.commit()
 
         # Dependencies
         # Architecture:
-        # E-Commerce -> Depends on: Inventory, Payment Gateway, Identity Provider
-        services[0].upstream_dependencies.append(services[1]) # Inventory
-        services[0].upstream_dependencies.append(services[2]) # Payment
-        services[0].upstream_dependencies.append(services[6]) # IdP
-
-        # Customer Support -> Depends on: Identity Provider, Inventory (to check order status)
-        services[4].upstream_dependencies.append(services[6]) # IdP
-        services[4].upstream_dependencies.append(services[1]) # Inventory
-
-        # Data Warehouse -> Depends on: E-Commerce (source), Inventory (source)
-        services[5].upstream_dependencies.append(services[0])
-        services[5].upstream_dependencies.append(services[1])
-
-        # Logistics API -> Depends on: Inventory
-        services[7].upstream_dependencies.append(services[1])
+        # (dependent, upstream) — service_dependencies has a unique pair, so an append
+        # that is already there would fail the second time the seeder runs.
+        for dependent, upstream in [
+            (0, 1),  # E-Commerce -> Inventory
+            (0, 2),  # E-Commerce -> Payment Gateway
+            (0, 6),  # E-Commerce -> Identity Provider
+            (4, 6),  # Customer Support -> Identity Provider
+            (4, 1),  # Customer Support -> Inventory (order status)
+            (5, 0),  # Data Warehouse -> E-Commerce
+            (5, 1),  # Data Warehouse -> Inventory
+            (7, 1),  # Logistics API -> Inventory
+        ]:
+            _link(services[dependent].upstream_dependencies, services[upstream])
 
         db.session.commit()
 
@@ -851,7 +955,7 @@ def seed_data(app=None):
             approved_at=now()
         )
         
-        db.session.add_all([change1, change2])
+        change1, change2 = _ensure(Change, 'title', [change1, change2])
         db.session.commit()
 
         # 12c. Service Requests
@@ -940,7 +1044,7 @@ def seed_data(app=None):
             closed_at=now() - timedelta(days=7),
         )
 
-        db.session.add_all([
+        _ensure(Request, 'title', [
             req_pending, req_triage, req_inprogress,
             req_completed, req_closed, req_cancelled
         ])
@@ -1082,7 +1186,7 @@ def seed_data(app=None):
         if snapshot4:
             snapshots.append(snapshot4)
 
-        db.session.add_all(snapshots)
+        snapshots = _ensure(ComplianceAudit, 'name', snapshots)
         db.session.commit()
         print(f"  Created {len(snapshots)} drift snapshots")
 
@@ -1265,18 +1369,18 @@ def seed_data(app=None):
             )
         ]
         
-        db.session.add_all(security_activities)
+        security_activities = _ensure(SecurityActivity, 'name', security_activities)
         db.session.commit()
         
         # Assign category tags to activities
-        security_activities[0].tags.append(tag_identity)  # Quarterly User Access Review
-        security_activities[1].tags.append(tag_awareness)  # Phishing Simulation
-        security_activities[2].tags.append(tag_awareness)  # Security Newsletter
-        security_activities[3].tags.append(tag_vuln)       # Annual Penetration Test
-        security_activities[4].tags.append(tag_vuln)       # External Vulnerability Scan
-        security_activities[5].tags.append(tag_network)    # Firewall Rules Review
-        security_activities[6].tags.append(tag_bcdr)       # Backup Restoration Test
-        security_activities[7].tags.append(tag_grc)        # Vendor Risk Assessment Review
+        _link(security_activities[0].tags, tag_identity)  # Quarterly User Access Review
+        _link(security_activities[1].tags, tag_awareness)  # Phishing Simulation
+        _link(security_activities[2].tags, tag_awareness)  # Security Newsletter
+        _link(security_activities[3].tags, tag_vuln)       # Annual Penetration Test
+        _link(security_activities[4].tags, tag_vuln)       # External Vulnerability Scan
+        _link(security_activities[5].tags, tag_network)    # Firewall Rules Review
+        _link(security_activities[6].tags, tag_bcdr)       # Backup Restoration Test
+        _link(security_activities[7].tags, tag_grc)        # Vendor Risk Assessment Review
         
         db.session.commit()
         
@@ -1301,7 +1405,7 @@ def seed_data(app=None):
             )
         ]
         
-        db.session.add_all(activity_executions)
+        _add_if_absent(ActivityExecution, activity_executions)
         db.session.commit()
 
         # Create Some Demo Candidates for Hiring Pipeline
@@ -1325,7 +1429,7 @@ def seed_data(app=None):
                      position='Junior Developer', expected_salary=50000, currency='EUR',
                      stage=hiring_stages[5], notes='Not a good cultural fit')
         ]
-        db.session.add_all(demo_candidates)
+        demo_candidates = _ensure(Candidate, 'email', demo_candidates)
         db.session.commit()
 
         # ------------------------------------------------------------------
@@ -1341,7 +1445,8 @@ def seed_data(app=None):
         pack_dev = OnboardingPack(name='Development', description='Role profile for software engineers and developers.')
         pack_design = OnboardingPack(name='Design', description='Role profile for product and brand designers.')
         pack_finance = OnboardingPack(name='Financial', description='Role profile for finance and accounting roles.')
-        db.session.add_all([pack_dev, pack_design, pack_finance])
+        pack_dev, pack_design, pack_finance = _ensure(
+            OnboardingPack, 'name', [pack_dev, pack_design, pack_finance])
         db.session.flush()
 
         vscode = _sw('Visual Studio Code')
@@ -1366,7 +1471,7 @@ def seed_data(app=None):
             PackItem(pack_id=pack_finance.id, item_type='Task', description='Configure expense approval workflow'),
             PackItem(pack_id=pack_finance.id, item_type='Task', description='Sign financial controls and SoD acknowledgment'),
         ]
-        db.session.add_all(pack_items)
+        _add_if_absent(PackItem, pack_items)
 
         # --- Global checklist common to all departments (ProcessTemplate) ---
         global_templates = [
@@ -1381,7 +1486,7 @@ def seed_data(app=None):
             ProcessTemplate(name='Collect all company equipment', process_type='offboarding'),
             ProcessTemplate(name='Remove from payroll and benefits', process_type='offboarding'),
         ]
-        db.session.add_all(global_templates)
+        global_templates = _ensure(ProcessTemplate, 'name', global_templates)
 
         # --- Custom email templates (Jinja2; vars from communications_context) ---
         tpl_welcome = EmailTemplate(
@@ -1436,7 +1541,8 @@ to wrap things up smoothly:</p>
 <p>Warm regards,<br>The People Team</p>
 """.strip()
         )
-        db.session.add_all([tpl_welcome, tpl_buddy, tpl_offboarding])
+        tpl_welcome, tpl_buddy, tpl_offboarding = _ensure(
+            EmailTemplate, 'name', [tpl_welcome, tpl_buddy, tpl_offboarding])
         db.session.flush()
 
         # Wire the onboarding templates into every role profile
@@ -1514,7 +1620,7 @@ to wrap things up smoothly:</p>
             assigned_manager_id=users[0].id,  # Alice Johnson
             assigned_buddy_id=buddy_design.id
         )
-        db.session.add_all([onb_inprogress, onb_completed])
+        _add_if_absent(OnboardingProcess, [onb_inprogress, onb_completed])
         db.session.flush()
         db.session.add_all(_make_onboarding_items(onb_inprogress, pack_dev, completed_upto=4))
         db.session.add_all(_make_onboarding_items(onb_completed, pack_design, completed_upto=-1))
@@ -1534,7 +1640,7 @@ to wrap things up smoothly:</p>
             departure_date=today() - timedelta(days=15),
             status='Completed'
         )
-        db.session.add_all([off_inprogress, off_completed])
+        _add_if_absent(OffboardingProcess, [off_inprogress, off_completed])
         db.session.flush()
         db.session.add_all(_make_offboarding_items(off_inprogress, completed_upto=2))
         db.session.add_all(_make_offboarding_items(off_completed, completed_upto=-1))

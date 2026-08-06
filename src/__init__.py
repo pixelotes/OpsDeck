@@ -6,7 +6,8 @@ import logging
 from logging.handlers import RotatingFileHandler
 import atexit
 import click
-from flask import Flask, session, render_template, request, redirect, url_for, jsonify
+from flask import (Flask, session, render_template, request, redirect, url_for,
+                   jsonify, flash)
 from apscheduler.schedulers.background import BackgroundScheduler
 import ecs_logging
 from flask_limiter import Limiter
@@ -124,6 +125,19 @@ def create_app(test_config=None):
 
     # Create the new uploads folder if it doesn't exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+    # Cap the size of any request body. Without this an authenticated user can fill the
+    # disk one upload at a time. It applies to every request, not only to attachments,
+    # so it also bounds imports and form posts; 5 MB covers the evidence documents and
+    # import files this app deals with. Raise MAX_UPLOAD_MB where bigger files are
+    # legitimate. Requests over the limit are answered by the 413 handler below.
+    try:
+        max_upload_mb = int(os.environ.get('MAX_UPLOAD_MB', '5'))
+    except ValueError:
+        max_upload_mb = 5
+    max_upload_mb = max(1, max_upload_mb)
+    app.config['MAX_UPLOAD_MB'] = max_upload_mb
+    app.config['MAX_CONTENT_LENGTH'] = max_upload_mb * 1024 * 1024
 
     # Email configuration
     app.config['SMTP_SERVER'] = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
@@ -279,6 +293,27 @@ def create_app(test_config=None):
     def forbidden(e):
         return render_template('errors/403.html'), 403
     
+    @app.errorhandler(413)
+    def payload_too_large(e):
+        """Answer an over-sized request body with something the caller can act on.
+
+        Flask aborts the request as soon as the limit is exceeded, so without this the
+        user gets a bare Werkzeug error page with no hint about what went wrong or how
+        big the file may be. API callers get JSON for the same reason the login guard
+        does: a fetch() client cannot read an HTML page.
+        """
+        limit_mb = app.config.get('MAX_UPLOAD_MB', 5)
+        message = f'That file is too large. The limit is {limit_mb} MB.'
+
+        wants_json = ('/api/' in (request.path or '')
+                      or request.accept_mimetypes.best == 'application/json')
+        if wants_json:
+            return jsonify({'error': message}), 413
+
+        from .utils.redirects import safe_redirect_target
+        flash(message, 'danger')
+        return redirect(safe_redirect_target(request.referrer)), 302
+
     @app.errorhandler(429)
     def ratelimit_handler(e):
         from .utils.logger import log_audit

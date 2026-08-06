@@ -38,10 +38,10 @@ source = ["src"]
 omit = ["src/scripts/*"]
 
 [tool.coverage.report]
-# A floor to ratchet upward, not a target. It sits one point under the measured 55% so
-# a genuine regression fails the build while ordinary noise does not. Raise it whenever
-# coverage climbs; never lower it to make a build pass.
-fail_under = 54
+# A floor to ratchet upward, not a target. It sits one point under the measured figure
+# so a genuine regression fails the build while ordinary noise does not. Raise it
+# whenever coverage climbs; never lower it to make a build pass.
+fail_under = 57
 show_missing = true
 exclude_lines = [
     "pragma: no cover",
