@@ -425,6 +425,11 @@ def _get_active_users_as_dict():
     """Helper to fetch active users and format them as dicts with flat custom properties."""
     users = User.query.filter_by(is_archived=False).all()
     current_app.logger.info(f"[UAR] Found {len(users)} active users")
+    # Two queries for the whole collection instead of two per user: this reads custom
+    # properties for every user in the database, so it was the worst instance of the
+    # pattern by a wide margin.
+    User.preload_custom_properties(users)
+
     user_list = []
     for u in users:
         u_dict = {
