@@ -1287,6 +1287,49 @@ def build_database_url(args):
     )
 
 
+def resolve_output_dir(requested):
+    """Decide where the export goes, and fail clearly rather than surprisingly.
+
+    Writing wherever the operator says is this tool's job — the documented usage
+    includes --output /backups/opsdeck_20260224 — so the destination is deliberately not
+    confined by default. Nothing else in a path here comes from the caller: the 56 file
+    names are literals in get_sheet_configs, so there is no traversal to prevent.
+
+    What this does add is BCDR_OUTPUT_ROOT. When it is set, the destination has to
+    resolve inside it, which is what makes the script safe to hand to an automated
+    caller: a wrong --output then produces an error instead of scattering 56
+    spreadsheets somewhere unexpected. It guards against a faulty caller, not a hostile
+    one — anything that can set the arguments can usually set the environment too.
+    """
+    if requested is not None and not str(requested).strip():
+        print("ERROR: --output (or $OUTPUT_DIR) is set but empty.")
+        sys.exit(1)
+
+    if requested:
+        output_dir = Path(requested).expanduser()
+    else:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        output_dir = Path(f"bcdr_opsdeck_{timestamp}")
+
+    # Resolved before anything touches the filesystem, so the checks below and the path
+    # printed to the operator are the path actually written to.
+    output_dir = output_dir.resolve()
+
+    confine_to = os.environ.get("BCDR_OUTPUT_ROOT")
+    if confine_to:
+        root = Path(confine_to).expanduser().resolve()
+        if not output_dir.is_relative_to(root):
+            print(f"ERROR: output directory {output_dir} is outside "
+                  f"BCDR_OUTPUT_ROOT ({root}).")
+            sys.exit(1)
+
+    if output_dir.exists() and not output_dir.is_dir():
+        print(f"ERROR: {output_dir} already exists and is not a directory.")
+        sys.exit(1)
+
+    return output_dir
+
+
 def connect_db(database_url):
     """Create a SQLAlchemy connection to the database engine."""
     # render_as_string masks the password. The previous version split the string on '@'
@@ -1517,12 +1560,7 @@ Examples:
     args = parser.parse_args()
 
     # Output directory
-    if args.output:
-        output_dir = Path(args.output)
-    else:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        output_dir = Path(f"bcdr_opsdeck_{timestamp}")
-
+    output_dir = resolve_output_dir(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Connection

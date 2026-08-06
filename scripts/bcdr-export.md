@@ -21,6 +21,7 @@ All parameters can be supplied either as CLI flags or environment variables. **C
 | `--user` | `POSTGRES_USER` | `opsdeck` | DB user |
 | *(no flag)* | `POSTGRES_PASSWORD` | `opsdeck` | DB password. Environment only — a password given as a command-line argument shows up in `ps` for every other user on the host and is written to shell history |
 | `--output` / `-o` | `OUTPUT_DIR` | `bcdr_opsdeck_YYYYMMDD_HHMM/` | Output directory |
+| *(no flag)* | `BCDR_OUTPUT_ROOT` | *(unset — no restriction)* | When set, the output directory must resolve inside it, and the script exits with an error otherwise. Intended for running the export from a scheduler or an agent, where a wrong `--output` should fail rather than write 56 spreadsheets somewhere unexpected. It constrains a mistaken caller, not a hostile one — whatever can choose the arguments can usually choose the environment too |
 
 Because every parameter is env-configurable and none is required, the script runs with no flags inside a container — ideal for mounting Kubernetes secrets as environment variables:
 
