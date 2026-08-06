@@ -14,6 +14,7 @@ from ..utils.communications_context import validate_template_syntax
 from .main import login_required
 from src.utils.timezone_helper import now, today
 from ..utils.sanitize import sanitize_email_html
+from ..utils.json_api import json_endpoint
 
 
 campaigns_bp = Blueprint('campaigns', __name__)
@@ -535,6 +536,7 @@ def finish_campaign(id):
 
 
 @campaigns_bp.route('/<int:id>/stats', methods=['GET'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE, access_level='READ_ONLY')
 def get_stats(id):

@@ -24,9 +24,11 @@ from flask import current_app, jsonify, request
 from werkzeug.exceptions import BadRequest, HTTPException
 
 from ..extensions import db
-# Re-exported so a module writing JSON endpoints has one import, not two: the
-# permission decorator and the response convention always travel together.
-from ..services.permissions_service import requires_permission_api  # noqa: F401
+
+# Deliberately does NOT re-export requires_permission_api for convenience, though that
+# would read nicely: permissions_service consults request_wants_json below, so importing
+# it here would close a cycle. The dependency runs one way — permissions asks this module
+# what the caller wants, never the reverse.
 
 #: Attribute stamped on a view to declare it answers with JSON.
 #:
@@ -59,8 +61,11 @@ def request_wants_json():
     1. the view's own declaration — authoritative, and the reason this function exists;
     2. ``/api/`` in the path — kept so /api/v1 and the 34 endpoints already following
        the convention behave identically whether or not anyone marked them;
-    3. an explicit ``Accept: application/json``, which is the only signal available
-       when the request never reaches a view (a 404, or a body rejected before routing).
+    3. how the caller asked, which is the only signal available when the request never
+       reaches a view (a 404, or a body rejected before routing) and the only correct one
+       for a route that legitimately serves both a form and AJAX. Those cannot be
+       declared: marking them would answer a browser form POST with 401 JSON instead of
+       sending the user to the login page.
 
     Must not raise: it runs inside error handlers, including the one for a request with
     no matching endpoint at all.
@@ -74,7 +79,13 @@ def request_wants_json():
     if '/api/' in (request.path or ''):
         return True
 
-    return request.accept_mimetypes.best == 'application/json'
+    if request.accept_mimetypes.best == 'application/json':
+        return True
+
+    # The two conventional AJAX markers. Without them a dual-mode endpoint answers a
+    # validation error in JSON and an authentication failure with a 302, so the caller
+    # parses a login page as its payload for one class of failure and not the other.
+    return request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
 
 def json_error(message, status):

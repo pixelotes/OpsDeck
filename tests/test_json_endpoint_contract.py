@@ -105,6 +105,49 @@ def test_every_declared_json_endpoint_refuses_in_json(client, app, init_database
     )
 
 
+def test_every_declared_json_endpoint_denies_in_json(client, app, init_database):
+    """The authorization half: a session without the governing module must also get JSON.
+
+    Marking a view fixes its 401 and its 403 together because requires_permission now
+    consults the same declaration. Before that it only fixed authentication, and an
+    authenticated user lacking the module still got a 302 to the dashboard — the same
+    silent failure one step later.
+
+    The user holds no modules at all, so every route governed by requires_permission
+    refuses. A route with only @login_required will answer something else entirely, which
+    is why this asserts the contract (never a redirect, never HTML) rather than a status.
+    """
+    from src.services.permissions_cache import permissions_cache
+    from src.extensions import db as _db
+    from src.models import User
+
+    with app.app_context():
+        user = User(name='nomodules', email='nomodules@test.com', role='user')
+        user.set_password('password')
+        _db.session.add(user)
+        _db.session.commit()
+        permissions_cache.invalidate()
+
+    client.post('/login', data={'email': 'nomodules@test.com', 'password': 'password'},
+                follow_redirects=True)
+
+    offenders = []
+    for method, path in _targets(app):
+        response = client.open(path, method=method)
+
+        if response.status_code in (301, 302, 303, 307, 308):
+            offenders.append(
+                f'{method} {path} -> {response.status_code} to '
+                f'{response.headers.get("Location")}')
+        elif response.content_type.startswith('text/html'):
+            offenders.append(f'{method} {path} -> {response.content_type}')
+
+    assert not offenders, (
+        f'{len(offenders)} declared JSON endpoint(s) answered an unauthorised session '
+        f'with a redirect or HTML:\n' + '\n'.join(f'  {o}' for o in offenders)
+    )
+
+
 @pytest.mark.parametrize('method,path', [
     ('GET', '/compliance/json/services'),
     ('POST', '/hr/hiring/move'),
@@ -130,3 +173,34 @@ def test_declaration_is_what_counts_not_the_path(client, app, init_database, met
     assert not response.content_type.startswith('text/html'), (
         f'{path} answered with {response.content_type}'
     )
+
+
+# A route that serves both a browser form and AJAX cannot be declared, so the caller's
+# own signal is all there is to go on. brands.create_brand is the real instance.
+DUAL_MODE_PATH = '/brands/new'
+
+
+@pytest.mark.parametrize('headers', [
+    {'X-Requested-With': 'XMLHttpRequest'},
+    {'Accept': 'application/json'},
+    {'Content-Type': 'application/json'},
+], ids=['x-requested-with', 'accept', 'content-type'])
+def test_a_dual_mode_route_refuses_ajax_in_json(client, init_database, headers):
+    """Any of the three ways of saying "I speak JSON" must get a JSON refusal."""
+    response = client.post(DUAL_MODE_PATH, headers=headers)
+
+    assert response.status_code == 401, f'answered {response.status_code}'
+    assert response.is_json
+
+
+def test_a_dual_mode_route_still_sends_a_browser_to_the_login_page(client, init_database):
+    """The other half of the same route: a plain form POST must not get 401 JSON.
+
+    This is why these routes are not marked. Declaring them would be the tidy thing to
+    do right up until an unauthenticated user submits a form and the browser renders a
+    JSON error instead of the login page.
+    """
+    response = client.post(DUAL_MODE_PATH, data={'name': 'Acme'})
+
+    assert response.status_code == 302
+    assert '/login' in response.headers.get('Location', '')

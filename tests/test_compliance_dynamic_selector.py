@@ -1,9 +1,15 @@
 from src.models import db, Asset, Policy
 
 def test_linkable_objects_endpoint_auth(client):
-    """Ensure endpoint requires authentication."""
+    """Ensure endpoint refuses without authentication, in JSON.
+
+    This asserted a 302 to the login page, which pinned the bug rather than the
+    behaviour: the caller is TomSelect, and it parsed that login HTML as its options
+    list. Now that the view is declared with @json_endpoint the guard answers 401 JSON.
+    """
     response = client.get('/compliance/json/linkable-objects?type=Asset')
-    assert response.status_code == 302 # Redirect to login
+    assert response.status_code == 401
+    assert response.is_json
 
 def test_linkable_objects_assets(auth_client):
     """Test searching for Assets."""

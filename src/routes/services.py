@@ -13,6 +13,7 @@ from ..models.credentials import Credential
 from ..models.activities import SecurityActivity
 from ..extensions import db
 from ..utils.dependency_graph import get_full_dependency_tree
+from ..utils.json_api import json_endpoint
 import os
 import uuid
 
@@ -620,6 +621,7 @@ def remove_user_access(id, user_id):
     return redirect(url_for(DETAIL, id=id) + '#users')
 
 @services_bp.route('/<int:id>/check_access/<int:user_id>', methods=['GET'])
+@json_endpoint
 @login_required
 def check_user_access(id, user_id):
     """

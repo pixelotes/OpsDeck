@@ -507,6 +507,7 @@ def delete_stage(id):
     return redirect(url_for(MANAGE_STAGES))
 
 @hiring_bp.route('/stages/reorder', methods=['POST'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE)
 def update_stage_order():

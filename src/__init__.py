@@ -340,12 +340,20 @@ def create_app(test_config=None):
     api.register_blueprint(api_bp)
 
     # --- Custom Error Handlers ---
+    # The error pages answer JSON for a JSON caller for the same reason the login guard
+    # does. abort(404) is the common way in: a JSON endpoint that looks up a missing row
+    # with get_or_404 would otherwise hand a fetch() client an HTML error page, which is
+    # the original bug arriving by a different route.
     @app.errorhandler(404)
     def page_not_found(e):
+        if request_wants_json():
+            return jsonify({'error': 'Not found.'}), 404
         return render_template('errors/404.html'), 404
 
     @app.errorhandler(403)
     def forbidden(e):
+        if request_wants_json():
+            return jsonify({'error': 'Forbidden.'}), 403
         return render_template('errors/403.html'), 403
     
     @app.errorhandler(413)
@@ -376,6 +384,8 @@ def create_app(test_config=None):
             outcome='failure',
             error_message=e.description
         )
+        if request_wants_json():
+            return jsonify({'error': e.description or 'Too many requests.'}), 429
         return render_template('errors/429.html', error=e.description), 429
     
     @app.errorhandler(500)
@@ -387,6 +397,10 @@ def create_app(test_config=None):
             outcome='failure',
             error_message=str(e)
         )
+        # Deliberately not str(e): the HTML page shows nothing either, and a JSON caller
+        # is the one whose response tends to end up logged or displayed verbatim.
+        if request_wants_json():
+            return jsonify({'error': 'Internal error.'}), 500
         return render_template('errors/500.html'), 500
     
     # --- REGISTER THE CUSTOM MARKDOWN FILTER ---

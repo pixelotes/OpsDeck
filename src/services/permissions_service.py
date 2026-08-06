@@ -2,6 +2,7 @@ from flask import session, redirect, url_for, flash, request, render_template, j
 from functools import wraps
 from ..models import db, User, Permission, Module, AccessLevel
 from .permissions_cache import permissions_cache
+from ..utils.json_api import request_wants_json
 
 import logging
 
@@ -113,26 +114,32 @@ def update_permission_matrix(target_type, target_id, module_permissions):
         # If it's a group, invalidate all to be safe (could be optimized later)
         permissions_cache.invalidate()
 
-def requires_permission(module_slug, access_level='READ_ONLY'):
-    """
-    Decorator to enforce module-level permissions on routes.
-    access_level can be 'READ_ONLY' or 'WRITE'.
+def _enforce_permission(module_slug, access_level, json_only):
+    """The one permission check, which answers a denial in the caller's language.
+
+    requires_permission and requires_permission_api were near-identical copies that
+    differed only in how they refused, which is how they drifted: the JSON one grew a
+    guard against a null permissions cache and the HTML one did not. Refusing is now the
+    only branch, and which branch it takes comes from the same declaration the login
+    guard consults — so marking a view with @json_endpoint fixes its 401 and its 403
+    together, rather than fixing authentication and leaving authorization redirecting.
     """
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            wants_json = json_only or request_wants_json()
+
             user_id = session.get('user_id')
-            if not user_id:
-                return redirect(url_for('main.login'))
-            
-            user = db.session.get(User, user_id)
+            user = db.session.get(User, user_id) if user_id else None
             if not user:
+                if wants_json:
+                    return jsonify({'error': 'Authentication required.'}), 401
                 return redirect(url_for('main.login'))
-                
+
             # Admin bypass
             if user.role == 'admin':
                 return f(*args, **kwargs)
-                
+
             # Check permissions
             perms = permissions_cache.get(user_id)
             logger.debug(f" decorator check user_id={user_id} (type {type(user_id)}) module={module_slug} cached_found={perms is not None}")
@@ -143,62 +150,52 @@ def requires_permission(module_slug, access_level='READ_ONLY'):
                 get_user_modules(user_id)
                 perms = permissions_cache.get(user_id)
                 logger.debug(f" After refresh perms keys: {list(perms.keys()) if perms else 'None'}")
+            perms = perms or {}
 
-                
             if module_slug not in perms:
+                if wants_json:
+                    return jsonify({'error': f"No access to the {module_slug} module."}), 403
                 flash(f"You don't have access to the {module_slug} module.", "danger")
                 # Prevent redirect loop if already on dashboard
                 if request.endpoint == 'main.dashboard':
-                     return render_template('errors/403.html'), 403
+                    return render_template('errors/403.html'), 403
                 return redirect(url_for('main.dashboard'))
-                
+
             if access_level == 'WRITE' and perms.get(module_slug) != 'WRITE':
+                if wants_json:
+                    return jsonify(
+                        {'error': f"Read-only access to the {module_slug} module."}), 403
                 flash(f"You only have read-only access to the {module_slug} module.", "warning")
                 # Try to redirect back, or to the module main page
                 return redirect(request.referrer or url_for('main.dashboard'))
-                
+
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+
+def requires_permission(module_slug, access_level='READ_ONLY'):
+    """
+    Decorator to enforce module-level permissions on routes.
+    access_level can be 'READ_ONLY' or 'WRITE'.
+
+    Answers a denial with flash() + redirect for a browser navigation, and with JSON for
+    a view declared as JSON — see json_api.request_wants_json.
+    """
+    return _enforce_permission(module_slug, access_level, json_only=False)
+
 
 def requires_permission_api(module_slug, access_level='READ_ONLY'):
     """
     JSON-returning sibling of requires_permission, for endpoints consumed by fetch().
 
-    requires_permission answers a denial with flash() + redirect(). That is right for a
-    browser navigation and wrong for an API client: the caller receives a 302 to an HTML
-    page and parses it as if it were the payload, so the failure is silent. This returns
-    401/403 with a JSON body instead.
+    Refuses with JSON unconditionally, without consulting the view's declaration: an
+    endpoint that asks for this has already said what it is, and under /api/ that must
+    hold even for a request that arrives without a resolvable endpoint.
 
     access_level can be 'READ_ONLY' or 'WRITE'.
     """
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            user_id = session.get('user_id')
-            user = db.session.get(User, user_id) if user_id else None
-            if not user:
-                return jsonify({'error': 'Authentication required.'}), 401
-
-            # Admin bypass
-            if user.role == 'admin':
-                return f(*args, **kwargs)
-
-            perms = permissions_cache.get(user_id)
-            if perms is None:
-                get_user_modules(user_id)
-                perms = permissions_cache.get(user_id)
-            perms = perms or {}
-
-            if module_slug not in perms:
-                return jsonify({'error': f"No access to the {module_slug} module."}), 403
-
-            if access_level == 'WRITE' and perms.get(module_slug) != 'WRITE':
-                return jsonify({'error': f"Read-only access to the {module_slug} module."}), 403
-
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
+    return _enforce_permission(module_slug, access_level, json_only=True)
 
 
 def has_write_permission(module_slug):

@@ -44,6 +44,7 @@ UAR_AUTOMATION_DETAIL = 'compliance.uar_automation_detail'
 UAR_EXECUTION_DETAIL = 'compliance.uar_execution_detail'
 
 @compliance_bp.route('/json/linkable-objects', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_linkable_objects():
     """
@@ -110,6 +111,7 @@ def get_linkable_objects():
     return jsonify(results)
 
 @compliance_bp.route('/json/subscriptions', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_json_subscriptions():
     """Returns list of Subscriptions for UAR dropdown."""
@@ -155,6 +157,7 @@ def access_review():
     return render_template('compliance/access_review.html', reports=reports)
 
 @compliance_bp.route('/access-review/preview', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def access_review_preview():
     """
@@ -269,6 +272,7 @@ def access_review_preview():
         engine.cleanup()
 
 @compliance_bp.route('/access-review/schema', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_access_review_schema():
     """
@@ -440,6 +444,7 @@ def _get_active_users_as_dict():
     return user_list
 
 @compliance_bp.route('/access-review/promote', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def promote_finding_to_incident():
     """
@@ -470,6 +475,7 @@ def promote_finding_to_incident():
 # --- JSON APIs for Automation Rules Dynamic Selectors ---
 
 @compliance_bp.route('/json/activities', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_activities():
     """Returns list of Security Activities for dropdown."""
@@ -485,6 +491,7 @@ def get_activities():
     } for a in activities])
 
 @compliance_bp.route('/json/tags', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_all_tags():
     """Returns list of all non-archived Tags for dropdowns."""
@@ -498,6 +505,7 @@ def get_all_tags():
         return jsonify([]), 500
 
 @compliance_bp.route('/json/maintenance-types', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_maintenance_types():
     """Returns distinct event_type values from MaintenanceLog."""
@@ -505,6 +513,7 @@ def get_maintenance_types():
     return jsonify([t[0] for t in types if t[0]])
 
 @compliance_bp.route('/json/bcdr-plans', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_bcdr_plans():
     """Returns list of BCDR Plans for dropdown."""
@@ -1130,6 +1139,7 @@ def toggle_pir_lock(review_id):
     return redirect(url_for(INCIDENT_REVIEW, id=review.incident_id))
 
 @compliance_bp.route('/incidents/review/<int:review_id>/timeline', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE_OPERATIONS)
 def add_timeline_event(review_id):
     if not has_write_permission(MODULE_OPERATIONS):
@@ -1161,6 +1171,7 @@ def add_timeline_event(review_id):
     return jsonify({'id': event.id, 'time': event.event_time.strftime('%Y-%m-%dT%H:%M'), 'description': event.description}), 201
 
 @compliance_bp.route('/incidents/review/timeline/<int:event_id>', methods=['DELETE'])
+@json_endpoint
 @requires_permission(MODULE_OPERATIONS)
 def delete_timeline_event(event_id):
     if not has_write_permission(MODULE_OPERATIONS):
@@ -1171,6 +1182,7 @@ def delete_timeline_event(event_id):
     return jsonify({'success': True})
 
 @compliance_bp.route('/incidents/review/<int:review_id>/timeline/reorder', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE_OPERATIONS)
 def reorder_timeline_events(review_id):
     if not has_write_permission(MODULE_OPERATIONS):
@@ -1249,6 +1261,7 @@ def list_erasures():
 # --- API Routes for Compliance Linking ---
 
 @compliance_bp.route('/frameworks', methods=['GET'])
+@json_endpoint
 @login_required
 def get_frameworks():
     """Returns a JSON list of active frameworks."""
@@ -1260,6 +1273,7 @@ def get_frameworks():
     } for f in frameworks])
 
 @compliance_bp.route('/frameworks/<int:framework_id>/controls', methods=['GET'])
+@json_endpoint
 @login_required
 def get_framework_controls(framework_id):
     """Returns a JSON list of controls for a specific framework."""
@@ -1276,6 +1290,7 @@ def get_framework_controls(framework_id):
     } for c in controls])
 
 @compliance_bp.route('/link', methods=['POST'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE_COMPLIANCE)
 def create_compliance_link():
@@ -1327,6 +1342,7 @@ def create_compliance_link():
     }), 201
 
 @compliance_bp.route('/link/<int:link_id>', methods=['DELETE'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE_COMPLIANCE)
 def delete_compliance_link(link_id):
@@ -1936,6 +1952,7 @@ def uar_finding_promote(id):
 
 
 @compliance_bp.route('/uar/findings/bulk-action', methods=['POST'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE_COMPLIANCE)
 def uar_findings_bulk_action():

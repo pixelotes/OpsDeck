@@ -6,7 +6,8 @@ from flask import (
 from src.models import db, Framework, FrameworkControl
 from sqlalchemy.exc import IntegrityError
 from ..services.permissions_service import (requires_permission, has_write_permission,
-                                           requires_permission_api)
+                                            requires_permission_api)
+from ..utils.json_api import json_endpoint
 
 
 frameworks_bp = Blueprint('frameworks', __name__, url_prefix='/frameworks')
@@ -138,6 +139,7 @@ def edit(id):
     )
 
 @frameworks_bp.route('/<int:id>/delete', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE)
 def delete(id):
     if not has_write_permission(MODULE):
@@ -164,6 +166,7 @@ def delete(id):
 # --- Routes behind the controls modal (AJAX) ---
 
 @frameworks_bp.route('/control/add', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE)
 def add_control():
     if not has_write_permission(MODULE):
@@ -198,6 +201,7 @@ def add_control():
         return jsonify({'success': False, 'message': f'Error: {e}'}), 500
 
 @frameworks_bp.route('/control/<int:id>/get_data', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE)
 def get_control_data(id):
     # Esta ruta no necesita 'forms' y puede quedar igual
@@ -212,6 +216,7 @@ def get_control_data(id):
     })
 
 @frameworks_bp.route('/control/<int:id>/edit', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE)
 def edit_control(id):
     if not has_write_permission(MODULE):
@@ -240,6 +245,7 @@ def edit_control(id):
         return jsonify({'success': False, 'message': f'Error: {e}'}), 500
 
 @frameworks_bp.route('/control/<int:id>/delete', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE)
 def delete_control(id):
     if not has_write_permission(MODULE):

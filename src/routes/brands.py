@@ -6,6 +6,7 @@ from ..models.assets import Brand, AssetModel, Asset, Peripheral
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
 from src.utils.logger import log_audit
+from ..utils.json_api import json_endpoint, request_wants_json
 
 
 brands_bp = Blueprint('brands', __name__)
@@ -17,8 +18,14 @@ BRAND_LIST = 'brands.list_brands'
 
 
 def _wants_json():
-    """True when the caller expects a JSON response (AJAX / JSON request)."""
-    return request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    """True when the caller expects a JSON response (AJAX / JSON request).
+
+    Delegates so these dual-mode routes answer a denial and a validation error in the
+    same language. This module used to decide for itself, which is how the two drifted:
+    the guard refused in JSON on Accept, and the handler replied in JSON on
+    X-Requested-With.
+    """
+    return request_wants_json()
 
 
 # ----- Brand CRUD -----
@@ -217,6 +224,7 @@ def delete_model(brand_id, model_id):
 # ----- JSON endpoint used by brand/model pickers in forms -----
 
 @brands_bp.route('/<int:brand_id>/models.json', methods=['GET'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE, access_level='READ_ONLY')
 def list_models_json(brand_id):

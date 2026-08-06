@@ -13,6 +13,7 @@ from ..utils.communications_context import validate_template_syntax, render_emai
 from .main import login_required
 from src.utils.timezone_helper import today
 from ..utils.sanitize import sanitize_email_html
+from ..utils.json_api import json_endpoint
 
 
 admin_communications_bp = Blueprint('admin_communications', __name__)
@@ -195,6 +196,7 @@ def toggle_template(id):
 
 
 @admin_communications_bp.route('/templates/<int:id>/test-send', methods=['POST'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE)
 def test_send_template(id):
