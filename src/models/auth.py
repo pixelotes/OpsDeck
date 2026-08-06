@@ -155,7 +155,7 @@ class UserKnownIP(db.Model):
 
 class OrgChartSnapshot(db.Model):
     """
-    Representa una fotografía estática de la estructura organizativa en una fecha.
+    A frozen picture of the organisational structure on a given date.
     Se usa como evidencia de cumplimiento (ej. ISO 27001 A.5.2 Roles y Responsabilidades).
     """
     id = db.Column(db.Integer, primary_key=True)
@@ -169,8 +169,8 @@ class OrgChartSnapshot(db.Model):
     
     created_by = db.relationship('User')
 
-    # Relación inversa para Auditorías (Evidence)
-    # Esto permite ver desde el Snapshot en qué auditorías se usó
+    # Reverse relationship for audits (evidence)
+    # Lets a snapshot show which audits used it
     audit_links = db.relationship('AuditControlLink',
         primaryjoin="and_(OrgChartSnapshot.id==foreign(AuditControlLink.linkable_id), "
                     "AuditControlLink.linkable_type=='OrgChartSnapshot')",

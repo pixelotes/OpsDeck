@@ -19,11 +19,11 @@ DETAIL = 'documentation.detail'
 @login_required
 @requires_permission(MODULE)
 def list_docs():
-    """Muestra la lista de documentación, con filtros."""
+    """Lists documentation entries, with filters."""
     
-    # Obtener parámetros de filtro de la URL
+    # Read the filter parameters off the URL
     search_name = request.args.get('search_name', '')
-    search_tags = request.args.getlist('tags') # .getlist() para select múltiple
+    search_tags = request.args.getlist('tags') # getlist() handles the multi-select
 
     # Query base
     query = Documentation.query
@@ -34,13 +34,13 @@ def list_docs():
 
     # Aplicar filtro por tags
     if search_tags:
-        # Unir con la tabla Tag y filtrar por los nombres de tag seleccionados
+        # Join the tag table and filter by the selected tag names
         query = query.join(Documentation.tags).filter(Tag.name.in_(search_tags))
 
     # Ejecutar la query
     documentation = query.order_by(Documentation.name).all()
     
-    # Obtener todos los tags para el dropdown del filtro
+    # All tags, for the filter dropdown
     all_tags = Tag.query.order_by(Tag.name).all()
 
     return render_template(
@@ -55,7 +55,7 @@ def list_docs():
 @login_required
 @requires_permission(MODULE)
 def detail(id):
-    """Muestra los detalles de una entrada de documentación."""
+    """Shows one documentation entry."""
     doc = db.get_or_404(Documentation, id)
     return render_template('documentation/detail.html', doc=doc)
 
@@ -63,12 +63,12 @@ def detail(id):
 @login_required
 @requires_permission(MODULE)
 def new_doc():
-    """Crea una nueva entrada de documentación."""
+    """Creates a documentation entry."""
     if request.method == 'POST':
         if not has_write_permission(MODULE):
             flash('Write access required to create documentation.', 'danger')
             return redirect(url_for('documentation.list_docs'))
-        # Procesar propietario polimórfico
+        # Resolve the polymorphic owner
         owner_full = request.form.get('owner')
         owner_type = None
         owner_id = None
@@ -80,7 +80,7 @@ def new_doc():
                 flash('Invalid owner.', 'danger')
                 return redirect(safe_redirect_target(request.referrer))
 
-        # Crear el objeto base
+        # Create the base record
         doc = Documentation(
             name=request.form['name'],
             description=request.form.get('description'),
@@ -90,7 +90,7 @@ def new_doc():
             software_id=request.form.get('software_id') or None
         )
         
-        # Asignar tags
+        # Assign tags
         tag_ids = request.form.getlist('tags')
         doc.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
         
@@ -119,7 +119,7 @@ def new_doc():
         flash('Documentation entry created.', 'success')
         return redirect(url_for(DETAIL, id=doc.id))
 
-    # --- Lógica GET ---
+    # --- GET ---
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     groups = Group.query.order_by(Group.name).all()
     software = Software.query.order_by(Software.name).all()
@@ -132,14 +132,14 @@ def new_doc():
 @login_required
 @requires_permission(MODULE)
 def edit_doc(id):
-    """Edita una entrada de documentación existente."""
+    """Edits an existing documentation entry."""
     doc = db.get_or_404(Documentation, id)
 
     if request.method == 'POST':
         if not has_write_permission(MODULE):
             flash('Write access required to update documentation.', 'danger')
             return redirect(url_for(DETAIL, id=id))
-        # Procesar propietario polimórfico
+        # Resolve the polymorphic owner
         owner_full = request.form.get('owner')
         if owner_full:
             try:
@@ -187,7 +187,7 @@ def edit_doc(id):
         flash('Documentation entry updated.', 'success')
         return redirect(url_for(DETAIL, id=doc.id))
 
-    # --- Lógica GET ---
+    # --- GET ---
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     groups = Group.query.order_by(Group.name).all()
     software = Software.query.order_by(Software.name).all()
@@ -202,10 +202,10 @@ def delete_doc(id):
     if not has_write_permission(MODULE):
         flash('Write access required to delete documentation.', 'danger')
         return redirect(url_for(DETAIL, id=id))
-    """Elimina una entrada de documentación."""
+    """Deletes a documentation entry."""
     doc = db.get_or_404(Documentation, id)
     
-    # (Opcional: eliminar archivos físicos de adjuntos)
+    # (Optional: also delete the attachment files from disk)
     # for att in doc.attachments:
     #     try:
     #         os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], att.secure_filename))

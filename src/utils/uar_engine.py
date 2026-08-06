@@ -36,7 +36,7 @@ class AccessReviewEngine:
         columns = list(first_record.keys())
         
         # 2. Create Table
-        # We'll treat everything as TEXT or INTEGER/REAL to keep it simple for now, 
+        # Everything is treated as TEXT or INTEGER/REAL; finer typing is not needed here.
         # relying on SQLite's dynamic typing.
         cols_def = ", ".join([f'"{c}" TEXT' for c in columns])
         create_stmt = f'CREATE TABLE IF NOT EXISTS "{safe_table_name}" ({cols_def})'

@@ -166,7 +166,7 @@ class SearchService:
             for field in search_fields:
                 if '.' in field:
                     # Handle relationship fields (e.g., 'comparison.name')
-                    continue  # Skip for now, would need join handling
+                    continue  # skipped: matching this field would need a join
                 else:
                     column = getattr(model, field, None)
                     if column is not None:

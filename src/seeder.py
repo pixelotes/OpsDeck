@@ -736,7 +736,7 @@ def seed_data(app=None):
         # Set Managers
         users[2].manager = users[0]  # Charlie -> Alice
         users[4].manager = users[0]  # Fiona -> Charlie (Wait, Index 4 is Fiona in new list? Let's check indices)
-        # Re-fetching to be safe or using variable names would be better, but utilizing list indices for now based on above order:
+        # Indices follow the insertion order of the list above.
         # 0: Alice, 1: Bob, 2: Charlie, 3: George, 4: Fiona, 5: Diana, 6: Heidi, 7: Ethan, 8: Ian, 9: Julia
 
         # Engineering Tree

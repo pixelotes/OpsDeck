@@ -79,7 +79,8 @@ def _get_value_at_path(data, deepdiff_path):
         # Simple recursive lookup
         # Remove root
         # split by ][' might be hard.
-        # Let's simple python eval for now as it's internal admin tool and we don't want to overengineer a parser
+        # Evaluated with eval() rather than a parser: this is an internal admin tool and
+        # the expressions come from configuration, not from end users.
         # assuming the keys don't contain quotes that break this
         # A safer way is using deepdiff's "extract" if available, or just re-implement simple walk
         

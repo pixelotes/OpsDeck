@@ -729,19 +729,13 @@ def seed_operational_catalog():
         if exists:
             continue
 
-        # Try to match a threat type by category
-        # Since these are business risks, they might not map perfectly to "Threat Types" which are more technical/security focused in this app.
-        # We will try to map to 'Strategic', 'Operational', 'Financial' if we add them to ThreatType, 
-        # But assuming ThreatType is fixed (Adversarial, Accidental, Structural, Environmental), we might need to be creative or just leave it None/Generic.
-        # For this specific request, I'll map loosely to existing categories or just leave blank if no good match.
-        # Actually, let's map: 
-        # Operational -> Accidental (Human error/Process) or Structural (System failure)
-        # Strategic/Financial -> maybe not effectively mapped to security threat types.
-        # I'll use the find_threat_type logic which defaults to Accidental if category not found.
-        
-        # NOTE: The user didn't ask to create new ThreatTypes, so I'll try to map to existing ones or leave null?
-        # The schema puts threat_type_id as nullable.
-        # I'll try to find a best effort match.
+        # Best-effort threat type, matched by category.
+        #
+        # These are business risks, while ThreatType is a fixed security-oriented set
+        # (Adversarial, Accidental, Structural, Environmental), so the mapping is loose:
+        # operational risks land on Accidental or Structural, and strategic or financial
+        # ones have no meaningful equivalent. threat_type_id is nullable precisely so
+        # those can stay unmapped rather than being forced into the wrong bucket.
         tt = None
         if cat_name == "Operational": tt = find_threat_type("Accidental")
         elif cat_name == "Technical": tt = find_threat_type("Technical") # or Adversarial/Accidental

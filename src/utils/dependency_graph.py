@@ -4,7 +4,7 @@ from src.models.services import ServiceDependency
 def get_full_dependency_tree(root_service, direction='upstream', visited=None, edges=None):
     """
     Recorre recursivamente las dependencias.
-    direction: 'upstream' (de qué dependo) o 'downstream' (quién depende de mí).
+    direction: 'upstream' (what this depends on) or 'downstream' (what depends on it).
     """
     if visited is None: visited = set()
     if edges is None: edges = []

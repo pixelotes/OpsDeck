@@ -119,7 +119,7 @@ def new_candidate():
                 resume_filename = unique_filename
         
         # Fallback to existing logic if it was a text link (UI might allow both or transition)
-        # But for now, we prioritize the file upload. 
+        # An uploaded file takes precedence over a link.
         # If no file uploaded, check if there's a manual link provided (legacy support)
         if not resume_filename:
              resume_filename = request.form.get('resume_link')

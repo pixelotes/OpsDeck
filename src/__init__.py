@@ -18,7 +18,7 @@ from flask_smorest import Api
 from .extensions import db, migrate
 
 from .models import User, Contract, ContractItem
-from . import notifications # Added the missing import
+from . import notifications
 import markdown
 from markupsafe import Markup
 from .seeder_prod import seed_production_frameworks
@@ -64,7 +64,7 @@ def configure_logging(app):
     )
     file_handler.setFormatter(ecs_logging.StdlibFormatter())
 
-    # 2. Handler for console output (JSON ECS format as requested)
+    # 2. Handler for console output (JSON ECS format)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(ecs_logging.StdlibFormatter())
 
@@ -551,7 +551,7 @@ def create_app(test_config=None):
         Global authentication wall: All routes require login by default.
         Only whitelisted endpoints are accessible without authentication.
         """
-        # Lista de endpoints que NO requieren autenticación (Whitelist)
+        # Endpoints reachable without authentication (whitelist)
         public_endpoints = [
             'main.login',
             'main.google_callback',
@@ -572,33 +572,33 @@ def create_app(test_config=None):
         ]
 
         # Permitir acceso si:
-        # 1. El usuario ya está autenticado (tiene user_id en sesión)
+        # 1. The user is already authenticated (user_id is in the session)
         if 'user_id' in session:
             return None
 
-        # 2. La petición es un recurso estático o endpoint None (404)
+        # 2. The request is for a static file, or has no endpoint at all (404)
         if request.endpoint is None:
             return None
             
-        # 3. La petición es a un endpoint público
+        # 3. The request targets a public endpoint
         if request.endpoint in public_endpoints:
             return None
             
-        # 4. Permitir endpoints de API (usan autenticación por token)
+        # 4. Allow the API endpoints, which authenticate by token
         # Check by path since flask-smorest uses different endpoint naming
         if request.path and request.path.startswith('/api/v1'):
             return None
 
-        # 5. Las peticiones de tipo API deben fallar como JSON, no con un 302 a la
-        # página de login: un cliente fetch() parsearía ese HTML como si fuera la
-        # respuesta y el fallo de autenticación pasaría desapercibido.
+        # 5. API-style requests must fail as JSON rather than with a 302 to the login
+        # page: a fetch() client would parse that HTML as if it were the response and
+        # the authentication failure would go unnoticed.
         wants_json = ('/api/' in (request.path or '')
                       or request.accept_mimetypes.best == 'application/json')
         if wants_json:
             return jsonify({'error': 'Authentication required.'}), 401
 
-        # Si llegamos aquí, bloquear y redirigir a login
-        # Guardar la URL solicitada para redirigir después del login
+        # Nothing matched, so block and redirect to the login page
+        # Remember the requested URL so the user lands there after logging in
         return redirect(url_for('main.login', next=request.url))
 
     # --- Force admin to change the default password ---
@@ -873,7 +873,7 @@ def create_app(test_config=None):
 
     @app.cli.command('seed-db-prod')
     def seed_prod_command():
-        """Carga los datos maestros de producción (Frameworks & Threats)."""
+        """Load the production master data (frameworks and threat types)."""
         seed_production_frameworks()
         from .seeder_prod import seed_threats, seed_magerit_catalog, seed_operational_catalog, seed_it_infrastructure_catalog, seed_notification_templates, seed_modules
         seed_modules()
@@ -1119,7 +1119,7 @@ def create_app(test_config=None):
         opsdeck_enterprise.init_plugin(app)
         app.logger.info(f"✓ Plugin Enterprise cargado: v{opsdeck_enterprise.__version__}")
     except ImportError:
-        app.logger.info("Iniciando OpsDeck en modo estándar (sin plugins)")
+        app.logger.info("Starting OpsDeck in standard mode (no plugins)")
     except Exception as e:
         app.logger.error(f"Error cargando plugin Enterprise: {str(e)}")
         # No fallar la app si el plugin falla, solo registrar el error

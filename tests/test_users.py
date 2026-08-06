@@ -4,8 +4,8 @@ from src import db
 def test_user_lifecycle(auth_client, app):
     """
     Prueba el ciclo de vida completo de un usuario:
-    1. Creación
-    2. Edición
+    1. Creation
+    2. Editing
     3. Archivado
     
     Usamos 'auth_client' para estar logueados como admin.
@@ -20,12 +20,12 @@ def test_user_lifecycle(auth_client, app):
         'job_title': 'QA'
     }, follow_redirects=True)
     
-    # Comprueba que la página de lista se cargó y muestra al nuevo usuario
+    # The list page loaded and shows the new user
     assert response.status_code == 200
     assert b'Test User' in response.data
     assert b'User created successfully!' in response.data
 
-    # Verifica que el usuario existe en la BD
+    # The user exists in the database
     with app.app_context():
         # El ID 1 es el admin, el nuevo usuario debe ser el ID 2
         user = db.session.get(User, 2)
@@ -45,7 +45,7 @@ def test_user_lifecycle(auth_client, app):
     assert b'Test User (Edited)' in response.data
     assert b'User updated successfully!' in response.data
 
-    # Verifica que los cambios están en la BD
+    # The changes reached the database
     with app.app_context():
         user = db.session.get(User, 2)
         assert user.name == 'Test User (Edited)'
@@ -56,16 +56,16 @@ def test_user_lifecycle(auth_client, app):
     assert response.status_code == 200
     assert b'has been archived' in response.data
     
-    # Verifica que el usuario está archivado en la BD
+    # The user is archived in the database
     with app.app_context():
         user = db.session.get(User, 2)
         assert user.is_archived
         
-    # Verifica que ya no aparece en la lista principal
+    # It no longer appears in the main list
     response = auth_client.get('/users/')
     assert b'Test User (Edited)' not in response.data
     
-    # Verifica que sí aparece en la lista de archivados
+    # It does appear in the archived list
     response = auth_client.get('/users/archived')
     assert b'Test User (Edited)' in response.data
 

@@ -22,13 +22,11 @@ class Certificate(db.Model):
     type = db.Column(db.String(50), default='SSL/TLS')  # SSL/TLS, SAML, Code Signing, etc.
     description = db.Column(db.Text)
     
-    # Ownership (Polymorphic-ish, typically User or Group, simplified here to User for MVP as per request context implies straightforward owner)
-    # The request mentioned owner_id/owner_type polymorphic. 
-    # Let's align with Credentials model pattern if possible, or just User for now if simpler.
-    # Request said: owner_id / owner_type: Polimórfico (User o Group).
-    # I will implement it as fields.
-    owner_id = db.Column(db.Integer, nullable=True) 
-    owner_type = db.Column(db.String(50), default='User') # 'User', 'Group'
+    # Polymorphic owner, matching the pattern used by SecurityActivity: the pair of
+    # columns carries the reference and the `owner` property below resolves it. Only
+    # 'User' is resolved today, so a certificate owned by a group reads as unowned.
+    owner_id = db.Column(db.Integer, nullable=True)
+    owner_type = db.Column(db.String(50), default='User')  # 'User', 'Group'
 
     created_at = db.Column(db.DateTime, default=lambda: now())
     updated_at = db.Column(db.DateTime, default=lambda: now(), onupdate=lambda: now())
@@ -44,7 +42,7 @@ class Certificate(db.Model):
         """Returns the owner object based on polymorphic relationship"""
         if self.owner_type == 'User' and self.owner_id:
             return db.session.get(User, self.owner_id)
-        # Add Group logic if Groups model exists and is required, for MVP User is safest bet to implement first.
+        # owner_type 'Group' is stored but not resolved yet.
         return None
     
     @property

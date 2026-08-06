@@ -51,15 +51,15 @@ class Link(db.Model):
     url = db.Column(db.String(512), nullable=False) # Mandatory URL
     created_at = db.Column(db.DateTime, default=lambda: now())
     
-    # Propietario polimórfico (User o Group)
+    # Polymorphic owner (User or Group)
     owner_id = db.Column(db.Integer)
     owner_type = db.Column(db.String(50)) # 'User' o 'Group'
     
-    # Relación con Software (opcional)
+    # Optional link to Software
     software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
     software = db.relationship('Software', backref='links')
 
-    # Relación con Tags (muchos a muchos)
+    # Tags (many to many)
     tags = db.relationship('Tag', secondary=link_tags, backref=db.backref('links', lazy=LAZY_DYNAMIC))
 
     compliance_links = db.relationship('ComplianceLink',
@@ -73,7 +73,7 @@ class Link(db.Model):
 
     @property
     def owner(self):
-        """Devuelve el objeto User o Group basado en owner_type y owner_id."""
+        """The User or Group referenced by owner_type and owner_id."""
         from .auth import User, Group
         if self.owner_type == 'User' and self.owner_id:
             return db.session.get(User, self.owner_id)
@@ -93,18 +93,18 @@ class Documentation(db.Model):
     external_link = db.Column(db.String(512)) # Enlace externo
     created_at = db.Column(db.DateTime, default=lambda: now())
     
-    # Propietario polimórfico (User o Group)
+    # Polymorphic owner (User or Group)
     owner_id = db.Column(db.Integer)
     owner_type = db.Column(db.String(50)) # 'User' o 'Group'
     
-    # Relación con Software (opcional)
+    # Optional link to Software
     software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
     software = db.relationship('Software', backref='documentation')
 
-    # Relación con Tags (muchos a muchos)
+    # Tags (many to many)
     tags = db.relationship('Tag', secondary=documentation_tags, backref=db.backref('documentation', lazy=LAZY_DYNAMIC))
     
-    # Relación con Attachments (polimórfica)
+    # Attachments (polymorphic)
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Documentation.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Documentation')",
@@ -122,7 +122,7 @@ class Documentation(db.Model):
 
     @property
     def owner(self):
-        """Devuelve el objeto User o Group basado en owner_type y owner_id."""
+        """The User or Group referenced by owner_type and owner_id."""
         from .auth import User, Group
         if self.owner_type == 'User' and self.owner_id:
             return db.session.get(User, self.owner_id)

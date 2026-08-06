@@ -175,7 +175,8 @@ def asset_reports():
     # Add peripherals if you track warranty for them similarly
     # all_peripherals_with_warranty = Peripheral.query.filter(...)
     # all_items_with_warranty = all_assets_with_warranty + all_peripherals_with_warranty
-    all_items_with_warranty = all_assets_with_warranty # Use only assets for now
+    # Peripherals carry warranty dates too but are not included in this report.
+    all_items_with_warranty = all_assets_with_warranty
 
     warranty_active = 0
     for item in all_items_with_warranty:

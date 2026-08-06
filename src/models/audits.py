@@ -457,7 +457,7 @@ class AuditControlLink(db.Model):
     
     @property
     def display_name(self):
-        """Devuelve el nombre legible del objeto, sin importar su tipo."""
+        """Human-readable name of the object, whatever its type."""
         obj = self.linked_object
         if not obj:
             return "Elemento no encontrado"
@@ -498,7 +498,7 @@ class AuditControlLink(db.Model):
         if self.linkable_type == 'Campaign':
             return getattr(obj, 'title', 'Campaign')
         
-        # 7. Políticas y Cursos usan 'title'
+        # 7. Policies and courses use 'title'
         if hasattr(obj, 'title'):
             return obj.title
             

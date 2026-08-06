@@ -45,7 +45,7 @@ UAR_EXECUTION_DETAIL = 'compliance.uar_execution_detail'
 @requires_permission(MODULE_COMPLIANCE)
 def get_linkable_objects():
     """
-    Endpoint polimórfico para selectores dinámicos.
+    Polymorphic endpoint backing the dynamic selectors.
     Uso: /compliance/json/linkable-objects?type=Asset&q=macbook
     """
     obj_type = request.args.get('type')
@@ -53,27 +53,27 @@ def get_linkable_objects():
     
     results = []
     
-    # Mapeo de String a Clase de Modelo + Campos de Búsqueda
+    # Maps a type name to its model class and the fields to search
     model_map = {
         'Asset': (Asset, ['name', 'serial_number']), 
         'Policy': (Policy, ['title']), # Note: Policy uses 'title', not 'name' in some models, checking...
         'Risk': (Risk, ['risk_description', 'extended_description']), # Risk uses risk_description
         'User': (User, ['name', 'email']),
         'Vendor': (Supplier, ['name']),
-        # Añade 'Procedure', 'Control', etc. según necesites
+        # Add 'Procedure', 'Control' and so on as needed
     }
 
     if obj_type in model_map:
         model, search_fields = model_map[obj_type]
         
-        # Construir query dinámica
+        # Build the query dynamically
         q_obj = model.query
         if query:
-            # Filtro OR simple sobre los campos definidos
+            # Simple OR filter across the configured fields
             filters = [getattr(model, field).ilike(f'%{query}%') for field in search_fields if getattr(model, field) is not None]
             q_obj = q_obj.filter(db.or_(*filters))
             
-        # Limitar resultados para no matar el navegador
+        # Capped so the browser is not overwhelmed
         items = q_obj.limit(50).all()
         
         results = []
@@ -146,7 +146,7 @@ def access_review():
     if Report:
         # Fetch last 20 reports, joined with subtask info if possible, or just raw
         # We probably want to show the subtask name if available. 
-        # For now, just listing recent reports.
+        # Lists recent reports only.
         reports = Report.query.order_by(Report.created_at.desc()).limit(20).all()
         
     return render_template('compliance/access_review.html', reports=reports)
@@ -848,7 +848,7 @@ def bcdr_detail(id):
 @compliance_bp.route('/bcdr/test/<int:test_id>')
 @requires_permission(MODULE_OPERATIONS)
 def bcdr_test_log_detail(test_id):
-    """Muestra los detalles de un único BCDR test log."""
+    """Shows a single BCDR test log."""
     test_log = db.get_or_404(BCDRTestLog, test_id)
     return render_template('compliance/bcdr_test_log_detail.html', test_log=test_log)
 
@@ -896,7 +896,7 @@ def log_bcdr_test(plan_id):
                 db.session.commit()
 
         flash('BCDR test log has been recorded.', 'success')
-        # Redirigimos a la nueva vista de detalles del log
+        # Redirect to the log detail view
         return redirect(url_for(BCDR_TEST_LOG_DETAIL, test_id=test_log.id))
     
     users = User.query.order_by(User.name).all()
@@ -954,7 +954,7 @@ def edit_bcdr_test(test_id):
         db.session.commit()
 
         flash('BCDR test log updated.', 'success')
-        # Redirigimos a la nueva vista de detalles del log
+        # Redirect to the log detail view
         return redirect(url_for(BCDR_TEST_LOG_DETAIL, test_id=test_log.id))
 
     users = User.query.order_by(User.name).all()

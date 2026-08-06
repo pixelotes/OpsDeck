@@ -5,7 +5,7 @@ from ..extensions import db
 from ..models import User, Peripheral, License, Software, Course
 from ..models import Subscription, PaymentMethod, Risk, BusinessService, Location
 from ..models.procurement import log_subscription_cost_change
-# Importamos los modelos nuevos (asegúrate de haberlos registrado en __init__.py primero)
+# Models must be exported from models/__init__.py to be importable here
 from ..models.onboarding import (
     OnboardingProcess, OffboardingProcess, ProcessItem, 
     OnboardingPack, PackItem, ProcessTemplate
@@ -69,7 +69,7 @@ def new_pack():
 @login_required
 @requires_permission(MODULE)
 def list_packs():
-    """Vista dedicada para gestionar packs."""
+    """Dedicated view for managing packs."""
     packs = OnboardingPack.query.filter_by(is_active=True).all()
     return render_template('onboarding/packs_list.html', packs=packs)
 
@@ -96,7 +96,7 @@ def users_api():
 def pack_detail(id):
     pack = db.get_or_404(OnboardingPack, id)
     
-    # Añadir item al pack
+    # Add an item to the pack
     if request.method == 'POST':
         if not has_write_permission(MODULE):
             flash('Write access required to update packs.', 'danger')
@@ -108,7 +108,7 @@ def pack_detail(id):
         subscription_id = request.form.get('subscription_id') or None
         course_id = request.form.get('course_id') or None
         
-        # Si es software, hacemos la descripción más bonita automáticamente
+        # Software items get a friendlier description generated for them
         if item_type == 'Software' and software_id:
             soft = db.session.get(Software,software_id)
             if not description:
@@ -243,7 +243,7 @@ def new_onboarding():
         manager_id = request.form.get('manager_id')
         buddy_id = request.form.get('buddy_id')
 
-        # 1. Crear Proceso
+        # 1. Create the process
         process = OnboardingProcess(
             new_hire_name=new_hire_name,
             target_email=target_email,
@@ -257,7 +257,7 @@ def new_onboarding():
         db.session.commit()
         
         
-        # 0. Generar Checklist: Crear Usuario (SIEMPRE PRIMERO)
+        # 0. Checklist: create the user, which always comes first
         db.session.add(ProcessItem(
             onboarding_process_id=process.id,
             description="👤 Create user account (Automated)",
@@ -273,7 +273,7 @@ def new_onboarding():
                 item_type='StaticTask'
             ))
             
-        # 3. Generar Checklist: Items del Pack & Provisioning
+        # 3. Checklist: pack items and provisioning
         if pack_id:
             pack = db.session.get(OnboardingPack,pack_id)
             for p_item in pack.items:
@@ -951,11 +951,11 @@ def toggle_template_task(id):
 #  ARCHIVED PROCESSES
 # ==========================================
 
-# Histórico de Procesos (Auditoría)
+# Process history (audit trail)
 @onboarding_bp.route('/history', methods=['GET'])
 @login_required
 def history():
-    """Muestra los procesos completados para auditoría."""
+    """Shows completed processes, for auditing."""
     completed_onboardings = OnboardingProcess.query.filter_by(status='Completed').order_by(OnboardingProcess.id.desc()).all()
     completed_offboardings = OffboardingProcess.query.filter_by(status='Completed').order_by(OffboardingProcess.id.desc()).all()
     

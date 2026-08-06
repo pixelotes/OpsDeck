@@ -3,7 +3,7 @@ from src import db # <-- 1. AÑADIR IMPORT
 
 def test_asset_lifecycle(auth_client, app):
     """
-    Prueba el ciclo de vida básico de un Activo: Crear, Editar, Archivar.
+    The basic asset lifecycle: create, edit, archive.
     """
     
     # --- 1. CREAR ACTIVO ---
@@ -13,12 +13,12 @@ def test_asset_lifecycle(auth_client, app):
         'status': 'Stored'
     }, follow_redirects=True)
     
-    # El error 400 debería resolverse arreglando models.py
+    # The 400 should go away once models.py is fixed
     assert response.status_code == 200
     assert b'Asset created successfully' in response.data
     assert b'Test Laptop' in response.data
     
-    # Verifica en la BD (Asset ID 1)
+    # Check the database (asset id 1)
     with app.app_context():
         # 2. CORREGIR LegacyAPIWarning
         asset = db.session.get(Asset, 1)
@@ -35,7 +35,7 @@ def test_asset_lifecycle(auth_client, app):
     assert response.status_code == 200
     assert b'Asset updated successfully' in response.data
     
-    # Verifica en la BD
+    # Check the database
     with app.app_context():
         # 2. CORREGIR LegacyAPIWarning
         asset = db.session.get(Asset, 1)
@@ -54,10 +54,10 @@ def test_asset_checkout_checkin(auth_client, app):
     from src.models import Location
     
     # --- PREPARACIÓN ---
-    # 1. Crear el Activo (Asset ID 1)
+    # 1. Create the asset (id 1)
     auth_client.post('/assets/new', data={'name': 'Checkout Laptop', 'status': 'Stored'}, follow_redirects=True)
     
-    # 2. Crear un Usuario y Location para el test
+    # 2. Create a user and a location for the test
     with app.app_context():
         checkout_user = User(name='Checkout User', email='checkout@test.com', role='user')
         db.session.add(checkout_user)
@@ -76,7 +76,7 @@ def test_asset_checkout_checkin(auth_client, app):
     assert response.status_code == 200
     assert b'has been checked out to Checkout User' in response.data
     
-    # Verifica en la BD
+    # Check the database
     with app.app_context():
         asset = db.session.get(Asset, 1)
         assert asset.user_id == user_id
@@ -91,7 +91,7 @@ def test_asset_checkout_checkin(auth_client, app):
     assert response.status_code == 200
     assert b'has been returned to Test Office' in response.data
     
-    # Verifica en la BD
+    # Check the database
     with app.app_context():
         asset = db.session.get(Asset, 1)
         assert asset.user_id is None

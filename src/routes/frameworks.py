@@ -15,19 +15,19 @@ MODULE = 'compliance'
 CONTROL_DETAIL = 'frameworks.control_detail'
 FRAMEWORKS_FORM_HTML = 'frameworks/form.html'
 
-# --- Rutas Principales del Framework ---
+# --- Main framework routes ---
 
 @frameworks_bp.route('/', methods=['GET'])
 @requires_permission(MODULE)
 def list():
-    """Muestra la lista de todos los frameworks."""
+    """Lists every framework."""
     frameworks = Framework.query.order_by(Framework.name).all()
     return render_template('frameworks/list.html', frameworks=frameworks)
 
 @frameworks_bp.route('/<int:id>', methods=['GET'])
 @requires_permission(MODULE)
 def detail(id):
-    """Muestra los detalles de un framework y sus controles."""
+    """Shows a framework and its controls."""
     framework = db.get_or_404(Framework, id)
     controls = framework.framework_controls.order_by(FrameworkControl.control_id).all()
     return render_template(
@@ -42,19 +42,19 @@ def create():
     if not has_write_permission(MODULE):
         flash('You do not have permission to create frameworks.', 'danger')
         return redirect(url_for('frameworks.list'))
-    """Crea un nuevo framework personalizado."""
+    """Creates a custom framework."""
     if request.method == 'POST':
-        # Obtener datos manualmente
+        # Read the fields by hand
         name = request.form.get('name')
         description = request.form.get('description')
         link = request.form.get('link')
-        # Los checkboxes envían 'on' si están marcados, o None si no
+        # A checkbox submits 'on' when ticked and nothing at all when not
         is_active = request.form.get('is_active') == 'on'
         
-        # Validación manual
+        # Validated by hand
         if not name:
             flash('Name is required.', 'danger')
-            # Devolvemos los datos para "repoblar" el formulario
+            # Hand the values back so the form can be repopulated
             return render_template(
                 FRAMEWORKS_FORM_HTML, 
                 title="Nuevo Framework", 
@@ -98,10 +98,10 @@ def edit(id):
     framework = db.get_or_404(Framework, id)
     
     if request.method == 'POST':
-        # Activar/Desactivar SÍ se permite para todos
+        # Enabling and disabling is allowed on every framework
         framework.is_active = request.form.get('is_active') == 'on'
         
-        # Solo permitir edición de campos si es 'custom'
+        # Only 'custom' frameworks may have these fields edited
         if framework.is_custom:
             name = request.form.get('name')
             if not name:
@@ -143,7 +143,7 @@ def delete(id):
         return jsonify({'success': False, 'message': 'You do not have permission to delete frameworks.'}), 403
     """
     Elimina un framework (solo si es 'custom').
-    Llamado por fetch() desde el botón de 'Zona de Peligro'.
+    Called by fetch() from the 'Danger Zone' button.
     """
     framework = db.get_or_404(Framework, id)
     if not framework.is_custom:
@@ -153,27 +153,27 @@ def delete(id):
         db.session.delete(framework)
         db.session.commit()
         flash('Framework deleted successfully.', 'success')
-        # Devolvemos JSON con la URL a la que redirigir
+        # Returns JSON carrying the URL to redirect to
         return jsonify({'success': True, 'redirect_url': url_for('frameworks.list')})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Error al eliminar el framework: {e}'}), 500
 
 
-# --- Rutas para el Modal de Controles (AJAX) ---
+# --- Routes behind the controls modal (AJAX) ---
 
 @frameworks_bp.route('/control/add', methods=['POST'])
 @requires_permission(MODULE)
 def add_control():
     if not has_write_permission(MODULE):
         return jsonify({'success': False, 'message': 'You do not have permission to modify controls.'}), 403
-    """Añade un nuevo control a un framework."""
+    """Adds a control to a framework."""
     framework_id = request.form.get('framework_id')
     control_id_text = request.form.get('control_id_text')
     name = request.form.get('name')
     description = request.form.get('description')
 
-    # Validación manual
+    # Validated by hand
     if not framework_id or not control_id_text or not name:
         return jsonify({'success': False, 'message': 'ID del Control y Nombre son obligatorios.'}), 400
 
@@ -245,7 +245,7 @@ def delete_control(id):
         return jsonify({'success': False, 'message': 'You do not have permission to modify controls.'}), 403
     """
     Elimina un control.
-    Llamado por fetch() desde el botón de 'eliminar' de la fila.
+    Called by fetch() from the row's delete button.
     """
     control = db.get_or_404(FrameworkControl, id)
     if not control.framework.is_custom:
@@ -255,7 +255,7 @@ def delete_control(id):
         db.session.delete(control)
         db.session.commit()
         flash('Control deleted.', 'success')
-        # Devolvemos JSON para que la página se recargue
+        # Returns JSON so the page can reload itself
         return jsonify({'success': True, 'reload': True})
     except Exception as e:
         db.session.rollback()

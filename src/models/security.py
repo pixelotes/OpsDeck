@@ -8,17 +8,17 @@ from src.utils.timezone_helper import today, now
 
 class ComplianceLink(db.Model):
     """
-    Tabla de asociación polimórfica.
+    Polymorphic association table.
     Vincula un control (ej. 'A.5.7') con un objeto 
     (ej. un Asset, una Policy) y explica CÓMO lo cumple.
     """
     __tablename__ = 'compliance_link'
     id = db.Column(db.Integer, primary_key=True)
     
-    # Lado 1: El control que se está cumpliendo
+    # Side 1: the control being satisfied
     framework_control_id = db.Column(db.Integer, db.ForeignKey('framework_control.id'), nullable=False)
     
-    # Lado 2: El objeto polimórfico que cumple el control
+    # Side 2: the polymorphic object that satisfies it
     linkable_id = db.Column(db.Integer, nullable=False, index=True)
     linkable_type = db.Column(db.String(50), nullable=False, index=True)
 
@@ -26,7 +26,7 @@ class ComplianceLink(db.Model):
 
     # --- Relaciones ---
     
-    # Back-reference para que desde FrameworkControl podamos ver los links
+    # Back-reference so the links are reachable from FrameworkControl
     framework_control = db.relationship(
         'FrameworkControl',
         backref=db.backref('compliance_links', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
@@ -292,14 +292,14 @@ risk_mitigation_activities = db.Table('risk_mitigation_activities',
 
 class ThreatType(db.Model):
     """
-    Catálogo de tipos de amenazas estandarizadas (ej. Ransomware, Incendio, Error Humano).
+    Catalogue of standardised threat types, e.g. ransomware, fire or human error.
     """
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     category = db.Column(db.String(50)) # Ej: 'Adversarial', 'Accidental', 'Structural', 'Environmental'
     description = db.Column(db.Text)
     
-    # Relación inversa
+    # Reverse relationship
     risks = db.relationship('Risk', backref='threat_type', lazy=True)
 
     def __repr__(self):
@@ -592,21 +592,21 @@ class Framework(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), unique=True, nullable=False)
     
-    # <-- REQUISITO: Descripción
+    # Description
     description = db.Column(db.Text)
     
     # <-- REQUISITO: Enlace a web externa
     link = db.Column(db.String(1024))
     
-    # Flag para diferenciar los 'built-in' (no editables)
+    # Distinguishes the built-in frameworks, which are not editable
     is_custom = db.Column(db.Boolean, default=True, nullable=False)
     
-    # <-- ¡NUEVO! REQUISITO: Para activar/desactivar el framework en la org
+    # Enables or disables the framework for the organisation
     is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
 
     # --- Relaciones ---
 
-    # Relación con los controles del marco
+    # The framework's controls
     framework_controls = db.relationship(
         'FrameworkControl', 
         backref='framework', 
@@ -614,14 +614,14 @@ class Framework(db.Model):
         cascade=CASCADE_ALL_DELETE_ORPHAN
     )
     
-    # <-- REQUISITO: Soporte para attachments (manuales, etc.)
-    # (Asumiendo que tu modelo Attachment está configurado para polimorfismo)
+    # Attachments, for manuals and similar documents
+    # Relies on Attachment being set up for polymorphic links
     attachments = db.relationship(
         'Attachment', 
-        # Convertimos el string a una lambda para poder usar funciones de Python
+        # Wrapped in a lambda so Python functions can be used in the expression
         primaryjoin=lambda: and_(
-            # ¡LA CLAVE ESTÁ AQUÍ! Le decimos a SQLAlchemy que 'linkable_id'
-            # es la columna que actúa como clave foránea.
+            # The key part: telling SQLAlchemy that 'linkable_id' is the column
+            # acting as the foreign key.
             foreign(Attachment.linkable_id) == Framework.id,
             Attachment.linkable_type == 'Framework'
         ),
@@ -630,7 +630,7 @@ class Framework(db.Model):
         overlaps="attachments" 
     )
 
-    # Relación futura con Auditorías
+    # Future relationship with audits
     # audits = db.relationship('Audit', backref='framework', lazy='dynamic')
 
     def __repr__(self):
@@ -647,19 +647,19 @@ control_mappings = db.Table('control_mappings',
 
 class FrameworkControl(db.Model):
     """
-    Representa un control individual o práctica dentro de un Framework.
+    A single control or practice within a framework.
     """
     __tablename__ = 'framework_control'
     
     id = db.Column(db.Integer, primary_key=True)
     framework_id = db.Column(db.Integer, db.ForeignKey('framework.id'), nullable=False)
     
-    # Identificador del control (ej. "A.5.7")
+    # Control identifier, e.g. "A.5.7"
     control_id = db.Column(db.String(100), nullable=False) 
     
     name = db.Column(db.String(512), nullable=False)
     
-    # Descripción específica del control
+    # Control-specific description
     description = db.Column(db.Text)
 
     # --- SOA (Statement of Applicability) ---
@@ -676,7 +676,7 @@ class FrameworkControl(db.Model):
     )
 
     def get_all_mappings(self):
-        """Devuelve una lista combinada de controles relacionados (entrantes y salientes)."""
+        """Related controls, incoming and outgoing, as a single list."""
         targets = self.mapped_targets
         sources = list(self.mapped_sources)
         # Combine and deduplicate

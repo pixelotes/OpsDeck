@@ -115,7 +115,7 @@ class BusinessService(db.Model):
     @property
     def aggregated_risk_score(self):
         """
-        Calcula el riesgo máximo heredado de sus componentes de infraestructura.
+        Highest risk inherited from its infrastructure components.
         Si un componente tiene un max_risk_score alto, el servicio lo hereda.
         """
         max_score = 0
@@ -123,7 +123,7 @@ class BusinessService(db.Model):
         # Revisar Componentes (Infraestructura)
         for comp in self.components:
             linked_obj = comp.linked_object
-            # Verificamos si el objeto tiene la propiedad 'max_risk_score' (como Asset)
+            # Checks whether the object exposes 'max_risk_score', as Asset does
             if linked_obj and hasattr(linked_obj, 'max_risk_score'):
                 score = linked_obj.max_risk_score
                 if score and score > max_score:
@@ -133,7 +133,7 @@ class BusinessService(db.Model):
 
     @property
     def risk_status_color(self):
-        """Devuelve el color semántico para la UI/Gráficos basado en el riesgo."""
+        """Contextual colour for the UI and charts, derived from the risk score."""
         score = self.aggregated_risk_score
         if score >= 20: return '#dc3545'  # Danger (Red)
         if score >= 12: return '#fd7e14'  # Orange

@@ -5,14 +5,14 @@ from .constants import CASCADE_ALL_DELETE_ORPHAN
 # --- PLANTILLAS Y CONFIGURACIÓN ---
 
 class ProcessTemplate(db.Model):
-    """Plantillas para tareas estáticas globales (ej: 'Entrevista de salida', 'Firmar NDA')."""
+    """Templates for global static tasks, e.g. 'Exit interview' or 'Sign NDA'."""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     process_type = db.Column(db.String(50), default='offboarding') # 'onboarding' o 'offboarding'
     is_active = db.Column(db.Boolean, default=True)
 
 class OnboardingPack(db.Model):
-    """Contenedor para perfiles de puesto (ej: 'Pack Developer', 'Pack Sales')."""
+    """Container for role profiles, e.g. 'Pack Developer' or 'Pack Sales'."""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text)
@@ -29,7 +29,7 @@ class PackItem(db.Model):
     item_type = db.Column(db.String(50), nullable=False)
     description = db.Column(db.String(255), nullable=False)
     
-    # Si es software, lo vinculamos para facilitar la asignación futura
+    # Software items are linked so the later assignment is straightforward
     software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
     software = db.relationship('Software')
 
@@ -46,10 +46,10 @@ class PackItem(db.Model):
 # --- PROCESOS DE EJECUCIÓN ---
 
 class OnboardingProcess(db.Model):
-    """Registro de una incorporación."""
+    """A record of one onboarding."""
     id = db.Column(db.Integer, primary_key=True)
     external_ref = db.Column(db.String(255), unique=True, nullable=True, index=True)
-    new_hire_name = db.Column(db.String(100), nullable=False) # Nombre temporal si aún no hay User
+    new_hire_name = db.Column(db.String(100), nullable=False) # Placeholder name while there is no User yet
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Se enlaza al crear el usuario
     
     # Optional: Email to use when creating the user, overrides auto-generation
@@ -74,7 +74,7 @@ class OnboardingProcess(db.Model):
     assigned_manager = db.relationship('User', foreign_keys=[assigned_manager_id])
     assigned_buddy = db.relationship('User', foreign_keys=[assigned_buddy_id])
     
-    # Relación con los items del checklist
+    # Checklist items
     items = db.relationship('ProcessItem', backref='onboarding_process', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
     user = db.relationship('User', foreign_keys=[user_id])
 
@@ -82,7 +82,7 @@ class OffboardingProcess(db.Model):
     """Registro de una salida."""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    manager_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Quién ejecuta el offboarding
+    manager_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Who carries out the offboarding
     
     departure_date = db.Column(db.Date, nullable=False)
     status = db.Column(db.String(50), default='In Progress') # In Progress, Completed
@@ -93,25 +93,25 @@ class OffboardingProcess(db.Model):
     user = db.relationship('User', foreign_keys=[user_id], backref='offboardings')
     manager = db.relationship('User', foreign_keys=[manager_id])
     
-    # Relación con los items del checklist
+    # Checklist items
     items = db.relationship('ProcessItem', backref='offboarding_process', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
 
 class ProcessItem(db.Model):
     """
-    Cada línea del checklist.
+    A single checklist line.
     Puede pertenecer a un Onboarding O a un Offboarding.
     """
     id = db.Column(db.Integer, primary_key=True)
     
-    # FKs opcionales (una de las dos debe estar llena)
+    # Optional FKs: exactly one of the two is expected to be set
     onboarding_process_id = db.Column(db.Integer, db.ForeignKey('onboarding_process.id'), nullable=True)
     offboarding_process_id = db.Column(db.Integer, db.ForeignKey('offboarding_process.id'), nullable=True)
     
     description = db.Column(db.String(255), nullable=False)
     is_completed = db.Column(db.Boolean, default=False)
     
-    # Metadatos para saber de qué viene este item y poner links inteligentes
+    # Metadata recording where the item came from, so it can link back to it
     item_type = db.Column(db.String(50)) # 'Asset', 'Peripheral', 'License', 'StaticTask', 'SoftwareProvision'
     
-    # ID del objeto real (si aplica). Ej: ID del Asset a devolver.
+    # Id of the underlying object where applicable, e.g. the asset to hand back.
     linked_object_id = db.Column(db.Integer, nullable=True)

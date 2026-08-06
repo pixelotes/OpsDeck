@@ -6,19 +6,18 @@ from src.utils.timezone_helper import today
 
 def test_purchase_cost_calculation(auth_client, app):
     """
-    Test 12: Prueba que la propiedad @total_cost de una Compra (Purchase)
-    se calcula correctamente sumando sus activos y periféricos.
+    Test 12: Purchase.total_cost adds up its assets and peripherals.
     """
     # --- 1. Setup ---
-    # (auth_client ya ha creado un Admin (ID 1) y un User (ID 2))
+    # auth_client has already created an admin (id 1) and a user (id 2)
     
-    # Crear una Compra (ID 1)
+    # Create a purchase (id 1)
     auth_client.post('/purchases/new', data={
         'description': 'Compra de Portátiles Q4',
         'purchase_date': '2025-11-14'
     }, follow_redirects=True)
     
-    # Crear un Activo (cost=1000) y un Periférico (cost=150)
+    # Create an asset (cost=1000) and a peripheral (cost=150)
     # y enlazarlos a la Compra (ID 1)
     auth_client.post('/assets/new', data={
         'name': 'Laptop A',
@@ -34,23 +33,22 @@ def test_purchase_cost_calculation(auth_client, app):
         'purchase_id': 1
     }, follow_redirects=True)
 
-    # --- 2. Acción ---
-    # Acceder a la página de detalles de la Compra
+    # --- 2. Act ---
+    # Open the purchase detail page
     response = auth_client.get('/purchases/1')
     
     # --- 3. Verify ---
     assert response.status_code == 200
-    # Asumimos que la plantilla formatea el coste total como 1150.00
+    # Assumes the template renders the total cost as 1150.00
     assert b'1150.00' in response.data
 
 def test_budget_remaining_calculation(auth_client, app):
     """
-    Test 13: Prueba que la propiedad @remaining de un Presupuesto (Budget)
-    se calcula correctamente restando el coste de las compras asociadas.
+    Test 13: Budget.remaining subtracts the cost of the purchases against it.
     """
     # --- 1. Setup ---
     
-    # Crear un Presupuesto (ID 1) con 5000
+    # Create a budget (id 1) of 5000
     auth_client.post('/budgets/new', data={
         'name': 'Presupuesto IT 2025',
         'amount': 5000,
@@ -58,14 +56,14 @@ def test_budget_remaining_calculation(auth_client, app):
         'valid_until': '2025-12-31'
     }, follow_redirects=True)
     
-    # Crear una Compra (ID 1) enlazada al Presupuesto 1
+    # Create a purchase (id 1) enlazada al Presupuesto 1
     auth_client.post('/purchases/new', data={
         'description': 'Compra de Servidor',
         'purchase_date': '2025-11-14',
         'budget_id': 1
     }, follow_redirects=True)
     
-    # Crear un Activo (cost=3000) enlazado a la Compra 1
+    # Create an asset (cost=3000) linked to purchase 1
     auth_client.post('/assets/new', data={
         'name': 'Servidor R740',
         'status': 'Stored',

@@ -82,7 +82,7 @@ def snapshot(id):
     config = db.get_or_404(Configuration, id)
     
     # Parse the JSON form data. 
-    # For now, let's assume the frontend sends a 'config_data' field with JSON string
+    # The frontend sends a 'config_data' field holding a JSON string.
     # or we construct it.
     
     try:

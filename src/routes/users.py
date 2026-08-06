@@ -209,14 +209,14 @@ def generate_inventory(id):
     """
     user = db.get_or_404(User, id)
     
-    # 1. Renderizar la plantilla HTML específica para el PDF
+    # 1. Render the HTML template made for the PDF
     html_content = render_template(
         'users/inventory_pdf.html', 
         user=user,
         generated_at=now()
     )
     
-    # 2. Generar los bytes del PDF en memoria
+    # 2. Render the PDF bytes in memory
     try:
         pdf_bytes = HTML(string=html_content).write_pdf()
     except Exception as e:
@@ -229,7 +229,7 @@ def generate_inventory(id):
     original_filename = f"Inventory_{user.name.replace(' ', '_')}_{timestamp}.pdf"
     secure_filename_to_save = f"{uuid.uuid4().hex}.pdf"
     
-    # 4. Guardar el archivo físico
+    # 4. Write the file to disk
     save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], secure_filename_to_save)
     
     try:
@@ -240,7 +240,7 @@ def generate_inventory(id):
         flash('Error saving inventory file.', 'danger')
         return redirect(url_for(USER_DETAIL, id=id))
 
-    # 5. Crear el registro 'Attachment' en la BD
+    # 5. Create the Attachment row
     attachment = Attachment(
         filename=original_filename,
         secure_filename=secure_filename_to_save,

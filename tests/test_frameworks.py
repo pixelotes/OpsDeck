@@ -2,7 +2,7 @@ from src.models import db, Framework, FrameworkControl
 
 def test_list_frameworks(auth_client, app):
     """
-    Test 1: Comprueba que la página de lista de frameworks se carga.
+    Test 1: the frameworks list page loads.
     """
     # Seed frameworks first
     with app.app_context():
@@ -12,14 +12,14 @@ def test_list_frameworks(auth_client, app):
     response = auth_client.get('/frameworks/')
     assert response.status_code == 200
     assert b"Frameworks & Standards" in response.data
-    # Comprueba que los frameworks del seeder (de 'seed-db-prod') están
+    # The frameworks created by 'seed-db-prod' are present
     assert b"ISO27001:2022" in response.data
     assert b"ITIL v4" in response.data
 
 def test_framework_access_as_user(user_client, app):
     """
-    Test 2: Comprueba que un usuario normal PUEDE ver la lista,
-    pero NO PUEDE acceder a las páginas de creación/edición.
+    Test 2: a regular user can see the list but cannot reach the create and
+    edit pages.
     """
     # Seed frameworks first
     with app.app_context():
@@ -70,10 +70,9 @@ def test_framework_access_as_user(user_client, app):
 
 def test_create_framework(auth_client, app):
     """
-    Test 3: Prueba la creación de un nuevo framework personalizado.
-    (Corresponde a tu petición: "crear framework")
+    Test 3: creating a custom framework.
     """
-    # Comprueba que no existe
+    # It does not exist
     with app.app_context():
         assert Framework.query.filter_by(name='Mi Framework de Test').first() is None
     
@@ -85,11 +84,11 @@ def test_create_framework(auth_client, app):
     }, follow_redirects=True)
     
     assert response.status_code == 200
-    # Debería redirigir a la página de EDICIÓN tras crear
+    # It should redirect to the edit page after creating
     assert b"Editar Framework" in response.data
     assert b"Mi Framework de Test" in response.data
     
-    # Comprueba que se ha guardado en la BBDD
+    # It was saved to the database
     with app.app_context():
         fw = Framework.query.filter_by(name='Mi Framework de Test').first()
         assert fw is not None
@@ -99,7 +98,7 @@ def test_create_framework(auth_client, app):
 
 def test_edit_framework(auth_client, app):
     """
-    Test 4: Prueba la edición de un framework.
+    Test 4: editing a framework.
     Importante para probar que NO se pueden editar los 'built-in'.
     """
     # Seed frameworks first
@@ -115,8 +114,8 @@ def test_edit_framework(auth_client, app):
     # Activate it first
     response = auth_client.post(f'/frameworks/{fw_iso_id}/edit', data={
         'name': 'Nombre Falso', # Este campo debe ser ignorado
-        'description': 'Descripción Falsa', # Este también
-        'link': 'https://fake.com', # Este también
+        'description': 'Descripción Falsa',  # ignored too
+        'link': 'https://fake.com',  # ignored too
         'is_active': 'on' # Activarlo (checkbox marcado)
     }, follow_redirects=True)
     
@@ -126,11 +125,11 @@ def test_edit_framework(auth_client, app):
     assert b"Nombre Falso" not in response.data
     assert b"ISO27001:2022" in response.data
     
-    # Comprobar en BBDD que se activó
+    # It was activated in the database
     with app.app_context():
         fw_iso_updated = db.session.get(Framework,fw_iso_id)
-        assert fw_iso_updated.name == 'ISO27001:2022' # No cambió
-        assert fw_iso_updated.is_active is True # SÍ cambió
+        assert fw_iso_updated.name == 'ISO27001:2022'  # unchanged
+        assert fw_iso_updated.is_active is True  # this one did change
 
     # --- Parte 2: Editar 'name' en un 'custom' (DEBE funcionar) ---
     with app.app_context():
@@ -156,10 +155,9 @@ def test_edit_framework(auth_client, app):
 
 def test_add_control_to_custom_framework(auth_client, app):
     """
-    Test 5: Prueba añadir un control a un framework personalizado.
-    (Corresponde a tu petición: "añadir control")
+    Test 5: adding a control to a custom framework.
     """
-    # Setup: Crear un framework custom
+    # Arrange: create a custom framework
     with app.app_context():
         fw = Framework(name='Framework para Controles', is_custom=True)
         db.session.add(fw)
@@ -175,13 +173,13 @@ def test_add_control_to_custom_framework(auth_client, app):
         'description': 'Descripción del control'
     })
     
-    # Comprueba la respuesta JSON
+    # Check the JSON response
     assert response.status_code == 200
     json_data = response.get_json()
     assert json_data['success'] is True
     assert json_data['reload'] is True
     
-    # Comprueba la BBDD
+    # Check the database
     with app.app_context():
         fw = db.session.get(Framework,fw_id)
         assert fw.framework_controls.count() == 1
@@ -191,7 +189,7 @@ def test_add_control_to_custom_framework(auth_client, app):
 
 def test_add_control_fail_on_builtin(auth_client, app):
     """
-    Test 6: Prueba que NO se puede añadir un control a un framework 'built-in'.
+    Test 6: a control cannot be added to a built-in framework.
     """
     with app.app_context():
         from src.seeder_prod import seed_production_frameworks
@@ -207,13 +205,13 @@ def test_add_control_fail_on_builtin(auth_client, app):
         'description': 'Intentando hackear'
     })
     
-    # Comprueba la respuesta JSON de error
+    # Check the JSON error response
     assert response.status_code == 403 # Forbidden
     json_data = response.get_json()
     assert json_data['success'] is False
     assert "incorporados" in json_data['message']
     
-    # Comprueba que no se añadió nada
+    # Nothing was added
     with app.app_context():
         fw_iso = db.session.get(Framework,fw_iso_id)
         assert fw_iso.framework_controls.count() == iso_control_count
@@ -221,9 +219,8 @@ def test_add_control_fail_on_builtin(auth_client, app):
 def test_delete_control_from_custom_framework(auth_client, app):
     """
     Test 7: Prueba eliminar un control de un framework personalizado.
-    (Corresponde a tu petición: "eliminar control")
     """
-    # Setup: Crear framework y control
+    # Arrange: create a framework and a control
     with app.app_context():
         fw = Framework(name='Framework para Borrar Control', is_custom=True)
         control = FrameworkControl(control_id='DEL.1', name='Control a Borrar')
@@ -236,19 +233,19 @@ def test_delete_control_from_custom_framework(auth_client, app):
     # Simula la llamada AJAX (fetch)
     response = auth_client.post(f'/frameworks/control/{control_id}/delete')
     
-    # Comprueba la respuesta JSON
+    # Check the JSON response
     assert response.status_code == 200
     json_data = response.get_json()
     assert json_data['success'] is True
     assert json_data['reload'] is True
     
-    # Comprueba la BBDD
+    # Check the database
     with app.app_context():
         assert db.session.get(FrameworkControl,control_id) is None
 
 def test_delete_control_fail_on_builtin(auth_client, app):
     """
-    Test 8: Prueba que NO se puede eliminar un control de un 'built-in'.
+    Test 8: a control cannot be removed from a built-in framework.
     """
     with app.app_context():
         from src.seeder_prod import seed_production_frameworks
@@ -261,22 +258,21 @@ def test_delete_control_fail_on_builtin(auth_client, app):
     # Simula la llamada AJAX (fetch)
     response = auth_client.post(f'/frameworks/control/{control_id}/delete')
 
-    # Comprueba la respuesta JSON de error
+    # Check the JSON error response
     assert response.status_code == 403 # Forbidden
     json_data = response.get_json()
     assert json_data['success'] is False
     assert "incorporados" in json_data['message']
     
-    # Comprueba que el control sigue en la BBDD
+    # The control is still in the database
     with app.app_context():
         assert db.session.get(FrameworkControl,control_id) is not None
 
 def test_delete_custom_framework(auth_client, app):
     """
     Test 9: Prueba eliminar un framework personalizado.
-    (Corresponde a tu petición: "eliminar frameworks")
     """
-    # Setup: Crear framework y control
+    # Arrange: create a framework and a control
     with app.app_context():
         fw = Framework(name='Framework a Borrar', is_custom=True)
         fw.framework_controls.append(FrameworkControl(control_id='C.1', name='Test'))
@@ -289,7 +285,7 @@ def test_delete_custom_framework(auth_client, app):
     # Simula la llamada AJAX (fetch)
     response = auth_client.post(f'/frameworks//{fw_id}/delete')
     
-    # Comprueba la respuesta JSON
+    # Check the JSON response
     # NOTE: The original test expected 200, but if the route is not correct or handles it differently it might fail.
     # Assuming the route is /frameworks/<int:id>/delete
     response = auth_client.post(f'/frameworks/{fw_id}/delete')
@@ -299,15 +295,15 @@ def test_delete_custom_framework(auth_client, app):
     assert json_data['success'] is True
     assert 'redirect_url' in json_data
     
-    # Comprueba la BBDD
+    # Check the database
     with app.app_context():
         assert db.session.get(Framework,fw_id) is None
-        # Comprueba que los controles se borraron en cascada
+        # The controls were cascade-deleted
         assert FrameworkControl.query.count() == 0
 
 def test_delete_framework_fail_on_builtin(auth_client, app):
     """
-    Test 10: Prueba que NO se puede eliminar un framework 'built-in'.
+    Test 10: a built-in framework cannot be deleted.
     """
     with app.app_context():
         from src.seeder_prod import seed_production_frameworks
@@ -319,12 +315,12 @@ def test_delete_framework_fail_on_builtin(auth_client, app):
     # Simula la llamada AJAX (fetch)
     response = auth_client.post(f'/frameworks/{fw_iso_id}/delete')
     
-    # Comprueba la respuesta JSON de error
+    # Check the JSON error response
     assert response.status_code == 403 # Forbidden
     json_data = response.get_json()
     assert json_data['success'] is False
     assert "incorporados" in json_data['message']
     
-    # Comprueba que sigue en la BBDD
+    # It is still in the database
     with app.app_context():
         assert db.session.get(Framework,fw_iso_id) is not None

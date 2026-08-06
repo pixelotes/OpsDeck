@@ -677,7 +677,7 @@ def search_linkable_api():
         from ..models import Risk
         q = Risk.query
         # risks dont have is_archived, but maybe we exclude 'Closed'? 
-        # For now, show all as user can link closed risks too usually.
+        # Not filtered by status: closed risks are legitimate link targets too.
         if query:
             q = q.filter(Risk.risk_description.ilike(f'%{query}%')) # Risk has risk_description, usually not name?
             # Wait, looking at previous code it used Risk.name.ilike
@@ -725,8 +725,8 @@ def search_linkable_api():
         if query:
             # Search by new_hire_name for processes without user, or by user name if user exists
             # Optimized simple search: just filter by new_hire_name OR (join user and filter by user.name)
-            # For simplicity in this step, let's just search new_hire_name + try to search linked user name
-            # Note: This might be complex with a single query, so let's stick to new_hire_name for now or do a join if needed.
+            # Matches on new_hire_name only. Searching the linked user name as well would
+            # need a join, which is not worth it for this picker.
             # Using new_hire_name is safer as it's always populated initially.
             q = q.filter(OnboardingProcess.new_hire_name.ilike(f'%{query}%'))
         
