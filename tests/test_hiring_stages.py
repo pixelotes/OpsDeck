@@ -159,3 +159,91 @@ def test_delete_stage_needs_write_access(client, app, init_database):
     client.post(f'/hr/hiring/stages/{stage_id}/delete', follow_redirects=True)
     with app.app_context():
         assert db.session.get(HiringStage, stage_id) is not None
+
+
+# --- duplicate names ---------------------------------------------------------
+#
+# hiring_stage.name has no unique constraint, and until the create route was fixed it
+# crashed before it could insert anything, so nothing exercised this. Duplicates are
+# a trap rather than a cosmetic problem: delete_stage protects the system stages by
+# name, so a second 'Hired' cannot be removed through the UI once it exists.
+
+def test_a_duplicate_stage_name_is_refused(auth_client, app, init_database):
+    auth_client.post('/hr/hiring/stages/new', data={'name': 'Screening'},
+                     follow_redirects=True)
+    auth_client.post('/hr/hiring/stages/new', data={'name': 'Screening'},
+                     follow_redirects=True)
+
+    with app.app_context():
+        assert HiringStage.query.filter_by(name='Screening').count() == 1
+
+
+def test_duplicate_detection_ignores_case_and_padding(auth_client, app, init_database):
+    auth_client.post('/hr/hiring/stages/new', data={'name': 'Screening'},
+                     follow_redirects=True)
+    for variant in ('screening', 'SCREENING', '  Screening  '):
+        auth_client.post('/hr/hiring/stages/new', data={'name': variant},
+                         follow_redirects=True)
+
+    with app.app_context():
+        assert HiringStage.query.count() == 1
+
+
+def test_renaming_onto_an_existing_name_is_refused(auth_client, app, init_database):
+    """The rename route could reach the same broken state from the other direction."""
+    with app.app_context():
+        db.session.add_all([HiringStage(name='Applied', order=1),
+                            HiringStage(name='Screening', order=2)])
+        db.session.commit()
+        screening_id = HiringStage.query.filter_by(name='Screening').one().id
+
+    auth_client.post(f'/hr/hiring/stages/{screening_id}/update',
+                     data={'name': 'Applied'}, follow_redirects=True)
+
+    with app.app_context():
+        assert HiringStage.query.filter_by(name='Applied').count() == 1
+        assert db.session.get(HiringStage, screening_id).name == 'Screening'
+
+
+def test_renaming_a_stage_to_a_free_name_works(auth_client, app, init_database):
+    with app.app_context():
+        stage = HiringStage(name='Screening', order=1)
+        db.session.add(stage)
+        db.session.commit()
+        stage_id = stage.id
+
+    auth_client.post(f'/hr/hiring/stages/{stage_id}/update',
+                     data={'name': '  Phone screen  '}, follow_redirects=True)
+
+    with app.app_context():
+        assert db.session.get(HiringStage, stage_id).name == 'Phone screen'
+
+
+def test_renaming_a_stage_to_its_own_name_is_allowed(auth_client, app, init_database):
+    """Excluding itself from the check: saving the form unchanged must not fail."""
+    with app.app_context():
+        stage = HiringStage(name='Screening', order=1)
+        db.session.add(stage)
+        db.session.commit()
+        stage_id = stage.id
+
+    auth_client.post(f'/hr/hiring/stages/{stage_id}/update',
+                     data={'name': 'Screening'}, follow_redirects=True)
+
+    with app.app_context():
+        assert db.session.get(HiringStage, stage_id).name == 'Screening'
+
+
+def test_the_seeder_does_not_duplicate_stages_when_run_twice(app, init_database):
+    """The seeder's own guard is all-or-nothing; this pins that it at least holds."""
+    from src.seeder_prod import seed_production_frameworks
+
+    with app.app_context():
+        seed_production_frameworks()
+        first = HiringStage.query.count()
+        seed_production_frameworks()
+
+        assert first > 0
+        assert HiringStage.query.count() == first
+        names = [s.name for s in HiringStage.query.all()]
+        assert len(names) == len(set(names))

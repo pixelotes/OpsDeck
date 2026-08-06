@@ -19,6 +19,21 @@ BOARD = 'hiring.board'
 EDIT_CANDIDATE = 'hiring.edit_candidate'
 MANAGE_STAGES = 'hiring.manage_stages'
 
+
+def _stage_name_taken(name, exclude_id=None):
+    """True if another stage already carries this name, compared case-insensitively.
+
+    hiring_stage.name has no unique constraint, and duplicates are worse than untidy:
+    delete_stage refuses to remove the system stages by *name*, so a second 'Hired' or
+    'Applied' cannot be cleaned up through the UI once it exists. Both the create and
+    the rename route go through here.
+    """
+    query = HiringStage.query.filter(db.func.lower(HiringStage.name) == name.strip().lower())
+    if exclude_id is not None:
+        query = query.filter(HiringStage.id != exclude_id)
+    return query.first() is not None
+
+
 # ==========================================
 # KANBAN BOARD
 # ==========================================
@@ -441,7 +456,11 @@ def new_stage():
     if not name:
         flash('Stage name is required.', 'danger')
         return redirect(url_for(MANAGE_STAGES))
-    
+
+    if _stage_name_taken(name):
+        flash(f'A stage named "{name}" already exists.', 'danger')
+        return redirect(url_for(MANAGE_STAGES))
+
     # Auto-assign order (last + 1)
     max_order = db.session.query(db.func.max(HiringStage.order)).scalar() or 0
     
@@ -514,12 +533,16 @@ def update_stage(id):
         return redirect(url_for(MANAGE_STAGES))
     """Update a hiring stage (rename)."""
     stage = db.get_or_404(HiringStage, id)
-    
-    name = request.form.get('name')
+
+    name = request.form.get('name', '').strip()
     if not name:
         flash('Stage name is required.', 'danger')
         return redirect(url_for(MANAGE_STAGES))
-        
+
+    if _stage_name_taken(name, exclude_id=stage.id):
+        flash(f'A stage named "{name}" already exists.', 'danger')
+        return redirect(url_for(MANAGE_STAGES))
+
     stage.name = name
     db.session.commit()
     
