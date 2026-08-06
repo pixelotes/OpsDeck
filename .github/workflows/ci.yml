@@ -98,6 +98,9 @@ jobs:
           # These tests drop the public schema; the service DB above is throwaway.
           # Explicit here so the job does not depend on the database name alone.
           ALLOW_DESTRUCTIVE_DB_TESTS: '1'
+          # Fail the job if the migration tests skip or stop being collected, instead of
+          # reporting success having verified nothing. Enforced in tests/conftest.py.
+          REQUIRE_MIGRATION_TESTS: '1'
           PYTHONPATH: ./src
         run: |
           pytest tests/test_migrations.py -v

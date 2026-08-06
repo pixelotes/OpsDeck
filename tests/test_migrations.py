@@ -17,7 +17,9 @@ disposable database whose name does not say so.
 
 Skipped when DATABASE_URL is not set, points to SQLite, or is not disposable — except
 in CI, where a skip would mean migration testing had been switched off without anyone
-noticing. See test_the_environment_is_configured_in_ci below.
+noticing. Two guards cover that: test_the_environment_is_configured_in_ci below checks
+the environment is usable, and REQUIRE_MIGRATION_TESTS (see tests/conftest.py) checks
+the tests below actually ran.
 """
 import os
 import pytest
