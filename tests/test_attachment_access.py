@@ -9,6 +9,8 @@ checked; downloading did not.
 import io
 import os
 
+import pytest
+
 from src.extensions import db
 from src.models import User, Module, Permission, AccessLevel, Attachment
 from src.routes.attachments import ATTACHMENT_PERMISSIONS, UPLOAD_TARGETS
@@ -285,3 +287,125 @@ def test_the_oversize_response_says_what_the_limit_is(client, app, init_database
 
     assert response.status_code == 413
     assert '5 MB' in response.get_json()['error']
+
+
+# --- file type allowlist -----------------------------------------------------
+#
+# There are two dozen upload sites across thirteen blueprints and none of them
+# validated the file type, so the check lives in a before_request hook rather than in
+# any one route.
+
+ACCEPTED = ['photo.jpg', 'photo.JPEG', 'scan.png', 'anim.gif', 'texture.tga',
+            'bitmap.bmp', 'invoice.pdf', 'notes.odt', 'report.docx', 'export.csv',
+            'evidence.zip', 'sheet.xlsx', 'phishing.eml', 'cert.pem', 'photo.heic']
+
+REFUSED = ['payload.exe', 'script.sh', 'macro.bat', 'shell.ps1', 'applet.jar',
+           'installer.msi', 'vector.svg', 'page.html', 'noextension']
+
+
+@pytest.mark.parametrize('filename', ACCEPTED)
+def test_accepted_file_types_are_stored(client, app, init_database, filename):
+    _user_with(app, f'acc-{filename}@test.com', {'core_inventory': AccessLevel.WRITE})
+    _login(client, f'acc-{filename}@test.com')
+
+    client.post('/attachments/upload', data={
+        'file': (io.BytesIO(b'payload'), filename),
+        'asset_id': '1',
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    with app.app_context():
+        assert Attachment.query.filter_by(filename=filename).first() is not None
+
+
+@pytest.mark.parametrize('filename', REFUSED)
+def test_refused_file_types_never_reach_the_disk(client, app, init_database, filename):
+    """svg and html are refused even though they download rather than render: that
+    depends on one argument staying as_attachment=True."""
+    _user_with(app, f'ref-{filename}@test.com', {'core_inventory': AccessLevel.WRITE})
+    _login(client, f'ref-{filename}@test.com')
+
+    with app.app_context():
+        upload_folder = app.config['UPLOAD_FOLDER']
+        os.makedirs(upload_folder, exist_ok=True)
+        before = set(os.listdir(upload_folder))
+
+    client.post('/attachments/upload', data={
+        'file': (io.BytesIO(b'payload'), filename),
+        'asset_id': '1',
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    with app.app_context():
+        assert set(os.listdir(app.config['UPLOAD_FOLDER'])) == before
+        assert Attachment.query.count() == 0
+
+
+def test_a_double_extension_is_judged_by_the_last_one(client, app, init_database):
+    """invoice.pdf.exe is an executable, whatever it is trying to look like."""
+    _user_with(app, 'double@test.com', {'core_inventory': AccessLevel.WRITE})
+    _login(client, 'double@test.com')
+
+    client.post('/attachments/upload', data={
+        'file': (io.BytesIO(b'payload'), 'invoice.pdf.exe'),
+        'asset_id': '1',
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    with app.app_context():
+        assert Attachment.query.count() == 0
+
+
+def test_the_refusal_lists_what_is_allowed(client, app, init_database):
+    _user_with(app, 'listtypes@test.com', {'core_inventory': AccessLevel.WRITE})
+    _login(client, 'listtypes@test.com')
+
+    response = client.post('/attachments/upload', data={
+        'file': (io.BytesIO(b'payload'), 'payload.exe'),
+        'asset_id': '1',
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    assert b'not accepted' in response.data
+    assert b'pdf' in response.data
+
+
+def test_the_allowlist_guards_uploads_outside_the_attachments_route(client, app,
+                                                                   init_database):
+    """The hook is global, so a route with its own file.save() is covered too."""
+    from src.models.hiring import HiringStage
+    _user_with(app, 'resume@test.com', {'hr_people': AccessLevel.WRITE})
+    _login(client, 'resume@test.com')
+
+    with app.app_context():
+        stage = HiringStage(name='Applied', order=1)
+        db.session.add(stage)
+        db.session.commit()
+        stage_id = stage.id
+        before = set(os.listdir(app.config['UPLOAD_FOLDER']))
+
+    client.post('/hr/hiring/candidate/new', data={
+        'name': 'Mallory', 'email': 'mallory@test.com', 'stage_id': str(stage_id),
+        'resume': (io.BytesIO(b'payload'), 'cv.exe'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+
+    with app.app_context():
+        assert set(os.listdir(app.config['UPLOAD_FOLDER'])) == before
+
+
+def test_the_allowlist_comes_from_the_environment(monkeypatch):
+    from src import create_app
+
+    monkeypatch.setenv('UPLOAD_ALLOWED_EXTENSIONS', 'pdf, .PNG ,csv')
+    created = create_app(test_config={'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+                                      'TESTING': True, 'SECRET_KEY': 'x'})
+    assert created.config['UPLOAD_ALLOWED_EXTENSIONS'] == {'pdf', 'png', 'csv'}
+
+
+def test_an_api_upload_refusal_is_json(client, app, init_database):
+    _user_with(app, 'apitype@test.com', {'core_inventory': AccessLevel.WRITE})
+    _login(client, 'apitype@test.com')
+
+    response = client.post('/attachments/upload', data={
+        'file': (io.BytesIO(b'payload'), 'payload.exe'),
+        'asset_id': '1',
+    }, content_type='multipart/form-data', headers={'Accept': 'application/json'})
+
+    assert response.status_code == 415
+    assert 'not accepted' in response.get_json()['error']

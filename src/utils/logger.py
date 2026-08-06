@@ -17,7 +17,9 @@ def log_audit(event_type, action, target_object=None, outcome='success', **kwarg
 
     # Base context
     extra = {
-        "event.dataset": "renewal_guard.audit",
+        # Named after the product. It was "renewal_guard.audit" until 2026-08, the
+        # project's former name, so a log pipeline filtering on that has to be updated.
+        "event.dataset": "opsdeck.audit",
         "event.kind": "event",
         "event.category": event_type.split('.')[0] if '.' in event_type else "web",
         "event.action": action,

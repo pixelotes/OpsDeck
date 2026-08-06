@@ -139,6 +139,35 @@ def create_app(test_config=None):
     app.config['MAX_UPLOAD_MB'] = max_upload_mb
     app.config['MAX_CONTENT_LENGTH'] = max_upload_mb * 1024 * 1024
 
+    # File types accepted by every upload in the app: photos, invoices, evidence
+    # documents and the archives they arrive in. Enforced in reject_disallowed_uploads
+    # below rather than per route, because there are two dozen upload sites and one
+    # check that cannot be forgotten beats twenty-four that can.
+    #
+    # Deliberately absent: svg, html and htm, which can carry script. They are harmless
+    # while attachments download instead of rendering (as_attachment=True), but that is
+    # one changed argument away from stored XSS. Executables are absent for the obvious
+    # reason. Override with UPLOAD_ALLOWED_EXTENSIONS as a comma-separated list.
+    default_extensions = (
+        # images and scans
+        'jpg,jpeg,png,gif,bmp,tga,webp,tif,tiff,heic,heif,'
+        # documents
+        'pdf,odt,ods,odp,doc,docx,xls,xlsx,ppt,pptx,rtf,txt,md,'
+        # data
+        'csv,tsv,json,xml,log,'
+        # archives
+        'zip,7z,gz,tar,tgz,rar,'
+        # mail, for phishing and incident evidence
+        'eml,msg,'
+        # certificates
+        'pem,crt,cer,der'
+    )
+    configured = os.environ.get('UPLOAD_ALLOWED_EXTENSIONS', default_extensions)
+    app.config['UPLOAD_ALLOWED_EXTENSIONS'] = {
+        ext.strip().lower().lstrip('.')
+        for ext in configured.split(',') if ext.strip()
+    }
+
     # Email configuration
     app.config['SMTP_SERVER'] = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
     app.config['SMTP_PORT'] = int(os.environ.get('SMTP_PORT', '587'))
@@ -635,6 +664,48 @@ def create_app(test_config=None):
         # Nothing matched, so block and redirect to the login page
         # Remember the requested URL so the user lands there after logging in
         return redirect(url_for('main.login', next=request.url))
+
+
+    # --- GLOBAL UPLOAD TYPE GUARD ---
+    @app.before_request
+    def reject_disallowed_uploads():
+        """Refuse a file whose extension is not on the allowlist, before any route runs.
+
+        Enforced here because uploads happen at two dozen places across thirteen
+        blueprints — attachments, resumes, audit evidence, training certificates,
+        activity executions — and none of them validated anything. A single hook covers
+        the ones that exist and the ones added later.
+
+        Extension only: content sniffing would need a new dependency, and the point of
+        the check is to keep obviously-wrong files out of a folder that is served with
+        as_attachment=True, not to prove a file is what it claims.
+        """
+        if not request.files:
+            return None
+
+        allowed = app.config.get('UPLOAD_ALLOWED_EXTENSIONS') or set()
+        for field in request.files:
+            for storage in request.files.getlist(field):
+                filename = (storage.filename or '').strip()
+                if not filename:
+                    continue        # nothing chosen; the route reports that itself
+                extension = os.path.splitext(filename)[1].lower().lstrip('.')
+                if extension in allowed:
+                    continue
+
+                described = f'.{extension}' if extension else 'no extension'
+                message = (f'That file type is not accepted ({described}). '
+                           f'Allowed types: {", ".join(sorted(allowed))}.')
+
+                wants_json = ('/api/' in (request.path or '')
+                              or request.accept_mimetypes.best == 'application/json')
+                if wants_json:
+                    return jsonify({'error': message}), 415
+
+                from .utils.redirects import safe_redirect_target
+                flash(message, 'danger')
+                return redirect(safe_redirect_target(request.referrer))
+        return None
 
     # --- Force admin to change the default password ---
     @app.before_request
