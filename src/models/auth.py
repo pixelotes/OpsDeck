@@ -6,7 +6,8 @@ import secrets
 
 user_groups = db.Table('user_groups',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
-    db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True)
+    db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True),
+    db.Index('ix_user_groups_group_id', 'group_id')
 )
 
 class Group(db.Model):
@@ -161,7 +162,7 @@ class OrgChartSnapshot(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False) # Ej: "Organigrama Q1 2024"
     created_at = db.Column(db.DateTime, default=lambda: now())
-    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
     
     chart_data = db.Column(db.JSON, nullable=False)
     

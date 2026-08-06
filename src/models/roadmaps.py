@@ -46,7 +46,7 @@ class Roadmap(db.Model):
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     status = db.Column(db.String(50), nullable=False, default='draft')
-    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
 
     created_at = db.Column(db.DateTime, default=lambda: now())
     updated_at = db.Column(db.DateTime, default=lambda: now(), onupdate=lambda: now())
@@ -145,7 +145,7 @@ class RoadmapGoal(db.Model):
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     color = db.Column(db.String(7), nullable=False, default=DEFAULT_GOAL_COLOR)
-    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     position = db.Column(db.Integer, nullable=False, default=0)
 
     owner = db.relationship('User', foreign_keys=[owner_id])
@@ -187,7 +187,7 @@ class RoadmapInitiative(db.Model, CustomPropertiesMixin):
     external_ref = db.Column(db.String(100), nullable=False, default='')
     external_url = db.Column(db.String(500), nullable=True)
 
-    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     position = db.Column(db.Integer, nullable=False, default=0)
 
     created_at = db.Column(db.DateTime, default=lambda: now())

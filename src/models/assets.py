@@ -255,8 +255,8 @@ class Asset(db.Model, CustomPropertiesMixin):
 class AssetAssignment(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
-    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Can be unassigned
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True) # Can be unassigned
     checked_out_date = db.Column(db.DateTime, default=lambda: now())
     checked_in_date = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text)
@@ -264,7 +264,7 @@ class AssetAssignment(db.Model):
 
 class AssetHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=False)
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=False, index=True)
     field_changed = db.Column(db.String(100), nullable=False)
     old_value = db.Column(db.String(255))
     new_value = db.Column(db.String(255))
@@ -272,8 +272,8 @@ class AssetHistory(db.Model):
 
 class PeripheralAssignment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) # Can be unassigned
+    peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True) # Can be unassigned
     checked_out_date = db.Column(db.DateTime, default=lambda: now())
     checked_in_date = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text)
@@ -404,7 +404,7 @@ class Software(db.Model):
     owner_type = db.Column(db.String(50)) # 'user' or 'group'
 
     # Relationships
-    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=True)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=True, index=True)
     subscriptions = db.relationship('Subscription', backref='software', lazy=LAZY_DYNAMIC)
     licenses = db.relationship('License', backref='software', lazy=LAZY_DYNAMIC)
     
@@ -462,7 +462,8 @@ class Software(db.Model):
 # Association table for MaintenanceLog tags
 maintenance_log_tags = db.Table('maintenance_log_tags',
     db.Column('maintenance_log_id', db.Integer, db.ForeignKey('maintenance_log.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_maintenance_log_tags_tag_id', 'tag_id')
 )
 
 class MaintenanceLog(db.Model):
@@ -478,9 +479,9 @@ class MaintenanceLog(db.Model):
     updated_at = db.Column(db.DateTime, nullable=False, default=lambda: now(), onupdate=lambda: now())
     
     # Relationships
-    assigned_to_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
-    peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'))
+    assigned_to_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), index=True)
+    peripheral_id = db.Column(db.Integer, db.ForeignKey('peripheral.id'), index=True)
     
     assigned_to = db.relationship('User', backref='maintenance_logs')
     tags = db.relationship('Tag', secondary=maintenance_log_tags, backref=db.backref('maintenance_logs', lazy=LAZY_DYNAMIC))
@@ -502,12 +503,12 @@ class MaintenanceLog(db.Model):
 
 class DisposalHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    disposal_id = db.Column(db.Integer, db.ForeignKey('disposal_record.id'), nullable=False)
+    disposal_id = db.Column(db.Integer, db.ForeignKey('disposal_record.id'), nullable=False, index=True)
     field_changed = db.Column(db.String(100), nullable=False)
     old_value = db.Column(db.Text)
     new_value = db.Column(db.Text)
     reason = db.Column(db.Text, nullable=False)
-    changed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    changed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
     changed_at = db.Column(db.DateTime, default=lambda: now())
     
     changed_by = db.relationship('User')

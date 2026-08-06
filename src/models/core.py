@@ -41,7 +41,8 @@ class NotificationSetting(db.Model):
 
 link_tags = db.Table('link_tags',
     db.Column('link_id', db.Integer, db.ForeignKey('link.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_link_tags_tag_id', 'tag_id')
 )
 
 class Link(db.Model):
@@ -56,7 +57,7 @@ class Link(db.Model):
     owner_type = db.Column(db.String(50)) # 'User' o 'Group'
     
     # Optional link to Software
-    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True, index=True)
     software = db.relationship('Software', backref='links')
 
     # Tags (many to many)
@@ -83,7 +84,8 @@ class Link(db.Model):
 
 documentation_tags = db.Table('documentation_tags',
     db.Column('documentation_id', db.Integer, db.ForeignKey('documentation.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_documentation_tags_tag_id', 'tag_id')
 )
 
 class Documentation(db.Model):
@@ -98,7 +100,7 @@ class Documentation(db.Model):
     owner_type = db.Column(db.String(50)) # 'User' o 'Group'
     
     # Optional link to Software
-    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True, index=True)
     software = db.relationship('Software', backref='documentation')
 
     # Tags (many to many)
@@ -149,19 +151,22 @@ class CostCenter(db.Model):
 # Association table for Service-Documentation Many-to-Many
 service_documentation = db.Table('service_documentation',
     db.Column('service_id', db.Integer, db.ForeignKey('business_service.id'), primary_key=True),
-    db.Column('documentation_id', db.Integer, db.ForeignKey('documentation.id'), primary_key=True)
+    db.Column('documentation_id', db.Integer, db.ForeignKey('documentation.id'), primary_key=True),
+    db.Index('ix_service_documentation_documentation_id', 'documentation_id')
 )
 
 # Association table for Service-Policy Many-to-Many
 service_policies = db.Table('service_policies',
     db.Column('service_id', db.Integer, db.ForeignKey('business_service.id'), primary_key=True),
-    db.Column('policy_id', db.Integer, db.ForeignKey('policy.id'), primary_key=True)
+    db.Column('policy_id', db.Integer, db.ForeignKey('policy.id'), primary_key=True),
+    db.Index('ix_service_policies_policy_id', 'policy_id')
 )
 
 # Association table for Service-SecurityActivity Many-to-Many
 service_activities = db.Table('service_activities',
     db.Column('service_id', db.Integer, db.ForeignKey('business_service.id'), primary_key=True),
-    db.Column('activity_id', db.Integer, db.ForeignKey('security_activity.id'), primary_key=True)
+    db.Column('activity_id', db.Integer, db.ForeignKey('security_activity.id'), primary_key=True),
+    db.Index('ix_service_activities_activity_id', 'activity_id')
 )
 
 
@@ -205,7 +210,7 @@ class CustomFieldValue(db.Model):
     __tablename__ = 'custom_field_value'
     
     id = db.Column(db.Integer, primary_key=True)
-    field_definition_id = db.Column(db.Integer, db.ForeignKey('custom_field_definition.id'), nullable=False)
+    field_definition_id = db.Column(db.Integer, db.ForeignKey('custom_field_definition.id'), nullable=False, index=True)
     
     linkable_id = db.Column(db.Integer, nullable=False)
     linkable_type = db.Column(db.String(50), nullable=False)

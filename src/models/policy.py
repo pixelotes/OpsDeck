@@ -6,12 +6,14 @@ from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 
 policy_version_users = db.Table('policy_version_users',
     db.Column('policy_version_id', db.Integer, db.ForeignKey('policy_version.id'), primary_key=True),
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Index('ix_policy_version_users_user_id', 'user_id')
 )
 
 policy_version_groups = db.Table('policy_version_groups',
     db.Column('policy_version_id', db.Integer, db.ForeignKey('policy_version.id'), primary_key=True),
-    db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True)
+    db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True),
+    db.Index('ix_policy_version_groups_group_id', 'group_id')
 )
 
 class Policy(db.Model):
@@ -51,7 +53,7 @@ class PolicyVersion(db.Model):
     groups_to_acknowledge = db.relationship('Group', secondary=policy_version_groups, back_populates='policy_versions_to_acknowledge')
 
     # Relationship back to the main policy document
-    policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'), nullable=False)
+    policy_id = db.Column(db.Integer, db.ForeignKey('policy.id'), nullable=False, index=True)
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(PolicyVersion.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='PolicyVersion')",
@@ -60,6 +62,6 @@ class PolicyVersion(db.Model):
 
 class PolicyAcknowledgement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    policy_version_id = db.Column(db.Integer, db.ForeignKey('policy_version.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    policy_version_id = db.Column(db.Integer, db.ForeignKey('policy_version.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     acknowledged_at = db.Column(db.DateTime, default=lambda: now())

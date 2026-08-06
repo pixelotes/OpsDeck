@@ -46,7 +46,7 @@ class Candidate(db.Model):
     currency = db.Column(db.String(3), default='EUR')
     
     # Kanban Location
-    stage_id = db.Column(db.Integer, db.ForeignKey('hiring_stage.id'), nullable=False)
+    stage_id = db.Column(db.Integer, db.ForeignKey('hiring_stage.id'), nullable=False, index=True)
     
     # Metadata
     resume_link = db.Column(db.String(255))  # Optional external link or file path

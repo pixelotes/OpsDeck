@@ -24,7 +24,7 @@ class NotificationEvent(db.Model):
     description = db.Column(db.Text)  # Explanation of when this event triggers
     
     # Link to the email template to use
-    template_id = db.Column(db.Integer, db.ForeignKey('email_template.id'), nullable=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('email_template.id'), nullable=True, index=True)
     template = db.relationship('EmailTemplate', backref='notification_events')
     
     # Control switches

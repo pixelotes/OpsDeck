@@ -34,18 +34,21 @@ def frequency_to_days(frequency):
 
 activity_participants = db.Table('activity_participants',
     db.Column('activity_id', db.Integer, db.ForeignKey('security_activity.id'), primary_key=True),
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Index('ix_activity_participants_user_id', 'user_id')
 )
 
 activity_tags = db.Table('activity_tags',
     db.Column('activity_id', db.Integer, db.ForeignKey('security_activity.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_activity_tags_tag_id', 'tag_id')
 )
 
 # Tags for Execution Logs
 activity_execution_tags = db.Table('activity_execution_tags',
     db.Column('execution_id', db.Integer, db.ForeignKey('activity_execution.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_activity_execution_tags_tag_id', 'tag_id')
 )
 
 class ActivityRelatedObject(db.Model):
@@ -55,7 +58,7 @@ class ActivityRelatedObject(db.Model):
     """
     __tablename__ = 'activity_related_object'
     id = db.Column(db.Integer, primary_key=True)
-    activity_id = db.Column(db.Integer, db.ForeignKey('security_activity.id'), nullable=False)
+    activity_id = db.Column(db.Integer, db.ForeignKey('security_activity.id'), nullable=False, index=True)
     related_object_id = db.Column(db.Integer, nullable=False, index=True)
     related_object_type = db.Column(db.String(50), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=lambda: now())
@@ -195,8 +198,8 @@ class ActivityExecution(db.Model):
     """
     __tablename__ = 'activity_execution'
     id = db.Column(db.Integer, primary_key=True)
-    activity_id = db.Column(db.Integer, db.ForeignKey('security_activity.id'), nullable=False)
-    executor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    activity_id = db.Column(db.Integer, db.ForeignKey('security_activity.id'), nullable=False, index=True)
+    executor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     execution_date = db.Column(db.Date, nullable=False, default=lambda: today())
     status = db.Column(db.String(50), nullable=False)  # 'in_progress', 'success', 'failed', 'issue_detected'
     outcome_notes = db.Column(db.Text)

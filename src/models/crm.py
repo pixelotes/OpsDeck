@@ -43,7 +43,7 @@ class Requirement(db.Model):
 
     # Metadata
     created_at = db.Column(db.DateTime, default=lambda: now())
-    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
     # Relationships
@@ -70,13 +70,13 @@ class RequirementAction(db.Model):
     __tablename__ = 'requirement_action'
 
     id = db.Column(db.Integer, primary_key=True)
-    requirement_id = db.Column(db.Integer, db.ForeignKey('lead.id'), nullable=False)
+    requirement_id = db.Column(db.Integer, db.ForeignKey('lead.id'), nullable=False, index=True)
     action_type = db.Column(db.String(50), default='Note')  # 'Note', 'Research', 'Meeting', 'Decision', 'Email'
     description = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: now())
     edited_at = db.Column(db.DateTime)
     is_hidden = db.Column(db.Boolean, default=False, nullable=False)
-    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
 
 
 class Opportunity(db.Model):
@@ -91,11 +91,11 @@ class Opportunity(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: now())
 
     # Foreign keys
-    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'))
-    primary_contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'))
-    requirement_id = db.Column(db.Integer, db.ForeignKey('lead.id'))  # Link to source requirement
-    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'))
-    budget_id = db.Column(db.Integer, db.ForeignKey('budget.id'))
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), index=True)
+    primary_contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'), index=True)
+    requirement_id = db.Column(db.Integer, db.ForeignKey('lead.id'), index=True)  # Link to source requirement
+    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), index=True)
+    budget_id = db.Column(db.Integer, db.ForeignKey('budget.id'), index=True)
 
     # Relationships
     activities = db.relationship('Activity', backref='opportunity', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN, order_by='Activity.activity_date.desc()')
@@ -111,7 +111,7 @@ class Activity(db.Model):
     is_hidden = db.Column(db.Boolean, default=False, nullable=False)
 
     # Relationship
-    opportunity_id = db.Column(db.Integer, db.ForeignKey('opportunity.id'), nullable=False)
+    opportunity_id = db.Column(db.Integer, db.ForeignKey('opportunity.id'), nullable=False, index=True)
 
 
 class OpportunityTask(db.Model):
@@ -119,7 +119,7 @@ class OpportunityTask(db.Model):
     __tablename__ = 'opportunity_task'
 
     id = db.Column(db.Integer, primary_key=True)
-    opportunity_id = db.Column(db.Integer, db.ForeignKey('opportunity.id'), nullable=False)
+    opportunity_id = db.Column(db.Integer, db.ForeignKey('opportunity.id'), nullable=False, index=True)
     description = db.Column(db.String(500), nullable=False)
     is_completed = db.Column(db.Boolean, default=False, nullable=False)
     due_date = db.Column(db.Date)
@@ -134,7 +134,7 @@ class Contact(db.Model):
     email = db.Column(db.String(100))
     phone = db.Column(db.String(20))
     role = db.Column(db.String(50))
-    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=lambda: now())
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     opportunities = db.relationship('Opportunity', backref='primary_contact', foreign_keys='Opportunity.primary_contact_id')

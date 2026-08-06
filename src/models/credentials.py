@@ -7,7 +7,8 @@ from src.utils.timezone_helper import now, to_utc
 # Association table for Credential <-> BusinessService
 service_credentials = db.Table('service_credentials',
     db.Column('service_id', db.Integer, db.ForeignKey('business_service.id'), primary_key=True),
-    db.Column('credential_id', db.Integer, db.ForeignKey('credentials.id'), primary_key=True)
+    db.Column('credential_id', db.Integer, db.ForeignKey('credentials.id'), primary_key=True),
+    db.Index('ix_service_credentials_credential_id', 'credential_id')
 )
 
 class Credential(db.Model):
@@ -44,8 +45,8 @@ class Credential(db.Model):
     # ==========================================
     # service_id removed in favor of M2M relationship
     software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
-    license_id = db.Column(db.Integer, db.ForeignKey('license.id'), nullable=True)
-    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=True)
+    license_id = db.Column(db.Integer, db.ForeignKey('license.id'), nullable=True, index=True)
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=True, index=True)
     
     # Relationships for reverse visibility
     services = db.relationship('BusinessService', secondary='service_credentials', backref=db.backref('credentials', lazy=LAZY_DYNAMIC))

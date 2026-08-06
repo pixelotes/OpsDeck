@@ -7,7 +7,8 @@ from sqlalchemy import and_
 # Association table for Request-Tag Many-to-Many
 request_tags = db.Table('request_tags',
     db.Column('request_id', db.Integer, db.ForeignKey('request.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_request_tags_tag_id', 'tag_id')
 )
 
 # Lifecycle states (service-desk style fulfillment flow)

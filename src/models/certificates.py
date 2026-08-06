@@ -7,7 +7,8 @@ from src.utils.timezone_helper import now, today
 # Association table for Certificate <-> BusinessService
 service_certificates = db.Table('service_certificates',
     db.Column('service_id', db.Integer, db.ForeignKey('business_service.id'), primary_key=True),
-    db.Column('certificate_id', db.Integer, db.ForeignKey('certificates.id'), primary_key=True)
+    db.Column('certificate_id', db.Integer, db.ForeignKey('certificates.id'), primary_key=True),
+    db.Index('ix_service_certificates_certificate_id', 'certificate_id')
 )
 
 class Certificate(db.Model):
@@ -77,7 +78,7 @@ class CertificateVersion(db.Model):
     __tablename__ = 'certificate_versions'
 
     id = db.Column(db.Integer, primary_key=True)
-    certificate_id = db.Column(db.Integer, db.ForeignKey('certificates.id'), nullable=False)
+    certificate_id = db.Column(db.Integer, db.ForeignKey('certificates.id'), nullable=False, index=True)
     
     # Version Details
     version_notes = db.Column(db.String(255)) # e.g. "2024 Renewal"
