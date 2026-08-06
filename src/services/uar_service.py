@@ -203,14 +203,12 @@ class UARAutomationService:
             if not report_id:
                 raise ValueError("report_id is required for Enterprise Report source")
 
-            # Import here to avoid circular dependency
+            # load_from_report resolves the report, raises if it does not exist, and
+            # loads it into the engine itself, so there is nothing to fetch here. This
+            # used to look up the Report and pass the object as the table name, one
+            # argument short — a TypeError, which is to say this source never once ran.
             try:
-                from opsdeck_enterprise.models.report import Report
-                report = db.session.get(Report, report_id)
-                if not report:
-                    raise ValueError(f"Enterprise Report {report_id} not found")
-                engine.load_from_report(report)
-                return []  # Data already loaded by load_from_report
+                return engine.load_from_report(table_name, report_id)
             except ImportError:
                 raise ValueError("OpsDeck Enterprise plugin not available")
 
