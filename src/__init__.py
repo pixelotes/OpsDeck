@@ -35,6 +35,32 @@ limiter = Limiter(
 # --- CSRF Protection ---
 from flask_wtf.csrf import CSRFProtect
 from src.utils.timezone_helper import today
+from .utils.json_api import request_wants_json
+
+#: Endpoints reachable without authentication.
+#:
+#: Module level rather than a local inside the login guard so the JSON contract test can
+#: derive the exception list from the guard itself instead of keeping a copy that drifts:
+#: the health check and the internal CLI routes answer JSON and are meant to be
+#: unauthenticated, so they are the one group that must not be asserted to return 401.
+PUBLIC_ENDPOINTS = [
+    'main.login',
+    'main.google_callback',
+    'google.login',  # Google OAuth login initiation
+    'google.authorized',  # Google OAuth callback handler
+    'main.mfa_verify',  # Necesario para el flujo de 2FA
+    'main.health_check',  # Health check for Kubernetes probes
+    'main.internal_test_db',  # Internal route for CLI database testing
+    'main.internal_app_info',  # Internal route for CLI app info
+    'main.internal_test_email',  # Internal route for CLI email testing
+    'main.internal_health_check',  # Internal route for CLI health check
+    'main.internal_test_security',  # Internal route for CLI security audit
+    'static',
+    'favicon',
+    # API endpoints use token authentication, not session
+    'api-v1.AuthLogin',
+    'api-v1.AuthRefresh',
+]
 
 csrf = CSRFProtect()
 
@@ -334,9 +360,7 @@ def create_app(test_config=None):
         limit_mb = app.config.get('MAX_UPLOAD_MB', 5)
         message = f'That file is too large. The limit is {limit_mb} MB.'
 
-        wants_json = ('/api/' in (request.path or '')
-                      or request.accept_mimetypes.best == 'application/json')
-        if wants_json:
+        if request_wants_json():
             return jsonify({'error': message}), 413
 
         from .utils.redirects import safe_redirect_target
@@ -626,24 +650,7 @@ def create_app(test_config=None):
         Only whitelisted endpoints are accessible without authentication.
         """
         # Endpoints reachable without authentication (whitelist)
-        public_endpoints = [
-            'main.login',
-            'main.google_callback',
-            'google.login',  # Google OAuth login initiation
-            'google.authorized',  # Google OAuth callback handler
-            'main.mfa_verify',  # Necesario para el flujo de 2FA
-            'main.health_check',  # Health check for Kubernetes probes
-            'main.internal_test_db',  # Internal route for CLI database testing
-            'main.internal_app_info',  # Internal route for CLI app info
-            'main.internal_test_email',  # Internal route for CLI email testing
-            'main.internal_health_check',  # Internal route for CLI health check
-            'main.internal_test_security',  # Internal route for CLI security audit
-            'static',
-            'favicon',
-            # API endpoints use token authentication, not session
-            'api-v1.AuthLogin',
-            'api-v1.AuthRefresh',
-        ]
+        public_endpoints = PUBLIC_ENDPOINTS
 
         # Permitir acceso si:
         # 1. The user is already authenticated (user_id is in the session)
@@ -666,9 +673,7 @@ def create_app(test_config=None):
         # 5. API-style requests must fail as JSON rather than with a 302 to the login
         # page: a fetch() client would parse that HTML as if it were the response and
         # the authentication failure would go unnoticed.
-        wants_json = ('/api/' in (request.path or '')
-                      or request.accept_mimetypes.best == 'application/json')
-        if wants_json:
+        if request_wants_json():
             return jsonify({'error': 'Authentication required.'}), 401
 
         # Nothing matched, so block and redirect to the login page
@@ -707,9 +712,7 @@ def create_app(test_config=None):
                 message = (f'That file type is not accepted ({described}). '
                            f'Allowed types: {", ".join(sorted(allowed))}.')
 
-                wants_json = ('/api/' in (request.path or '')
-                              or request.accept_mimetypes.best == 'application/json')
-                if wants_json:
+                if request_wants_json():
                     return jsonify({'error': message}), 415
 
                 from .utils.redirects import safe_redirect_target

@@ -6,6 +6,7 @@ from datetime import datetime
 from ..models import db, SecurityActivity, ActivityExecution, User, Group, Tag, Attachment, ActivityRelatedObject
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
+from ..utils.json_api import json_endpoint
 from src.utils.timezone_helper import today
 
 
@@ -275,6 +276,7 @@ def edit_execution(id):
                          today_date=execution.execution_date.strftime('%Y-%m-%d'))
 
 @activities_bp.route('/get-objects-by-type', methods=['GET'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE)
 def get_objects_by_type():

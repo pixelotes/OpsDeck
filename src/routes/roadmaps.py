@@ -2,11 +2,9 @@ import csv
 import io
 import re
 from datetime import datetime
-from functools import wraps
 
 from flask import (Blueprint, render_template, request, redirect, url_for, flash,
-                   jsonify, current_app, abort, Response)
-from werkzeug.exceptions import BadRequest, HTTPException
+                   jsonify, abort, Response)
 
 from ..models import (db, User, Roadmap, RoadmapPeriod, RoadmapGoal, RoadmapInitiative,
                       RoadmapDependency, ROADMAP_STATUSES, INITIATIVE_STATUSES,
@@ -17,6 +15,11 @@ from ..services.permissions_service import (requires_permission, requires_permis
                                             has_write_permission)
 from ..services.roadmaps_service import (recompute_dates, creates_cycle, cascade_reschedule,
                                          sync_dependency_lags, bundle)
+# The JSON conventions used to live here, which was the smell: they were the whole
+# application's, but private to one module. Aliased to the old private names so the 40-odd
+# call sites below stay untouched.
+from ..utils.json_api import (api_endpoint, json_error as _json_error, body as _body,
+                              field_body as _field_body)
 from src.utils.logger import log_audit
 
 roadmaps_bp = Blueprint('roadmaps', __name__)
@@ -392,67 +395,6 @@ HEX_COLOR = re.compile(r'^#[0-9A-Fa-f]{6}$')
 
 CYCLE_ERROR = 'That link would create a dependency cycle.'
 NOT_IN_ROADMAP = 'Not found in this roadmap.'
-
-
-def _json_error(message, status):
-    return jsonify({'error': message}), status
-
-
-def api_endpoint(f):
-    """Make a handler fail as JSON instead of as an HTML error page.
-
-    ValueError/TypeError are treated as client errors because the only place they
-    can surface here is coercing request data (int('abc') and friends); anything
-    else is a bug, so it rolls back, logs with a stack trace, and returns 500.
-    """
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        try:
-            return f(*args, **kwargs)
-        except BadRequest as error:
-            return _json_error(error.description or 'Malformed request body.', 400)
-        except HTTPException:
-            # abort() and friends already carry the right status; turning those into a
-            # 500 below would hide them.
-            raise
-        except (ValueError, TypeError):
-            return _json_error('Invalid field value.', 400)
-        except Exception:
-            db.session.rollback()
-            current_app.logger.exception('Unhandled error in the roadmaps API')
-            return _json_error('Internal error.', 500)
-    return wrapper
-
-
-def _body():
-    """The parsed JSON body, or an empty dict when there is none.
-
-    A body that is present but unparseable is an error rather than an empty dict:
-    treating garbage as "no fields supplied" would make a broken client look like a
-    successful no-op. A missing body stays valid, since DELETE and some POSTs have none.
-    """
-    parsed = request.get_json(silent=True)
-    if parsed is None:
-        if request.get_data():
-            raise BadRequest('Body is not valid JSON.')
-        return {}
-    if not isinstance(parsed, dict):
-        raise BadRequest('Body must be a JSON object.')
-    return parsed
-
-
-def _field_body():
-    """Body for the endpoints that map keys onto model fields, all of which are scalar.
-
-    Rejecting structures once, up front, is what lets the field appliers coerce with
-    str() without a list or dict reaching the database as its repr — or blowing up as a
-    500 on .strip(). Bulk endpoints like reorder take a real structure, so they use
-    _body directly.
-    """
-    parsed = _body()
-    if any(isinstance(value, (list, dict)) for value in parsed.values()):
-        raise BadRequest('Field values must be scalars.')
-    return parsed
 
 
 def _as_int(value, default=None):

@@ -8,6 +8,7 @@ from ..models.onboarding import OnboardingProcess
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
 from src.utils.timezone_helper import now, today, to_utc
+from ..utils.json_api import json_endpoint
 from ..utils.redirects import safe_redirect_target
 
 
@@ -300,6 +301,7 @@ def download_resume(id):
 # ==========================================
 
 @hiring_bp.route('/move', methods=['POST'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE)
 def move_candidate():

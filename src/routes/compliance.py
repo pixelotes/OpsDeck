@@ -13,6 +13,7 @@ from .main import login_required
 from ..services.permissions_service import (requires_permission, has_write_permission,
                                            requires_permission_api)
 from ..services.uar_service import UARAutomationService
+from ..utils.json_api import json_endpoint
 from ..utils.uar_engine import AccessReviewEngine
 from src.utils.timezone_helper import now
 from ..utils.redirects import safe_redirect_target
@@ -123,6 +124,7 @@ def get_json_subscriptions():
     } for s in subs])
 
 @compliance_bp.route('/json/services', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_json_services():
     from ..models.services import BusinessService
