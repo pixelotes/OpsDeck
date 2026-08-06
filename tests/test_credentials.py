@@ -1,215 +1,219 @@
-#!/usr/bin/env python3
 """
-Test script for credentials routes
+Credentials: secret masking, expiry status and route access.
+
+Replaces a 215-line debug script that lived under this name. It wrote 'Test API
+Key' rows into whatever database it was pointed at, printed "All tests passed"
+unconditionally, and finished by printing an email and password to log in with. It
+asserted nothing, and because it contained no test_* functions pytest collected the
+file and ran none of it — so the credentials module looked tested while sitting at
+17% coverage.
 """
-import sys
-import os
-
-# Add the project root to the path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from src import create_app
-from src.models import db, User
-from src.models.credentials import Credential, CredentialSecret
 from datetime import timedelta
+
+from src.extensions import db
+from src.models import User, Module, Permission, AccessLevel
+from src.models.credentials import Credential, CredentialSecret
 from src.utils.timezone_helper import now
 
-def run_credentials_test():
-    """Test the credentials functionality"""
-    app = create_app()
-    
-    with app.app_context():
-        print("=" * 60)
-        print("CREDENTIALS TRACKER TEST")
-        print("=" * 60)
-        
-        # 1. Check if tables exist
-        print("\n1. Checking database tables...")
-        try:
-            credential_count = Credential.query.count()
-            secret_count = CredentialSecret.query.count()
-            print(f"   ✓ Credentials table exists ({credential_count} records)")
-            print(f"   ✓ CredentialSecrets table exists ({secret_count} records)")
-        except Exception as e:
-            print(f"   ✗ Error accessing tables: {e}")
-            return False
-        
-        # 2. Get admin user
-        print("\n2. Finding admin user...")
-        admin = User.query.filter_by(email='admin@example.com').first()
-        if not admin:
-            print("   ✗ Admin user not found")
-            return False
-        print(f"   ✓ Admin user found: {admin.name} ({admin.email})")
-        
-        # 3. Create a test credential
-        print("\n3. Creating test credential...")
-        try:
-            # Check if test credential already exists
-            test_cred = Credential.query.filter_by(name='Test API Key').first()
-            if test_cred:
-                print("   ℹ Test credential already exists, deleting...")
-                db.session.delete(test_cred)
-                db.session.commit()
-            
-            # Create new credential
-            new_cred = Credential(
-                name='Test API Key',
-                type='API Key',
-                owner_id=admin.id,
-                owner_type='User',
-                description='Test credential for validation',
-                break_glass=False
-            )
-            db.session.add(new_cred)
-            db.session.flush()
-            
-            # Create secret
-            secret = CredentialSecret(
-                credential_id=new_cred.id,
-                expires_at=now() + timedelta(days=15),  # Expires in 15 days
-                is_active=True
-            )
-            secret.set_secret('mySecretAPIKey1234567890')
-            db.session.add(secret)
-            db.session.commit()
-            
-            print(f"   ✓ Created credential: {new_cred.name}")
-            print(f"   ✓ Secret masked value: {secret.masked_value}")
-            print(f"   ✓ Expires: {secret.expires_at.strftime('%Y-%m-%d')}")
-            
-        except Exception as e:
-            print(f"   ✗ Error creating credential: {e}")
-            db.session.rollback()
-            return False
-        
-        # 4. Test credential properties
-        print("\n4. Testing credential properties...")
-        try:
-            print(f"   - Owner: {new_cred.owner.name if new_cred.owner else 'None'}")
-            print(f"   - Active secret: {new_cred.active_secret.masked_value if new_cred.active_secret else 'None'}")
-            print(f"   - Target name: {new_cred.target_name}")
-            
-            if new_cred.active_secret:
-                print(f"   - Days until expiry: {new_cred.active_secret.days_until_expiry}")
-                print(f"   - Expiry status: {new_cred.active_secret.expiry_status}")
-                print("   ✓ All properties working correctly")
-        except Exception as e:
-            print(f"   ✗ Error testing properties: {e}")
-            return False
-        
-        # 5. Test secret rotation
-        print("\n5. Testing secret rotation...")
-        try:
-            # Deactivate current secret
-            old_secret = new_cred.active_secret
-            old_secret.is_active = False
-            
-            # Create new secret
-            new_secret = CredentialSecret(
-                credential_id=new_cred.id,
-                expires_at=now() + timedelta(days=30),
-                is_active=True
-            )
-            new_secret.set_secret('newRotatedKey9876543210')
-            db.session.add(new_secret)
-            db.session.commit()
-            
-            print(f"   ✓ Old secret deactivated: {old_secret.masked_value}")
-            print(f"   ✓ New secret created: {new_secret.masked_value}")
-            print(f"   ✓ Active secret is now: {new_cred.active_secret.masked_value}")
-            
-            # Verify secret history
-            all_secrets = new_cred.secrets.all()
-            print(f"   ✓ Total secrets in history: {len(all_secrets)}")
-            
-        except Exception as e:
-            print(f"   ✗ Error rotating secret: {e}")
-            db.session.rollback()
-            return False
-        
-        # 6. Test masking logic
-        print("\n6. Testing secret masking logic...")
-        test_cases = [
-            ('short', '****'),
-            ('test', '****'),
-            ('test1234', '****1234'),
-            ('veryLongSecretKey123456', '******************3456'),
-        ]
-        
-        for raw_value, expected_mask in test_cases:
-            temp_secret = CredentialSecret()
-            temp_secret.set_secret(raw_value)
-            if temp_secret.masked_value == expected_mask:
-                print(f"   ✓ '{raw_value}' → '{temp_secret.masked_value}'")
-            else:
-                print(f"   ✗ '{raw_value}' → '{temp_secret.masked_value}' (expected '{expected_mask}')")
-        
-        # 7. Test expiring credentials query
-        print("\n7. Testing expiring credentials query...")
-        try:
-            # Create a credential expiring in 7 days (should trigger notification)
-            expiring_cred = Credential(
-                name='Expiring Soon Credential',
-                type='Password',
-                owner_id=admin.id,
-                owner_type='User',
-                description='This should trigger notification',
-                break_glass=True
-            )
-            db.session.add(expiring_cred)
-            db.session.flush()
-            
-            expiring_secret = CredentialSecret(
-                credential_id=expiring_cred.id,
-                expires_at=now() + timedelta(days=7),
-                is_active=True
-            )
-            expiring_secret.set_secret('expiringPassword123')
-            db.session.add(expiring_secret)
-            db.session.commit()
-            
-            # Query expiring credentials
-            today = now().date()
-            active_secrets = CredentialSecret.query.filter(
-                CredentialSecret.is_active == True,
-                CredentialSecret.expires_at.isnot(None)
-            ).all()
-            
-            expiring_in_7_days = [
-                s for s in active_secrets 
-                if (s.expires_at.date() - today).days == 7
-            ]
-            
-            print(f"   ✓ Found {len(expiring_in_7_days)} credential(s) expiring in 7 days")
-            for s in expiring_in_7_days:
-                print(f"     - {s.credential.name} ({s.masked_value})")
-            
-        except Exception as e:
-            print(f"   ✗ Error testing expiring credentials: {e}")
-            db.session.rollback()
-            return False
-        
-        # 8. Summary
-        print("\n" + "=" * 60)
-        print("TEST SUMMARY")
-        print("=" * 60)
-        total_credentials = Credential.query.count()
-        total_secrets = CredentialSecret.query.count()
-        active_secrets_count = CredentialSecret.query.filter_by(is_active=True).count()
-        
-        print(f"Total Credentials: {total_credentials}")
-        print(f"Total Secrets: {total_secrets}")
-        print(f"Active Secrets: {active_secrets_count}")
-        print("\n✓ All tests passed successfully!")
-        print("\nYou can now access the credentials at:")
-        print("  http://127.0.0.1:5000/credentials/")
-        print("\nLogin with:")
-        print("  Email: admin@example.com")
-        print("  Password: admin123")
-        
-        return True
 
-if __name__ == '__main__':
-    success = run_credentials_test()
-    sys.exit(0 if success else 1)
+def _login(client, email, password='password'):
+    return client.post('/login', data={'email': email, 'password': password},
+                       follow_redirects=True)
+
+
+def _grant(app, email, access_level):
+    """A plain user holding `access_level` on the module that governs credentials."""
+    from src.services.permissions_cache import permissions_cache
+    with app.app_context():
+        module = Module.query.filter_by(slug='core_inventory').first()
+        if not module:
+            module = Module(name='Core Inventory', slug='core_inventory')
+            db.session.add(module)
+            db.session.flush()
+        user = User(name=email, email=email, role='user')
+        user.set_password('password')
+        db.session.add(user)
+        db.session.flush()
+        if access_level is not None:
+            db.session.add(Permission(module_id=module.id, user_id=user.id,
+                                      access_level=access_level))
+        db.session.commit()
+        permissions_cache.invalidate()
+
+
+def _credential(app, name='Deploy key', expires_in_days=None, raw_secret='mySecretKey1234'):
+    with app.app_context():
+        owner = User(name='Owner', email=f'owner-{name}@test.com', role='user')
+        owner.set_password('password')
+        db.session.add(owner)
+        db.session.flush()
+
+        credential = Credential(name=name, type='API Key', owner_id=owner.id,
+                                owner_type='User')
+        db.session.add(credential)
+        db.session.flush()
+
+        secret = CredentialSecret(credential_id=credential.id, is_active=True)
+        secret.set_secret(raw_secret)
+        if expires_in_days is not None:
+            secret.expires_at = now() + timedelta(days=expires_in_days)
+        db.session.add(secret)
+        db.session.commit()
+        return credential.id
+
+
+# --- masking -----------------------------------------------------------------
+#
+# The whole premise of the model is that a raw secret never reaches the database,
+# so these are the tests that matter most here.
+
+def test_set_secret_keeps_only_the_last_four_characters(init_database):
+    secret = CredentialSecret(credential_id=1)
+    secret.set_secret('mySecretKey1234')
+
+    assert secret.masked_value == '***********1234'
+    assert 'mySecretKey' not in secret.masked_value
+
+
+def test_masking_is_capped_so_length_does_not_leak(init_database):
+    """A long secret must not produce a long mask, or the mask reveals the size."""
+    secret = CredentialSecret(credential_id=1)
+    secret.set_secret('aVeryLongSecretValue1234')
+
+    assert secret.masked_value == '************1234'
+    assert len(secret.masked_value) == 16
+
+
+def test_short_secrets_are_masked_entirely(init_database):
+    """Four characters or fewer would otherwise be published in full."""
+    for raw in ('abc', 'abcd', 'a'):
+        secret = CredentialSecret(credential_id=1)
+        secret.set_secret(raw)
+        assert secret.masked_value == '****'
+
+
+def test_empty_secret_is_masked(init_database):
+    secret = CredentialSecret(credential_id=1)
+    secret.set_secret('')
+    assert secret.masked_value == '****'
+
+
+def test_the_raw_secret_is_never_stored(app, init_database):
+    """Round-trips through the database to be sure nothing else carries the value."""
+    raw = 'sup3rS3cretValue9876'
+    credential_id = _credential(app, raw_secret=raw)
+
+    with app.app_context():
+        secret = db.session.get(Credential, credential_id).active_secret
+        stored = {column.name: getattr(secret, column.name)
+                  for column in CredentialSecret.__table__.columns}
+        assert not any(raw in str(value) for value in stored.values())
+        assert stored['masked_value'].endswith('9876')
+
+
+# --- expiry ------------------------------------------------------------------
+
+def test_a_secret_without_an_expiry_never_expires(init_database):
+    secret = CredentialSecret(credential_id=1, masked_value='****')
+
+    assert secret.is_expired is False
+    assert secret.days_until_expiry is None
+    assert secret.expiry_status == 'active'
+
+
+def test_expiry_status_thresholds(init_database):
+    cases = [
+        (-1, 'expired'),
+        (3, 'expiring_soon'),
+        (7, 'expiring_soon'),
+        (20, 'expiring_warning'),
+        (30, 'expiring_warning'),
+        (60, 'active'),
+    ]
+    for days, expected in cases:
+        secret = CredentialSecret(credential_id=1, masked_value='****',
+                                  expires_at=now() + timedelta(days=days, hours=1))
+        assert secret.expiry_status == expected, f'{days} days -> {expected}'
+
+
+def test_is_expired_follows_the_expiry_date(init_database):
+    past = CredentialSecret(credential_id=1, masked_value='****',
+                            expires_at=now() - timedelta(days=1))
+    future = CredentialSecret(credential_id=1, masked_value='****',
+                              expires_at=now() + timedelta(days=1))
+
+    assert past.is_expired is True
+    assert future.is_expired is False
+
+
+def test_days_until_expiry_is_negative_once_past(init_database):
+    secret = CredentialSecret(credential_id=1, masked_value='****',
+                              expires_at=now() - timedelta(days=5))
+    assert secret.days_until_expiry < 0
+
+
+# --- active secret -----------------------------------------------------------
+
+def test_active_secret_ignores_superseded_ones(app, init_database):
+    credential_id = _credential(app)
+
+    with app.app_context():
+        credential = db.session.get(Credential, credential_id)
+        old = credential.active_secret
+        old.is_active = False
+
+        replacement = CredentialSecret(credential_id=credential.id, is_active=True)
+        replacement.set_secret('rotatedSecret5678')
+        db.session.add(replacement)
+        db.session.commit()
+
+        assert credential.active_secret.masked_value.endswith('5678')
+
+
+def test_a_credential_without_secrets_has_no_active_secret(app, init_database):
+    with app.app_context():
+        owner = User(name='Bare owner', email='bare@test.com', role='user')
+        owner.set_password('password')
+        db.session.add(owner)
+        db.session.flush()
+
+        credential = Credential(name='Bare', type='API Key', owner_id=owner.id,
+                                owner_type='User')
+        db.session.add(credential)
+        db.session.commit()
+        assert credential.active_secret is None
+
+
+# --- routes ------------------------------------------------------------------
+
+def test_list_requires_login(client, init_database):
+    response = client.get('/credentials/')
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+
+
+def test_list_requires_the_module(client, app, init_database):
+    _grant(app, 'nocred@test.com', None)
+    _login(client, 'nocred@test.com')
+    assert client.get('/credentials/').status_code == 302
+
+
+def test_list_shows_credentials_without_leaking_secrets(auth_client, app, init_database):
+    _credential(app, name='Deploy key', raw_secret='mySecretKey1234')
+
+    response = auth_client.get('/credentials/')
+    assert response.status_code == 200
+    assert b'Deploy key' in response.data
+    assert b'mySecretKey' not in response.data
+
+
+def test_read_only_user_can_list_but_not_create(client, app, init_database):
+    _grant(app, 'credreader@test.com', AccessLevel.READ_ONLY)
+    _login(client, 'credreader@test.com')
+
+    assert client.get('/credentials/').status_code == 200
+
+    client.post('/credentials/new', data={'name': 'Nope', 'type': 'API Key'},
+                follow_redirects=True)
+    with app.app_context():
+        assert Credential.query.filter_by(name='Nope').first() is None
