@@ -299,16 +299,24 @@ def create_app(test_config=None):
 
     # --- Content Security Policy (baseline) ---
     # All first-party assets are vendored under /static, so 'self' covers them.
-    # 'unsafe-inline' is required by the app's many inline <script>/<style> blocks
-    # and on* handlers; 'unsafe-eval' is required by Mermaid (dagre-d3 compiles
-    # expressions at runtime). The meaningful hardening here is default-src 'self'
-    # plus object-src/base-uri/frame-ancestors/form-action — blocks external script
-    # loading, clickjacking, <base> hijacking and off-site form posts.
-    # Tightening (dropping unsafe-inline/eval) needs an inline-handler refactor and
-    # isolating Mermaid; tracked separately.
+    #
+    # 'unsafe-eval' is gone. It was granted because Mermaid was said to need it, which
+    # stopped being true: Mermaid 11 contains no eval() and no `new Function`, and every
+    # dynamic-code site left in any vendored bundle is a polyfill that a modern browser
+    # never reaches — four spellings of `globalThis || Function("return this")()`, which
+    # short-circuit because globalThis and self exist, and Swagger UI's
+    # Function.prototype.bind shim, used only when native bind is missing. See
+    # tests/test_csp.py, which pins that inventory so a dependency bump that introduces
+    # a real eval fails the build instead of silently needing this back.
+    #
+    # 'unsafe-inline' stays for now: 137 on* handlers across 66 templates and 91 inline
+    # <script> blocks. Nonces are the way out, but a nonce makes the browser ignore
+    # 'unsafe-inline' entirely, so every on* handler has to become a listener first or
+    # they all break at once. style-src is a separate and much larger problem: 328
+    # style="" attributes, which nonces cannot cover at all.
     content_security_policy = {
         'default-src': "'self'",
-        'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        'script-src': ["'self'", "'unsafe-inline'"],
         'style-src': ["'self'", "'unsafe-inline'"],
         'img-src': ["'self'", 'data:'],
         'font-src': ["'self'", 'data:'],
