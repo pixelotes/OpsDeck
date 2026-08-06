@@ -43,6 +43,7 @@ from pathlib import Path
 
 try:
     from sqlalchemy import create_engine, text
+    from sqlalchemy.engine import URL, make_url
 except ImportError:
     print("ERROR: sqlalchemy not installed. Run: pip install sqlalchemy")
     sys.exit(1)
@@ -1257,24 +1258,40 @@ def get_sheet_configs():
 # ─── DB Connection ───────────────────────────────────────────────────────────
 
 def build_database_url(args):
-    """Build the connection URL from the given arguments."""
+    """Build the connection URL from the given arguments.
+
+    Returns a SQLAlchemy URL rather than a string, and assembles it with URL.create so
+    each part is escaped. Interpolating the parts into an f-string, as this used to do,
+    meant a password containing '@' silently moved the host: everything after that '@'
+    was read as the hostname, so the export could connect somewhere other than intended
+    with no error. A password with '/', ':', '?' or '#' broke it in other ways.
+
+    The password is read from the environment and has no command-line flag. On the
+    command line it would be visible to every other user on the host in `ps` output and
+    would be recorded in shell history.
+    """
     if args.database_url:
-        return args.database_url
+        return make_url(args.database_url)
 
     db_url = os.environ.get("DATABASE_URL")
     if db_url:
-        return db_url
+        return make_url(db_url)
 
-    # Build from individual parameters
-    return (
-        f"postgresql://{args.user}:{args.password}"
-        f"@{args.host}:{args.port}/{args.db}"
+    return URL.create(
+        "postgresql",
+        username=args.user,
+        password=os.environ.get("POSTGRES_PASSWORD", "opsdeck"),
+        host=args.host,
+        port=args.port,
+        database=args.db,
     )
 
 
 def connect_db(database_url):
     """Create a SQLAlchemy connection to the database engine."""
-    print(f"Connecting to: {database_url.split('@')[-1] if '@' in database_url else database_url}")
+    # render_as_string masks the password. The previous version split the string on '@'
+    # to hide it, which showed the wrong thing whenever the password itself held an '@'.
+    print(f"Connecting to: {database_url.render_as_string(hide_password=True)}")
     try:
         engine = create_engine(database_url)
         # Test connection
@@ -1478,7 +1495,7 @@ Examples:
         help="PostgreSQL host (default: $POSTGRES_HOST or localhost)"
     )
     parser.add_argument(
-        "--port", default=os.getenv("POSTGRES_PORT", "5432"),
+        "--port", type=int, default=int(os.getenv("POSTGRES_PORT", "5432")),
         help="PostgreSQL port (default: 5432)"
     )
     parser.add_argument(
@@ -1489,10 +1506,9 @@ Examples:
         "--user", default=os.getenv("POSTGRES_USER", "opsdeck"),
         help="DB user (default: $POSTGRES_USER or opsdeck)"
     )
-    parser.add_argument(
-        "--password", default=os.getenv("POSTGRES_PASSWORD", "opsdeck"),
-        help="DB password (default: $POSTGRES_PASSWORD or opsdeck)"
-    )
+    # No --password flag on purpose: an argument is visible in `ps` to anyone else on the
+    # host and lands in shell history. Set POSTGRES_PASSWORD, or pass a full
+    # --database-url if you accept that trade-off knowingly.
     parser.add_argument(
         "--output", "-o", default=os.getenv("OUTPUT_DIR"),
         help="Output directory (default: $OUTPUT_DIR or bcdr_opsdeck_YYYYMMDD_HHMM/)"
@@ -1535,15 +1551,15 @@ Examples:
         status = f"{count:>6,} records" if count > 0 else "      (empty)"
         print(f"  [{i+1:2d}/{len(sheet_configs)}] {safe_name + '.xlsx':<35s} {status}")
 
-    # Create index file
-    index_path = create_index_file(output_dir, sheet_configs, row_counts)
+    # Create index file. Called for its side effect; the path it returns is unused.
+    create_index_file(output_dir, sheet_configs, row_counts)
 
     print("\n" + "=" * 60)
 
     total = sum(row_counts.values())
     non_empty = sum(1 for c in row_counts.values() if c > 0)
     total_size = sum(f.stat().st_size for f in output_dir.glob("*.xlsx"))
-    print(f"\nExport completed:")
+    print("\nExport completed:")
     print(f"  Directory: {output_dir.resolve()}")
     print(f"  Files:     {len(sheet_configs) + 1} ({non_empty} with data + index)")
     print(f"  Records:   {total:,}")
