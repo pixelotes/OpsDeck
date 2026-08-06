@@ -12,6 +12,7 @@ from .. import notifications
 from ..utils.communications_context import validate_template_syntax, render_email_template
 from .main import login_required
 from src.utils.timezone_helper import today
+from ..utils.sanitize import sanitize_email_html
 
 
 admin_communications_bp = Blueprint('admin_communications', __name__)
@@ -46,7 +47,9 @@ def new_template():
             return redirect(url_for(LIST_TEMPLATES))
         name = request.form.get('name')
         subject = request.form.get('subject')
-        body_html = request.form.get('body_html')
+        # Sanitised on the way in: these bodies are rendered back into the app,
+        # so script here would run in the session of whoever views them.
+        body_html = sanitize_email_html(request.form.get('body_html'))
         category = request.form.get('category', 'general')
         
         if not name or not subject or not body_html:
@@ -92,7 +95,9 @@ def edit_template(id):
             return redirect(url_for('admin_communications.edit_template', id=id))
         name = request.form.get('name')
         subject = request.form.get('subject')
-        body_html = request.form.get('body_html')
+        # Sanitised on the way in: these bodies are rendered back into the app,
+        # so script here would run in the session of whoever views them.
+        body_html = sanitize_email_html(request.form.get('body_html'))
         category = request.form.get('category', 'general')
         is_active = request.form.get('is_active') == 'on'
         

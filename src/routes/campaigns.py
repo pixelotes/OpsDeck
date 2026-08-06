@@ -13,6 +13,7 @@ from ..services.permissions_service import requires_permission, has_write_permis
 from ..utils.communications_context import validate_template_syntax
 from .main import login_required
 from src.utils.timezone_helper import now, today
+from ..utils.sanitize import sanitize_email_html
 
 
 campaigns_bp = Blueprint('campaigns', __name__)
@@ -59,7 +60,9 @@ def new_campaign():
             return redirect(url_for('campaigns.list_campaigns'))
         title = request.form.get('title')
         subject = request.form.get('subject')
-        body_html = request.form.get('body_html')
+        # Sanitised on the way in: these bodies are rendered back into the app,
+        # so script here would run in the session of whoever views them.
+        body_html = sanitize_email_html(request.form.get('body_html'))
         send_to_all = request.form.get('send_to_all') == 'on'
         scheduled_at_str = request.form.get('scheduled_at')
         user_ids = request.form.getlist('user_ids')
@@ -182,7 +185,9 @@ def edit_campaign(id):
             return redirect(url_for(DETAIL, id=id))
         title = request.form.get('title')
         subject = request.form.get('subject')
-        body_html = request.form.get('body_html')
+        # Sanitised on the way in: these bodies are rendered back into the app,
+        # so script here would run in the session of whoever views them.
+        body_html = sanitize_email_html(request.form.get('body_html'))
         
         # Required field validation
         if not title or not subject or not body_html:

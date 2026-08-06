@@ -366,6 +366,16 @@ def create_app(test_config=None):
         return render_template('errors/500.html'), 500
     
     # --- REGISTER THE CUSTOM MARKDOWN FILTER ---
+    @app.template_filter('email_html')
+    def email_html_filter(value):
+        """Render an email body inside the app with anything executable removed.
+
+        Bodies are sanitised on save too; this covers rows stored before that existed,
+        and means the page does not depend on the write path having been the only one.
+        """
+        from .utils.sanitize import sanitize_email_html
+        return Markup(sanitize_email_html(value or ''))
+
     @app.template_filter('markdown')
     def markdown_filter(s):
         """Convert markdown to HTML with common extensions, then sanitize.
