@@ -1,4 +1,3 @@
-from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
@@ -6,7 +5,8 @@ from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 # Association table for Risk Assessment - Change Mitigation M2M
 risk_assessment_changes = db.Table('risk_assessment_changes',
     db.Column('assessment_id', db.Integer, db.ForeignKey('risk_assessment.id'), primary_key=True),
-    db.Column('change_id', db.Integer, db.ForeignKey('change.id'), primary_key=True)
+    db.Column('change_id', db.Integer, db.ForeignKey('change.id'), primary_key=True),
+    db.Index('ix_risk_assessment_changes_change_id', 'change_id')
 )
 
 
@@ -43,8 +43,8 @@ class RiskAssessmentItem(db.Model):
     IMPORTANT: Fields here are COPIES of live risk values.
     """
     id = db.Column(db.Integer, primary_key=True)
-    assessment_id = db.Column(db.Integer, db.ForeignKey('risk_assessment.id'), nullable=False)
-    original_risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), nullable=True) # Optional link to original
+    assessment_id = db.Column(db.Integer, db.ForeignKey('risk_assessment.id'), nullable=False, index=True)
+    original_risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), nullable=True, index=True) # Optional link to original
     
     # Relationship to original risk for assessment history access
     original_risk = db.relationship('Risk', backref=db.backref('assessment_items', lazy=LAZY_DYNAMIC))
@@ -80,14 +80,14 @@ class RiskAssessmentEvidence(db.Model):
     Either (linkable_type + linkable_id) OR attachment_id should be set.
     """
     id = db.Column(db.Integer, primary_key=True)
-    item_id = db.Column(db.Integer, db.ForeignKey('risk_assessment_item.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('risk_assessment_item.id'), nullable=False, index=True)
     
     # Option 1: Link to OpsDeck object (Policy, Asset, etc.)
     linkable_type = db.Column(db.String(50), nullable=True)
     linkable_id = db.Column(db.Integer, nullable=True)
     
     # Option 2: Link to uploaded file
-    attachment_id = db.Column(db.Integer, db.ForeignKey('attachment.id'), nullable=True)
+    attachment_id = db.Column(db.Integer, db.ForeignKey('attachment.id'), nullable=True, index=True)
     attachment = db.relationship('Attachment')
     
     notes = db.Column(db.Text)

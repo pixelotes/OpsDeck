@@ -6,15 +6,16 @@ saved searches, and result previews.
 """
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, func, inspect as sa_inspect
 from sqlalchemy.orm import Query
 from ..extensions import db
 from ..models.auth import User
 from ..models.assets import Asset
 from ..models.uar import UARExecution, UARFinding
-from ..models.security import Framework, FrameworkControl, ComplianceRule, SecurityIncident
+from ..models.security import FrameworkControl, SecurityIncident
 from ..models.procurement import Supplier, Subscription
 from ..models.services import BusinessService
+from .permissions_service import readable_modules, can_read_entity
 from src.utils.timezone_helper import now
 
 
@@ -84,13 +85,29 @@ class SearchService:
     def __init__(self):
         self.supported_entities = list(self.SEARCHABLE_ENTITIES.keys())
 
+    def readable_entities(self, user_id: Optional[int]) -> List[str]:
+        """The entity types this user may search, resolved through ENTITY_MODULES.
+
+        Search is transversal by nature, so what governs it cannot be a decorator on the
+        route: one request touches nine models owned by six different modules. Filtering
+        here means a user without the compliance module cannot read a finding's
+        description through search that they could not read on its own page.
+        """
+        allowed_modules = readable_modules(user_id)
+        return [
+            entity_type
+            for entity_type, config in self.SEARCHABLE_ENTITIES.items()
+            if can_read_entity(config['model'].__name__, allowed_modules)
+        ]
+
     def search(
         self,
         query: str,
         entity_types: Optional[List[str]] = None,
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 50,
-        offset: int = 0
+        offset: int = 0,
+        user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Perform unified search across multiple entity types.
@@ -101,12 +118,22 @@ class SearchService:
             filters: Faceted filters to apply
             limit: Maximum results per entity type
             offset: Pagination offset
+            user_id: Whose permissions to apply. Omitting it searches nothing rather
+                than everything — a caller that forgets to pass it gets empty results,
+                not somebody else's data.
 
         Returns:
             dict with search results, facets, and metadata
         """
+        permitted = self.readable_entities(user_id)
+
         if entity_types is None:
-            entity_types = self.supported_entities
+            entity_types = permitted
+        else:
+            # Intersect rather than reject: entity_types comes straight from a query
+            # string, and a request naming one forbidden type should not leak which
+            # types exist by failing differently from one naming a nonexistent type.
+            entity_types = [et for et in entity_types if et in permitted]
 
         results = {}
         total_count = 0
@@ -121,7 +148,8 @@ class SearchService:
             results[entity_type] = entity_results
             total_count += count
 
-        # Generate facets (available filter options)
+        # Facets are derived from the permitted types only: a status facet counting
+        # security incidents tells a user without the module how many there are.
         facets = self._generate_facets(entity_types, filters or {})
 
         return {
@@ -162,15 +190,19 @@ class SearchService:
 
         # Apply search across fields
         if query:
+            columns = sa_inspect(model).columns
             search_conditions = []
             for field in search_fields:
                 if '.' in field:
                     # Handle relationship fields (e.g., 'comparison.name')
-                    continue  # Skip for now, would need join handling
-                else:
-                    column = getattr(model, field, None)
-                    if column is not None:
-                        search_conditions.append(column.ilike(f'%{query}%'))
+                    continue  # skipped: matching this field would need a join
+                if field not in columns:
+                    # A relationship, not a column: BusinessService.owner is declared as
+                    # 'owner' in the field list but is a User object, and ilike() on it
+                    # raises NotImplementedError — which made this endpoint answer 500
+                    # for every query, since business_services is searched by default.
+                    continue
+                search_conditions.append(getattr(model, field).ilike(f'%{query}%'))
 
             if search_conditions:
                 base_query = base_query.filter(or_(*search_conditions))

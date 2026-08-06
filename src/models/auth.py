@@ -1,4 +1,3 @@
-from datetime import datetime
 from src.utils.timezone_helper import now
 from werkzeug.security import generate_password_hash, check_password_hash
 from ..extensions import db
@@ -7,7 +6,8 @@ import secrets
 
 user_groups = db.Table('user_groups',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
-    db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True)
+    db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True),
+    db.Index('ix_user_groups_group_id', 'group_id')
 )
 
 class Group(db.Model):
@@ -90,19 +90,16 @@ class User(db.Model, CustomPropertiesMixin): # Add UserMixin here if using Flask
         errors = []
 
         # Check for active assets
-        from .assets import Asset
         active_assets = [a for a in self.assets if not a.is_archived]
         if active_assets:
             errors.append(f"User has {len(active_assets)} active asset(s) assigned")
 
         # Check for active peripherals
-        from .assets import Peripheral
         active_peripherals = [p for p in self.peripherals if not p.is_archived]
         if active_peripherals:
             errors.append(f"User has {len(active_peripherals)} active peripheral(s) assigned")
 
         # Check for active licenses
-        from .assets import License
         active_licenses = [l for l in self.licenses if not l.is_archived]
         if active_licenses:
             errors.append(f"User has {len(active_licenses)} active license(s) assigned")
@@ -159,13 +156,13 @@ class UserKnownIP(db.Model):
 
 class OrgChartSnapshot(db.Model):
     """
-    Representa una fotografía estática de la estructura organizativa en una fecha.
+    A frozen picture of the organisational structure on a given date.
     Se usa como evidencia de cumplimiento (ej. ISO 27001 A.5.2 Roles y Responsabilidades).
     """
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False) # Ej: "Organigrama Q1 2024"
     created_at = db.Column(db.DateTime, default=lambda: now())
-    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
     
     chart_data = db.Column(db.JSON, nullable=False)
     
@@ -173,8 +170,8 @@ class OrgChartSnapshot(db.Model):
     
     created_by = db.relationship('User')
 
-    # Relación inversa para Auditorías (Evidence)
-    # Esto permite ver desde el Snapshot en qué auditorías se usó
+    # Reverse relationship for audits (evidence)
+    # Lets a snapshot show which audits used it
     audit_links = db.relationship('AuditControlLink',
         primaryjoin="and_(OrgChartSnapshot.id==foreign(AuditControlLink.linkable_id), "
                     "AuditControlLink.linkable_type=='OrgChartSnapshot')",

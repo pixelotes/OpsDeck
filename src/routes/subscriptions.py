@@ -1,12 +1,13 @@
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, jsonify
 )
-from datetime import datetime, date
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from ..models import db, Subscription, Supplier, Contact, PaymentMethod, Tag, CostHistory, Software, Budget, User
+from ..models import db, Subscription, Supplier, Contact, PaymentMethod, Tag, Software, Budget, User
 from ..models.procurement import log_subscription_cost_change
 from ..services.finance_service import get_conversion_rate
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 from .main import login_required
 from src.utils.timezone_helper import today
 
@@ -430,7 +431,7 @@ def calendar():
 
 @subscriptions_bp.route('/api/calendar-events', methods=['GET'])
 @login_required
-@requires_permission(MODULE, access_level='READ_ONLY')
+@requires_permission_api(MODULE, access_level='READ_ONLY')
 def calendar_events():
     from ..models.contracts import Contract
     from ..models.certificates import CertificateVersion

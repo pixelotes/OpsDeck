@@ -5,33 +5,32 @@ from src.models import (
     User, Policy, PolicyVersion, PolicyAcknowledgement, 
     Course, CourseAssignment, CourseCompletion, Attachment
 )
-from flask import session
 from datetime import timedelta
-from src.utils.timezone_helper import now, today
+from src.utils.timezone_helper import now
 
 # --- Tests 5, 6: Policies ---
 
 def test_policy_acknowledgement_flow(client, app):
     """
-    Test 5: Prueba el flujo completo de GRC para un usuario:
-    1. (Setup) Admin crea una política y se la asigna a un usuario.
-    2. (Login) El usuario inicia sesión.
-    3. (Acción) El usuario acepta la política.
-    4. (Verify) Se comprueba que el registro de aceptación existe.
+    Test 5: the whole GRC flow for a user.
+    1. An admin creates a policy and assigns it to a user.
+    2. The user logs in.
+    3. The user acknowledges the policy.
+    4. The acknowledgement record exists.
     """
-    # --- 1. Setup (como Admin) ---
+    # --- 1. Arrange, as an admin ---
     with app.app_context():
-        # Limpiar BD
+        # Reset the database
         db.drop_all()
         db.create_all()
         
-        # Crear Admin (ID 1) y Usuario (ID 2)
+        # Create an admin (id 1) and a user (id 2)
         admin = User(name='Admin', email='admin@test.com', role='admin')
         admin.set_password('password')
         test_user = User(name='Test User', email='user@test.com', role='user')
         test_user.set_password('password')
         
-        # Crear Política y Versión (ID 1)
+        # Create a policy and a version (id 1)
         policy = Policy(title='Test Policy')
         policy_version = PolicyVersion(
             policy=policy,
@@ -40,7 +39,7 @@ def test_policy_acknowledgement_flow(client, app):
             content='Debes aceptar esto.',
             effective_date=now().date()
         )
-        # Asignar la política al usuario
+        # Assign the policy to the user
         policy_version.users_to_acknowledge.append(test_user)
         
         db.session.add_all([admin, test_user, policy, policy_version])
@@ -76,19 +75,19 @@ def test_policy_acknowledgement_flow(client, app):
     assert response.status_code == 200
     assert b'Logged in successfully' in response.data
 
-    # --- 3. Acción (Usuario acepta la política) ---
-    # El usuario visita la página de la política
+    # --- 3. Act: the user acknowledges the policy ---
+    # The user opens the policy page
     response = client.get('/policies/version/1')
     assert b'Debes aceptar esto.' in response.data
     
-    # El usuario envía el POST para aceptar
-    # El usuario envía el POST para aceptar
+    # The user posts the acknowledgement
+    # The user posts the acknowledgement
     
     response = client.post('/policies/version/1/acknowledge', follow_redirects=True)
     assert response.status_code == 200
     assert b'You have successfully acknowledged' in response.data
 
-    # --- 4. Verify (Comprobar en BD) ---
+    # --- 4. Assert against the database ---
     with app.app_context():
         ack = db.session.query(PolicyAcknowledgement).filter_by(
             policy_version_id=1,
@@ -99,18 +98,18 @@ def test_policy_acknowledgement_flow(client, app):
 
 def test_policy_report_shows_unacknowledged(auth_client, app):
     """
-    Test 6: Prueba que el informe de cumplimiento muestra correctamente
-    a los usuarios que no han aceptado una política.
+    Test 6: the compliance report lists the users who have not acknowledged
+    a policy.
     """
     # --- Setup ---
-    # auth_client ya ha creado un Admin (ID 1) y un User (ID 2)
+    # auth_client has already created an admin (id 1) and a user (id 2)
     with app.app_context():
         test_user = User(name='Test User', email='user@test.com', role='user')
         db.session.add(test_user)
         db.session.commit()
         test_user = db.session.get(User, 2)
         
-        # Crear Política y Versión (ID 1)
+        # Create a policy and a version (id 1)
         policy = Policy(title='Unacknowledged Policy')
         policy_version = PolicyVersion(
             policy=policy,
@@ -119,34 +118,34 @@ def test_policy_report_shows_unacknowledged(auth_client, app):
             content='...',
             effective_date=now().date()
         )
-        # Asignar a 'Test User'
+        # Assign it to 'Test User'
         policy_version.users_to_acknowledge.append(test_user)
         db.session.add_all([policy, policy_version])
         db.session.commit()
 
-    # --- Acción (Admin comprueba el informe) ---
+    # --- Act: an admin checks the report ---
     response = auth_client.get('/compliance/policy-report')
     
     # --- Verify ---
     assert response.status_code == 200
     assert b'Unacknowledged Policy' in response.data
-    # 'Test User' (ID 2) no ha aceptado, así que debe aparecer
+    # 'Test User' (id 2) has not acknowledged, so they must be listed
     assert b'Test User' in response.data 
 
 # --- Test 7: Training ---
 
 def test_user_completes_training(client, app):
     """
-    Test 7: Prueba el flujo completo de un usuario completando formación.
-    1. (Setup) Admin crea Curso y Asignación para un Usuario.
-    2. (Login) El usuario inicia sesión.
-    3. (Acción) El usuario completa el curso.
-    4. (Verify) Se comprueba que el registro CourseCompletion existe.
+    Test 7: the whole flow of a user completing training.
+    1. An admin creates a course and assigns it to a user.
+    2. The user logs in.
+    3. The user completes the course.
+    4. The CourseCompletion record exists.
     """
-    # Asegurar que el UPLOAD_FOLDER existe
+    # Make sure UPLOAD_FOLDER exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
-    # --- 1. Setup (como Admin) ---
+    # --- 1. Arrange, as an admin ---
     with app.app_context():
         db.drop_all()
         db.create_all()
@@ -173,12 +172,12 @@ def test_user_completes_training(client, app):
     # --- 2. Login (como 'Test User') ---
     client.post('/login', data={'email': 'user@test.com', 'password': 'password'}, follow_redirects=True)
 
-    # --- 3. Acción (Usuario completa el curso) ---
-    # El usuario visita su página de formación
+    # --- 3. Act: the user completes the course ---
+    # The user opens their training page
     response = client.get('/training/')
     assert b'Test Course' in response.data
     
-    # El usuario envía el POST para completar (con un adjunto simulado)
+    # The user posts the completion, with a stub attachment
     data = {
         'notes': 'Curso completado.',
         'certificate': (io.BytesIO(b"dummy cert data"), 'certificate.pdf')
@@ -191,18 +190,18 @@ def test_user_completes_training(client, app):
     )
     
     assert response.status_code == 200
-    # Verificar mensaje de éxito (puede variar)
+    # Check for a success message; the wording may vary
     assert (b'Successfully marked' in response.data or 
             b'marked as complete' in response.data or
             b'Course completed' in response.data)
 
-    # --- 4. Verify (Comprobar en BD) ---
+    # --- 4. Assert against the database ---
     with app.app_context():
         completion = db.session.query(CourseCompletion).filter_by(assignment_id=1).first()
         assert completion is not None
         assert completion.notes == 'Curso completado.'
         
-        # Comprobar que el adjunto polimórfico se creó
+        # The polymorphic attachment was created
         attachment = db.session.query(Attachment).filter_by(
             linkable_type='CourseCompletion',
             linkable_id=completion.id

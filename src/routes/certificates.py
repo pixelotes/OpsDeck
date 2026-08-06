@@ -17,7 +17,7 @@ WRITE_REQUIRED = 'Write access required for this action.'
 @requires_permission(MODULE, access_level='READ_ONLY')
 def list_certificates():
     certificates = Certificate.query.order_by(Certificate.name).all()
-    # Eager load versions? Or just let lazy loading handle it for MVP list
+    # Versions load lazily; the list only needs the active one per certificate.
     # actually for status color we need active version.
     return render_template('certificates/list.html', certificates=certificates)
 
@@ -41,7 +41,7 @@ def create_certificate():
             type=cert_type,
             description=description,
             owner_id=owner_id if owner_id else None,
-            owner_type='User' # Fixed for now
+            owner_type='User'  # group ownership is not offered in the form yet
         )
         
         # 2. Associations with Services

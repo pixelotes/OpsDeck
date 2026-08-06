@@ -6,7 +6,8 @@ import logging
 from logging.handlers import RotatingFileHandler
 import atexit
 import click
-from flask import Flask, session, render_template, request, redirect, url_for
+from flask import (Flask, session, render_template, request, redirect, url_for,
+                   jsonify, flash)
 from apscheduler.schedulers.background import BackgroundScheduler
 import ecs_logging
 from flask_limiter import Limiter
@@ -18,7 +19,7 @@ from flask_smorest import Api
 from .extensions import db, migrate
 
 from .models import User, Contract, ContractItem
-from . import notifications # Added the missing import
+from . import notifications
 import markdown
 from markupsafe import Markup
 from .seeder_prod import seed_production_frameworks
@@ -34,6 +35,32 @@ limiter = Limiter(
 # --- CSRF Protection ---
 from flask_wtf.csrf import CSRFProtect
 from src.utils.timezone_helper import today
+from .utils.json_api import request_wants_json
+
+#: Endpoints reachable without authentication.
+#:
+#: Module level rather than a local inside the login guard so the JSON contract test can
+#: derive the exception list from the guard itself instead of keeping a copy that drifts:
+#: the health check and the internal CLI routes answer JSON and are meant to be
+#: unauthenticated, so they are the one group that must not be asserted to return 401.
+PUBLIC_ENDPOINTS = [
+    'main.login',
+    'main.google_callback',
+    'google.login',  # Google OAuth login initiation
+    'google.authorized',  # Google OAuth callback handler
+    'main.mfa_verify',  # Necesario para el flujo de 2FA
+    'main.health_check',  # Health check for Kubernetes probes
+    'main.internal_test_db',  # Internal route for CLI database testing
+    'main.internal_app_info',  # Internal route for CLI app info
+    'main.internal_test_email',  # Internal route for CLI email testing
+    'main.internal_health_check',  # Internal route for CLI health check
+    'main.internal_test_security',  # Internal route for CLI security audit
+    'static',
+    'favicon',
+    # API endpoints use token authentication, not session
+    'api-v1.AuthLogin',
+    'api-v1.AuthRefresh',
+]
 
 csrf = CSRFProtect()
 
@@ -64,7 +91,7 @@ def configure_logging(app):
     )
     file_handler.setFormatter(ecs_logging.StdlibFormatter())
 
-    # 2. Handler for console output (JSON ECS format as requested)
+    # 2. Handler for console output (JSON ECS format)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(ecs_logging.StdlibFormatter())
 
@@ -124,6 +151,48 @@ def create_app(test_config=None):
 
     # Create the new uploads folder if it doesn't exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+    # Cap the size of any request body. Without this an authenticated user can fill the
+    # disk one upload at a time. It applies to every request, not only to attachments,
+    # so it also bounds imports and form posts; 5 MB covers the evidence documents and
+    # import files this app deals with. Raise MAX_UPLOAD_MB where bigger files are
+    # legitimate. Requests over the limit are answered by the 413 handler below.
+    try:
+        max_upload_mb = int(os.environ.get('MAX_UPLOAD_MB', '5'))
+    except ValueError:
+        max_upload_mb = 5
+    max_upload_mb = max(1, max_upload_mb)
+    app.config['MAX_UPLOAD_MB'] = max_upload_mb
+    app.config['MAX_CONTENT_LENGTH'] = max_upload_mb * 1024 * 1024
+
+    # File types accepted by every upload in the app: photos, invoices, evidence
+    # documents and the archives they arrive in. Enforced in reject_disallowed_uploads
+    # below rather than per route, because there are two dozen upload sites and one
+    # check that cannot be forgotten beats twenty-four that can.
+    #
+    # Deliberately absent: svg, html and htm, which can carry script. They are harmless
+    # while attachments download instead of rendering (as_attachment=True), but that is
+    # one changed argument away from stored XSS. Executables are absent for the obvious
+    # reason. Override with UPLOAD_ALLOWED_EXTENSIONS as a comma-separated list.
+    default_extensions = (
+        # images and scans
+        'jpg,jpeg,png,gif,bmp,tga,webp,tif,tiff,heic,heif,'
+        # documents
+        'pdf,odt,ods,odp,doc,docx,xls,xlsx,ppt,pptx,rtf,txt,md,'
+        # data
+        'csv,tsv,json,xml,log,'
+        # archives
+        'zip,7z,gz,tar,tgz,rar,'
+        # mail, for phishing and incident evidence
+        'eml,msg,'
+        # certificates
+        'pem,crt,cer,der'
+    )
+    configured = os.environ.get('UPLOAD_ALLOWED_EXTENSIONS', default_extensions)
+    app.config['UPLOAD_ALLOWED_EXTENSIONS'] = {
+        ext.strip().lower().lstrip('.')
+        for ext in configured.split(',') if ext.strip()
+    }
 
     # Email configuration
     app.config['SMTP_SERVER'] = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
@@ -271,14 +340,41 @@ def create_app(test_config=None):
     api.register_blueprint(api_bp)
 
     # --- Custom Error Handlers ---
+    # The error pages answer JSON for a JSON caller for the same reason the login guard
+    # does. abort(404) is the common way in: a JSON endpoint that looks up a missing row
+    # with get_or_404 would otherwise hand a fetch() client an HTML error page, which is
+    # the original bug arriving by a different route.
     @app.errorhandler(404)
     def page_not_found(e):
+        if request_wants_json():
+            return jsonify({'error': 'Not found.'}), 404
         return render_template('errors/404.html'), 404
 
     @app.errorhandler(403)
     def forbidden(e):
+        if request_wants_json():
+            return jsonify({'error': 'Forbidden.'}), 403
         return render_template('errors/403.html'), 403
     
+    @app.errorhandler(413)
+    def payload_too_large(e):
+        """Answer an over-sized request body with something the caller can act on.
+
+        Flask aborts the request as soon as the limit is exceeded, so without this the
+        user gets a bare Werkzeug error page with no hint about what went wrong or how
+        big the file may be. API callers get JSON for the same reason the login guard
+        does: a fetch() client cannot read an HTML page.
+        """
+        limit_mb = app.config.get('MAX_UPLOAD_MB', 5)
+        message = f'That file is too large. The limit is {limit_mb} MB.'
+
+        if request_wants_json():
+            return jsonify({'error': message}), 413
+
+        from .utils.redirects import safe_redirect_target
+        flash(message, 'danger')
+        return redirect(safe_redirect_target(request.referrer)), 302
+
     @app.errorhandler(429)
     def ratelimit_handler(e):
         from .utils.logger import log_audit
@@ -288,6 +384,8 @@ def create_app(test_config=None):
             outcome='failure',
             error_message=e.description
         )
+        if request_wants_json():
+            return jsonify({'error': e.description or 'Too many requests.'}), 429
         return render_template('errors/429.html', error=e.description), 429
     
     @app.errorhandler(500)
@@ -299,9 +397,23 @@ def create_app(test_config=None):
             outcome='failure',
             error_message=str(e)
         )
+        # Deliberately not str(e): the HTML page shows nothing either, and a JSON caller
+        # is the one whose response tends to end up logged or displayed verbatim.
+        if request_wants_json():
+            return jsonify({'error': 'Internal error.'}), 500
         return render_template('errors/500.html'), 500
     
     # --- REGISTER THE CUSTOM MARKDOWN FILTER ---
+    @app.template_filter('email_html')
+    def email_html_filter(value):
+        """Render an email body inside the app with anything executable removed.
+
+        Bodies are sanitised on save too; this covers rows stored before that existed,
+        and means the page does not depend on the write path having been the only one.
+        """
+        from .utils.sanitize import sanitize_email_html
+        return Markup(sanitize_email_html(value or ''))
+
     @app.template_filter('markdown')
     def markdown_filter(s):
         """Convert markdown to HTML with common extensions, then sanitize.
@@ -410,6 +522,9 @@ def create_app(test_config=None):
     from .routes.requests import requests_bp
     app.register_blueprint(requests_bp, url_prefix='/requests')
 
+    from .routes.roadmaps import roadmaps_bp
+    app.register_blueprint(roadmaps_bp, url_prefix='/roadmaps')
+
     from .routes.audits import audits_bp
     app.register_blueprint(audits_bp)
     from .routes.services import services_bp
@@ -421,7 +536,6 @@ def create_app(test_config=None):
     app.register_blueprint(onboarding_bp, url_prefix='/onboarding')
     from .routes.risk_assessment import risk_assessment_bp
     app.register_blueprint(risk_assessment_bp)
-    from .routes.credentials import credentials_bp
     from .routes.certificates import certificates_bp
     app.register_blueprint(credentials_bp)
     app.register_blueprint(certificates_bp)
@@ -549,47 +663,76 @@ def create_app(test_config=None):
         Global authentication wall: All routes require login by default.
         Only whitelisted endpoints are accessible without authentication.
         """
-        # Lista de endpoints que NO requieren autenticación (Whitelist)
-        public_endpoints = [
-            'main.login',
-            'main.google_callback',
-            'google.login',  # Google OAuth login initiation
-            'google.authorized',  # Google OAuth callback handler
-            'main.mfa_verify',  # Necesario para el flujo de 2FA
-            'main.health_check',  # Health check for Kubernetes probes
-            'main.internal_test_db',  # Internal route for CLI database testing
-            'main.internal_app_info',  # Internal route for CLI app info
-            'main.internal_test_email',  # Internal route for CLI email testing
-            'main.internal_health_check',  # Internal route for CLI health check
-            'main.internal_test_security',  # Internal route for CLI security audit
-            'static',
-            'favicon',
-            # API endpoints use token authentication, not session
-            'api-v1.AuthLogin',
-            'api-v1.AuthRefresh',
-        ]
+        # Endpoints reachable without authentication (whitelist)
+        public_endpoints = PUBLIC_ENDPOINTS
 
         # Permitir acceso si:
-        # 1. El usuario ya está autenticado (tiene user_id en sesión)
+        # 1. The user is already authenticated (user_id is in the session)
         if 'user_id' in session:
             return None
 
-        # 2. La petición es un recurso estático o endpoint None (404)
+        # 2. The request is for a static file, or has no endpoint at all (404)
         if request.endpoint is None:
             return None
             
-        # 3. La petición es a un endpoint público
+        # 3. The request targets a public endpoint
         if request.endpoint in public_endpoints:
             return None
             
-        # 4. Permitir endpoints de API (usan autenticación por token)
+        # 4. Allow the API endpoints, which authenticate by token
         # Check by path since flask-smorest uses different endpoint naming
         if request.path and request.path.startswith('/api/v1'):
             return None
 
-        # Si llegamos aquí, bloquear y redirigir a login
-        # Guardar la URL solicitada para redirigir después del login
+        # 5. API-style requests must fail as JSON rather than with a 302 to the login
+        # page: a fetch() client would parse that HTML as if it were the response and
+        # the authentication failure would go unnoticed.
+        if request_wants_json():
+            return jsonify({'error': 'Authentication required.'}), 401
+
+        # Nothing matched, so block and redirect to the login page
+        # Remember the requested URL so the user lands there after logging in
         return redirect(url_for('main.login', next=request.url))
+
+
+    # --- GLOBAL UPLOAD TYPE GUARD ---
+    @app.before_request
+    def reject_disallowed_uploads():
+        """Refuse a file whose extension is not on the allowlist, before any route runs.
+
+        Enforced here because uploads happen at two dozen places across thirteen
+        blueprints — attachments, resumes, audit evidence, training certificates,
+        activity executions — and none of them validated anything. A single hook covers
+        the ones that exist and the ones added later.
+
+        Extension only: content sniffing would need a new dependency, and the point of
+        the check is to keep obviously-wrong files out of a folder that is served with
+        as_attachment=True, not to prove a file is what it claims.
+        """
+        if not request.files:
+            return None
+
+        allowed = app.config.get('UPLOAD_ALLOWED_EXTENSIONS') or set()
+        for field in request.files:
+            for storage in request.files.getlist(field):
+                filename = (storage.filename or '').strip()
+                if not filename:
+                    continue        # nothing chosen; the route reports that itself
+                extension = os.path.splitext(filename)[1].lower().lstrip('.')
+                if extension in allowed:
+                    continue
+
+                described = f'.{extension}' if extension else 'no extension'
+                message = (f'That file type is not accepted ({described}). '
+                           f'Allowed types: {", ".join(sorted(allowed))}.')
+
+                if request_wants_json():
+                    return jsonify({'error': message}), 415
+
+                from .utils.redirects import safe_redirect_target
+                flash(message, 'danger')
+                return redirect(safe_redirect_target(request.referrer))
+        return None
 
     # --- Force admin to change the default password ---
     @app.before_request
@@ -863,7 +1006,7 @@ def create_app(test_config=None):
 
     @app.cli.command('seed-db-prod')
     def seed_prod_command():
-        """Carga los datos maestros de producción (Frameworks & Threats)."""
+        """Load the production master data (frameworks and threat types)."""
         seed_production_frameworks()
         from .seeder_prod import seed_threats, seed_magerit_catalog, seed_operational_catalog, seed_it_infrastructure_catalog, seed_notification_templates, seed_modules
         seed_modules()
@@ -1044,7 +1187,7 @@ def create_app(test_config=None):
                 warnings = summary.get('warnings', 0)
                 recommendations = summary.get('recommendations', 0)
                 
-                print(f"\nSummary:")
+                print("\nSummary:")
                 if critical > 0:
                     print(f"  🔴 Critical Issues: {critical}")
                 if warnings > 0:
@@ -1056,7 +1199,7 @@ def create_app(test_config=None):
                     print("  ✅ No critical issues or warnings found")
                 
                 # Show detailed checks
-                print(f"\nDetailed Checks:")
+                print("\nDetailed Checks:")
                 print("-" * 60)
                 
                 checks = data.get('checks', {})
@@ -1081,7 +1224,7 @@ def create_app(test_config=None):
                 # Show warnings
                 warnings_list = data.get('warnings', [])
                 if warnings_list:
-                    print(f"\n⚠️  Warnings:")
+                    print("\n⚠️  Warnings:")
                     print("-" * 60)
                     for warning in warnings_list:
                         print(f"  • {warning}")
@@ -1089,7 +1232,7 @@ def create_app(test_config=None):
                 # Show recommendations
                 recommendations_list = data.get('recommendations', [])
                 if recommendations_list:
-                    print(f"\n💡 Recommendations:")
+                    print("\n💡 Recommendations:")
                     print("-" * 60)
                     for rec in recommendations_list:
                         print(f"  • {rec}")
@@ -1109,7 +1252,7 @@ def create_app(test_config=None):
         opsdeck_enterprise.init_plugin(app)
         app.logger.info(f"✓ Plugin Enterprise cargado: v{opsdeck_enterprise.__version__}")
     except ImportError:
-        app.logger.info("Iniciando OpsDeck en modo estándar (sin plugins)")
+        app.logger.info("Starting OpsDeck in standard mode (no plugins)")
     except Exception as e:
         app.logger.error(f"Error cargando plugin Enterprise: {str(e)}")
         # No fallar la app si el plugin falla, solo registrar el error

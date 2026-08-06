@@ -12,14 +12,17 @@ from src.utils.timezone_helper import now
 # Association table for audit participants
 audit_participants = db.Table('audit_participants',
     db.Column('audit_id', db.Integer, db.ForeignKey('compliance_audit.id'), primary_key=True),
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Index('ix_audit_participants_user_id', 'user_id')
 )
 
 # Association table for linking audits to onboarding/offboarding processes (Evidence)
 audit_evidence = db.Table('audit_evidence',
     db.Column('audit_id', db.Integer, db.ForeignKey('compliance_audit.id'), primary_key=True),
     db.Column('onboarding_id', db.Integer, db.ForeignKey('onboarding_process.id'), nullable=True),
-    db.Column('offboarding_id', db.Integer, db.ForeignKey('offboarding_process.id'), nullable=True)
+    db.Column('offboarding_id', db.Integer, db.ForeignKey('offboarding_process.id'), nullable=True),
+    db.Index('ix_audit_evidence_offboarding_id', 'offboarding_id'),
+    db.Index('ix_audit_evidence_onboarding_id', 'onboarding_id')
 )
 
 class ComplianceAudit(db.Model):
@@ -51,13 +54,13 @@ class ComplianceAudit(db.Model):
         return self.locked_at is not None
 
     # Relationships
-    framework_id = db.Column(db.Integer, db.ForeignKey('framework.id'), nullable=True)
+    framework_id = db.Column(db.Integer, db.ForeignKey('framework.id'), nullable=True, index=True)
     
     # External Auditor (Contact from CRM)
-    auditor_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=True)
+    auditor_id = db.Column(db.Integer, db.ForeignKey('contact.id'), nullable=True, index=True)
     
     # Internal Lead (User responsible for defense)
-    internal_lead_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    internal_lead_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
 
     # Relationships
     framework = db.relationship('Framework')
@@ -173,7 +176,6 @@ class ComplianceAudit(db.Model):
             evidence_months: Number of months to look back for evidence
             sample_size: Optional limit on evidence items per control (random sample)
         """
-        from .security import ComplianceRule
         from ..services.compliance_service import get_compliance_evaluator
         
         evaluator = get_compliance_evaluator()
@@ -234,7 +236,7 @@ class ComplianceAudit(db.Model):
         Returns:
             datetime or date object, or None if not found
         """
-        from datetime import datetime, date
+        from datetime import date
         
         date_field_map = {
             'ActivityExecution': 'execution_date',
@@ -397,8 +399,8 @@ class AuditControlItem(db.Model):
     __tablename__ = 'audit_control_item'
 
     id = db.Column(db.Integer, primary_key=True)
-    audit_id = db.Column(db.Integer, db.ForeignKey('compliance_audit.id'), nullable=False)
-    original_control_id = db.Column(db.Integer, db.ForeignKey('framework_control.id'), nullable=True)
+    audit_id = db.Column(db.Integer, db.ForeignKey('compliance_audit.id'), nullable=False, index=True)
+    original_control_id = db.Column(db.Integer, db.ForeignKey('framework_control.id'), nullable=True, index=True)
 
     # --- Snapshot Fields (Copied from FrameworkControl) ---
     control_code = db.Column(db.String(100), nullable=False) # e.g. "A.5.1"
@@ -447,7 +449,7 @@ class AuditControlLink(db.Model):
     __tablename__ = 'audit_control_link'
 
     id = db.Column(db.Integer, primary_key=True)
-    audit_item_id = db.Column(db.Integer, db.ForeignKey('audit_control_item.id'), nullable=False)
+    audit_item_id = db.Column(db.Integer, db.ForeignKey('audit_control_item.id'), nullable=False, index=True)
     
     # Polymorphic Target
     linkable_type = db.Column(db.String(50), nullable=False)
@@ -458,7 +460,7 @@ class AuditControlLink(db.Model):
     
     @property
     def display_name(self):
-        """Devuelve el nombre legible del objeto, sin importar su tipo."""
+        """Human-readable name of the object, whatever its type."""
         obj = self.linked_object
         if not obj:
             return "Elemento no encontrado"
@@ -499,7 +501,7 @@ class AuditControlLink(db.Model):
         if self.linkable_type == 'Campaign':
             return getattr(obj, 'title', 'Campaign')
         
-        # 7. Políticas y Cursos usan 'title'
+        # 7. Policies and courses use 'title'
         if hasattr(obj, 'title'):
             return obj.title
             

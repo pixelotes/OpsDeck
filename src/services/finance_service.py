@@ -3,7 +3,6 @@
 Finance service for managing exchange rates.
 """
 import logging
-from datetime import datetime
 import requests
 
 from ..extensions import db

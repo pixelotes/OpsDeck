@@ -1,30 +1,30 @@
 from src.models import User
 from src import db
 
-# Test 3: Probar que un usuario no autenticado es redirigido
+# Test 3: an unauthenticated user is redirected
 def test_unauthenticated_user_is_redirected(client):
     """
-    Prueba que un cliente no logueado (usando la fixture 'client' base)
-    es redirigido a /login cuando intenta acceder a rutas protegidas.
+    A client that has not logged in (the plain 'client' fixture) is redirected
+    to /login when it tries to reach a protected route.
     """
     protected_routes = ['/', '/assets/', '/users/', '/suppliers/1']
     
     for route in protected_routes:
         response = client.get(route)
-        # 302 es el código para "Redirección"
+        # 302 is the redirect status
         assert response.status_code == 302
-        # Asegura que redirige a la página de login
+        # It redirects to the login page
         assert '/login' in response.headers['Location']
 
-# Test 4: Probar el flujo de Login / Logout
+# Test 4: the login and logout flow
 def test_login_logout_flow(client, app):
     """
-    Prueba el flujo de login (con éxito y con fallo) y el logout.
+    Logging in (successfully and not) and logging out.
     Este test usa 'client' (no logueado) y 'app' para crear un usuario.
     """
-    # --- Preparación: Crear un usuario admin para loguearse ---
+    # --- Arrange: create an admin user to log in with ---
     with app.app_context():
-        # Limpiar la BD (ya que no usamos auth_client o user_client)
+        # Clean the database, since neither auth_client nor user_client is used here
         db.drop_all()
         db.create_all()
         admin = User(name='Admin', email='admin@test.com', role='admin')
@@ -32,44 +32,44 @@ def test_login_logout_flow(client, app):
         db.session.add(admin)
         db.session.commit()
 
-    # 1. Probar Login INCORRECTO
+    # 1. Wrong credentials
     response = client.post('/login', data={
         'email': 'admin@test.com',
         'password': 'wrongpassword'
     }, follow_redirects=True)
     
     assert response.status_code == 200
-    # Asumo que tu plantilla de login muestra este error con un flash
+    # Assumes the login template surfaces this error as a flash message
     assert b'Invalid email or password' in response.data
 
-    # 2. Probar Login CORRECTO
+    # 2. Correct credentials
     response = client.post('/login', data={
         'email': 'admin@test.com',
         'password': 'password'
     }, follow_redirects=True)
     
     assert response.status_code == 200
-    # Asumo que redirige al dashboard y muestra un flash de bienvenida
+    # Assumes it redirects to the dashboard with a welcome flash
     assert b'Dashboard' in response.data 
     assert b'Logged in successfully' in response.data
 
-    # 3. Probar Logout
+    # 3. Logout
     response = client.get('/logout', follow_redirects=True)
     assert response.status_code == 200
-    # Debería volver a la página de login
+    # It should land back on the login page
     assert b'Login' in response.data
     assert b'You have been logged out' in response.data
 
-# Test 1: Probar que las rutas de admin están protegidas
+# Test 1: admin routes are protected
 def test_admin_routes_are_protected(user_client):
     """
-    Prueba que un usuario normal (no-admin) recibe un error 403 (Forbidden)
-    al intentar acceder a rutas de creación/admin (usando 'user_client').
+    A regular, non-admin user gets a 403 when reaching for the create and admin
+    routes (exercised through 'user_client').
     """
     admin_only_routes = [
-        '/users/new',               # Crear usuario
-        '/assets/new',              # Crear activo
-        '/suppliers/new',           # Crear proveedor
+        '/users/new',               # create user
+        '/assets/new',              # create asset
+        '/suppliers/new',           # create supplier
         '/admin/users'              # Ver panel de admin
     ]
     
@@ -77,13 +77,11 @@ def test_admin_routes_are_protected(user_client):
         response = user_client.get(route)
         assert response.status_code == 302
 
-# Test 2: Probar que un no-admin no puede hacer POST
+# Test 2: a non-admin cannot POST
 def test_non_admin_cannot_post(user_client, app):
     """
-    Prueba que un usuario normal (no-admin) es REDIRIGIDO (302) al intentar
-    enviar datos (POST) a rutas de admin.
+    A regular, non-admin user is redirected (302) when posting to an admin route.
     """
-    # ... (la parte de 'with app.app_context()' se queda igual) ...
     with app.app_context():
         # Buscar el usuario por email en lugar de ID fijo
         user_to_edit = User.query.filter_by(email='user@test.com').first()
@@ -97,14 +95,14 @@ def test_non_admin_cannot_post(user_client, app):
         'email': 'user@test.com'
     }, follow_redirects=False)
     
-    # Comprobar que la respuesta es 302 (Redirección), no 403
+    # The response is a 302 redirect, not a 403
     assert response.status_code == 302
-    # Opcional: verificar que redirige al dashboard (ruta '/')
+    # Optionally check that it redirects to the dashboard ('/')
     assert '/' in response.headers['Location'] 
     assert '/login' not in response.headers['Location'] # No es un redirect de "no logueado"
 
     # 2. Intentar archivar un usuario (ruta /archive)
     response = user_client.post(f'/users/{user_id}/archive', follow_redirects=False)
     
-    # Comprobar que la respuesta es 302 (Redirección)
+    # The response is a 302 redirect
     assert response.status_code == 302

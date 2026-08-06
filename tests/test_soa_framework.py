@@ -4,7 +4,7 @@ Covers: model fields, SOA update endpoint, dashboard integration, and audit snap
 """
 from src.models import db
 from src.models.security import Framework, FrameworkControl
-from src.models.audits import ComplianceAudit, AuditControlItem
+from src.models.audits import ComplianceAudit
 from src.models.auth import User
 
 

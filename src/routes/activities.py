@@ -2,10 +2,11 @@ import os
 import uuid
 from werkzeug.utils import secure_filename
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, jsonify
-from datetime import datetime, date
+from datetime import datetime
 from ..models import db, SecurityActivity, ActivityExecution, User, Group, Tag, Attachment, ActivityRelatedObject
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
+from ..utils.json_api import json_endpoint
 from src.utils.timezone_helper import today
 
 
@@ -275,6 +276,7 @@ def edit_execution(id):
                          today_date=execution.execution_date.strftime('%Y-%m-%d'))
 
 @activities_bp.route('/get-objects-by-type', methods=['GET'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE)
 def get_objects_by_type():

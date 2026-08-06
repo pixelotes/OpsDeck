@@ -6,12 +6,12 @@ def test_contact_lifecycle(auth_client, app):
     Prueba el ciclo de vida de un Contacto, que depende de un Proveedor.
     """
     
-    # --- PREPARACIÓN: Crear un Proveedor primero ---
-    # (No podemos usar la BD directamente, usamos el cliente para simular el flujo completo)
+    # --- Arrange: create a supplier first ---
+    # Driven through the client rather than the database, to exercise the whole flow
     auth_client.post('/suppliers/new', data={'name': 'Test Supplier for Contact'}, follow_redirects=True)
     
     # --- 1. CREAR CONTACTO ---
-    # Asumimos que la ruta de contactos usa 'supplier_id' en el formulario
+    # Assumes the contacts route reads 'supplier_id' from the form
     response = auth_client.post('/contacts/new', data={
         'name': 'Test Contact',
         'email': 'contact@supplier.com',
@@ -21,7 +21,7 @@ def test_contact_lifecycle(auth_client, app):
     assert response.status_code == 200
     assert b'Contact created successfully!' in response.data
     
-    # Verifica que el contacto está en la BD
+    # The contact is in the database
     with app.app_context():
         contact = db.session.get(Contact,1)
         assert contact is not None
@@ -43,7 +43,7 @@ def test_contact_lifecycle(auth_client, app):
     assert response.status_code == 200
     assert b'has been archived' in response.data
 
-    # Verifica que el contacto está archivado
+    # The contact is archived
     with app.app_context():
         contact = db.session.get(Contact,1)
         assert contact.is_archived

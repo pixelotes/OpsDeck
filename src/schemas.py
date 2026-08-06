@@ -57,7 +57,7 @@ class SubscriptionSchema(BaseSchema):
 class ServiceSchema(BaseSchema):
     class Meta(BaseSchema.Meta):
         model = BusinessService
-        # Exclude complex recursive relationships to keep it light for now
+        # Recursive relationships are excluded to keep the payload small.
         exclude = ('upstream_dependencies', 'downstream_dependencies', 'components')
 
 class SupplierSchema(BaseSchema):

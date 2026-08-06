@@ -5,7 +5,6 @@ Provides a flexible, polymorphic system for managing email templates and
 scheduled communications for HR processes (Onboarding, Offboarding) with 
 extensibility for mass campaigns and security bulletins.
 """
-from datetime import datetime
 from ..extensions import db
 from .constants import LAZY_DYNAMIC
 from src.utils.timezone_helper import now, today
@@ -45,8 +44,8 @@ class PackCommunication(db.Model):
     __tablename__ = 'pack_communication'
     
     id = db.Column(db.Integer, primary_key=True)
-    pack_id = db.Column(db.Integer, db.ForeignKey('onboarding_pack.id'), nullable=False)
-    template_id = db.Column(db.Integer, db.ForeignKey('email_template.id'), nullable=False)
+    pack_id = db.Column(db.Integer, db.ForeignKey('onboarding_pack.id'), nullable=False, index=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('email_template.id'), nullable=False, index=True)
     
     # Timing: offset in days from key date (start_date for onboarding, departure_date for offboarding)
     # Positive = after, Negative = before
@@ -76,17 +75,20 @@ class PackCommunication(db.Model):
 # Many-to-Many association tables for Campaign audience
 campaign_users = db.Table('campaign_users',
     db.Column('campaign_id', db.Integer, db.ForeignKey('campaign.id'), primary_key=True),
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Index('ix_campaign_users_user_id', 'user_id')
 )
 
 campaign_groups = db.Table('campaign_groups',
     db.Column('campaign_id', db.Integer, db.ForeignKey('campaign.id'), primary_key=True),
-    db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True)
+    db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True),
+    db.Index('ix_campaign_groups_group_id', 'group_id')
 )
 
 campaign_tags = db.Table('campaign_tags',
     db.Column('campaign_id', db.Integer, db.ForeignKey('campaign.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_campaign_tags_tag_id', 'tag_id')
 )
 
 
@@ -109,7 +111,7 @@ class Campaign(db.Model):
     scheduled_at = db.Column(db.DateTime, nullable=True)
     
     # Who created this campaign
-    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     created_by = db.relationship('User', foreign_keys=[created_by_id])
     
     # Audience options
@@ -248,7 +250,6 @@ class Campaign(db.Model):
         # ongoing → finished: All emails processed (no pending, no failed needing retry)
         if self.status == 'ongoing':
             # Check if there are any pending retries among failed emails
-            from sqlalchemy import and_
             pending_retries = ScheduledCommunication.query.filter(
                 ScheduledCommunication.target_type == 'campaign',
                 ScheduledCommunication.target_id == self.id,
@@ -272,7 +273,7 @@ class ScheduledCommunication(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     # Nullable for campaigns (which have inline subject/body)
-    template_id = db.Column(db.Integer, db.ForeignKey('email_template.id'), nullable=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('email_template.id'), nullable=True, index=True)
     
     # Status tracking
     status = db.Column(db.String(20), default='pending')  # 'pending', 'sent', 'failed', 'cancelled'
@@ -290,7 +291,7 @@ class ScheduledCommunication(db.Model):
     recipient_name = db.Column(db.String(100), nullable=True)
     
     # For campaigns: store user_id for context lookup
-    recipient_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    recipient_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     recipient_user = db.relationship('User', foreign_keys=[recipient_user_id])
     
     # Delivery channel: 'email' or 'slack'
@@ -303,8 +304,8 @@ class ScheduledCommunication(db.Model):
     # Event engine provenance (null for legacy NotificationEvent-driven comms):
     # which rule fired (senders read per-rule channel config) and which committed
     # change triggered it (source of the template context).
-    event_rule_id = db.Column(db.Integer, db.ForeignKey('event_rule.id'), nullable=True)
-    audit_log_id = db.Column(db.Integer, db.ForeignKey('audit_log.id'), nullable=True)
+    event_rule_id = db.Column(db.Integer, db.ForeignKey('event_rule.id'), nullable=True, index=True)
+    audit_log_id = db.Column(db.Integer, db.ForeignKey('audit_log.id'), nullable=True, index=True)
 
     # Error tracking for failed sends
     error_message = db.Column(db.Text, nullable=True)

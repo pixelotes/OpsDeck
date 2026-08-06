@@ -6,13 +6,14 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from datetime import datetime
 from ..models import db, Supplier, SecurityAssessment, PolicyVersion, User, AssetInventory, AssetInventoryItem, Asset, BCDRPlan, BCDRTestLog, Subscription, SecurityIncident, PostIncidentReview, IncidentTimelineEvent, MaintenanceLog, Attachment, Framework, FrameworkControl, ComplianceLink, ComplianceRule, Risk, Policy
 from ..models.activities import SecurityActivity
-from ..models.communications import Campaign
 from ..models.core import Tag
 from ..models.uar import UARComparison, UARExecution, UARFinding
 from ..models.services import BusinessService
 from .main import login_required
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 from ..services.uar_service import UARAutomationService
+from ..utils.json_api import json_endpoint
 from ..utils.uar_engine import AccessReviewEngine
 from src.utils.timezone_helper import now
 from ..utils.redirects import safe_redirect_target
@@ -43,10 +44,11 @@ UAR_AUTOMATION_DETAIL = 'compliance.uar_automation_detail'
 UAR_EXECUTION_DETAIL = 'compliance.uar_execution_detail'
 
 @compliance_bp.route('/json/linkable-objects', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_linkable_objects():
     """
-    Endpoint polimórfico para selectores dinámicos.
+    Polymorphic endpoint backing the dynamic selectors.
     Uso: /compliance/json/linkable-objects?type=Asset&q=macbook
     """
     obj_type = request.args.get('type')
@@ -54,27 +56,27 @@ def get_linkable_objects():
     
     results = []
     
-    # Mapeo de String a Clase de Modelo + Campos de Búsqueda
+    # Maps a type name to its model class and the fields to search
     model_map = {
         'Asset': (Asset, ['name', 'serial_number']), 
         'Policy': (Policy, ['title']), # Note: Policy uses 'title', not 'name' in some models, checking...
         'Risk': (Risk, ['risk_description', 'extended_description']), # Risk uses risk_description
         'User': (User, ['name', 'email']),
         'Vendor': (Supplier, ['name']),
-        # Añade 'Procedure', 'Control', etc. según necesites
+        # Add 'Procedure', 'Control' and so on as needed
     }
 
     if obj_type in model_map:
         model, search_fields = model_map[obj_type]
         
-        # Construir query dinámica
+        # Build the query dynamically
         q_obj = model.query
         if query:
-            # Filtro OR simple sobre los campos definidos
+            # Simple OR filter across the configured fields
             filters = [getattr(model, field).ilike(f'%{query}%') for field in search_fields if getattr(model, field) is not None]
             q_obj = q_obj.filter(db.or_(*filters))
             
-        # Limitar resultados para no matar el navegador
+        # Capped so the browser is not overwhelmed
         items = q_obj.limit(50).all()
         
         results = []
@@ -109,6 +111,7 @@ def get_linkable_objects():
     return jsonify(results)
 
 @compliance_bp.route('/json/subscriptions', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_json_subscriptions():
     """Returns list of Subscriptions for UAR dropdown."""
@@ -123,6 +126,7 @@ def get_json_subscriptions():
     } for s in subs])
 
 @compliance_bp.route('/json/services', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_json_services():
     from ..models.services import BusinessService
@@ -147,12 +151,13 @@ def access_review():
     if Report:
         # Fetch last 20 reports, joined with subtask info if possible, or just raw
         # We probably want to show the subtask name if available. 
-        # For now, just listing recent reports.
+        # Lists recent reports only.
         reports = Report.query.order_by(Report.created_at.desc()).limit(20).all()
         
     return render_template('compliance/access_review.html', reports=reports)
 
 @compliance_bp.route('/access-review/preview', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def access_review_preview():
     """
@@ -267,6 +272,7 @@ def access_review_preview():
         engine.cleanup()
 
 @compliance_bp.route('/access-review/schema', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_access_review_schema():
     """
@@ -419,6 +425,11 @@ def _get_active_users_as_dict():
     """Helper to fetch active users and format them as dicts with flat custom properties."""
     users = User.query.filter_by(is_archived=False).all()
     current_app.logger.info(f"[UAR] Found {len(users)} active users")
+    # Two queries for the whole collection instead of two per user: this reads custom
+    # properties for every user in the database, so it was the worst instance of the
+    # pattern by a wide margin.
+    User.preload_custom_properties(users)
+
     user_list = []
     for u in users:
         u_dict = {
@@ -438,6 +449,7 @@ def _get_active_users_as_dict():
     return user_list
 
 @compliance_bp.route('/access-review/promote', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def promote_finding_to_incident():
     """
@@ -468,6 +480,7 @@ def promote_finding_to_incident():
 # --- JSON APIs for Automation Rules Dynamic Selectors ---
 
 @compliance_bp.route('/json/activities', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_activities():
     """Returns list of Security Activities for dropdown."""
@@ -483,6 +496,7 @@ def get_activities():
     } for a in activities])
 
 @compliance_bp.route('/json/tags', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_all_tags():
     """Returns list of all non-archived Tags for dropdowns."""
@@ -492,10 +506,11 @@ def get_all_tags():
             'id': t.id,
             'name': t.name
         } for t in tags])
-    except Exception as e:
+    except Exception:
         return jsonify([]), 500
 
 @compliance_bp.route('/json/maintenance-types', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_maintenance_types():
     """Returns distinct event_type values from MaintenanceLog."""
@@ -503,6 +518,7 @@ def get_maintenance_types():
     return jsonify([t[0] for t in types if t[0]])
 
 @compliance_bp.route('/json/bcdr-plans', methods=['GET'])
+@json_endpoint
 @requires_permission(MODULE_COMPLIANCE)
 def get_bcdr_plans():
     """Returns list of BCDR Plans for dropdown."""
@@ -849,7 +865,7 @@ def bcdr_detail(id):
 @compliance_bp.route('/bcdr/test/<int:test_id>')
 @requires_permission(MODULE_OPERATIONS)
 def bcdr_test_log_detail(test_id):
-    """Muestra los detalles de un único BCDR test log."""
+    """Shows a single BCDR test log."""
     test_log = db.get_or_404(BCDRTestLog, test_id)
     return render_template('compliance/bcdr_test_log_detail.html', test_log=test_log)
 
@@ -897,7 +913,7 @@ def log_bcdr_test(plan_id):
                 db.session.commit()
 
         flash('BCDR test log has been recorded.', 'success')
-        # Redirigimos a la nueva vista de detalles del log
+        # Redirect to the log detail view
         return redirect(url_for(BCDR_TEST_LOG_DETAIL, test_id=test_log.id))
     
     users = User.query.order_by(User.name).all()
@@ -955,7 +971,7 @@ def edit_bcdr_test(test_id):
         db.session.commit()
 
         flash('BCDR test log updated.', 'success')
-        # Redirigimos a la nueva vista de detalles del log
+        # Redirect to the log detail view
         return redirect(url_for(BCDR_TEST_LOG_DETAIL, test_id=test_log.id))
 
     users = User.query.order_by(User.name).all()
@@ -1128,6 +1144,7 @@ def toggle_pir_lock(review_id):
     return redirect(url_for(INCIDENT_REVIEW, id=review.incident_id))
 
 @compliance_bp.route('/incidents/review/<int:review_id>/timeline', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE_OPERATIONS)
 def add_timeline_event(review_id):
     if not has_write_permission(MODULE_OPERATIONS):
@@ -1159,6 +1176,7 @@ def add_timeline_event(review_id):
     return jsonify({'id': event.id, 'time': event.event_time.strftime('%Y-%m-%dT%H:%M'), 'description': event.description}), 201
 
 @compliance_bp.route('/incidents/review/timeline/<int:event_id>', methods=['DELETE'])
+@json_endpoint
 @requires_permission(MODULE_OPERATIONS)
 def delete_timeline_event(event_id):
     if not has_write_permission(MODULE_OPERATIONS):
@@ -1169,6 +1187,7 @@ def delete_timeline_event(event_id):
     return jsonify({'success': True})
 
 @compliance_bp.route('/incidents/review/<int:review_id>/timeline/reorder', methods=['POST'])
+@json_endpoint
 @requires_permission(MODULE_OPERATIONS)
 def reorder_timeline_events(review_id):
     if not has_write_permission(MODULE_OPERATIONS):
@@ -1247,6 +1266,7 @@ def list_erasures():
 # --- API Routes for Compliance Linking ---
 
 @compliance_bp.route('/frameworks', methods=['GET'])
+@json_endpoint
 @login_required
 def get_frameworks():
     """Returns a JSON list of active frameworks."""
@@ -1258,6 +1278,7 @@ def get_frameworks():
     } for f in frameworks])
 
 @compliance_bp.route('/frameworks/<int:framework_id>/controls', methods=['GET'])
+@json_endpoint
 @login_required
 def get_framework_controls(framework_id):
     """Returns a JSON list of controls for a specific framework."""
@@ -1274,6 +1295,7 @@ def get_framework_controls(framework_id):
     } for c in controls])
 
 @compliance_bp.route('/link', methods=['POST'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE_COMPLIANCE)
 def create_compliance_link():
@@ -1325,6 +1347,7 @@ def create_compliance_link():
     }), 201
 
 @compliance_bp.route('/link/<int:link_id>', methods=['DELETE'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE_COMPLIANCE)
 def delete_compliance_link(link_id):
@@ -1934,6 +1957,7 @@ def uar_finding_promote(id):
 
 
 @compliance_bp.route('/uar/findings/bulk-action', methods=['POST'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE_COMPLIANCE)
 def uar_findings_bulk_action():
@@ -2105,9 +2129,7 @@ def drift_dashboard():
     """
     Compliance drift detection dashboard showing timeline and regressions.
     """
-    from ..services.compliance_drift_service import get_drift_detector
 
-    detector = get_drift_detector()
 
     # Get all active frameworks
     frameworks = Framework.query.filter_by(is_active=True).all()
@@ -2120,7 +2142,7 @@ def drift_dashboard():
 
 @compliance_bp.route('/drift/api/timeline/<int:framework_id>')
 @login_required
-@requires_permission(MODULE_COMPLIANCE)
+@requires_permission_api(MODULE_COMPLIANCE)
 def api_drift_timeline(framework_id):
     """
     API endpoint to get drift timeline for a framework.
@@ -2146,7 +2168,7 @@ def api_drift_timeline(framework_id):
 
 @compliance_bp.route('/drift/api/detect', methods=['POST'])
 @login_required
-@requires_permission(MODULE_COMPLIANCE)
+@requires_permission_api(MODULE_COMPLIANCE)
 def api_detect_drift():
     """
     API endpoint to manually trigger drift detection.
@@ -2185,7 +2207,7 @@ def api_detect_drift():
 
 @compliance_bp.route('/drift/api/snapshot', methods=['POST'])
 @login_required
-@requires_permission(MODULE_COMPLIANCE)
+@requires_permission_api(MODULE_COMPLIANCE)
 def api_create_snapshot():
     """
     API endpoint to manually create a compliance snapshot.

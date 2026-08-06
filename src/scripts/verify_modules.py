@@ -1,5 +1,5 @@
 from src import create_app
-from src.models import db, Module
+from src.models import Module
 
 def verify():
     app = create_app()
@@ -12,8 +12,8 @@ def verify():
         
         expected_slugs = [
             "health_dashboard", "procurement", "core_inventory", "operations",
-            "risk_governance", "compliance", "knowledge_policy", "finance",
-            "hr_people", "communications", "administration", "settings"
+            "roadmaps", "risk_governance", "compliance", "knowledge_policy",
+            "finance", "hr_people", "communications", "administration", "settings"
         ]
         
         found_slugs = [m.slug for m in modules]

@@ -2,7 +2,7 @@
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash
 )
-from datetime import datetime, date
+from datetime import datetime
 from ..models import db, Asset, AssetHistory, User, Location, Supplier, Purchase, AssetAssignment, Peripheral
 from ..utils.redirects import safe_redirect_target
 from ..models.assets import Brand, AssetModel

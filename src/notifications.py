@@ -4,14 +4,13 @@ import traceback
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.utils import formataddr
-from datetime import datetime
 from smtplib import SMTPException, SMTPAuthenticationError, SMTPConnectError, SMTPRecipientsRefused
 
 # Import the models needed for the notification logic
 from .extensions import db
 from .models import Subscription, NotificationSetting
-from .models.credentials import Credential, CredentialSecret
-from .models.certificates import Certificate, CertificateVersion
+from .models.credentials import CredentialSecret
+from .models.certificates import CertificateVersion
 from .models.communications import ScheduledCommunication
 from src.utils.timezone_helper import now, today as get_today
 
@@ -36,7 +35,7 @@ def send_email(app, subject, body, to_emails):
     """
     # Check for both a recipient and an email username in config
     if not to_emails or not app.config.get('EMAIL_USERNAME'):
-        app.logger.warning(f"❌ Email not sent: Missing recipients or EMAIL_USERNAME config")
+        app.logger.warning("❌ Email not sent: Missing recipients or EMAIL_USERNAME config")
         return False
     
     # Sanitised copies for logging (recipients/subject may be user-controlled).

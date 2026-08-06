@@ -1,6 +1,3 @@
-from datetime import datetime, date
-from sqlalchemy import and_
-from sqlalchemy.orm import foreign
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from src.utils.timezone_helper import today, now
@@ -15,7 +12,7 @@ class Contract(db.Model):
     contract_type = db.Column(db.String(100)) # e.g. NDA, MSA, SLA, Lease, Support
     
     # Relationships
-    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False, index=True)
     supplier = db.relationship('Supplier', backref='contracts')
     
     # Contacts (Optional: simple string or Many-to-Many if strict link needed. String is often sufficient for reference)
@@ -67,7 +64,7 @@ class ContractItem(db.Model):
     __tablename__ = 'contract_item'
     
     id = db.Column(db.Integer, primary_key=True)
-    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
     
     # Polymorphic Foreign Key
     item_id = db.Column(db.Integer, nullable=False)

@@ -1,7 +1,7 @@
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 )
-from ..models import db, Risk, User, Asset, RiskCategory, RISK_CATEGORIES, RISK_CATEGORY_COLORS, RiskAffectedItem, RiskAssessment, ThreatType
+from ..models import db, Risk, User, Asset, RiskCategory, RISK_CATEGORIES, RISK_CATEGORY_COLORS, RiskAffectedItem, ThreatType
 
 from ..models.security import RiskReference, RiskCatalog, CatalogRisk
 from ..models.activities import SecurityActivity
@@ -9,15 +9,14 @@ from ..models.auth import Group
 from ..models.procurement import Subscription
 from ..models.policy import Policy
 from ..models.core import Documentation, Link
-from .main import login_required
 from datetime import datetime
 from src.utils.logger import log_audit
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 
 risk_bp = Blueprint('risk', __name__)
 
 # Duplicate dashboard route removed.
-from .main import login_required
 
 risk_bp = Blueprint('risk', __name__)
 
@@ -262,7 +261,6 @@ def catalog_detail(id):
     catalog = db.get_or_404(RiskCatalog, id)
     return render_template('risk/catalog_detail.html', catalog=catalog)
 
-from ..models.security import ThreatType
 from src.utils.timezone_helper import now
 
 
@@ -520,7 +518,7 @@ def remove_affected_item(item_id):
     return redirect(url_for(DETAIL, id=risk_id))
 
 @risk_bp.route('/api/items/<item_type>', methods=['GET'])
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def api_get_items(item_type):
     """API endpoint to fetch items by type for dynamic selector."""
     model_map = {
@@ -552,7 +550,7 @@ def api_get_items(item_type):
 
 
 @risk_bp.route('/api/references/<ref_type>', methods=['GET'])
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def api_get_references(ref_type):
     """API endpoint to fetch reference items by type for dynamic selector."""
     model_map = {

@@ -8,7 +8,7 @@ const assets = [
     { src: '@fortawesome/fontawesome-free/webfonts', dest: 'font-awesome/webfonts' },
     { src: 'chart.js/dist/chart.umd.js', dest: 'chart.js/chart.js' },
     { src: 'easymde/dist', dest: 'easymde' },
-    { src: 'fullcalendar/index.global.js', dest: 'fullcalendar/js/fullcalendar.js' },
+    { src: 'simple-calendar-js/dist', dest: 'simple-calendar-js' },
     { src: 'simple-datatables/dist', dest: 'simple-datatables' },
     { src: 'sortablejs/Sortable.min.js', dest: 'sortablejs/Sortable.min.js' },
     { src: 'tom-select/dist', dest: 'tom-select' },

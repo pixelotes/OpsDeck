@@ -3,8 +3,6 @@ Tests for historical subscription spend reconstruction in the Spend Analysis
 report, the supporting finance_service helpers, and the CostHistory integrity
 logging when subscription seats change.
 """
-import pytest
-from datetime import date
 from dateutil.relativedelta import relativedelta
 from src import db
 from src.utils.timezone_helper import today
@@ -39,7 +37,6 @@ def _make_sub(name="Acme SaaS", cost=10.0, currency="EUR", months_ago=5,
 # --- Occurrence enumeration ---
 
 def test_occurrences_in_past_window(init_database):
-    db = init_database
     sub = _make_sub(months_ago=5)
     end = today()
     start = end - relativedelta(months=3)
@@ -53,7 +50,6 @@ def test_occurrences_in_past_window(init_database):
 
 
 def test_renewal_date_before_is_one_period_back(init_database):
-    db = init_database
     sub = _make_sub(months_ago=0)  # renewal_date = today
     prev = get_renewal_date_before(sub, sub.renewal_date)
     assert prev == sub.renewal_date - relativedelta(months=1)
@@ -79,7 +75,6 @@ def test_effective_cost_uses_history(init_database):
 
 
 def test_effective_cost_falls_back_to_current(init_database):
-    db = init_database
     sub = _make_sub(cost=15.0)  # no cost history
     amount, currency, _ = subscription_effective_cost_at(sub, today())
     assert amount == 15.0

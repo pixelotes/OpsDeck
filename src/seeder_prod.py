@@ -488,21 +488,40 @@ def seed_production_frameworks():
         print("Production frameworks already exist. No changes made.")
 
     # Seed Hiring Stages
+    #
+    # (name, order, is_hired_stage, is_system, is_terminal)
     from .models.hiring import HiringStage
-    if not HiringStage.query.first():
+    standard_stages = [
+        ('Applied', 1, False, True, False),
+        ('Screening', 2, False, False, False),
+        ('Interview', 3, False, False, False),
+        ('Offer', 4, False, True, False),
+        ('Hired', 5, True, True, True),
+        ('Rejected', 6, False, True, True),
+    ]
+
+    first_run = not HiringStage.query.first()
+    # On a fresh database create the whole pipeline. Afterwards only the system stages
+    # are ensured: this runs on every container start, so restoring the optional ones
+    # too would resurrect stages an administrator deliberately removed, while leaving
+    # out the system ones would break deletion guards and the board's archiving.
+    to_ensure = standard_stages if first_run else [s for s in standard_stages if s[3]]
+
+    created = []
+    for name, order, is_hired, is_system, is_terminal in to_ensure:
+        existing = HiringStage.query.filter(
+            db.func.lower(HiringStage.name) == name.lower()).first()
+        if existing:
+            continue
+        created.append(HiringStage(name=name, order=order, is_hired_stage=is_hired,
+                                   is_system=is_system, is_terminal=is_terminal))
+
+    if created:
         print("Seeding hiring stages...")
-        stages = [
-            HiringStage(name='Applied', order=1),
-            HiringStage(name='Screening', order=2),
-            HiringStage(name='Interview', order=3),
-            HiringStage(name='Offer', order=4),
-            HiringStage(name='Hired', order=5, is_hired_stage=True),
-            HiringStage(name='Rejected', order=6)
-        ]
-        db.session.add_all(stages)
+        db.session.add_all(created)
         try:
             db.session.commit()
-            print(f"Hiring stages seeded successfully ({len(stages)} stages).")
+            print(f"Hiring stages seeded successfully ({len(created)} stages).")
         except Exception as e:
             db.session.rollback()
             print(f"Error seeding hiring stages: {e}")
@@ -729,19 +748,13 @@ def seed_operational_catalog():
         if exists:
             continue
 
-        # Try to match a threat type by category
-        # Since these are business risks, they might not map perfectly to "Threat Types" which are more technical/security focused in this app.
-        # We will try to map to 'Strategic', 'Operational', 'Financial' if we add them to ThreatType, 
-        # But assuming ThreatType is fixed (Adversarial, Accidental, Structural, Environmental), we might need to be creative or just leave it None/Generic.
-        # For this specific request, I'll map loosely to existing categories or just leave blank if no good match.
-        # Actually, let's map: 
-        # Operational -> Accidental (Human error/Process) or Structural (System failure)
-        # Strategic/Financial -> maybe not effectively mapped to security threat types.
-        # I'll use the find_threat_type logic which defaults to Accidental if category not found.
-        
-        # NOTE: The user didn't ask to create new ThreatTypes, so I'll try to map to existing ones or leave null?
-        # The schema puts threat_type_id as nullable.
-        # I'll try to find a best effort match.
+        # Best-effort threat type, matched by category.
+        #
+        # These are business risks, while ThreatType is a fixed security-oriented set
+        # (Adversarial, Accidental, Structural, Environmental), so the mapping is loose:
+        # operational risks land on Accidental or Structural, and strategic or financial
+        # ones have no meaningful equivalent. threat_type_id is nullable precisely so
+        # those can stay unmapped rather than being forced into the wrong bucket.
         tt = None
         if cat_name == "Operational": tt = find_threat_type("Accidental")
         elif cat_name == "Technical": tt = find_threat_type("Technical") # or Adversarial/Accidental
@@ -1181,6 +1194,7 @@ def seed_modules():
         ("Procurement", "procurement", "Management of suppliers, requirements, evaluations, and contracts."),
         ("Core Inventory", "core_inventory", "Inventory of services, assets, peripherals, software, licenses, and CMDB."),
         ("Operations", "operations", "Operational management including renewals, warranties, changes, and maintenance."),
+        ("Roadmaps", "roadmaps", "Strategic roadmaps: quarterly planning of goals and initiatives."),
         ("Risk & Governance", "risk_governance", "Risk register, catalog, assessments and governance dashboard."),
         ("Compliance", "compliance", "Compliance frameworks, inventory, assessments and monitoring."),
         ("Knowledge & Policy", "knowledge_policy", "Documentation, links, policies, certificates and training."),

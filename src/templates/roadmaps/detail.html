@@ -1,0 +1,182 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ roadmap.name }} - Roadmaps - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/roadmap-gantt.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set writable = can_write('roadmaps') %}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-map-signs"></i> {{ roadmap.name }}
+            <span class="badge bg-{{ roadmap.status_color }} align-middle">
+                {{ roadmap.status|replace('_', ' ')|title }}
+            </span>
+        </h2>
+        <div class="text-muted small">
+            {% if roadmap.date_range_label %}{{ roadmap.date_range_label }} · {% endif %}
+            {% if roadmap.owner %}{{ roadmap.owner.name }} · {% endif %}
+            {{ roadmap.progress }}% complete
+            {% if roadmap.overdue_count %}
+            · <span class="text-danger">{{ roadmap.overdue_count }} overdue</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('roadmaps.list_roadmaps') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+        <a href="{{ url_for('roadmaps.export', id=roadmap.id) }}" class="btn btn-outline-success">
+            <i class="fas fa-file-csv"></i> Export to CSV
+        </a>
+        {% if writable %}
+        <a href="{{ url_for('roadmaps.edit_roadmap', id=roadmap.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-edit"></i> Edit roadmap
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <div class="input-group input-group-sm" style="width: 16rem;">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="search" class="form-control" id="rg-search" placeholder="Filter initiatives">
+            </div>
+
+            <select class="form-select form-select-sm no-tom" id="rg-status-filter" style="width: 10rem;">
+                <option value="">Any status</option>
+                <option value="planned">Planned</option>
+                <option value="in_progress">In progress</option>
+                <option value="done">Done</option>
+            </select>
+
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="rg-compact-toggle">
+                <i class="fas fa-compress"></i> Compact
+            </button>
+
+            {% if writable %}
+            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                data-bs-target="#rg-goal-modal">
+                <i class="fas fa-plus"></i> Add goal
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                data-bs-target="#rg-initiative-modal">
+                <i class="fas fa-plus"></i> Add initiative
+            </button>
+            {% else %}
+            <span class="badge bg-secondary">Read only</span>
+            {% endif %}
+
+            <span class="ms-auto small text-muted" id="rg-status" aria-live="polite"></span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div id="roadmap-gantt" data-api-base="{{ api_base }}" data-initiative-base="{{ initiative_base }}"
+            data-can-write="{{ 'true' if writable else 'false' }}" data-csrf-token="{{ csrf_token() }}"
+            data-steps-per-period="{{ steps_per_period }}">
+            <div class="rg-empty"><i class="fas fa-spinner fa-spin"></i> Loading roadmap…</div>
+        </div>
+    </div>
+</div>
+
+{% if writable %}
+<p class="text-muted small mt-2 mb-0">
+    Drag a bar to move it, its edges to resize, and the dot on its right onto another initiative to
+    link them. Dependent initiatives are rescheduled automatically; click an arrow to remove a link.
+</p>
+{% endif %}
+
+<!-- Initiative detail panel -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="rg-panel" aria-labelledby="rg-panel-title"
+    style="width: 28rem;">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="rg-panel-title">Initiative</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div id="rg-panel-body"></div>
+    </div>
+    {% if writable %}
+    <div class="offcanvas-header border-top">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="offcanvas">Close</button>
+        <button type="button" class="btn btn-primary" id="rg-panel-save">
+            <i class="fas fa-save"></i> Save changes
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+{% if writable %}
+<!-- Add goal -->
+<div class="modal fade" id="rg-goal-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form class="modal-content" id="rg-goal-form">
+            <div class="modal-header">
+                <h5 class="modal-title">New goal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="rg-new-goal-name" class="form-label">Name <span
+                            class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="rg-new-goal-name" required>
+                </div>
+                <div class="mb-3">
+                    <label for="rg-new-goal-color" class="form-label">Colour</label>
+                    <input type="color" class="form-control form-control-color" id="rg-new-goal-color"
+                        value="{{ default_goal_color }}">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create goal</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add initiative -->
+<div class="modal fade" id="rg-initiative-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form class="modal-content" id="rg-initiative-form">
+            <div class="modal-header">
+                <h5 class="modal-title">New initiative</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="rg-new-initiative-goal" class="form-label">Goal <span
+                            class="text-danger">*</span></label>
+                    <select class="form-select no-tom" id="rg-new-initiative-goal" required></select>
+                </div>
+                <div class="mb-3">
+                    <label for="rg-new-initiative-name" class="form-label">Name <span
+                            class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="rg-new-initiative-name" required>
+                </div>
+                <p class="text-muted small mb-0">
+                    It starts on the first period; drag it into place afterwards.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create initiative</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='js/roadmap-gantt.js') }}"></script>
+{% endblock %}

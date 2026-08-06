@@ -1,4 +1,3 @@
-from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
@@ -24,7 +23,7 @@ class ServiceDependency(db.Model):
     __tablename__ = 'service_dependencies'
 
     parent_id = db.Column(db.Integer, db.ForeignKey('business_service.id'), primary_key=True)
-    child_id = db.Column(db.Integer, db.ForeignKey('business_service.id'), primary_key=True)
+    child_id = db.Column(db.Integer, db.ForeignKey('business_service.id'), primary_key=True, index=True)
     label = db.Column(db.Enum(DependencyType), nullable=True)
 
     parent = db.relationship('BusinessService', foreign_keys=[parent_id], overlaps="upstream_dependencies,downstream_dependencies,upstream_links,downstream_links")
@@ -33,7 +32,8 @@ class ServiceDependency(db.Model):
 # Association table for User Access (M2M)
 service_users = db.Table('service_users',
     db.Column('service_id', db.Integer, db.ForeignKey('business_service.id'), primary_key=True),
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Index('ix_service_users_user_id', 'user_id')
 )
 
 class BusinessService(db.Model):
@@ -45,7 +45,7 @@ class BusinessService(db.Model):
     category = db.Column(db.String(50), default='Business Service') # 'Application', 'Business Service', 'Infrastructure', 'Capability'
     
     # Ownership
-    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
     owner = db.relationship('User', foreign_keys=[owner_id])
     
     # User Access (New)
@@ -55,7 +55,7 @@ class BusinessService(db.Model):
     criticality = db.Column(db.String(50)) # 'Tier 1 - Critical', 'Tier 2 - High', 'Tier 3 - Standard'
     status = db.Column(db.String(50), default='Operational') # 'Pipeline', 'Operational', 'Retired'
     legacy_cost_center = db.Column(db.String(100))  # Preserved for migration
-    cost_center_id = db.Column(db.Integer, db.ForeignKey('cost_center.id'), nullable=True)
+    cost_center_id = db.Column(db.Integer, db.ForeignKey('cost_center.id'), nullable=True, index=True)
     
     # SLAs
     sla_response_hours = db.Column(db.Integer)
@@ -116,7 +116,7 @@ class BusinessService(db.Model):
     @property
     def aggregated_risk_score(self):
         """
-        Calcula el riesgo máximo heredado de sus componentes de infraestructura.
+        Highest risk inherited from its infrastructure components.
         Si un componente tiene un max_risk_score alto, el servicio lo hereda.
         """
         max_score = 0
@@ -124,7 +124,7 @@ class BusinessService(db.Model):
         # Revisar Componentes (Infraestructura)
         for comp in self.components:
             linked_obj = comp.linked_object
-            # Verificamos si el objeto tiene la propiedad 'max_risk_score' (como Asset)
+            # Checks whether the object exposes 'max_risk_score', as Asset does
             if linked_obj and hasattr(linked_obj, 'max_risk_score'):
                 score = linked_obj.max_risk_score
                 if score and score > max_score:
@@ -134,7 +134,7 @@ class BusinessService(db.Model):
 
     @property
     def risk_status_color(self):
-        """Devuelve el color semántico para la UI/Gráficos basado en el riesgo."""
+        """Contextual colour for the UI and charts, derived from the risk score."""
         score = self.aggregated_risk_score
         if score >= 20: return '#dc3545'  # Danger (Red)
         if score >= 12: return '#fd7e14'  # Orange
@@ -253,7 +253,7 @@ class ServiceComponent(db.Model):
     __tablename__ = 'service_component'
     
     id = db.Column(db.Integer, primary_key=True)
-    service_id = db.Column(db.Integer, db.ForeignKey('business_service.id'), nullable=False)
+    service_id = db.Column(db.Integer, db.ForeignKey('business_service.id'), nullable=False, index=True)
     
     # Polymorphic fields
     component_type = db.Column(db.String(50), nullable=False) # 'Asset', 'Software', 'License', 'Supplier'

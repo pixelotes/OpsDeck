@@ -13,7 +13,8 @@ import os
 import uuid
 from datetime import datetime
 from werkzeug.utils import secure_filename
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                           requires_permission_api)
 from src.utils.timezone_helper import now
 
 
@@ -512,7 +513,7 @@ def unlink_evidence(id):
 
 @audits_bp.route('/api/control/<int:id>/status', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def api_update_control_status(id):
     if not has_write_permission(MODULE):
         return jsonify({'success': False, 'error': 'Write access required'}), 403
@@ -619,7 +620,7 @@ def delete_audit(id):
 
 @audits_bp.route('/api/search-linkable', methods=['GET'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission_api(MODULE)
 def search_linkable_api():
     """Search for linkable objects by type and query.
        If query is empty, returns all non-archived objects of that type.
@@ -677,7 +678,7 @@ def search_linkable_api():
         from ..models import Risk
         q = Risk.query
         # risks dont have is_archived, but maybe we exclude 'Closed'? 
-        # For now, show all as user can link closed risks too usually.
+        # Not filtered by status: closed risks are legitimate link targets too.
         if query:
             q = q.filter(Risk.risk_description.ilike(f'%{query}%')) # Risk has risk_description, usually not name?
             # Wait, looking at previous code it used Risk.name.ilike
@@ -725,8 +726,8 @@ def search_linkable_api():
         if query:
             # Search by new_hire_name for processes without user, or by user name if user exists
             # Optimized simple search: just filter by new_hire_name OR (join user and filter by user.name)
-            # For simplicity in this step, let's just search new_hire_name + try to search linked user name
-            # Note: This might be complex with a single query, so let's stick to new_hire_name for now or do a join if needed.
+            # Matches on new_hire_name only. Searching the linked user name as well would
+            # need a join, which is not worth it for this picker.
             # Using new_hire_name is safer as it's always populated initially.
             q = q.filter(OnboardingProcess.new_hire_name.ilike(f'%{query}%'))
         
@@ -773,7 +774,7 @@ def export_defense_pack(id):
     from flask import send_file
     import os
 
-    audit = db.get_or_404(ComplianceAudit, id)
+    db.get_or_404(ComplianceAudit, id)  # 404s on an unknown audit
 
     try:
         # Generate the export pack

@@ -1,27 +1,27 @@
-from datetime import datetime, date
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
-from .core import Tag
-from .auth import User
 from src.utils.timezone_helper import today, now
 
 # --- Association Tables for BCDR ---
 bcdr_plan_subscriptions = db.Table('bcdr_plan_subscriptions',
     db.Column('plan_id', db.Integer, db.ForeignKey('bcdr_plan.id'), primary_key=True),
-    db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True)
+    db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True),
+    db.Index('ix_bcdr_plan_subscriptions_subscription_id', 'subscription_id')
 )
 
 bcdr_plan_assets = db.Table('bcdr_plan_assets',
     db.Column('plan_id', db.Integer, db.ForeignKey('bcdr_plan.id'), primary_key=True),
-    db.Column('asset_id', db.Integer, db.ForeignKey('asset.id'), primary_key=True)
+    db.Column('asset_id', db.Integer, db.ForeignKey('asset.id'), primary_key=True),
+    db.Index('ix_bcdr_plan_assets_asset_id', 'asset_id')
 )
 
 # Tags for BCDR Test Logs
 bcdr_test_tags = db.Table('bcdr_test_tags',
     db.Column('test_log_id', db.Integer, db.ForeignKey('bcdr_test_log.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_bcdr_test_tags_tag_id', 'tag_id')
 )
 
 class BCDRPlan(db.Model):
@@ -48,13 +48,13 @@ class BCDRPlan(db.Model):
 class BCDRTestLog(db.Model):
     __tablename__ = 'bcdr_test_log'
     id = db.Column(db.Integer, primary_key=True)
-    plan_id = db.Column(db.Integer, db.ForeignKey('bcdr_plan.id'), nullable=False)
+    plan_id = db.Column(db.Integer, db.ForeignKey('bcdr_plan.id'), nullable=False, index=True)
     test_date = db.Column(db.Date, nullable=False, default=lambda: today())
     status = db.Column(db.String(50), nullable=False) # In Progress, Passed, Failed
     notes = db.Column(db.Text)
     
     # Assignee (Executor)
-    assignee_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    assignee_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
     assignee = db.relationship('User', foreign_keys=[assignee_id])
 
     # Tags

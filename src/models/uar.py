@@ -1,9 +1,6 @@
-from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
-from .auth import User
-from .security import SecurityIncident
 
 
 class UARComparison(db.Model):
@@ -79,7 +76,7 @@ class UARExecution(db.Model):
     __tablename__ = 'uar_execution'
 
     id = db.Column(db.Integer, primary_key=True)
-    comparison_id = db.Column(db.Integer, db.ForeignKey('uar_comparison.id'), nullable=False)
+    comparison_id = db.Column(db.Integer, db.ForeignKey('uar_comparison.id'), nullable=False, index=True)
 
     # Execution Status
     status = db.Column(db.String(20), default='running')  # 'running', 'completed', 'failed'
@@ -124,7 +121,7 @@ class UARFinding(db.Model):
     __tablename__ = 'uar_finding'
 
     id = db.Column(db.Integer, primary_key=True)
-    execution_id = db.Column(db.Integer, db.ForeignKey('uar_execution.id'), nullable=False)
+    execution_id = db.Column(db.Integer, db.ForeignKey('uar_execution.id'), nullable=False, index=True)
 
     # Finding Details
     finding_type = db.Column(db.String(20), nullable=False)  # 'Left Only (A)', 'Right Only (B)', 'Mismatch'
@@ -143,10 +140,10 @@ class UARFinding(db.Model):
 
     # Status & Resolution
     status = db.Column(db.String(20), default='open')  # 'open', 'acknowledged', 'resolved', 'false_positive'
-    assigned_to_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    assigned_to_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     resolved_at = db.Column(db.DateTime)
     resolution_notes = db.Column(db.Text)
-    security_incident_id = db.Column(db.Integer, db.ForeignKey('security_incident.id'), nullable=True)
+    security_incident_id = db.Column(db.Integer, db.ForeignKey('security_incident.id'), nullable=True, index=True)
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: now())

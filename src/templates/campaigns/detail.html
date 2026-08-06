@@ -238,7 +238,7 @@
                 <p><strong>Subject:</strong><br>{{ campaign.subject }}</p>
                 <hr>
                 <div class="border p-2 bg-light small" style="max-height: 300px; overflow-y: auto;">
-                    {{ campaign.body_html|safe }}
+                    {{ campaign.body_html|email_html }}
                 </div>
             </div>
         </div>

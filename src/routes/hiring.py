@@ -2,13 +2,13 @@ import os
 import uuid
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, send_from_directory
 from werkzeug.utils import secure_filename
-from datetime import date
 from ..extensions import db
 from ..models.hiring import HiringStage, Candidate
 from ..models.onboarding import OnboardingProcess
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
 from src.utils.timezone_helper import now, today, to_utc
+from ..utils.json_api import json_endpoint
 from ..utils.redirects import safe_redirect_target
 
 
@@ -19,6 +19,20 @@ MODULE = 'hr_people'
 BOARD = 'hiring.board'
 EDIT_CANDIDATE = 'hiring.edit_candidate'
 MANAGE_STAGES = 'hiring.manage_stages'
+
+
+def _stage_name_taken(name, exclude_id=None):
+    """True if another stage already carries this name, compared case-insensitively.
+
+    The database enforces uniqueness too; this check runs first so the user gets a
+    message instead of an IntegrityError, and it compares case-insensitively, which a
+    plain UNIQUE constraint cannot. Both the create and the rename route go through it.
+    """
+    query = HiringStage.query.filter(db.func.lower(HiringStage.name) == name.strip().lower())
+    if exclude_id is not None:
+        query = query.filter(HiringStage.id != exclude_id)
+    return query.first() is not None
+
 
 # ==========================================
 # KANBAN BOARD
@@ -31,12 +45,14 @@ def board():
     """Main Kanban board view for hiring pipeline."""
     stages = HiringStage.query.order_by(HiringStage.order).all()
 
-    # Filter 'Hired' and 'Rejected' candidates > 15 days
-    from datetime import datetime, timedelta
+    # Terminal stages only show candidates touched in the last 15 days, so finished
+    # pipelines do not pile up on the board. Keyed on the flag, not the name, so a
+    # renamed or translated stage keeps the behaviour.
+    from datetime import timedelta
     cutoff_date = now() - timedelta(days=15)
 
     for stage in stages:
-        if stage.name in ['Hired', 'Rejected']:
+        if stage.is_terminal:
             # Filter logic: Keep if updated recently AND not archived
             # Convert naive updated_at to timezone-aware before comparison
             stage.display_candidates = [c for c in stage.candidates if not c.is_archived and c.updated_at and to_utc(c.updated_at) >= cutoff_date]
@@ -120,7 +136,7 @@ def new_candidate():
                 resume_filename = unique_filename
         
         # Fallback to existing logic if it was a text link (UI might allow both or transition)
-        # But for now, we prioritize the file upload. 
+        # An uploaded file takes precedence over a link.
         # If no file uploaded, check if there's a manual link provided (legacy support)
         if not resume_filename:
              resume_filename = request.form.get('resume_link')
@@ -285,6 +301,7 @@ def download_resume(id):
 # ==========================================
 
 @hiring_bp.route('/move', methods=['POST'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE)
 def move_candidate():
@@ -411,7 +428,7 @@ def move_candidate():
             flash(f'🎉 Candidate "{candidate.name}" hired! Onboarding process initiated.', 'success')
             return jsonify({'status': 'success', 'action': 'onboarding_started'})
         else:
-            flash(f'Candidate moved to Hired. (Onboarding already exists)', 'info')
+            flash('Candidate moved to Hired. (Onboarding already exists)', 'info')
     
     return jsonify({'status': 'success'})
 
@@ -431,15 +448,22 @@ def manage_stages():
 @login_required
 @requires_permission(MODULE)
 def new_stage():
+    """Create a new hiring stage."""
     if not has_write_permission(MODULE):
         flash('Write access required to create stages.', 'danger')
         return redirect(url_for(MANAGE_STAGES))
-    """Create a new hiring stage."""
-    
+
+    name = request.form.get('name', '').strip()
+    is_hired_stage = 'is_hired_stage' in request.form
+
     if not name:
         flash('Stage name is required.', 'danger')
         return redirect(url_for(MANAGE_STAGES))
-    
+
+    if _stage_name_taken(name):
+        flash(f'A stage named "{name}" already exists.', 'danger')
+        return redirect(url_for(MANAGE_STAGES))
+
     # Auto-assign order (last + 1)
     max_order = db.session.query(db.func.max(HiringStage.order)).scalar() or 0
     
@@ -464,9 +488,9 @@ def delete_stage(id):
     """Delete a hiring stage."""
     stage = db.get_or_404(HiringStage, id)
     
-    # Protected stages
-    PROTECTED_STAGES = ['Applied', 'Offer', 'Hired', 'Rejected']
-    if stage.name in PROTECTED_STAGES:
+    # System stages carry pipeline semantics the app depends on. Checked through the
+    # flag rather than a name list, so renaming one does not shed its protection.
+    if stage.is_system:
         flash(f'Cannot delete system stage "{stage.name}".', 'danger')
         return redirect(url_for(MANAGE_STAGES))
 
@@ -483,6 +507,7 @@ def delete_stage(id):
     return redirect(url_for(MANAGE_STAGES))
 
 @hiring_bp.route('/stages/reorder', methods=['POST'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE)
 def update_stage_order():
@@ -512,12 +537,16 @@ def update_stage(id):
         return redirect(url_for(MANAGE_STAGES))
     """Update a hiring stage (rename)."""
     stage = db.get_or_404(HiringStage, id)
-    
-    name = request.form.get('name')
+
+    name = request.form.get('name', '').strip()
     if not name:
         flash('Stage name is required.', 'danger')
         return redirect(url_for(MANAGE_STAGES))
-        
+
+    if _stage_name_taken(name, exclude_id=stage.id):
+        flash(f'A stage named "{name}" already exists.', 'danger')
+        return redirect(url_for(MANAGE_STAGES))
+
     stage.name = name
     db.session.commit()
     

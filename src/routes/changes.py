@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app
 from ..extensions import db
-from ..models import (Change, User, BusinessService, Asset, Software, Tag, Attachment, Configuration, ConfigurationVersion)
+from ..models import (Change, User, BusinessService, Asset, Software, Tag, Attachment, Configuration)
 from ..services.permissions_service import requires_permission, has_write_permission
 from werkzeug.utils import secure_filename
 from datetime import datetime

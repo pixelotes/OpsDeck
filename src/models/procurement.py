@@ -1,5 +1,5 @@
 import calendar
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import foreign, validates
 from sqlalchemy import and_
@@ -11,35 +11,41 @@ from src.utils.timezone_helper import today, now
 # Association table for Subscriptions and Tags
 subscription_tags = db.Table('subscription_tags',
     db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_subscription_tags_tag_id', 'tag_id')
 )
 
 # Association table for many-to-many relationship between subscriptions and payments
 subscription_payment_methods = db.Table('subscription_payment_methods',
     db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True),
-    db.Column('payment_method_id', db.Integer, db.ForeignKey('payment_method.id'), primary_key=True)
+    db.Column('payment_method_id', db.Integer, db.ForeignKey('payment_method.id'), primary_key=True),
+    db.Index('ix_subscription_payment_methods_payment_method_id', 'payment_method_id')
 )
 
 # Association table for many-to-many relationship between subscriptions and contacts
 subscription_contacts = db.Table('subscription_contacts',
     db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True),
     db.Column('contact_id', db.Integer, db.ForeignKey('contact.id'), primary_key=True),
+    db.Index('ix_subscription_contacts_contact_id', 'contact_id')
 )
 
 # Association table for User Access (M2M) - Subscriptions
 subscription_users = db.Table('subscription_users',
     db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True),
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Index('ix_subscription_users_user_id', 'user_id')
 )
 
 purchase_users = db.Table('purchase_users',
     db.Column('purchase_id', db.Integer, db.ForeignKey('purchase.id'), primary_key=True),
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Index('ix_purchase_users_user_id', 'user_id')
 )
 
 purchase_tags = db.Table('purchase_tags',
     db.Column('purchase_id', db.Integer, db.ForeignKey('purchase.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_purchase_tags_tag_id', 'tag_id')
 )
 
 class Supplier(db.Model):
@@ -84,11 +90,11 @@ class Supplier(db.Model):
 
 class PurchaseCostHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'), nullable=False)
+    purchase_id = db.Column(db.Integer, db.ForeignKey('purchase.id'), nullable=False, index=True)
     action = db.Column(db.String(50), nullable=False)  # 'validated' or 'un-validated'
     cost = db.Column(db.Float)
     timestamp = db.Column(db.DateTime, default=lambda: now())
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
     user = db.relationship('User')
 
 class Purchase(db.Model):
@@ -307,7 +313,7 @@ class Budget(db.Model):
 
 class CostHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'), nullable=False)
+    subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'), nullable=False, index=True)
     cost = db.Column(db.Float, nullable=False)  # Base cost at this point in time
     currency = db.Column(db.String(3), nullable=False)
     # The date this cost became effective
@@ -362,7 +368,7 @@ class PaymentMethod(db.Model):
     method_type = db.Column(db.String(50), nullable=False)  # e.g., "Credit Card", "Bank Transfer"
     details = db.Column(db.String(100))  # e.g., "Visa ending in 1234"
     expiry_date = db.Column(db.Date)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     user = db.relationship('User', backref='payment_methods')
     created_at = db.Column(db.DateTime, default=lambda: now())
     is_archived = db.Column(db.Boolean, default=False, nullable=False)

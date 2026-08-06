@@ -3,7 +3,7 @@ from src import db # <-- 1. AÑADIR IMPORT
 
 def test_peripheral_lifecycle(auth_client, app):
     """
-    Prueba el ciclo de vida básico de un Periférico: Crear, Editar, Archivar.
+    The basic peripheral lifecycle: create, edit, archive.
     """
     
     # --- 1. CREAR PERIFÉRICO ---
@@ -13,12 +13,12 @@ def test_peripheral_lifecycle(auth_client, app):
         'status': 'Stored'
     }, follow_redirects=True)
     
-    # El error 400 debería resolverse arreglando models.py
+    # The 400 should go away once models.py is fixed
     assert response.status_code == 200
     assert b'Peripheral created successfully' in response.data
     assert b'Test Keyboard' in response.data
     
-    # Verifica en la BD (Peripheral ID 1)
+    # Check the database (peripheral id 1)
     with app.app_context():
         # 2. CORREGIR LegacyAPIWarning
         peripheral = db.session.get(Peripheral, 1)
@@ -35,7 +35,7 @@ def test_peripheral_lifecycle(auth_client, app):
     assert response.status_code == 200
     assert b'Peripheral updated successfully' in response.data
     
-    # Verifica en la BD
+    # Check the database
     with app.app_context():
         # 2. CORREGIR LegacyAPIWarning
         peripheral = db.session.get(Peripheral, 1)
@@ -48,14 +48,14 @@ def test_peripheral_lifecycle(auth_client, app):
 
 def test_peripheral_checkout_checkin(auth_client, app):
     """
-    Prueba el flujo de asignar (checkout) y retornar (checkin) un periférico.
+    Checking a peripheral out to a user and back in again.
     """
     # --- PREPARACIÓN ---
-    # 1. Crear el Periférico (Peripheral ID 1)
+    # 1. Create the peripheral (id 1)
     auth_client.post('/peripherals/new', data={'name': 'Checkout Mouse', 'status': 'Stored'}, follow_redirects=True)
     
-    # 2. Crear un Usuario (User ID 2)
-    # 3. Crear una Location para el checkin
+    # 2. Create a user (id 2)
+    # 3. Create a location for the check-in
     with app.app_context():
         from src.models import Location
         checkout_user = User(name='Checkout User', email='checkout@test.com', role='user')
@@ -68,13 +68,13 @@ def test_peripheral_checkout_checkin(auth_client, app):
 
     # --- 1. PROBAR CHECKOUT ---
     response = auth_client.post('/peripherals/1/checkout', data={
-        'user_id': '2' # Asignar al User ID 2
+        'user_id': '2'  # assign to user id 2
     }, follow_redirects=True)
     
     assert response.status_code == 200
     assert b'has been checked out to Checkout User' in response.data
     
-    # Verifica en la BD
+    # Check the database
     with app.app_context():
         # 2. CORREGIR LegacyAPIWarning
         peripheral = db.session.get(Peripheral, 1)
@@ -88,7 +88,7 @@ def test_peripheral_checkout_checkin(auth_client, app):
     # Updated assertion to match the new flash message format
     assert b'has been checked in from Checkout User to Storage Room' in response.data
     
-    # Verifica en la BD
+    # Check the database
     with app.app_context():
         # 2. CORREGIR LegacyAPIWarning
         peripheral = db.session.get(Peripheral, 1)

@@ -1,4 +1,3 @@
-from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
@@ -13,10 +12,10 @@ class Configuration(db.Model):
     owner_type = db.Column(db.String(50)) # 'User' or 'Group'
     
     # Links to other assets (Nullable FKs)
-    service_id = db.Column(db.Integer, db.ForeignKey('business_service.id'), nullable=True)
-    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
-    license_id = db.Column(db.Integer, db.ForeignKey('license.id'), nullable=True)
-    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=True)
+    service_id = db.Column(db.Integer, db.ForeignKey('business_service.id'), nullable=True, index=True)
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True, index=True)
+    license_id = db.Column(db.Integer, db.ForeignKey('license.id'), nullable=True, index=True)
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=True, index=True)
     
     # Relationships
     versions = db.relationship('ConfigurationVersion', backref='configuration', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
@@ -76,11 +75,11 @@ class Configuration(db.Model):
 class ConfigurationVersion(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
-    configuration_id = db.Column(db.Integer, db.ForeignKey('configuration.id'), nullable=False)
+    configuration_id = db.Column(db.Integer, db.ForeignKey('configuration.id'), nullable=False, index=True)
     version_number = db.Column(db.Integer, nullable=False)
     data = db.Column(db.JSON, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: now())
-    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     commit_message = db.Column(db.String(255))
     
     created_by = db.relationship('User')

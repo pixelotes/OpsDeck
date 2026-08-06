@@ -93,7 +93,7 @@ class EventRule(db.Model):
     condition_value = db.Column(db.String(255), nullable=True)
 
     # Message
-    template_id = db.Column(db.Integer, db.ForeignKey('email_template.id'), nullable=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('email_template.id'), nullable=True, index=True)
     template = db.relationship('EmailTemplate')
 
     # Delivery channels (mirrors NotificationEvent; destination config lives per-rule)

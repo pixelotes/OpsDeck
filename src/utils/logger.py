@@ -1,24 +1,25 @@
 import logging
 from flask import current_app, request, has_request_context
-from datetime import datetime
 
 def log_audit(event_type, action, target_object=None, outcome='success', **kwargs):
     """
-    Escribe un log estructurado de auditoría en formato ECS.
+    Write a structured audit log entry in ECS format.
     
     Args:
-        event_type (str): Categoría del evento (ej: 'user.created', 'security.login').
-        action (str): La acción específica (ej: 'create', 'update', 'delete').
+        event_type (str): Event category, e.g. 'user.created' or 'security.login'.
+        action (str): The specific action, e.g. 'create', 'update' or 'delete'.
         target_object (str, optional): Identificador del objeto afectado (ej: 'User:123').
-        outcome (str): Resultado de la acción ('success', 'failure').
-        **kwargs: Campos adicionales arbitrary que se añadirán al objeto JSON.
+        outcome (str): Result of the action, 'success' or 'failure'.
+        **kwargs: Arbitrary extra fields, merged into the JSON object.
     """
     if not current_app:
         return
 
     # Base context
     extra = {
-        "event.dataset": "renewal_guard.audit",
+        # Named after the product. It was "renewal_guard.audit" until 2026-08, the
+        # project's former name, so a log pipeline filtering on that has to be updated.
+        "event.dataset": "opsdeck.audit",
         "event.kind": "event",
         "event.category": event_type.split('.')[0] if '.' in event_type else "web",
         "event.action": action,

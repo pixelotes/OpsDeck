@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from .auth import User
@@ -8,7 +7,8 @@ from src.utils.timezone_helper import now, today
 # Association table for Certificate <-> BusinessService
 service_certificates = db.Table('service_certificates',
     db.Column('service_id', db.Integer, db.ForeignKey('business_service.id'), primary_key=True),
-    db.Column('certificate_id', db.Integer, db.ForeignKey('certificates.id'), primary_key=True)
+    db.Column('certificate_id', db.Integer, db.ForeignKey('certificates.id'), primary_key=True),
+    db.Index('ix_service_certificates_certificate_id', 'certificate_id')
 )
 
 class Certificate(db.Model):
@@ -23,13 +23,11 @@ class Certificate(db.Model):
     type = db.Column(db.String(50), default='SSL/TLS')  # SSL/TLS, SAML, Code Signing, etc.
     description = db.Column(db.Text)
     
-    # Ownership (Polymorphic-ish, typically User or Group, simplified here to User for MVP as per request context implies straightforward owner)
-    # The request mentioned owner_id/owner_type polymorphic. 
-    # Let's align with Credentials model pattern if possible, or just User for now if simpler.
-    # Request said: owner_id / owner_type: Polimórfico (User o Group).
-    # I will implement it as fields.
-    owner_id = db.Column(db.Integer, nullable=True) 
-    owner_type = db.Column(db.String(50), default='User') # 'User', 'Group'
+    # Polymorphic owner, matching the pattern used by SecurityActivity: the pair of
+    # columns carries the reference and the `owner` property below resolves it. Only
+    # 'User' is resolved today, so a certificate owned by a group reads as unowned.
+    owner_id = db.Column(db.Integer, nullable=True)
+    owner_type = db.Column(db.String(50), default='User')  # 'User', 'Group'
 
     created_at = db.Column(db.DateTime, default=lambda: now())
     updated_at = db.Column(db.DateTime, default=lambda: now(), onupdate=lambda: now())
@@ -45,7 +43,7 @@ class Certificate(db.Model):
         """Returns the owner object based on polymorphic relationship"""
         if self.owner_type == 'User' and self.owner_id:
             return db.session.get(User, self.owner_id)
-        # Add Group logic if Groups model exists and is required, for MVP User is safest bet to implement first.
+        # owner_type 'Group' is stored but not resolved yet.
         return None
     
     @property
@@ -80,7 +78,7 @@ class CertificateVersion(db.Model):
     __tablename__ = 'certificate_versions'
 
     id = db.Column(db.Integer, primary_key=True)
-    certificate_id = db.Column(db.Integer, db.ForeignKey('certificates.id'), nullable=False)
+    certificate_id = db.Column(db.Integer, db.ForeignKey('certificates.id'), nullable=False, index=True)
     
     # Version Details
     version_notes = db.Column(db.String(255)) # e.g. "2024 Renewal"

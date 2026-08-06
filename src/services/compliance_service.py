@@ -200,7 +200,7 @@ class ComplianceEvaluator:
                 - stats: {total, compliant, warning, non_compliant, manual, uncovered, not_applicable}
                 - controls: list of control data with status
         """
-        from src.models.security import Framework, FrameworkControl
+        from src.models.security import Framework
         
         framework = db.session.get(Framework, framework_id)
         if not framework:
@@ -380,7 +380,6 @@ class ComplianceEvaluator:
             tuple: (evidence_object, evidence_date) or (None, None)
         """
         from src.models.communications import Campaign
-        from src.models.core import Tag
         
         criteria = rule.get_criteria()
         method = criteria.get('method', 'tag_match')

@@ -16,11 +16,11 @@ DETAIL = 'links.detail'
 @login_required
 @requires_permission(MODULE)
 def list_links():
-    """Muestra la lista de enlaces, con filtros."""
+    """Lists links, with filters."""
     
-    # Obtener parámetros de filtro de la URL
+    # Read the filter parameters off the URL
     search_name = request.args.get('search_name', '')
-    search_tags = request.args.getlist('tags') # .getlist() para select múltiple
+    search_tags = request.args.getlist('tags') # getlist() handles the multi-select
 
     # Query base
     query = Link.query
@@ -31,13 +31,13 @@ def list_links():
 
     # Aplicar filtro por tags
     if search_tags:
-        # Unir con la tabla Tag y filtrar por los nombres de tag seleccionados
+        # Join the tag table and filter by the selected tag names
         query = query.join(Link.tags).filter(Tag.name.in_(search_tags))
 
     # Ejecutar la query
     links = query.order_by(Link.name).all()
     
-    # Obtener todos los tags para el dropdown del filtro
+    # All tags, for the filter dropdown
     all_tags = Tag.query.order_by(Tag.name).all()
 
     return render_template(
@@ -52,7 +52,7 @@ def list_links():
 @login_required
 @requires_permission(MODULE)
 def detail(id):
-    """Muestra los detalles de un enlace."""
+    """Shows one link."""
     link = db.get_or_404(Link, id)
     return render_template('links/detail.html', link=link)
 
@@ -60,12 +60,12 @@ def detail(id):
 @login_required
 @requires_permission(MODULE)
 def new_link():
-    """Crea un nuevo enlace."""
+    """Creates a link."""
     if request.method == 'POST':
         if not has_write_permission(MODULE):
             flash('Write access required to create links.', 'danger')
             return redirect(url_for('links.list_links'))
-        # Procesar propietario polimórfico
+        # Resolve the polymorphic owner
         owner_full = request.form.get('owner')
         owner_type = None
         owner_id = None
@@ -77,7 +77,7 @@ def new_link():
                 flash('Invalid owner.', 'danger')
                 return redirect(safe_redirect_target(request.referrer))
 
-        # Crear el objeto base
+        # Create the base record
         link = Link(
             name=request.form['name'],
             description=request.form.get('description'),
@@ -87,7 +87,7 @@ def new_link():
             software_id=request.form.get('software_id') or None
         )
         
-        # Asignar tags
+        # Assign tags
         tag_ids = request.form.getlist('tags')
         link.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
         
@@ -97,7 +97,7 @@ def new_link():
         flash('Link created.', 'success')
         return redirect(url_for(DETAIL, id=link.id))
 
-    # --- Lógica GET ---
+    # --- GET ---
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     groups = Group.query.order_by(Group.name).all()
     software = Software.query.order_by(Software.name).all()
@@ -117,7 +117,7 @@ def edit_link(id):
         if not has_write_permission(MODULE):
             flash('Write access required to update links.', 'danger')
             return redirect(url_for(DETAIL, id=id))
-        # Procesar propietario polimórfico
+        # Resolve the polymorphic owner
         owner_full = request.form.get('owner')
         if owner_full:
             try:
@@ -144,7 +144,7 @@ def edit_link(id):
         flash('Link updated.', 'success')
         return redirect(url_for(DETAIL, id=link.id))
 
-    # --- Lógica GET ---
+    # --- GET ---
     users = User.query.filter_by(is_archived=False).order_by(User.name).all()
     groups = Group.query.order_by(Group.name).all()
     software = Software.query.order_by(Software.name).all()
@@ -159,7 +159,7 @@ def delete_link(id):
     if not has_write_permission(MODULE):
         flash('Write access required to delete links.', 'danger')
         return redirect(url_for(DETAIL, id=id))
-    """Elimina un enlace."""
+    """Deletes a link."""
     link = db.get_or_404(Link, id)
     
     db.session.delete(link)

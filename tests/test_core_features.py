@@ -7,12 +7,12 @@ from src.models import Attachment, User, Asset
 
 def test_attachment_deletion(auth_client, app):
     """
-    Test 10: Prueba que un adjunto puede ser eliminado.
+    Test 10: an attachment can be deleted.
     """
-    # Asegurar que el UPLOAD_FOLDER existe
+    # Make sure UPLOAD_FOLDER exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
-    # --- 1. Setup: Crear un Proveedor y subir un Adjunto ---
+    # --- 1. Arrange: create a supplier and upload an attachment ---
     response = auth_client.post('/suppliers/new', data={'name': 'Supplier para Borrar Adjunto'}, follow_redirects=True)
     assert response.status_code == 200
 
@@ -32,7 +32,7 @@ def test_attachment_deletion(auth_client, app):
     # Debe ser un redirect (302 o 303)
     assert response.status_code in [302, 303], f"Expected redirect, got {response.status_code}"
     
-    # Verificar que el adjunto se creó en la BD
+    # The attachment was created in the database
     with app.app_context():
         attachment = db.session.get(Attachment, 1)
         assert attachment is not None
@@ -40,11 +40,11 @@ def test_attachment_deletion(auth_client, app):
         assert attachment.linkable_type == 'Supplier'
         assert attachment.linkable_id == 1
         
-    # Verificar que aparece en la página del supplier
+    # It shows on the supplier's page
     response = auth_client.get('/suppliers/1')
     assert b'file_to_delete.pdf' in response.data
         
-    # --- 2. Acción: Borrar el adjunto ---
+    # --- 2. Act: delete the attachment ---
     response = auth_client.post(
         '/attachments/delete/1',
         environ_base={'HTTP_REFERER': '/suppliers/1'}
@@ -53,12 +53,12 @@ def test_attachment_deletion(auth_client, app):
     # Debe ser un redirect
     assert response.status_code in [302, 303], f"Expected redirect, got {response.status_code}"
 
-    # --- 3. Verify: Comprobar que ya no existe ---
+    # --- 3. Assert: it is gone ---
     with app.app_context():
         attachment = db.session.get(Attachment, 1)
         assert attachment is None
         
-    # Y que ya no aparece en la página de detalles
+    # And it no longer shows on the detail page
     response = auth_client.get('/suppliers/1')
     assert b'file_to_delete.pdf' not in response.data
 
@@ -66,13 +66,13 @@ def test_attachment_deletion(auth_client, app):
 
 def test_user_inventory_snapshot_pdf(auth_client, app):
     """
-    Test 11: Prueba que se genera un snapshot PDF para un usuario.
-    No prueba el contenido del PDF, solo que el registro del adjunto se crea.
+    Test 11: a PDF snapshot is generated for a user.
+    Does not check the PDF contents, only that the attachment record is created.
     """
-    # Asegurar que el UPLOAD_FOLDER existe
+    # Make sure UPLOAD_FOLDER exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
-    # --- 1. Setup: Asignar un activo al Usuario de Prueba ---
+    # --- 1. Arrange: assign an asset to the test user ---
     with app.app_context():
         # Primero CREA el usuario
         test_user = User(name='Test User', email='user@test.com', role='user')
@@ -88,15 +88,15 @@ def test_user_inventory_snapshot_pdf(auth_client, app):
         db.session.add(asset)
         db.session.commit()
 
-    # --- 2. Acción: Generar el snapshot (como Admin) ---
+    # --- 2. Act: generate the snapshot as an admin ---
     response = auth_client.post(f'/users/{user_id}/inventory/generate', follow_redirects=True)
     assert response.status_code == 200
-    # Buscar variaciones del mensaje
+    # Accept either wording of the message
     assert (b'Snapshot de inventario generado' in response.data or 
             b'inventory snapshot generated' in response.data.lower() or
             b'Inventory snapshot generated' in response.data)
 
-    # --- 3. Verify: Comprobar que el adjunto existe ---
+    # --- 3. Assert: the attachment exists ---
     with app.app_context():
         # Buscar el adjunto enlazado al Usuario
         attachment = db.session.query(Attachment).filter_by(
@@ -108,6 +108,6 @@ def test_user_inventory_snapshot_pdf(auth_client, app):
         assert attachment.filename.startswith('Inventory_Test_User')
         assert attachment.filename.endswith('.pdf')
     
-    # Verificar que aparece en la página de detalles del usuario
+    # It shows on the user's detail page
     response = auth_client.get(f'/users/{user_id}')
     assert b'Inventory_Test_User' in response.data

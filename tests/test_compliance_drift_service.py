@@ -6,7 +6,7 @@ from datetime import timedelta
 from unittest.mock import patch, MagicMock
 from src.utils.timezone_helper import now
 from src.extensions import db
-from src.models.security import Framework, FrameworkControl
+from src.models.security import Framework
 from src.models.audits import ComplianceAudit
 from src.models.communications import EmailTemplate
 from src.models.auth import User

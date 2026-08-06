@@ -1,14 +1,92 @@
-from flask import session, redirect, url_for, flash, request, abort, render_template
+from flask import session, redirect, url_for, flash, request, render_template, jsonify
 from functools import wraps
-from ..models import db, User, Group, Permission, Module, AccessLevel
+from ..models import db, User, Permission, Module, AccessLevel
 from .permissions_cache import permissions_cache
+from ..utils.json_api import request_wants_json
 
-from src.utils.logger import log_audit
 import logging
-import sys
 
 # Configure logger
 logger = logging.getLogger(__name__)
+
+#: Which module governs each entity type, keyed by model class name.
+#:
+#: Lived in routes/attachments.py as ATTACHMENT_PERMISSIONS, which undersold it: the
+#: question "which module governs a Supplier" has nothing to do with attachments, and
+#: search needed the same answer. One map, so a new entity type is declared once and
+#: every consumer agrees.
+ENTITY_MODULES = {
+    'ActivityExecution': 'operations',
+    'Asset': 'core_inventory',
+    'AuditControlItem': 'compliance',
+    'BCDRPlan': 'operations',
+    'BCDRTestLog': 'operations',
+    'BusinessService': 'core_inventory',
+    'Change': 'operations',
+    'ComplianceAudit': 'compliance',
+    'Contact': 'procurement',
+    'Contract': 'procurement',
+    'CourseCompletion': 'knowledge_policy',
+    'DisposalRecord': 'operations',
+    'Documentation': 'knowledge_policy',
+    'FrameworkControl': 'compliance',
+    'MaintenanceLog': 'operations',
+    'Peripheral': 'core_inventory',
+    'Policy': 'knowledge_policy',
+    'PolicyVersion': 'knowledge_policy',
+    'Purchase': 'finance',
+    'Request': 'operations',
+    'Risk': 'risk_governance',
+    'RiskAssessmentItem': 'risk_governance',
+    'RoadmapInitiative': 'roadmaps',
+    'SecurityAssessment': 'compliance',
+    'SecurityIncident': 'operations',
+    'Software': 'core_inventory',
+    'Subscription': 'core_inventory',
+    'Supplier': 'procurement',
+    'UARExecution': 'compliance',
+    'UARFinding': 'compliance',
+    'User': 'administration',
+}
+
+
+def readable_modules(user_id):
+    """The set of module slugs this user may read, or None meaning "everything".
+
+    None rather than the full set of slugs so an admin does not depend on the caller
+    knowing what the full set is: a consumer filtering by membership would otherwise
+    have to special-case admins itself, and forgetting to is a silent over-share.
+    """
+    user = db.session.get(User, user_id) if user_id else None
+    if not user:
+        return set()
+    if user.role == 'admin':
+        return None
+
+    perms = permissions_cache.get(user_id)
+    if perms is None:
+        get_user_modules(user_id)
+        perms = permissions_cache.get(user_id)
+    return set((perms or {}).keys())
+
+
+def can_read_entity(entity_name, allowed_modules):
+    """Whether an entity type is readable given the result of readable_modules().
+
+    Fails closed on an unmapped entity type: a new searchable model that nobody
+    classified stays invisible rather than becoming readable by everyone, which is the
+    failure that matters here.
+    """
+    module = ENTITY_MODULES.get(entity_name)
+    if module is None:
+        logger.warning(
+            'Entity type %r has no module in ENTITY_MODULES; treating as unreadable.',
+            entity_name)
+        return False
+    if allowed_modules is None:
+        return True
+    return module in allowed_modules
+
 
 def get_user_modules(user_id):
     """
@@ -115,26 +193,32 @@ def update_permission_matrix(target_type, target_id, module_permissions):
         # If it's a group, invalidate all to be safe (could be optimized later)
         permissions_cache.invalidate()
 
-def requires_permission(module_slug, access_level='READ_ONLY'):
-    """
-    Decorator to enforce module-level permissions on routes.
-    access_level can be 'READ_ONLY' or 'WRITE'.
+def _enforce_permission(module_slug, access_level, json_only):
+    """The one permission check, which answers a denial in the caller's language.
+
+    requires_permission and requires_permission_api were near-identical copies that
+    differed only in how they refused, which is how they drifted: the JSON one grew a
+    guard against a null permissions cache and the HTML one did not. Refusing is now the
+    only branch, and which branch it takes comes from the same declaration the login
+    guard consults — so marking a view with @json_endpoint fixes its 401 and its 403
+    together, rather than fixing authentication and leaving authorization redirecting.
     """
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            wants_json = json_only or request_wants_json()
+
             user_id = session.get('user_id')
-            if not user_id:
-                return redirect(url_for('main.login'))
-            
-            user = db.session.get(User, user_id)
+            user = db.session.get(User, user_id) if user_id else None
             if not user:
+                if wants_json:
+                    return jsonify({'error': 'Authentication required.'}), 401
                 return redirect(url_for('main.login'))
-                
+
             # Admin bypass
             if user.role == 'admin':
                 return f(*args, **kwargs)
-                
+
             # Check permissions
             perms = permissions_cache.get(user_id)
             logger.debug(f" decorator check user_id={user_id} (type {type(user_id)}) module={module_slug} cached_found={perms is not None}")
@@ -145,23 +229,53 @@ def requires_permission(module_slug, access_level='READ_ONLY'):
                 get_user_modules(user_id)
                 perms = permissions_cache.get(user_id)
                 logger.debug(f" After refresh perms keys: {list(perms.keys()) if perms else 'None'}")
+            perms = perms or {}
 
-                
             if module_slug not in perms:
+                if wants_json:
+                    return jsonify({'error': f"No access to the {module_slug} module."}), 403
                 flash(f"You don't have access to the {module_slug} module.", "danger")
                 # Prevent redirect loop if already on dashboard
                 if request.endpoint == 'main.dashboard':
-                     return render_template('errors/403.html'), 403
+                    return render_template('errors/403.html'), 403
                 return redirect(url_for('main.dashboard'))
-                
+
             if access_level == 'WRITE' and perms.get(module_slug) != 'WRITE':
+                if wants_json:
+                    return jsonify(
+                        {'error': f"Read-only access to the {module_slug} module."}), 403
                 flash(f"You only have read-only access to the {module_slug} module.", "warning")
                 # Try to redirect back, or to the module main page
                 return redirect(request.referrer or url_for('main.dashboard'))
-                
+
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+
+def requires_permission(module_slug, access_level='READ_ONLY'):
+    """
+    Decorator to enforce module-level permissions on routes.
+    access_level can be 'READ_ONLY' or 'WRITE'.
+
+    Answers a denial with flash() + redirect for a browser navigation, and with JSON for
+    a view declared as JSON — see json_api.request_wants_json.
+    """
+    return _enforce_permission(module_slug, access_level, json_only=False)
+
+
+def requires_permission_api(module_slug, access_level='READ_ONLY'):
+    """
+    JSON-returning sibling of requires_permission, for endpoints consumed by fetch().
+
+    Refuses with JSON unconditionally, without consulting the view's declaration: an
+    endpoint that asks for this has already said what it is, and under /api/ that must
+    hold even for a request that arrives without a resolvable endpoint.
+
+    access_level can be 'READ_ONLY' or 'WRITE'.
+    """
+    return _enforce_permission(module_slug, access_level, json_only=True)
+
 
 def has_write_permission(module_slug):
     """

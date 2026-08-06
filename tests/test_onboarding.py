@@ -1,7 +1,6 @@
-from src.utils.timezone_helper import now, today
+from src.utils.timezone_helper import now
 from src.models.onboarding import OnboardingProcess, OffboardingProcess, OnboardingPack, ProcessItem, ProcessTemplate
 from src.models import User, Software
-from src import db
 
 def test_onboarding_packs_crud(auth_client, app):
     """

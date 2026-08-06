@@ -1,10 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from .main import login_required
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import requires_permission
 from ..extensions import db
 from ..models.configuration import Configuration, ConfigurationVersion
-from ..models import User
 from ..utils.differ import get_semantic_diff
+from ..utils.json_api import json_endpoint
 import json
 
 configuration_bp = Blueprint('configuration', __name__)
@@ -83,7 +83,7 @@ def snapshot(id):
     config = db.get_or_404(Configuration, id)
     
     # Parse the JSON form data. 
-    # For now, let's assume the frontend sends a 'config_data' field with JSON string
+    # The frontend sends a 'config_data' field holding a JSON string.
     # or we construct it.
     
     try:
@@ -156,6 +156,7 @@ def history(id):
     return render_template('configuration/history.html', configuration=config, versions=versions)
 
 @configuration_bp.route('/<int:id>/versions', methods=['GET'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE, access_level='READ_ONLY')
 def get_versions(id):
@@ -170,6 +171,7 @@ def get_versions(id):
     } for v in versions])
 
 @configuration_bp.route('/<int:id>/versions/create_from_change', methods=['POST'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE, access_level='WRITE')
 def create_version_from_change(id):

@@ -6,7 +6,7 @@ based on pack communication rules.
 """
 from datetime import timedelta
 from ..extensions import db
-from ..models.communications import PackCommunication, ScheduledCommunication
+from ..models.communications import ScheduledCommunication
 from ..models.onboarding import OnboardingProcess, OffboardingProcess
 
 

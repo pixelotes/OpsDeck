@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
-from flask_login import current_user
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import (requires_permission, has_write_permission,
+                                            requires_permission_api)
 from ..models.services import BusinessService, ServiceComponent, ServiceDependency, DependencyType
 from ..models.auth import User
 from ..models.core import CostCenter, Documentation, Link, Attachment
@@ -13,10 +13,10 @@ from ..models.credentials import Credential
 from ..models.activities import SecurityActivity
 from ..extensions import db
 from ..utils.dependency_graph import get_full_dependency_tree
+from ..utils.json_api import json_endpoint
 import os
 import uuid
 
-from ..services.permissions_service import requires_permission
 from .main import login_required
 
 services_bp = Blueprint('services', __name__, 
@@ -343,6 +343,7 @@ def delete_component(comp_id):
 
 @services_bp.route('/api/search-components/<component_type>', methods=['GET'])
 @login_required
+@requires_permission_api(MODULE)
 def search_components(component_type):
     """Search infrastructure components by type for TomSelect remote mode."""
     q = request.args.get('q', '').strip().lower()
@@ -620,6 +621,7 @@ def remove_user_access(id, user_id):
     return redirect(url_for(DETAIL, id=id) + '#users')
 
 @services_bp.route('/<int:id>/check_access/<int:user_id>', methods=['GET'])
+@json_endpoint
 @login_required
 def check_user_access(id, user_id):
     """

@@ -4,12 +4,12 @@ Compliance Drift Detection Service
 Monitors compliance status changes over time, detects regressions,
 and provides drift analysis for compliance frameworks.
 """
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 from sqlalchemy import desc
 from flask import current_app, url_for
 from ..extensions import db
-from ..models.security import Framework, FrameworkControl
+from ..models.security import Framework
 from ..models.audits import ComplianceAudit
 from ..models.communications import EmailTemplate, ScheduledCommunication
 from ..models.auth import User
@@ -216,7 +216,6 @@ class ComplianceDriftDetector:
 
         # Compare each framework
         for framework_id_str, new_framework_data in new_snapshot['frameworks'].items():
-            framework_id = int(framework_id_str)
 
             # Check if framework existed in old snapshot
             old_framework_data = old_snapshot['frameworks'].get(framework_id_str)

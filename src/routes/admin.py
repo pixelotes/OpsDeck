@@ -1,13 +1,13 @@
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, session, Response
+    Blueprint, render_template, request, redirect, url_for, flash, Response
 )
 from ..models import db, User
 from .main import login_required
-from functools import wraps
 from src.utils.logger import log_audit
 
 from ..services.permissions_service import requires_permission, has_write_permission
 from ..services import import_service
+from ..utils.json_api import json_endpoint
 
 # Admin bp
 admin_bp = Blueprint('admin', __name__)
@@ -361,6 +361,7 @@ def audit_log():
 
 
 @admin_bp.route('/audit-log/<int:id>/detail', methods=['GET'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE, access_level='READ_ONLY')
 def audit_log_detail(id):

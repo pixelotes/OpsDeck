@@ -5,14 +5,13 @@ Verifies that timezone handling works correctly around midnight and DST transiti
 Specifically tests the bug where subscriptions created on Jan 1st appeared as Dec 31st.
 """
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz
 import os
 
 # Set timezone for testing
 os.environ['TIMEZONE'] = 'Europe/Madrid'
 
-from src.utils.timezone_helper import now, today, to_local, naive_to_aware
 from src.models.procurement import Subscription, Supplier
 from src.extensions import db
 

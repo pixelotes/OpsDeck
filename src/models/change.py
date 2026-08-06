@@ -1,4 +1,3 @@
-from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
@@ -8,7 +7,8 @@ from sqlalchemy import and_
 # Association table for Change-Tag Many-to-Many
 change_tags = db.Table('change_tags',
     db.Column('change_id', db.Integer, db.ForeignKey('change.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_change_tags_tag_id', 'tag_id')
 )
 
 class Change(db.Model):

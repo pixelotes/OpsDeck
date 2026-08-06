@@ -14,8 +14,8 @@ from src.models.procurement import Supplier
 
 def test_audit_snapshot_isolation(auth_client, app):
     """
-    Test 1: Snapshot e Independencia
-    Verifica que el snapshot es inmutable y no se ve afectado por cambios al framework.
+    Test 1: snapshot independence.
+    The snapshot is immutable and unaffected by later changes to the framework.
     """
     with app.app_context():
         # Setup: Create Framework with Control
@@ -182,8 +182,8 @@ def test_audit_defense_workflow(auth_client, app):
 
 def test_audit_evidence_management(auth_client, app):
     """
-    Test 3: Gestión de Evidencias
-    Verifica que la evidencia está asociada a la Auditoría, NO al Framework base.
+    Test 3: evidence handling.
+    Evidence is associated with the audit, not with the underlying framework.
     """
     with app.app_context():
         # Setup: Create Framework with Control
@@ -263,9 +263,9 @@ def test_audit_evidence_management(auth_client, app):
 
 def test_audit_deletion(auth_client, app):
     """
-    Test 4: Borrado en Cascada
-    Verifica que al borrar la auditoría se eliminan items, links y attachments,
-    pero NO el Framework ni los Assets vinculados.
+    Test 4: cascade deletion.
+    Deleting the audit removes its items, links and attachments, but leaves the
+    framework and the linked assets alone.
     """
     with app.app_context():
         # Setup: Create Framework

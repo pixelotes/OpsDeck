@@ -30,4 +30,8 @@ from .request import Request, REQUEST_STATUSES
 from .contracts import Contract, ContractItem
 from .hiring import HiringStage, Candidate
 from .audit_log import AuditLog
+from .roadmaps import (Roadmap, RoadmapPeriod, RoadmapGoal, RoadmapInitiative,
+                       RoadmapDependency, RoadmapInitiativeLink, STEPS_PER_PERIOD,
+                       ROADMAP_STATUSES, INITIATIVE_STATUSES, INITIATIVE_PRIORITIES,
+                       ROADMAP_LINKABLE_TYPES, DEFAULT_GOAL_COLOR)
 

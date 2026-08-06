@@ -19,8 +19,9 @@ All parameters can be supplied either as CLI flags or environment variables. **C
 | `--port` | `POSTGRES_PORT` | `5432` | PostgreSQL port |
 | `--db` | `POSTGRES_DB` | `opsdeck` | Database name |
 | `--user` | `POSTGRES_USER` | `opsdeck` | DB user |
-| `--password` | `POSTGRES_PASSWORD` | `opsdeck` | DB password |
+| *(no flag)* | `POSTGRES_PASSWORD` | `opsdeck` | DB password. Environment only — a password given as a command-line argument shows up in `ps` for every other user on the host and is written to shell history |
 | `--output` / `-o` | `OUTPUT_DIR` | `bcdr_opsdeck_YYYYMMDD_HHMM/` | Output directory |
+| *(no flag)* | `BCDR_OUTPUT_ROOT` | *(unset — no restriction)* | When set, the output directory must resolve inside it, and the script exits with an error otherwise. Intended for running the export from a scheduler or an agent, where a wrong `--output` should fail rather than write 56 spreadsheets somewhere unexpected. It constrains a mistaken caller, not a hostile one — whatever can choose the arguments can usually choose the environment too |
 
 Because every parameter is env-configurable and none is required, the script runs with no flags inside a container — ideal for mounting Kubernetes secrets as environment variables:
 
@@ -39,8 +40,8 @@ env:
 # Connection via DATABASE_URL (recommended)
 python scripts/bcdr-export.py --database-url postgresql://opsdeck:opsdeck@localhost:5432/opsdeck
 
-# Connection via individual parameters
-python scripts/bcdr-export.py --host db.prod.internal --port 5432 --db opsdeck --user opsdeck --password opsdeck
+# Connection via individual parameters (password from the environment)
+POSTGRES_PASSWORD=... python scripts/bcdr-export.py --host db.prod.internal --port 5432 --db opsdeck --user opsdeck
 
 # Custom output directory
 python scripts/bcdr-export.py --database-url $DATABASE_URL --output /backups/opsdeck_20260224

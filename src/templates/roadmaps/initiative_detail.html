@@ -1,0 +1,305 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ initiative.name }} - {{ roadmap.name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+{% set writable = can_write('roadmaps') %}
+{% set goal = initiative.goal %}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a href="{{ url_for('roadmaps.list_roadmaps') }}">Roadmaps</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('roadmaps.detail', id=roadmap.id) }}">{{ roadmap.name }}</a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">{{ initiative.name }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h2 class="mb-1">{{ initiative.name }}</h2>
+        <div class="d-flex flex-wrap gap-2 align-items-center small">
+            <span class="badge" style="background: {{ goal.color }}">{{ goal.name }}</span>
+            <span class="badge bg-{{ initiative.status_color }}">
+                {{ initiative.status|replace('_', ' ')|title }}
+            </span>
+            <span class="badge bg-{{ initiative.priority_color }}">
+                {{ initiative.priority|replace('_', ' ')|title }} priority
+            </span>
+            {% if initiative.is_new %}
+            <span class="badge bg-info text-dark">New this cycle</span>
+            {% endif %}
+            {% if initiative.is_overdue %}
+            <span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Overdue</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('roadmaps.detail', id=roadmap.id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to timeline
+        </a>
+        {% if writable %}
+        <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse"
+            data-bs-target="#initiative-edit" aria-expanded="false" aria-controls="initiative-edit">
+            <i class="fas fa-edit"></i> Edit
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-header"><i class="fas fa-align-left"></i> Description</div>
+            <div class="card-body">
+                {% if initiative.description %}
+                {{ initiative.description | markdown }}
+                {% else %}
+                <p class="text-muted mb-0">No description.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if writable %}
+        <div class="collapse mb-3" id="initiative-edit">
+            <div class="card">
+                <div class="card-header"><i class="fas fa-edit"></i> Edit initiative</div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name"
+                                value="{{ initiative.name }}" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="status" class="form-label">Status</label>
+                                <select class="form-select no-tom" id="status" name="status">
+                                    {% for status in statuses %}
+                                    <option value="{{ status }}" {% if initiative.status==status %}selected{% endif %}>
+                                        {{ status|replace('_', ' ')|title }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="priority" class="form-label">Priority</label>
+                                <select class="form-select no-tom" id="priority" name="priority">
+                                    {% for priority in priorities %}
+                                    <option value="{{ priority }}" {% if initiative.priority==priority %}selected{% endif
+                                        %}>
+                                        {{ priority|replace('_', ' ')|title }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="owner_id" class="form-label">Owner</label>
+                                <select class="form-select no-tom" id="owner_id" name="owner_id">
+                                    <option value="">No owner</option>
+                                    {% for user in users %}
+                                    <option value="{{ user.id }}" {% if initiative.owner_id==user.id %}selected{% endif
+                                        %}>{{ user.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="progress" class="form-label">Progress (%)</label>
+                                <input type="number" min="0" max="100" class="form-control" id="progress"
+                                    name="progress" value="{{ initiative.progress }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="points" class="form-label">Story points</label>
+                                <input type="number" min="0" class="form-control" id="points" name="points"
+                                    value="{{ initiative.points if initiative.points is not none else '' }}">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="external_ref" class="form-label">Ticket reference</label>
+                                <input type="text" class="form-control" id="external_ref" name="external_ref"
+                                    value="{{ initiative.external_ref }}" placeholder="JIRA-1234">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="external_url" class="form-label">Ticket URL</label>
+                                <input type="url" class="form-control" id="external_url" name="external_url"
+                                    value="{{ initiative.external_url or '' }}">
+                            </div>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="is_new" name="is_new" {% if
+                                initiative.is_new %}checked{% endif %}>
+                            <label class="form-check-label" for="is_new">Flag as new this cycle</label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description"
+                                rows="8">{{ initiative.description }}</textarea>
+                            <small class="form-text text-muted">Markdown is supported.</small>
+                        </div>
+
+                        <p class="text-muted small">
+                            Dates come from the position on the timeline — drag the bar on the roadmap to
+                            reschedule.
+                        </p>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <button class="btn btn-secondary" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#initiative-edit">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="fas fa-project-diagram"></i> Dependencies</div>
+            <div class="card-body">
+                <h6 class="text-muted">Depends on</h6>
+                {% if predecessors %}
+                <ul class="list-group list-group-flush mb-3">
+                    {% for dependency, other in predecessors %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <a
+                            href="{{ url_for('roadmaps.initiative_detail', id=roadmap.id, initiative_id=other.id) }}">{{
+                            other.name }}</a>
+                        <span class="badge bg-secondary">lag {{ dependency.lag }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted">Nothing.</p>
+                {% endif %}
+
+                <h6 class="text-muted">Blocks</h6>
+                {% if successors %}
+                <ul class="list-group list-group-flush mb-0">
+                    {% for dependency, other in successors %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <a
+                            href="{{ url_for('roadmaps.initiative_detail', id=roadmap.id, initiative_id=other.id) }}">{{
+                            other.name }}</a>
+                        <span class="badge bg-secondary">lag {{ dependency.lag }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted mb-0">Nothing.</p>
+                {% endif %}
+
+                <p class="text-muted small mb-0 mt-3">
+                    Links are drawn on the timeline by dragging the handle on a bar's right edge.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header"><i class="fas fa-calendar-alt"></i> Schedule</div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Starts</span><span>{{ schedule.start }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Ends</span><span>{{ schedule.end }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Duration</span><span>{{ initiative.duration_periods }} periods</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Planned start</span>
+                    <span>{{ initiative.planned_start_date or '—' }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Planned end</span>
+                    <span>{{ initiative.planned_end_date or '—' }}</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="fas fa-tasks"></i> Progress</div>
+            <div class="card-body">
+                <div class="progress mb-2" style="height: 20px;" role="progressbar"
+                    aria-valuenow="{{ initiative.progress }}" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar" style="width: {{ initiative.progress }}%;">
+                        {{ initiative.progress }}%
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between small text-muted">
+                    <span>Story points</span>
+                    <span>{{ initiative.points if initiative.points is not none else '—' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="fas fa-info-circle"></i> Details</div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Owner</span>
+                    <span>{{ initiative.owner.name if initiative.owner else '—' }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Ticket</span>
+                    <span>
+                        {% if initiative.external_ref and initiative.external_url %}
+                        <a href="{{ initiative.external_url }}" target="_blank"
+                            rel="noopener noreferrer">{{ initiative.external_ref }}</a>
+                        {% elif initiative.external_ref %}
+                        {{ initiative.external_ref }}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Created</span>
+                    <span>{{ initiative.created_at.strftime('%Y-%m-%d') if initiative.created_at else '—' }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Updated</span>
+                    <span>{{ initiative.updated_at.strftime('%Y-%m-%d') if initiative.updated_at else '—' }}</span>
+                </li>
+            </ul>
+        </div>
+
+        {% if custom_field_definitions %}
+        <div class="card mb-3">
+            <div class="card-header"><i class="fas fa-sliders-h"></i> Additional Properties</div>
+            <ul class="list-group list-group-flush">
+                {% for field in custom_field_definitions %}
+                {% set value = initiative.custom_properties.get(field.name) %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">{{ field.label }}</span>
+                    <span>
+                        {% if not value %}
+                        —
+                        {% elif field.field_type == 'url' %}
+                        <a href="{{ value }}" target="_blank" rel="noopener noreferrer">{{ value }}</a>
+                        {% else %}
+                        {{ value }}
+                        {% endif %}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

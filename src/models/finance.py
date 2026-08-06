@@ -2,7 +2,6 @@
 """
 Finance-related models for exchange rate management.
 """
-from datetime import datetime
 from src.utils.timezone_helper import now
 from ..extensions import db
 

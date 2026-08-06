@@ -1,25 +1,24 @@
-from datetime import datetime, date
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
-from .core import Attachment, Tag
+from .core import Attachment
 from .auth import User
 from src.utils.timezone_helper import today, now
 
 class ComplianceLink(db.Model):
     """
-    Tabla de asociación polimórfica.
+    Polymorphic association table.
     Vincula un control (ej. 'A.5.7') con un objeto 
     (ej. un Asset, una Policy) y explica CÓMO lo cumple.
     """
     __tablename__ = 'compliance_link'
     id = db.Column(db.Integer, primary_key=True)
     
-    # Lado 1: El control que se está cumpliendo
-    framework_control_id = db.Column(db.Integer, db.ForeignKey('framework_control.id'), nullable=False)
+    # Side 1: the control being satisfied
+    framework_control_id = db.Column(db.Integer, db.ForeignKey('framework_control.id'), nullable=False, index=True)
     
-    # Lado 2: El objeto polimórfico que cumple el control
+    # Side 2: the polymorphic object that satisfies it
     linkable_id = db.Column(db.Integer, nullable=False, index=True)
     linkable_type = db.Column(db.String(50), nullable=False, index=True)
 
@@ -27,7 +26,7 @@ class ComplianceLink(db.Model):
 
     # --- Relaciones ---
     
-    # Back-reference para que desde FrameworkControl podamos ver los links
+    # Back-reference so the links are reachable from FrameworkControl
     framework_control = db.relationship(
         'FrameworkControl',
         backref=db.backref('compliance_links', lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN)
@@ -81,28 +80,33 @@ class ComplianceLink(db.Model):
 
 incident_assets = db.Table('incident_assets',
     db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
-    db.Column('asset_id', db.Integer, db.ForeignKey('asset.id'), primary_key=True)
+    db.Column('asset_id', db.Integer, db.ForeignKey('asset.id'), primary_key=True),
+    db.Index('ix_incident_assets_asset_id', 'asset_id')
 )
 
 incident_users = db.Table('incident_users',
     db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Index('ix_incident_users_user_id', 'user_id')
 )
 
 incident_subscriptions = db.Table('incident_subscriptions',
     db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
-    db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True)
+    db.Column('subscription_id', db.Integer, db.ForeignKey('subscription.id'), primary_key=True),
+    db.Index('ix_incident_subscriptions_subscription_id', 'subscription_id')
 )
 
 incident_suppliers = db.Table('incident_suppliers',
     db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
-    db.Column('supplier_id', db.Integer, db.ForeignKey('supplier.id'), primary_key=True)
+    db.Column('supplier_id', db.Integer, db.ForeignKey('supplier.id'), primary_key=True),
+    db.Index('ix_incident_suppliers_supplier_id', 'supplier_id')
 )
 
 # Tags for Incidents
 incident_tags = db.Table('incident_tags',
     db.Column('incident_id', db.Integer, db.ForeignKey('security_incident.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_incident_tags_tag_id', 'tag_id')
 )
 
 class SecurityIncident(db.Model):
@@ -168,7 +172,7 @@ class PostIncidentReview(db.Model):
     # Locking mechanism for finalized reports
     is_locked = db.Column(db.Boolean, default=False, nullable=False)
     locked_at = db.Column(db.DateTime, nullable=True)
-    locked_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    locked_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     locked_by = db.relationship('User', foreign_keys=[locked_by_id])
 
     # Relationships
@@ -176,7 +180,7 @@ class PostIncidentReview(db.Model):
 
 class IncidentTimelineEvent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    review_id = db.Column(db.Integer, db.ForeignKey('post_incident_review.id'), nullable=False)
+    review_id = db.Column(db.Integer, db.ForeignKey('post_incident_review.id'), nullable=False, index=True)
     event_time = db.Column(db.DateTime, nullable=False)
     description = db.Column(db.Text, nullable=False)
     order = db.Column(db.Integer, nullable=False, default=0)
@@ -184,7 +188,7 @@ class IncidentTimelineEvent(db.Model):
 class RiskAffectedItem(db.Model):
     __tablename__ = 'risk_affected_item'
     id = db.Column(db.Integer, primary_key=True)
-    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), nullable=False)
+    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), nullable=False, index=True)
     linkable_type = db.Column(db.String(50), nullable=False)
     linkable_id = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: now())
@@ -241,7 +245,7 @@ class RiskReference(db.Model):
     """
     __tablename__ = 'risk_reference'
     id = db.Column(db.Integer, primary_key=True)
-    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), nullable=False)
+    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), nullable=False, index=True)
     linkable_type = db.Column(db.String(50), nullable=False)  # 'Policy', 'Documentation', 'Link'
     linkable_id = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: now())
@@ -288,19 +292,20 @@ risk_category_association = db.Table('risk_category_association',
 
 risk_mitigation_activities = db.Table('risk_mitigation_activities',
     db.Column('risk_id', db.Integer, db.ForeignKey('risk.id'), primary_key=True),
-    db.Column('activity_id', db.Integer, db.ForeignKey('security_activity.id'), primary_key=True)
+    db.Column('activity_id', db.Integer, db.ForeignKey('security_activity.id'), primary_key=True),
+    db.Index('ix_risk_mitigation_activities_activity_id', 'activity_id')
 )
 
 class ThreatType(db.Model):
     """
-    Catálogo de tipos de amenazas estandarizadas (ej. Ransomware, Incendio, Error Humano).
+    Catalogue of standardised threat types, e.g. ransomware, fire or human error.
     """
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     category = db.Column(db.String(50)) # Ej: 'Adversarial', 'Accidental', 'Structural', 'Environmental'
     description = db.Column(db.Text)
     
-    # Relación inversa
+    # Reverse relationship
     risks = db.relationship('Risk', backref='threat_type', lazy=True)
 
     def __repr__(self):
@@ -327,13 +332,13 @@ class CatalogRisk(db.Model):
     A template risk item within a catalog.
     """
     id = db.Column(db.Integer, primary_key=True)
-    catalog_id = db.Column(db.Integer, db.ForeignKey('risk_catalog.id'), nullable=False)
+    catalog_id = db.Column(db.Integer, db.ForeignKey('risk_catalog.id'), nullable=False, index=True)
     
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     
     # Taxonomy
-    threat_type_id = db.Column(db.Integer, db.ForeignKey('threat_type.id'))
+    threat_type_id = db.Column(db.Integer, db.ForeignKey('threat_type.id'), index=True)
     threat_type = db.relationship('ThreatType')
     
     # Suggested base scores (can be overridden on import)
@@ -349,10 +354,10 @@ class Risk(db.Model):
     extended_description = db.Column(db.Text, nullable=True)  # Detailed explanation
     
     # --- NUEVO CAMPO: Amenaza ---
-    threat_type_id = db.Column(db.Integer, db.ForeignKey('threat_type.id'), nullable=True)
+    threat_type_id = db.Column(db.Integer, db.ForeignKey('threat_type.id'), nullable=True, index=True)
     
     # Import Source Tracking
-    source_catalog_risk_id = db.Column(db.Integer, db.ForeignKey('catalog_risk.id'), nullable=True)
+    source_catalog_risk_id = db.Column(db.Integer, db.ForeignKey('catalog_risk.id'), nullable=True, index=True)
     source_catalog_risk = db.relationship('CatalogRisk')
     
     # Management
@@ -460,7 +465,7 @@ class RiskCategory(db.Model):
     """Stores multiple categories for a single Risk."""
     __tablename__ = 'risk_category'
     id = db.Column(db.Integer, primary_key=True)
-    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), nullable=False)
+    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), nullable=False, index=True)
     category = db.Column(db.String(50), nullable=False)
 
 
@@ -471,8 +476,8 @@ class RiskHistory(db.Model):
     """
     __tablename__ = 'risk_history'
     id = db.Column(db.Integer, primary_key=True)
-    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    risk_id = db.Column(db.Integer, db.ForeignKey('risk.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     timestamp = db.Column(db.DateTime, default=lambda: now(), nullable=False)
     field_changed = db.Column(db.String(100), nullable=False)
     old_value = db.Column(db.String(500))
@@ -540,7 +545,7 @@ class SecurityAssessment(db.Model):
     notes = db.Column(db.Text)
     
     # Relationships
-    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False, index=True)
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(SecurityAssessment.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='SecurityAssessment')",
@@ -558,7 +563,7 @@ class AssetInventory(db.Model):
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=lambda: now())
-    conducted_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    conducted_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
     is_completed = db.Column(db.Boolean, default=False)
 
     # Relationship to all items in this inventory
@@ -573,9 +578,9 @@ class AssetInventory(db.Model):
 
 class AssetInventoryItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    inventory_id = db.Column(db.Integer, db.ForeignKey('asset_inventory.id'), nullable=False)
-    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # The user assigned at time of inventory
+    inventory_id = db.Column(db.Integer, db.ForeignKey('asset_inventory.id'), nullable=False, index=True)
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True) # The user assigned at time of inventory
     status = db.Column(db.String(50), nullable=False) # e.g., 'Verified', 'Flagged'
     notes = db.Column(db.Text)
     event_time = db.Column(db.DateTime, default=lambda: now())
@@ -593,21 +598,21 @@ class Framework(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), unique=True, nullable=False)
     
-    # <-- REQUISITO: Descripción
+    # Description
     description = db.Column(db.Text)
     
     # <-- REQUISITO: Enlace a web externa
     link = db.Column(db.String(1024))
     
-    # Flag para diferenciar los 'built-in' (no editables)
+    # Distinguishes the built-in frameworks, which are not editable
     is_custom = db.Column(db.Boolean, default=True, nullable=False)
     
-    # <-- ¡NUEVO! REQUISITO: Para activar/desactivar el framework en la org
+    # Enables or disables the framework for the organisation
     is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
 
     # --- Relaciones ---
 
-    # Relación con los controles del marco
+    # The framework's controls
     framework_controls = db.relationship(
         'FrameworkControl', 
         backref='framework', 
@@ -615,14 +620,14 @@ class Framework(db.Model):
         cascade=CASCADE_ALL_DELETE_ORPHAN
     )
     
-    # <-- REQUISITO: Soporte para attachments (manuales, etc.)
-    # (Asumiendo que tu modelo Attachment está configurado para polimorfismo)
+    # Attachments, for manuals and similar documents
+    # Relies on Attachment being set up for polymorphic links
     attachments = db.relationship(
         'Attachment', 
-        # Convertimos el string a una lambda para poder usar funciones de Python
+        # Wrapped in a lambda so Python functions can be used in the expression
         primaryjoin=lambda: and_(
-            # ¡LA CLAVE ESTÁ AQUÍ! Le decimos a SQLAlchemy que 'linkable_id'
-            # es la columna que actúa como clave foránea.
+            # The key part: telling SQLAlchemy that 'linkable_id' is the column
+            # acting as the foreign key.
             foreign(Attachment.linkable_id) == Framework.id,
             Attachment.linkable_type == 'Framework'
         ),
@@ -631,7 +636,7 @@ class Framework(db.Model):
         overlaps="attachments" 
     )
 
-    # Relación futura con Auditorías
+    # Future relationship with audits
     # audits = db.relationship('Audit', backref='framework', lazy='dynamic')
 
     def __repr__(self):
@@ -642,25 +647,26 @@ class Framework(db.Model):
 # Association table for cross-framework control mappings (self-referential)
 control_mappings = db.Table('control_mappings',
     db.Column('source_control_id', db.Integer, db.ForeignKey('framework_control.id'), primary_key=True),
-    db.Column('target_control_id', db.Integer, db.ForeignKey('framework_control.id'), primary_key=True)
+    db.Column('target_control_id', db.Integer, db.ForeignKey('framework_control.id'), primary_key=True),
+    db.Index('ix_control_mappings_target_control_id', 'target_control_id')
 )
 
 
 class FrameworkControl(db.Model):
     """
-    Representa un control individual o práctica dentro de un Framework.
+    A single control or practice within a framework.
     """
     __tablename__ = 'framework_control'
     
     id = db.Column(db.Integer, primary_key=True)
-    framework_id = db.Column(db.Integer, db.ForeignKey('framework.id'), nullable=False)
+    framework_id = db.Column(db.Integer, db.ForeignKey('framework.id'), nullable=False, index=True)
     
-    # Identificador del control (ej. "A.5.7")
+    # Control identifier, e.g. "A.5.7"
     control_id = db.Column(db.String(100), nullable=False) 
     
     name = db.Column(db.String(512), nullable=False)
     
-    # Descripción específica del control
+    # Control-specific description
     description = db.Column(db.Text)
 
     # --- SOA (Statement of Applicability) ---
@@ -677,7 +683,7 @@ class FrameworkControl(db.Model):
     )
 
     def get_all_mappings(self):
-        """Devuelve una lista combinada de controles relacionados (entrantes y salientes)."""
+        """Related controls, incoming and outgoing, as a single list."""
         targets = self.mapped_targets
         sources = list(self.mapped_sources)
         # Combine and deduplicate
@@ -698,7 +704,7 @@ class ComplianceRule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     
     # Relationship with the Control (Parent)
-    framework_control_id = db.Column(db.Integer, db.ForeignKey('framework_control.id'), nullable=False)
+    framework_control_id = db.Column(db.Integer, db.ForeignKey('framework_control.id'), nullable=False, index=True)
     
     # Metadata
     name = db.Column(db.String(150), nullable=False)

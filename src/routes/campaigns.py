@@ -13,6 +13,8 @@ from ..services.permissions_service import requires_permission, has_write_permis
 from ..utils.communications_context import validate_template_syntax
 from .main import login_required
 from src.utils.timezone_helper import now, today
+from ..utils.sanitize import sanitize_email_html
+from ..utils.json_api import json_endpoint
 
 
 campaigns_bp = Blueprint('campaigns', __name__)
@@ -59,7 +61,9 @@ def new_campaign():
             return redirect(url_for('campaigns.list_campaigns'))
         title = request.form.get('title')
         subject = request.form.get('subject')
-        body_html = request.form.get('body_html')
+        # Sanitised on the way in: these bodies are rendered back into the app,
+        # so script here would run in the session of whoever views them.
+        body_html = sanitize_email_html(request.form.get('body_html'))
         send_to_all = request.form.get('send_to_all') == 'on'
         scheduled_at_str = request.form.get('scheduled_at')
         user_ids = request.form.getlist('user_ids')
@@ -182,7 +186,9 @@ def edit_campaign(id):
             return redirect(url_for(DETAIL, id=id))
         title = request.form.get('title')
         subject = request.form.get('subject')
-        body_html = request.form.get('body_html')
+        # Sanitised on the way in: these bodies are rendered back into the app,
+        # so script here would run in the session of whoever views them.
+        body_html = sanitize_email_html(request.form.get('body_html'))
         
         # Required field validation
         if not title or not subject or not body_html:
@@ -477,7 +483,7 @@ def retry_failed(id):
     Reset all failed communications for this campaign to pending,
     allowing them to be retried by the communications queue processor.
     """
-    campaign = db.get_or_404(Campaign, id)
+    db.get_or_404(Campaign, id)  # 404s on an unknown campaign
     
     # Find all failed communications for this campaign
     failed_comms = ScheduledCommunication.query.filter_by(
@@ -530,6 +536,7 @@ def finish_campaign(id):
 
 
 @campaigns_bp.route('/<int:id>/stats', methods=['GET'])
+@json_endpoint
 @login_required
 @requires_permission(MODULE, access_level='READ_ONLY')
 def get_stats(id):

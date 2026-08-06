@@ -39,12 +39,26 @@ jobs:
           exit-code: '1' # Fail the pipeline if vulns are found
           severity: 'CRITICAL,HIGH' # Only look for these severities
 
-      # Step 5: Run unit tests (SQLite in-memory, no DB required)
+      # Step 5: Static analysis (config and rule rationale in pyproject.toml)
+      - name: Lint (ruff)
+        run: |
+          ruff check src tests
+
+      # Step 6: Run unit tests (SQLite in-memory, no DB required)
+      #
+      # Coverage floor lives in pyproject.toml under [tool.coverage.report]; the run
+      # fails if it drops below it.
+      #
+      # pytest-randomly shuffles the order on every run, so a test that only passes
+      # because of state left by another one shows up here instead of lying dormant.
+      # The seed is printed in the pytest header: reproduce a failure with
+      # `pytest -p randomly --randomly-seed=<seed>`.
       - name: Run unit tests
         env:
           PYTHONPATH: ./src
         run: |
-          pytest --disable-warnings --ignore=tests/test_migrations.py
+          pytest --disable-warnings --ignore=tests/test_migrations.py \
+            --cov=src --cov-report=term-missing
 
   integration:
     runs-on: ubuntu-latest
@@ -81,6 +95,12 @@ jobs:
       - name: Run migration tests
         env:
           DATABASE_URL: postgresql://opsdeck:opsdeck@localhost:5432/opsdeck_test
+          # These tests drop the public schema; the service DB above is throwaway.
+          # Explicit here so the job does not depend on the database name alone.
+          ALLOW_DESTRUCTIVE_DB_TESTS: '1'
+          # Fail the job if the migration tests skip or stop being collected, instead of
+          # reporting success having verified nothing. Enforced in tests/conftest.py.
+          REQUIRE_MIGRATION_TESTS: '1'
           PYTHONPATH: ./src
         run: |
           pytest tests/test_migrations.py -v

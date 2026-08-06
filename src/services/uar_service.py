@@ -4,7 +4,7 @@ UAR Automation Service
 Handles execution of automated User Access Review comparisons,
 alert processing, and incident creation.
 """
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 from flask import current_app, url_for, Flask
 from ..extensions import db
@@ -203,14 +203,12 @@ class UARAutomationService:
             if not report_id:
                 raise ValueError("report_id is required for Enterprise Report source")
 
-            # Import here to avoid circular dependency
+            # load_from_report resolves the report, raises if it does not exist, and
+            # loads it into the engine itself, so there is nothing to fetch here. This
+            # used to look up the Report and pass the object as the table name, one
+            # argument short — a TypeError, which is to say this source never once ran.
             try:
-                from opsdeck_enterprise.models.report import Report
-                report = db.session.get(Report, report_id)
-                if not report:
-                    raise ValueError(f"Enterprise Report {report_id} not found")
-                engine.load_from_report(report)
-                return []  # Data already loaded by load_from_report
+                return engine.load_from_report(table_name, report_id)
             except ImportError:
                 raise ValueError("OpsDeck Enterprise plugin not available")
 
@@ -688,4 +686,4 @@ def run_scheduled_uar_comparisons(app: Flask) -> None:
                 current_app.logger.error(f"[UAR] Failed to execute comparison {comparison.id}: {e}", exc_info=True)
 
         db.session.commit()
-        current_app.logger.info(f"[UAR] Scheduled UAR comparisons completed")
+        current_app.logger.info("[UAR] Scheduled UAR comparisons completed")

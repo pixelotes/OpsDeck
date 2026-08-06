@@ -1,0 +1,215 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if roadmap %}Edit{% else %}New{% endif %} Roadmap - {{ super() }}{% endblock %}
+
+{% block content %}
+{% set writable = can_write('roadmaps') %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-map-signs"></i> {% if roadmap %}Edit{% else %}New{% endif %} Roadmap</h2>
+    <a href="{{ url_for('roadmaps.list_roadmaps') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back
+    </a>
+</div>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="card mb-3">
+        <div class="card-header"><i class="fas fa-info-circle"></i> Details</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="name" name="name"
+                    value="{{ roadmap.name if roadmap else '' }}" required {% if not writable %}disabled{% endif %}>
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="3" {% if not writable
+                    %}disabled{% endif %}>{{ roadmap.description if roadmap else '' }}</textarea>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select no-tom" id="status" name="status" {% if not writable %}disabled{% endif
+                        %}>
+                        {% for status in statuses %}
+                        <option value="{{ status }}" {% if roadmap and roadmap.status==status %}selected{% endif %}>
+                            {{ status|replace('_', ' ')|title }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="owner_id" class="form-label">Owner</label>
+                    <select class="form-select no-tom" id="owner_id" name="owner_id" {% if not writable %}disabled{%
+                        endif %}>
+                        <option value="">No owner</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if roadmap and roadmap.owner_id==user.id %}selected{% endif %}>
+                            {{ user.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-columns"></i> Periods</span>
+            {% if writable %}
+            <div class="d-flex gap-2 align-items-center">
+                <input type="number" class="form-control form-control-sm" id="quarter-year" style="width: 6.5rem;"
+                    placeholder="Year" min="2000" max="2100">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="add-quarters">
+                    <i class="fas fa-calendar-plus"></i> Add 4 quarters
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="add-period">
+                    <i class="fas fa-plus"></i> Add period
+                </button>
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">
+                Periods are the columns of the roadmap, in order. Initiatives are positioned relative to them, so
+                removing or reordering periods shifts where existing initiatives land on the timeline.
+            </p>
+
+            <div class="table-responsive">
+                <table class="table table-sm align-middle" id="periods-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">Label</th>
+                            <th style="width: 25%;">Start date</th>
+                            <th style="width: 25%;">End date</th>
+                            <th style="width: 10%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="periods-body">
+                        {% for period in (roadmap.periods.all() if roadmap else []) %}
+                        <tr>
+                            <td>
+                                <input type="hidden" name="period_id" value="{{ period.id }}">
+                                <input type="text" class="form-control form-control-sm" name="period_label"
+                                    value="{{ period.label }}" {% if not writable %}disabled{% endif %}>
+                            </td>
+                            <td>
+                                <input type="date" class="form-control form-control-sm" name="period_start"
+                                    value="{{ period.start_date.isoformat() if period.start_date else '' }}" {% if not
+                                    writable %}disabled{% endif %}>
+                            </td>
+                            <td>
+                                <input type="date" class="form-control form-control-sm" name="period_end"
+                                    value="{{ period.end_date.isoformat() if period.end_date else '' }}" {% if not
+                                    writable %}disabled{% endif %}>
+                            </td>
+                            <td class="text-end">
+                                {% if writable %}
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-period"
+                                    title="Remove period">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="text-muted small mb-0" id="no-periods-hint"
+                {% if roadmap and roadmap.period_count %}hidden{% endif %}>
+                No periods yet. A roadmap needs at least one period before initiatives can be placed on it.
+            </p>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <a href="{{ url_for('roadmaps.list_roadmaps') }}" class="btn btn-secondary">Cancel</a>
+        {% if writable %}
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> {% if roadmap %}Update{% else %}Create{% endif %} Roadmap
+        </button>
+        {% endif %}
+    </div>
+</form>
+
+{% if writable %}
+<template id="period-row-template">
+    <tr>
+        <td>
+            <input type="hidden" name="period_id" value="">
+            <input type="text" class="form-control form-control-sm" name="period_label" placeholder="e.g. Q1 2027">
+        </td>
+        <td><input type="date" class="form-control form-control-sm" name="period_start"></td>
+        <td><input type="date" class="form-control form-control-sm" name="period_end"></td>
+        <td class="text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger remove-period" title="Remove period">
+                <i class="fas fa-times"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+{% endif %}
+{% endblock %}
+
+{% block scripts_extra %}
+{% if can_write('roadmaps') %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const body = document.getElementById('periods-body');
+        const template = document.getElementById('period-row-template');
+        const hint = document.getElementById('no-periods-hint');
+
+        function refreshHint() {
+            hint.hidden = body.rows.length > 0;
+        }
+
+        function addRow(values) {
+            const row = template.content.cloneNode(true);
+            if (values) {
+                row.querySelector('[name="period_label"]').value = values.label;
+                row.querySelector('[name="period_start"]').value = values.start;
+                row.querySelector('[name="period_end"]').value = values.end;
+            }
+            body.appendChild(row);
+            refreshHint();
+        }
+
+        document.getElementById('add-period').addEventListener('click', () => addRow());
+
+        // Convenience: append the four standard calendar quarters of a given year.
+        document.getElementById('add-quarters').addEventListener('click', function () {
+            const input = document.getElementById('quarter-year');
+            const year = parseInt(input.value, 10);
+            if (!year || year < 2000 || year > 2100) {
+                input.focus();
+                return;
+            }
+            [
+                ['Q1', `${year}-01-01`, `${year}-03-31`],
+                ['Q2', `${year}-04-01`, `${year}-06-30`],
+                ['Q3', `${year}-07-01`, `${year}-09-30`],
+                ['Q4', `${year}-10-01`, `${year}-12-31`],
+            ].forEach(([label, start, end]) => addRow({ label: `${label} ${year}`, start, end }));
+            input.value = '';
+        });
+
+        // Removing a row is enough: the server treats whatever is submitted as the
+        // full set of periods and drops the rest.
+        body.addEventListener('click', function (event) {
+            const button = event.target.closest('.remove-period');
+            if (button) {
+                button.closest('tr').remove();
+                refreshHint();
+            }
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

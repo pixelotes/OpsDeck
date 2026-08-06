@@ -1,8 +1,6 @@
-import pytest
 from src.utils.timezone_helper import now
 from src.models import User
 from src.models.onboarding import OnboardingProcess, ProcessItem
-from src import db
 
 def test_onboarding_creates_checklist_item(auth_client, app):
     """

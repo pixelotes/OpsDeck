@@ -8,8 +8,6 @@ from src.utils.timezone_helper import now
 from src.extensions import db
 from src.models.uar import UARComparison, UARExecution, UARFinding
 from src.models.auth import User
-from src.models.procurement import Subscription
-from src.models.services import BusinessService
 from src.models.communications import EmailTemplate, ScheduledCommunication
 from src.services.uar_service import UARAutomationService, run_scheduled_uar_comparisons
 

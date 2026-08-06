@@ -1,4 +1,3 @@
-from datetime import datetime, date
 from sqlalchemy.orm import foreign
 from sqlalchemy import and_
 from ..extensions import db
@@ -29,8 +28,8 @@ class CourseAssignment(db.Model):
     assigned_date = db.Column(db.Date, nullable=False, default=lambda: today())
     due_date = db.Column(db.Date, nullable=False)
     
-    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
 
     completion = db.relationship('CourseCompletion', backref='assignment', uselist=False, cascade=CASCADE_ALL_DELETE_ORPHAN)
 
@@ -39,7 +38,7 @@ class CourseCompletion(db.Model):
     completion_date = db.Column(db.Date, nullable=False, default=lambda: today())
     notes = db.Column(db.Text)
     
-    assignment_id = db.Column(db.Integer, db.ForeignKey('course_assignment.id'), nullable=False)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('course_assignment.id'), nullable=False, index=True)
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(CourseCompletion.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='CourseCompletion')",

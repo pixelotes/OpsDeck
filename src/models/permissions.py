@@ -31,8 +31,8 @@ class Permission(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     module_id = db.Column(db.Integer, db.ForeignKey('module.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True, index=True)
     access_level = db.Column(db.Enum(AccessLevel), nullable=False, default=AccessLevel.WRITE)
     
     # Relationships

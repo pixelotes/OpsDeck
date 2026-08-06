@@ -8,7 +8,7 @@ import pytest
 from datetime import timedelta
 from src import db
 from src.utils.timezone_helper import now
-from src.models import Request, User, BusinessService, Asset, Tag
+from src.models import Request, User, BusinessService, Tag
 from src.models import Module, Permission, AccessLevel
 
 

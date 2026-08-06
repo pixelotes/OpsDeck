@@ -1,6 +1,5 @@
 import pytest
 from src.models import OrgChartSnapshot, User, db
-from src.models.audits import AuditControlLink
 
 @pytest.fixture
 def snapshot_user(app):

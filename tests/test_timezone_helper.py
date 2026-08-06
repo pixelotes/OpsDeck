@@ -4,7 +4,6 @@ Tests for timezone helper module
 Verifies that timezone-aware datetime functions work correctly
 and handle DST transitions properly.
 """
-import pytest
 from datetime import datetime, date, time
 import pytz
 import os

@@ -1,7 +1,7 @@
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, session
 )
-from datetime import date, timedelta, datetime
+from datetime import timedelta, datetime
 from ..models import db, Course, User, Group, CourseAssignment, CourseCompletion, Attachment
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
@@ -107,11 +107,11 @@ def complete_course(assignment_id):
         notes=notes
     )
 
-    # 1. Añade y "flushea" la finalización PRIMERO para que obtenga un ID
+    # 1. Add and flush the completion first, so that it gets an id
     db.session.add(completion)
-    db.session.flush()  # Esto asigna completion.id sin terminar la transacción
+    db.session.flush()  # Assigns completion.id without ending the transaction
 
-    # 2. Maneja la subida del archivo
+    # 2. Handle the file upload
     if 'certificate' in request.files:
         file = request.files['certificate']
         if file.filename != '':
@@ -121,16 +121,16 @@ def complete_course(assignment_id):
             
             file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
             
-            # 3. Crea el adjunto y enlázalo usando el ID de la finalización
+            # 3. Create the attachment and link it using the completion's id
             attachment = Attachment(
                 filename=original_filename,
                 secure_filename=unique_filename,
                 linkable_id=completion.id,        # <-- Enlace correcto
                 linkable_type='CourseCompletion'  # <-- Enlace correcto
             )
-            db.session.add(attachment) # Añade el adjunto a la sesión
+            db.session.add(attachment) # Add the attachment to the session
 
-    # 4. Comete la transacción (guarda la finalización Y el adjunto)
+    # 4. Commit, saving the completion and the attachment together
     db.session.commit()
 
     flash(f'Successfully marked "{assignment.course.title}" as complete!', 'success')
@@ -203,7 +203,7 @@ def edit_completion(completion_id):
         flash('Write access required to edit completion records.', 'danger')
         return redirect(url_for(COURSE_DETAIL, id=completion.assignment.course_id))
     """
-    Edita una finalización de curso existente.
+    Edits an existing course completion.
     """
     completion = db.get_or_404(CourseCompletion, completion_id)
     assignment = completion.assignment
@@ -220,7 +220,7 @@ def edit_completion(completion_id):
     if 'certificate' in request.files:
         file = request.files['certificate']
         if file.filename != '':
-            # 1. Eliminar el certificado antiguo si existe
+            # 1. Remove the previous certificate if there is one
             if completion.attachments:
                 old_attachment = completion.attachments[0]
                 try:
@@ -229,14 +229,14 @@ def edit_completion(completion_id):
                     current_app.logger.warning(f"Could not delete old certificate file: {e}")
                 db.session.delete(old_attachment)
             
-            # 2. Guardar el nuevo certificado
+            # 2. Store the new certificate
             original_filename = secure_filename(file.filename)
             file_ext = os.path.splitext(original_filename)[1]
             unique_filename = f"{uuid.uuid4().hex}{file_ext}"
             
             file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
             
-            # 3. Crear el nuevo registro de Attachment
+            # 3. Create the new Attachment row
             new_attachment = Attachment(
                 filename=original_filename,
                 secure_filename=unique_filename,

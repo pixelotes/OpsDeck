@@ -1,4 +1,3 @@
-from datetime import datetime
 from src.utils.timezone_helper import now
 from sqlalchemy import and_
 from sqlalchemy.orm import foreign
@@ -42,7 +41,8 @@ class NotificationSetting(db.Model):
 
 link_tags = db.Table('link_tags',
     db.Column('link_id', db.Integer, db.ForeignKey('link.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_link_tags_tag_id', 'tag_id')
 )
 
 class Link(db.Model):
@@ -52,15 +52,15 @@ class Link(db.Model):
     url = db.Column(db.String(512), nullable=False) # Mandatory URL
     created_at = db.Column(db.DateTime, default=lambda: now())
     
-    # Propietario polimórfico (User o Group)
+    # Polymorphic owner (User or Group)
     owner_id = db.Column(db.Integer)
     owner_type = db.Column(db.String(50)) # 'User' o 'Group'
     
-    # Relación con Software (opcional)
-    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
+    # Optional link to Software
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True, index=True)
     software = db.relationship('Software', backref='links')
 
-    # Relación con Tags (muchos a muchos)
+    # Tags (many to many)
     tags = db.relationship('Tag', secondary=link_tags, backref=db.backref('links', lazy=LAZY_DYNAMIC))
 
     compliance_links = db.relationship('ComplianceLink',
@@ -74,7 +74,7 @@ class Link(db.Model):
 
     @property
     def owner(self):
-        """Devuelve el objeto User o Group basado en owner_type y owner_id."""
+        """The User or Group referenced by owner_type and owner_id."""
         from .auth import User, Group
         if self.owner_type == 'User' and self.owner_id:
             return db.session.get(User, self.owner_id)
@@ -84,7 +84,8 @@ class Link(db.Model):
 
 documentation_tags = db.Table('documentation_tags',
     db.Column('documentation_id', db.Integer, db.ForeignKey('documentation.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True),
+    db.Index('ix_documentation_tags_tag_id', 'tag_id')
 )
 
 class Documentation(db.Model):
@@ -94,18 +95,18 @@ class Documentation(db.Model):
     external_link = db.Column(db.String(512)) # Enlace externo
     created_at = db.Column(db.DateTime, default=lambda: now())
     
-    # Propietario polimórfico (User o Group)
+    # Polymorphic owner (User or Group)
     owner_id = db.Column(db.Integer)
     owner_type = db.Column(db.String(50)) # 'User' o 'Group'
     
-    # Relación con Software (opcional)
-    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True)
+    # Optional link to Software
+    software_id = db.Column(db.Integer, db.ForeignKey('software.id'), nullable=True, index=True)
     software = db.relationship('Software', backref='documentation')
 
-    # Relación con Tags (muchos a muchos)
+    # Tags (many to many)
     tags = db.relationship('Tag', secondary=documentation_tags, backref=db.backref('documentation', lazy=LAZY_DYNAMIC))
     
-    # Relación con Attachments (polimórfica)
+    # Attachments (polymorphic)
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(Documentation.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='Documentation')",
@@ -123,7 +124,7 @@ class Documentation(db.Model):
 
     @property
     def owner(self):
-        """Devuelve el objeto User o Group basado en owner_type y owner_id."""
+        """The User or Group referenced by owner_type and owner_id."""
         from .auth import User, Group
         if self.owner_type == 'User' and self.owner_id:
             return db.session.get(User, self.owner_id)
@@ -150,19 +151,22 @@ class CostCenter(db.Model):
 # Association table for Service-Documentation Many-to-Many
 service_documentation = db.Table('service_documentation',
     db.Column('service_id', db.Integer, db.ForeignKey('business_service.id'), primary_key=True),
-    db.Column('documentation_id', db.Integer, db.ForeignKey('documentation.id'), primary_key=True)
+    db.Column('documentation_id', db.Integer, db.ForeignKey('documentation.id'), primary_key=True),
+    db.Index('ix_service_documentation_documentation_id', 'documentation_id')
 )
 
 # Association table for Service-Policy Many-to-Many
 service_policies = db.Table('service_policies',
     db.Column('service_id', db.Integer, db.ForeignKey('business_service.id'), primary_key=True),
-    db.Column('policy_id', db.Integer, db.ForeignKey('policy.id'), primary_key=True)
+    db.Column('policy_id', db.Integer, db.ForeignKey('policy.id'), primary_key=True),
+    db.Index('ix_service_policies_policy_id', 'policy_id')
 )
 
 # Association table for Service-SecurityActivity Many-to-Many
 service_activities = db.Table('service_activities',
     db.Column('service_id', db.Integer, db.ForeignKey('business_service.id'), primary_key=True),
-    db.Column('activity_id', db.Integer, db.ForeignKey('security_activity.id'), primary_key=True)
+    db.Column('activity_id', db.Integer, db.ForeignKey('security_activity.id'), primary_key=True),
+    db.Index('ix_service_activities_activity_id', 'activity_id')
 )
 
 
@@ -206,7 +210,7 @@ class CustomFieldValue(db.Model):
     __tablename__ = 'custom_field_value'
     
     id = db.Column(db.Integer, primary_key=True)
-    field_definition_id = db.Column(db.Integer, db.ForeignKey('custom_field_definition.id'), nullable=False)
+    field_definition_id = db.Column(db.Integer, db.ForeignKey('custom_field_definition.id'), nullable=False, index=True)
     
     linkable_id = db.Column(db.Integer, nullable=False)
     linkable_type = db.Column(db.String(50), nullable=False)
@@ -219,40 +223,99 @@ class CustomFieldValue(db.Model):
         db.Index('idx_custom_value_linkable', 'linkable_type', 'linkable_id'),
     )
 
+#: Ids per IN clause when preloading. SQLite caps bound parameters (999 on the builds
+#: this runs against in tests), and a UAR export can span every user in the database.
+_PRELOAD_CHUNK = 500
+
+
 class CustomPropertiesMixin:
     """
     Mixin to add dynamic custom properties to any model.
     Requires the model to define __tablename__ or be able to derive a type name.
     """
-    
+
+    #: Cache attribute name. Not a mapped column, so SQLAlchemy leaves it alone —
+    #: including on commit, which is why the writer below has to clear it explicitly.
+    _CACHE_ATTR = '_custom_properties_cache'
+
     @property
     def custom_properties(self):
         """
         Returns a dict of {field_name: value} for this object.
-        Optimized to fetch all values reasonably.
+
+        Memoised per instance. Every template that renders custom fields does
+        ``custom_properties.get(field.name)`` inside a loop over the definitions, so
+        without this the two queries below run once per field: an asset with eight
+        custom fields cost sixteen queries to display them. Instances live for one
+        request, so the cache does too.
+
+        Use preload_custom_properties for a list of objects — this still costs two
+        queries the first time it is touched on each one.
         """
-        # We need to know our type.
-        # Assuming the class name matches entity_type usage (User, Asset, Peripheral)
+        cached = getattr(self, self._CACHE_ATTR, None)
+        if cached is not None:
+            return cached
+
         my_type = self.__class__.__name__
-        
-        # Query all definitions for this type
         definitions = CustomFieldDefinition.query.filter_by(entity_type=my_type).all()
-        
-        # Query existing values for this object
-        # We use a fresh query to avoid stallness, but could be optimized with relationship if we added one
         values = CustomFieldValue.query.filter_by(
             linkable_type=my_type,
             linkable_id=self.id
         ).all()
-        
-        val_map = {v.definition.name: v.value for v in values if v.definition}
-        
-        # Return all definitions, with None/Empty if value doesn't exist
-        props = {}
-        for d in definitions:
-            props[d.name] = val_map.get(d.name)
-            
+
+        # Keyed off field_definition_id rather than value.definition.name: traversing the
+        # relationship lazy-loads each definition one at a time whenever the identity map
+        # does not already hold it.
+        names_by_id = {d.id: d.name for d in definitions}
+        val_map = {}
+        for value in values:
+            name = names_by_id.get(value.field_definition_id)
+            if name is not None:
+                val_map[name] = value.value
+
+        props = {d.name: val_map.get(d.name) for d in definitions}
+        setattr(self, self._CACHE_ATTR, props)
         return props
+
+    @classmethod
+    def preload_custom_properties(cls, instances):
+        """Fill the cache for many objects in two queries, not two per object.
+
+        For the loops that read custom properties across a whole collection — the UAR
+        user export reads them for every user in the database — the per-instance cache
+        does not help, because each instance is touched once.
+        """
+        instances = [i for i in instances if i is not None and i.id is not None]
+        if not instances:
+            return
+
+        my_type = cls.__name__
+        definitions = CustomFieldDefinition.query.filter_by(entity_type=my_type).all()
+        names_by_id = {d.id: d.name for d in definitions}
+        field_names = [d.name for d in definitions]
+
+        ids = [i.id for i in instances]
+        grouped = {}
+        for start in range(0, len(ids), _PRELOAD_CHUNK):
+            chunk = ids[start:start + _PRELOAD_CHUNK]
+            rows = CustomFieldValue.query.filter(
+                CustomFieldValue.linkable_type == my_type,
+                CustomFieldValue.linkable_id.in_(chunk)
+            ).all()
+            for row in rows:
+                name = names_by_id.get(row.field_definition_id)
+                if name is not None:
+                    grouped.setdefault(row.linkable_id, {})[name] = row.value
+
+        for instance in instances:
+            values = grouped.get(instance.id, {})
+            setattr(instance, cls._CACHE_ATTR,
+                    {name: values.get(name) for name in field_names})
+
+    def invalidate_custom_properties(self):
+        """Drop the memoised dict, so the next read reflects what was just written."""
+        if hasattr(self, self._CACHE_ATTR):
+            delattr(self, self._CACHE_ATTR)
 
     def get_custom_property_object(self, field_name):
         """Helper to get the actual CustomFieldValue object if needed."""
@@ -276,18 +339,23 @@ class CustomPropertiesMixin:
         with db.session.no_autoflush:
             definitions = CustomFieldDefinition.query.filter_by(entity_type=my_type).all()
 
+            # All of this object's existing values up front. This was one SELECT per
+            # definition present in the form, which on the asset form meant a query per
+            # custom field on every save.
+            existing_by_def = {
+                value.field_definition_id: value
+                for value in CustomFieldValue.query.filter_by(
+                    linkable_type=my_type,
+                    linkable_id=self.id
+                ).all()
+            }
+
             for d in definitions:
                 form_key = f"{prefix}{d.name}"
                 if form_key in form_data:
                     new_val = form_data.get(form_key)
 
-                    # Check for existing value
-                    existing = CustomFieldValue.query.filter_by(
-                        field_definition_id=d.id,
-                        linkable_type=my_type,
-                        linkable_id=self.id
-                    ).first()
-
+                    existing = existing_by_def.get(d.id)
                     if existing:
                         existing.value = new_val
                     else:
@@ -298,4 +366,8 @@ class CustomPropertiesMixin:
                             value=new_val
                         )
                         db.session.add(cv)
+
+        # The memoised dict predates these writes, and nothing else clears it: the
+        # attribute is not mapped, so a commit does not expire it.
+        self.invalidate_custom_properties()
 

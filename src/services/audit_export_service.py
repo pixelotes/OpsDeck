@@ -11,10 +11,9 @@ import os
 import tempfile
 import shutil
 import json
-from datetime import datetime
 from flask import render_template, current_app
 from ..models import db
-from ..models.audits import ComplianceAudit, AuditControlItem, AuditControlLink
+from ..models.audits import ComplianceAudit
 from src.utils.timezone_helper import now
 
 
@@ -340,7 +339,7 @@ class AuditPackExporter:
         orphan_log = os.path.join(control_dir, '_orphaned_evidence.txt')
 
         with open(orphan_log, 'a', encoding='utf-8') as f:
-            f.write(f"Orphaned Evidence:\n")
+            f.write("Orphaned Evidence:\n")
             f.write(f"  Type: {link.linkable_type}\n")
             f.write(f"  ID: {link.linkable_id}\n")
             f.write(f"  Description: {link.description or 'N/A'}\n")
