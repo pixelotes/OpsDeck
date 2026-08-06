@@ -15,7 +15,9 @@ development container — where DATABASE_URL points at the development database 
 from silently wiping it. Set ALLOW_DESTRUCTIVE_DB_TESTS=1 to run them against a
 disposable database whose name does not say so.
 
-Skipped when DATABASE_URL is not set, points to SQLite, or is not disposable.
+Skipped when DATABASE_URL is not set, points to SQLite, or is not disposable — except
+in CI, where a skip would mean migration testing had been switched off without anyone
+noticing. See test_the_environment_is_configured_in_ci below.
 """
 import os
 import pytest
@@ -41,6 +43,32 @@ requires_postgres = pytest.mark.skipif(
            'drop the public schema, so they never run against a database that is not '
            'marked as throwaway.'
 )
+
+
+def test_the_environment_is_configured_in_ci():
+    """Fail, rather than skip, when CI cannot run the tests below.
+
+    A skipped suite and a passing one look identical in a green build. The four tests
+    below skip unless DATABASE_URL points at a disposable Postgres, which is correct
+    locally — they drop the schema. In CI that same skip would quietly disable migration
+    testing altogether: rename the CI database, drop ALLOW_DESTRUCTIVE_DB_TESTS, and the
+    job still reports success having verified nothing.
+
+    This is the canary. It is deliberately not marked with requires_postgres, so it runs
+    whatever the configuration, and it only asserts when CI is set.
+    """
+    if not os.environ.get('CI'):
+        pytest.skip('Enforced in CI only; skipping locally is the intended behaviour.')
+
+    assert 'postgresql' in DATABASE_URL, (
+        'DATABASE_URL must point at PostgreSQL for the migration job, and it is '
+        f'{DATABASE_URL!r}. The four migration tests would have skipped silently.'
+    )
+    assert DESTRUCTIVE_ALLOWED, (
+        'The migration job needs a disposable database: name containing "test", or '
+        'ALLOW_DESTRUCTIVE_DB_TESTS=1. Neither is set, so the four migration tests '
+        'would have skipped silently.'
+    )
 
 
 def _make_app():
