@@ -45,8 +45,14 @@ jobs:
           ruff check src tests
 
       # Step 6: Run unit tests (SQLite in-memory, no DB required)
+      #
       # Coverage floor lives in pyproject.toml under [tool.coverage.report]; the run
       # fails if it drops below it.
+      #
+      # pytest-randomly shuffles the order on every run, so a test that only passes
+      # because of state left by another one shows up here instead of lying dormant.
+      # The seed is printed in the pytest header: reproduce a failure with
+      # `pytest -p randomly --randomly-seed=<seed>`.
       - name: Run unit tests
         env:
           PYTHONPATH: ./src
