@@ -19,7 +19,7 @@
                     <div class="mb-3">
                         <label for="framework_id" class="form-label">Framework</label>
                         <select class="form-select" id="framework_id" name="framework_id" required
-                            onchange="loadControls()">
+                            data-change="loadControls">
                             <option value="">Select Framework...</option>
                             {% for framework in frameworks %}
                             <option value="{{ framework.id }}">{{ framework.name }}</option>
@@ -84,5 +84,7 @@
             controlSelect.innerHTML = '<option value="">Error loading controls</option>';
         }
     }
+
+    OpsDeck.registerActions({ loadControls });
 </script>
 {% endblock %}

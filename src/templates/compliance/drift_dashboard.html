@@ -9,11 +9,11 @@
             <p class="text-muted">Monitor compliance status changes and detect regressions over time</p>
         </div>
         <div class="col-md-4 text-end">
-            <button class="btn btn-primary" onclick="manualDetection()">
+            <button class="btn btn-primary" data-action="manualDetection">
                 <i class="fas fa-sync"></i> Detect Drift Now
             </button>
             {% if can_write('compliance') %}
-            <button class="btn btn-outline-primary" onclick="createSnapshot()">
+            <button class="btn btn-outline-primary" data-action="createSnapshot">
                 <i class="fas fa-camera"></i> Create Snapshot
             </button>
             {% endif %}
@@ -24,7 +24,7 @@
     <div class="row mb-4">
         <div class="col-md-6">
             <label class="form-label">Select Framework</label>
-            <select class="form-select" id="frameworkSelect" onchange="loadDriftTimeline()">
+            <select class="form-select" id="frameworkSelect" data-change="loadDriftTimeline">
                 {% for framework in frameworks %}
                 <option value="{{ framework.id }}">{{ framework.name }}</option>
                 {% endfor %}
@@ -32,7 +32,7 @@
         </div>
         <div class="col-md-3">
             <label class="form-label">Time Period</label>
-            <select class="form-select" id="daysSelect" onchange="loadDriftTimeline()">
+            <select class="form-select" id="daysSelect" data-change="loadDriftTimeline">
                 <option value="7">Last 7 days</option>
                 <option value="30" selected>Last 30 days</option>
                 <option value="90">Last 90 days</option>
@@ -206,7 +206,7 @@ function displayTimeline(data) {
                             ${event.regression_count} regression(s), ${event.improvement_count} improvement(s)
                         </div>
                     </div>
-                    <button class="btn btn-sm btn-outline-primary" onclick="showDriftDetails(${index})">
+                    <button class="btn btn-sm btn-outline-primary" data-action="showDriftDetails" data-arg="${index}">
                         View Details
                     </button>
                 </div>
@@ -398,6 +398,15 @@ function createSnapshot() {
         alert('Snapshot creation failed: ' + error.message);
     });
 }
+
+// Names this page's markup may invoke. showDriftDetails takes an index, which arrives as
+// data-arg; the timeline rows are re-rendered, so the wiring has to be delegated.
+OpsDeck.registerActions({
+    manualDetection,
+    createSnapshot,
+    loadDriftTimeline,
+    showDriftDetails: (el, index) => showDriftDetails(Number(index)),
+});
 </script>
 
 <style>

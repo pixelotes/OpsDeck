@@ -211,7 +211,7 @@
                         <h6 class="m-0 font-weight-bold text-primary">Depends On (Upstream)</h6>
                         {% if can_write('core_inventory') %}
                         <button class="btn btn-sm btn-primary" data-bs-toggle="modal"
-                            data-bs-target="#addDependencyModal" onclick="setDependencyType('upstream')">
+                            data-bs-target="#addDependencyModal" data-action="setDependencyType" data-arg="upstream">
                             <i class="fas fa-plus"></i>
                         </button>
                         {% endif %}
@@ -248,7 +248,7 @@
                         <h6 class="m-0 font-weight-bold text-primary">Supported Services (Downstream)</h6>
                         {% if can_write('core_inventory') %}
                         <button class="btn btn-sm btn-primary" data-bs-toggle="modal"
-                            data-bs-target="#addDependencyModal" onclick="setDependencyType('downstream')">
+                            data-bs-target="#addDependencyModal" data-action="setDependencyType" data-arg="downstream">
                             <i class="fas fa-plus"></i>
                         </button>
                         {% endif %}
@@ -1174,6 +1174,10 @@
             // Proceed with submission
             this.submit();
         });
+    });
+
+    OpsDeck.registerActions({
+        setDependencyType: (el, type) => setDependencyType(type),
     });
 </script>
 

@@ -32,7 +32,7 @@
         </p>
     </div>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="toggleSidebar()"
+        <button type="button" class="btn btn-sm btn-outline-secondary me-2" data-action="toggleSidebar"
             title="Toggle Sidebar">
             <i class="fas fa-columns"></i>
         </button>
@@ -179,7 +179,7 @@
 
                                         <select class="form-select form-select-sm audit-status-select me-2"
                                             form="auditForm" name="item_{{ item.id }}_status" data-id="{{ item.id }}"
-                                            style="width: auto; min-width: 140px;" onclick="event.stopPropagation();">
+                                            style="width: auto; min-width: 140px;" data-stop-propagation>
                                             <option value="Pending" {% if item.status=='Pending' %}selected{% endif %}>⏳
                                                 Pending</option>
                                             <option value="Compliant" {% if item.status=='Compliant' %}selected{% endif
@@ -1118,5 +1118,7 @@
         });
 
     });
+
+    OpsDeck.registerActions({ toggleSidebar });
 </script>
 {% endblock %}

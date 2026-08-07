@@ -255,7 +255,7 @@
                                                         <label class="form-label">Object Type</label>
                                                         <select class="form-select" name="linkable_type"
                                                             id="linkType{{ item.id }}"
-                                                            onchange="loadLinkableObjects({{ item.id }}, this.value)"
+                                                            data-change="loadLinkableObjects" data-arg="{{ item.id }}"
                                                             required>
                                                             <option value="">Select type...</option>
                                                             <option value="Policy">Policy</option>
@@ -407,6 +407,10 @@
                 select.innerHTML = '<option value="">Error loading objects</option>';
             });
     }
+
+    OpsDeck.registerActions({
+        loadLinkableObjects: (el, itemId) => loadLinkableObjects(itemId, el.value),
+    });
 </script>
 {% endblock %}
 {% endblock %}

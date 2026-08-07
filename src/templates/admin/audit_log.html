@@ -138,7 +138,7 @@
                         <td>
                             {% if entry.changes %}
                             <button class="btn btn-sm btn-outline-info"
-                                    onclick="showChanges({{ entry.id }})"
+                                    data-action="showChanges" data-arg="{{ entry.id }}"
                                     data-bs-toggle="modal"
                                     data-bs-target="#changesModal">
                                 <i class="fas fa-eye"></i>
@@ -200,9 +200,10 @@
 
                 <div>
                     <select class="form-select form-select-sm" style="width: auto;"
-                            onchange="location.href='{{ url_for('admin.audit_log', entity_type=filters.entity_type,
+                            data-change="changePageSize"
+                            data-arg="{{ url_for('admin.audit_log', entity_type=filters.entity_type,
                             action=filters.action, user_id=filters.user_id, date_from=filters.date_from,
-                            date_to=filters.date_to, search=filters.search) }}&per_page=' + this.value;">
+                            date_to=filters.date_to, search=filters.search) }}">
                         <option value="25" {% if filters.per_page == 25 %}selected{% endif %}>25 per page</option>
                         <option value="50" {% if filters.per_page == 50 %}selected{% endif %}>50 per page</option>
                         <option value="100" {% if filters.per_page == 100 %}selected{% endif %}>100 per page</option>
@@ -292,6 +293,15 @@ function showChanges(entryId) {
         });
 }
 
+
+OpsDeck.registerActions({
+    showChanges: (el, id) => showChanges(id),
+    // The page-size select navigates to the same filtered URL with per_page appended;
+    // data-arg carries that URL so the query string stays server-rendered.
+    changePageSize: (el, baseUrl) => {
+        window.location.href = baseUrl + '&per_page=' + el.value;
+    },
+});
 </script>
 
 <style>

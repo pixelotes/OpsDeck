@@ -71,7 +71,7 @@
             <div class="card-header py-3 d-flex justify-content-between align-items-center">
                 <h6 class="m-0 font-weight-bold text-primary">Configuration Editor</h6>
                 {% if can_write('core_inventory') %}
-                <button class="btn btn-sm btn-outline-primary" onclick="addGroup()">
+                <button class="btn btn-sm btn-outline-primary" data-config-action="addGroup">
                     <i class="fas fa-plus me-1"></i> Add Group (Tab)
                 </button>
                 {% endif %}
@@ -91,7 +91,7 @@
                 {# Empty State #}
                 <div id="emptyState" class="text-center py-5 d-none">
                     <p class="text-gray-500 mb-3">No groups defined yet.</p>
-                    <button class="btn btn-primary" onclick="addGroup()">Add First Group</button>
+                    <button class="btn btn-primary" data-config-action="addGroup">Add First Group</button>
                 </div>
             </div>
         </div>
@@ -132,7 +132,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="submitSave()">Save Snapshot</button>
+                    <button type="button" class="btn btn-primary" data-config-action="submitSave">Save Snapshot</button>
                 </div>
             </form>
         </div>
@@ -152,6 +152,80 @@
     const tabsList = document.getElementById('configTabs');
     const tabsContent = document.getElementById('configTabsContent');
     const emptyState = document.getElementById('emptyState');
+
+    /**
+     * Escape a value for use inside a double-quoted HTML attribute.
+     *
+     * The rows below are built by string interpolation, and group names, keys and values
+     * all come from the saved configuration — which is edited in this very page. Before
+     * this, a value containing a double quote closed the attribute and everything after
+     * it was parsed as markup, so a key could smuggle in an event attribute of its own
+     * and run on render. Group and key names also went through a JS string literal inside
+     * the old change handlers, where an apostrophe was enough to break out.
+     */
+    function attr(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    /**
+     * Delegated dispatch, so nothing this function renders carries an on* attribute.
+     *
+     * Rows are rebuilt on every render(), so listeners bound to the elements would be
+     * discarded each time; these sit on the document instead. group and key are read
+     * from the row rather than baked into each handler.
+     */
+    function actionContext(trigger) {
+        const row = trigger.closest('[data-key]');
+        return {
+            group: trigger.dataset.group || (row && row.dataset.group),
+            key: trigger.dataset.key || (row && row.dataset.key),
+        };
+    }
+
+    document.addEventListener('click', function (event) {
+        const trigger = event.target.closest('[data-config-action]');
+        if (!trigger) {
+            return;
+        }
+
+        const { group, key } = actionContext(trigger);
+        switch (trigger.dataset.configAction) {
+            case 'addGroup':
+                addGroup();
+                break;
+            case 'submitSave':
+                submitSave();
+                break;
+            case 'removeGroup':
+                removeGroup(group, event);
+                break;
+            case 'addKey':
+                addKey(group);
+                break;
+            case 'removeKey':
+                removeKey(group, key);
+                break;
+        }
+    });
+
+    document.addEventListener('change', function (event) {
+        const trigger = event.target.closest('[data-config-change]');
+        if (!trigger) {
+            return;
+        }
+
+        const { group, key } = actionContext(trigger);
+        if (trigger.dataset.configChange === 'renameKey') {
+            renameKey(group, key, trigger.value);
+        } else if (trigger.dataset.configChange === 'updateValue') {
+            updateValue(group, key, trigger.value);
+        }
+    });
 
     function render() {
         tabsList.innerHTML = '';
@@ -176,7 +250,7 @@
             li.innerHTML = `
                 <button class="nav-link ${first ? 'active' : ''}" id="tab-${safeGroup}" data-bs-toggle="tab" data-bs-target="#content-${safeGroup}" type="button" role="tab">
                     ${group}
-                    <i class="fas fa-times ms-2 text-danger small" onclick="removeGroup('${group}', event)" title="Remove Group"></i>
+                    <i class="fas fa-times ms-2 text-danger small" data-config-action="removeGroup" data-group="${attr(group)}" title="Remove Group"></i>
                 </button>
             `;
             tabsList.appendChild(li);
@@ -194,15 +268,15 @@
                 Object.keys(entries).forEach(key => {
                     const value = entries[key];
                     rowsHtml += `
-                        <tr>
+                        <tr data-group="${attr(group)}" data-key="${attr(key)}">
                             <td>
-                                <input type="text" class="form-control form-control-sm" value="${key}" onchange="renameKey('${group}', '${key}', this.value)" placeholder="Key">
+                                <input type="text" class="form-control form-control-sm" value="${attr(key)}" data-config-change="renameKey" placeholder="Key">
                             </td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" value="${value}" onchange="updateValue('${group}', '${key}', this.value)" placeholder="Value">
+                                <input type="text" class="form-control form-control-sm" value="${attr(value)}" data-config-change="updateValue" placeholder="Value">
                             </td>
                             <td class="text-center">
-                                <button class="btn btn-sm btn-outline-danger" onclick="removeKey('${group}', '${key}')">
+                                <button class="btn btn-sm btn-outline-danger" data-config-action="removeKey">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </td>
@@ -224,7 +298,7 @@
                         ${rowsHtml}
                         <tr>
                             <td colspan="3" class="text-center">
-                                <button class="btn btn-sm btn-outline-secondary" onclick="addKey('${group}')">
+                                <button class="btn btn-sm btn-outline-secondary" data-config-action="addKey" data-group="${attr(group)}">
                                     <i class="fas fa-plus me-1"></i> Add Key
                                 </button>
                             </td>

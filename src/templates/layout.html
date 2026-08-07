@@ -22,6 +22,11 @@
         rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/theme.css') }}" rel="stylesheet">
+    {# Loaded in <head>, not with the other scripts at the end of <body>: pages register
+       their actions from scripts inside the content block, which runs first, so
+       OpsDeck.registerActions has to exist by then. Safe this early — the file only
+       attaches listeners to `document` and touches no elements at load. #}
+    <script src="{{ url_for('static', filename='js/behaviors.js') }}"></script>
     {% block head_extra %}{% endblock %}
     <style>
         .sidebar {
@@ -755,7 +760,7 @@
                     {# Action Required bell #}
                     {% if current_user %}
                     <div class="notif-bell-wrap me-2" id="navNotifBell" title="Action Required"
-                        onclick="toggleNavNotif(event)">
+                        data-action="toggleNavNotif">
                         <button class="btn btn-link text-white p-0 position-relative" type="button"
                             aria-label="Action Required">
                             <i class="fas fa-bell"></i>
@@ -1066,7 +1071,6 @@
     <script src="{{ url_for('static', filename='js/export.js') }}"></script>
     <script src="{{ url_for('static', filename='js/toast.js') }}"></script>
     <script src="{{ url_for('static', filename='js/button-effects.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/behaviors.js') }}"></script>
     <script src="{{ url_for('static', filename='js/skeleton.js') }}"></script>
     <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 
@@ -1192,7 +1196,12 @@
                 if (panel) panel.classList.remove('show');
             }
         });
-    </script>
+    
+        OpsDeck.registerActions({
+            // Receives the event, to stop the click closing the panel it just opened.
+            toggleNavNotif: (el, arg, event) => toggleNavNotif(event),
+        });
+</script>
     {% block scripts_extra %}{% endblock %}
 </body>
 

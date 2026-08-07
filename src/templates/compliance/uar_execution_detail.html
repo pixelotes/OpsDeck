@@ -143,23 +143,23 @@
                 </div>
                 <div class="col-md-8 text-end">
                     <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="bulkMarkFalsePositive()">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="bulkMarkFalsePositive">
                             <i class="fas fa-times-circle"></i> Mark False Positive
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="bulkAssign()">
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-action="bulkAssign">
                             <i class="fas fa-user"></i> Assign
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-success" onclick="bulkResolve()">
+                        <button type="button" class="btn btn-sm btn-outline-success" data-action="bulkResolve">
                             <i class="fas fa-check"></i> Resolve
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="bulkCreateIncident()">
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-action="bulkCreateIncident">
                             <i class="fas fa-exclamation-triangle"></i> Create Incident
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-info" onclick="bulkExport()">
+                        <button type="button" class="btn btn-sm btn-outline-info" data-action="bulkExport">
                             <i class="fas fa-download"></i> Export
                         </button>
                     </div>
-                    <button type="button" class="btn btn-sm btn-secondary ms-2" onclick="clearSelection()">
+                    <button type="button" class="btn btn-sm btn-secondary ms-2" data-action="clearSelection">
                         <i class="fas fa-times"></i> Clear
                     </button>
                 </div>
@@ -173,7 +173,7 @@
                     <tr>
                         {% if can_write('compliance') %}
                         <th style="width: 40px;">
-                            <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)">
+                            <input type="checkbox" id="selectAll" data-change="toggleSelectAll">
                         </th>
                         {% endif %}
                         <th>Severity</th>
@@ -189,7 +189,7 @@
                     <tr data-finding-id="{{ finding.id }}" class="finding-row">
                         {% if can_write('compliance') %}
                         <td>
-                            <input type="checkbox" class="finding-checkbox" value="{{ finding.id }}" onchange="updateBulkActions()">
+                            <input type="checkbox" class="finding-checkbox" value="{{ finding.id }}" data-change="updateBulkActions">
                         </td>
                         {% endif %}
                         <td>
@@ -424,6 +424,37 @@
 <script>
 // Bulk Operations JavaScript
 
+// Delegated dispatch for this page's toolbar, so the buttons and checkboxes carry
+// data-action / data-change instead of an on* attribute.
+//
+// Two attributes rather than one because a checkbox fires click AND change: a single
+// listener on both events would run the action twice. data-action is for clicks,
+// data-change for controls that report a new value.
+//
+// The name is looked up in this map, never on window: the map is also the list of what
+// is reachable from markup, which a dynamic lookup would not be.
+document.addEventListener('click', function (event) {
+    const trigger = event.target.closest('[data-action]');
+    if (!trigger) {
+        return;
+    }
+    const handler = PAGE_ACTIONS[trigger.dataset.action];
+    if (handler) {
+        handler(trigger);
+    }
+});
+
+document.addEventListener('change', function (event) {
+    const trigger = event.target.closest('[data-change]');
+    if (!trigger) {
+        return;
+    }
+    const handler = PAGE_ACTIONS[trigger.dataset.change];
+    if (handler) {
+        handler(trigger);
+    }
+});
+
 function toggleSelectAll(checkbox) {
     const checkboxes = document.querySelectorAll('.finding-checkbox');
     checkboxes.forEach(cb => cb.checked = checkbox.checked);
@@ -553,6 +584,20 @@ async function performBulkAction(action, findingIds, payload) {
         return null;
     }
 }
+
+// Declared last, once every function above exists. The listeners only read this at
+// event time, so the order does not matter to them — it is here to be read as the
+// inventory of what the markup on this page is allowed to invoke.
+const PAGE_ACTIONS = {
+    bulkMarkFalsePositive,
+    bulkAssign,
+    bulkResolve,
+    bulkCreateIncident,
+    bulkExport,
+    clearSelection,
+    toggleSelectAll,
+    updateBulkActions,
+};
 </script>
 
 <style>

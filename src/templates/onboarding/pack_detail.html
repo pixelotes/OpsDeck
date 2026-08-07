@@ -110,7 +110,7 @@
 
                     <div class="mb-3">
                         <label class="form-label">Item Type</label>
-                        <select class="form-select" name="item_type" id="itemTypeSelect" onchange="toggleLinkedField()">
+                        <select class="form-select" name="item_type" id="itemTypeSelect" data-change="toggleLinkedField">
                             <option value="Task">Task (Generic)</option>
                             <option value="Software">Software Provisioning</option>
                             <option value="Hardware">Hardware Provisioning</option>
@@ -174,7 +174,9 @@
                             document.getElementById('subscriptionField').style.display = (type === 'Subscription') ? 'block' : 'none';
                             document.getElementById('courseField').style.display = (type === 'Course') ? 'block' : 'none';
                         }
-                    </script>
+                    
+                        OpsDeck.registerActions({ toggleLinkedField });
+</script>
                     <button type="submit" class="btn btn-primary w-100">Add to Profile</button>
                 </form>
             </div>

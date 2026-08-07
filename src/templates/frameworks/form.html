@@ -75,7 +75,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Control Management</h5>
                         <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal"
-                            data-bs-target="#controlModal" onclick="prepareAddModal()">
+                            data-bs-target="#controlModal" data-action="prepareAddModal">
                             <i class="fa-solid fa-plus"></i> Add Control
                         </button>
                     </div>
@@ -98,11 +98,11 @@
                                     <td>
                                         <button type="button" class="btn btn-sm btn-outline-primary"
                                             data-bs-toggle="modal" data-bs-target="#controlModal"
-                                            data-control-id="{{ control.id }}" onclick="prepareEditModal(this)">
+                                            data-control-id="{{ control.id }}" data-action="prepareEditModal">
                                             <i class="fa-solid fa-pencil"></i>
                                         </button>
                                         <button type="button" class="btn btn-sm btn-outline-danger"
-                                            onclick="deleteControl(this, '{{ control.id }}')">
+                                            data-action="deleteControl" data-arg="{{ control.id }}">
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
                                     </td>
@@ -277,6 +277,15 @@
         });
     }
 
+
+    // Names this page's markup may invoke. prepareEditModal and deleteControl were
+    // passed `this`; the dispatcher hands them the element as the first argument, so
+    // their signatures already fit.
+    OpsDeck.registerActions({
+        prepareAddModal,
+        prepareEditModal,
+        deleteControl,
+    });
 </script>
 {% endif %}
 {% endblock %}

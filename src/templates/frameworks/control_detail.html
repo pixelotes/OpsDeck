@@ -52,7 +52,7 @@
             <div class="form-check form-switch mb-2">
                 <input class="form-check-input" type="checkbox" id="soaApplicable"
                        name="is_applicable" {{ 'checked' if control.is_applicable else '' }}
-                       onchange="document.getElementById('soaJustificationGroup').classList.toggle('d-none', this.checked)">
+                       data-change="toggleSoaJustification">
                 <label class="form-check-label" for="soaApplicable">This control is applicable to our organization</label>
             </div>
             <div id="soaJustificationGroup" class="{{ 'd-none' if control.is_applicable else '' }}">
@@ -229,7 +229,7 @@
                                     {# Unlink button for manual links #}
                                     {% if can_write('compliance') %}
                                     <button type="button" class="btn btn-sm btn-outline-danger ms-1" title="Unlink"
-                                        data-link-id="{{ link.id }}" onclick="unlinkItem(this)">
+                                        data-link-id="{{ link.id }}" data-action="unlinkItem">
                                         <i class="fas fa-unlink"></i>
                                     </button>
                                     {% endif %}
@@ -1118,6 +1118,14 @@
     document.getElementById('frameworkFilter').addEventListener('change', function () {
         const frameworkId = this.value || null;
         initTargetControlSelect(frameworkId);
+    });
+
+    OpsDeck.registerActions({
+        unlinkItem,
+        toggleSoaJustification: (checkbox) => {
+            document.getElementById('soaJustificationGroup')
+                .classList.toggle('d-none', checkbox.checked);
+        },
     });
 </script>
 {% endblock %}

@@ -40,7 +40,7 @@
         <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" name="advanced_conditions_enabled" id="advanced_conditions_enabled_{{ suffix }}"
                 {% if rule and rule.advanced_conditions_enabled %}checked{% endif %}
-                onchange="document.getElementById('advanced_conditions_{{ suffix }}').style.display = this.checked ? 'block' : 'none';">
+                data-change="toggleAdvancedConditions" data-arg="{{ suffix }}">
             <label class="form-check-label" for="advanced_conditions_enabled_{{ suffix }}">Advanced Attribute Filter</label>
         </div>
         <div class="form-text">Optional. Fire this event only if a specific attribute matches a value (e.g. location contains NYC).</div>
@@ -104,17 +104,17 @@
         </div>
         <div class="form-check">
             <input class="form-check-input" type="checkbox" name="channel_slack" id="channel_slack_{{ suffix }}"
-                onchange="syncRuleChannels('{{ suffix }}')" {% if 'slack' in (channels or []) %}checked{% endif %}>
+                data-change="syncRuleChannels" data-arg="{{ suffix }}" {% if 'slack' in (channels or []) %}checked{% endif %}>
             <label class="form-check-label" for="channel_slack_{{ suffix }}"><i class="fab fa-slack"></i> Slack</label>
         </div>
         <div class="form-check">
             <input class="form-check-input" type="checkbox" name="channel_webhook" id="channel_webhook_{{ suffix }}"
-                onchange="syncRuleChannels('{{ suffix }}')" {% if 'webhook' in (channels or []) %}checked{% endif %}>
+                data-change="syncRuleChannels" data-arg="{{ suffix }}" {% if 'webhook' in (channels or []) %}checked{% endif %}>
             <label class="form-check-label" for="channel_webhook_{{ suffix }}"><i class="fas fa-plug"></i> Webhook</label>
         </div>
         <div class="form-check">
             <input class="form-check-input" type="checkbox" name="channel_discord" id="channel_discord_{{ suffix }}"
-                onchange="syncRuleChannels('{{ suffix }}')" {% if 'discord' in (channels or []) %}checked{% endif %}>
+                data-change="syncRuleChannels" data-arg="{{ suffix }}" {% if 'discord' in (channels or []) %}checked{% endif %}>
             <label class="form-check-label" for="channel_discord_{{ suffix }}"><i class="fab fa-discord"></i> Discord</label>
         </div>
     </div>
@@ -316,6 +316,20 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[id^="channel_slack_"]').forEach(function (cb) {
         syncRuleChannels(cb.id.replace('channel_slack_', ''));
     });
+});
+
+// Names this page's markup may invoke. The advanced-conditions toggle was an expression
+// written inline; it is a named function now so the attribute only carries a name.
+function toggleAdvancedConditions(checkbox, suffix) {
+    const panel = document.getElementById('advanced_conditions_' + suffix);
+    if (panel) {
+        panel.style.display = checkbox.checked ? 'block' : 'none';
+    }
+}
+
+OpsDeck.registerActions({
+    toggleAdvancedConditions,
+    syncRuleChannels: (el, suffix) => syncRuleChannels(suffix),
 });
 </script>
 {% endblock %}

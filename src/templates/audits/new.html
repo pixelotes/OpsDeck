@@ -21,14 +21,14 @@
                         <label class="form-label d-block mb-2"><strong>Strategy</strong></label>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="creation_strategy" id="strategy_scratch"
-                                value="scratch" checked onclick="toggleStrategy('scratch')">
+                                value="scratch" checked data-action="toggleStrategy" data-arg="scratch">
                             <label class="form-check-label" for="strategy_scratch">
                                 <i class="fas fa-magic"></i> Start from Scratch
                             </label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="creation_strategy" id="strategy_clone"
-                                value="clone" onclick="toggleStrategy('clone')">
+                                value="clone" data-action="toggleStrategy" data-arg="clone">
                             <label class="form-check-label" for="strategy_clone">
                                 <i class="fas fa-sync-alt"></i> Renewal / Rollover
                             </label>
@@ -126,7 +126,7 @@
 
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" id="enable_sampling" name="enable_sampling"
-                            onclick="toggleSampling()">
+                            data-action="toggleSampling">
                         <label class="form-check-label" for="enable_sampling">
                             <strong>Enable Random Sampling</strong>
                         </label>
@@ -255,5 +255,11 @@
         }
     }
 
+
+    // Names this page's markup may invoke; the strategy arrives as data-arg.
+    OpsDeck.registerActions({
+        toggleStrategy: (el, strategy) => toggleStrategy(strategy),
+        toggleSampling,
+    });
 </script>
 {% endblock %}

@@ -17,7 +17,7 @@
                 <input type="text" id="searchQuery" class="form-control"
                        placeholder="Search for anything..."
                        autocomplete="off">
-                <button class="btn btn-primary" type="button" onclick="performSearch()">
+                <button class="btn btn-primary" type="button" data-action="performSearch">
                     <i class="fas fa-search"></i> Search
                 </button>
             </div>
@@ -84,7 +84,7 @@
                     <!-- Date Range Filter -->
                     <div class="mb-3">
                         <label class="form-label fw-bold">Date Range</label>
-                        <select class="form-select" id="dateRangeFilter" onchange="updateDateRange()">
+                        <select class="form-select" id="dateRangeFilter" data-change="updateDateRange">
                             <option value="">All time</option>
                             <option value="last_7_days">Last 7 days</option>
                             <option value="last_30_days">Last 30 days</option>
@@ -124,13 +124,13 @@
                     <hr>
 
                     <!-- Clear Filters -->
-                    <button type="button" class="btn btn-secondary w-100" onclick="clearFilters()">
+                    <button type="button" class="btn btn-secondary w-100" data-action="clearFilters">
                         <i class="fas fa-times"></i> Clear All Filters
                     </button>
 
                     <!-- Save Search -->
                     <button type="button" class="btn btn-outline-primary w-100 mt-2"
-                            onclick="saveSearch()" id="saveSearchBtn" style="display: none;">
+                            data-action="saveSearch" id="saveSearchBtn" style="display: none;">
                         <i class="fas fa-save"></i> Save Search
                     </button>
                 </div>
@@ -401,7 +401,7 @@ function updateFacets(facets) {
         const statusHtml = facets.status.map(option => `
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" value="${option.value}"
-                       id="status-${option.value}" onchange="performSearch()">
+                       id="status-${option.value}" data-change="performSearch">
                 <label class="form-check-label small" for="status-${option.value}">
                     ${option.label} <span class="badge bg-secondary">${option.count}</span>
                 </label>
@@ -415,7 +415,7 @@ function updateFacets(facets) {
         const severityHtml = facets.severity.map(option => `
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" value="${option.value}"
-                       id="severity-${option.value}" onchange="performSearch()">
+                       id="severity-${option.value}" data-change="performSearch">
                 <label class="form-check-label small" for="severity-${option.value}">
                     ${option.label} <span class="badge bg-secondary">${option.count}</span>
                 </label>
@@ -489,5 +489,13 @@ function loadSavedSearches() {
 
 // Load saved searches on page load
 document.addEventListener('DOMContentLoaded', loadSavedSearches);
+
+// Names this page's markup may invoke, via data-action / data-change.
+OpsDeck.registerActions({
+    performSearch,
+    updateDateRange,
+    clearFilters,
+    saveSearch,
+});
 </script>
 {% endblock %}

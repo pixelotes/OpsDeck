@@ -58,7 +58,7 @@
                 <div class="card-body">
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="send_to_all" name="send_to_all" {{ 'checked'
-                            if campaign and campaign.send_to_all else '' }} onchange="toggleAudienceSelectors()">
+                            if campaign and campaign.send_to_all else '' }} data-change="toggleAudienceSelectors">
                         <label class="form-check-label" for="send_to_all">
                             <strong>Send to All Active Users</strong>
                         </label>
@@ -223,5 +223,7 @@
             hideSelected: false
         });
     });
+
+    OpsDeck.registerActions({ toggleAudienceSelectors });
 </script>
 {% endblock %}

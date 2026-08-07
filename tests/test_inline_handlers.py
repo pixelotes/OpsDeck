@@ -19,17 +19,23 @@ TEMPLATES = Path(__file__).resolve().parent.parent / 'src' / 'templates'
 # onkeyup or onmouseover is caught rather than slipping through a narrow list.
 INLINE_HANDLER = re.compile(r'\son[a-z]+\s*=')
 
-#: Inline handlers remaining. 137 at the start:
-#:   -18  onchange="this.form.submit()"       -> data-autosubmit (behaviors.js)
-#:   -13  on{submit,click}="return confirm()" -> data-confirm (modal.js, already existed)
-#:   -32  onclick="exportTableToCSV(...)"     -> data-export-table (export.js)
-#:    -6  onclick="showConfirmModal(...)"     -> data-campaign-confirm-* (campaigns)
-#:    -6  onclick="bulkSetRow(...)"           -> data-bulk-* (permissions matrix)
-#:    -4  oninput="updateOutput(...)"         -> data-slider-output (risk form)
+#: Zero. It has to stay zero: script-src can now drop 'unsafe-inline' as soon as the
+#: inline <script> blocks carry nonces, and a single new on* attribute would break that
+#: page silently the moment it does — a CSP violation is a console error, not a failure
+#: any server-side test would see.
 #:
-#: What is left has no families worth naming: 58 handlers, nothing repeated more than
-#: three times, so from here it is one delegated listener per page.
-BASELINE = 58
+#: How the 137 went, for anyone adding a handler and looking for the pattern to follow:
+#:    18  onchange="this.form.submit()"       -> data-autosubmit (behaviors.js)
+#:    13  on{submit,click}="return confirm()" -> data-confirm (modal.js, already existed)
+#:    32  onclick="exportTableToCSV(...)"     -> data-export-table (export.js)
+#:     6  onclick="showConfirmModal(...)"     -> data-campaign-confirm-* (campaigns)
+#:     6  onclick="bulkSetRow(...)"           -> data-bulk-* (permissions matrix)
+#:     4  oninput="updateOutput(...)"         -> data-slider-output (risk form)
+#:     2  clipboard copies                    -> data-copy-from (behaviors.js)
+#:    56  everything else                     -> data-action / data-change + a page
+#:                                               registering names via
+#:                                               OpsDeck.registerActions
+BASELINE = 0
 
 
 def _counts():

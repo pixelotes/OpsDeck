@@ -54,7 +54,7 @@
                                 <td class="align-middle">
                                     {% if can_write('hr_people') %}
                                     <button class="btn btn-sm btn-outline-primary me-1"
-                                        onclick="openRenameModal('{{ stage.id }}', '{{ stage.name }}')">
+                                        data-action="openRenameModal" data-arg="{{ stage.id }}" data-stage-name="{{ stage.name }}">
                                         <i class="fas fa-edit"></i>
                                     </button>
 
@@ -197,5 +197,9 @@
         renameForm.action = `/hr/hiring/stages/${id}/update`;
         renameModal.show();
     }
+
+    OpsDeck.registerActions({
+        openRenameModal: (el, id) => openRenameModal(id, el.dataset.stageName),
+    });
 </script>
 {% endblock %}

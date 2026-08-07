@@ -46,7 +46,7 @@
                             <button type="submit" class="btn btn-primary"><i class="fas fa-eye"></i> Preview</button>
                         </div>
                         <input type="file" name="file" id="file_{{ key }}" accept=".csv,text/csv" class="d-none"
-                            onchange="document.getElementById('fname_{{ key }}').textContent = this.files.length ? this.files[0].name : 'No file selected';">
+                            data-filename-target="fname_{{ key }}">
                     </form>
                 </div>
             </div>
