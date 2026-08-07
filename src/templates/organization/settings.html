@@ -51,6 +51,43 @@
             </div>
 
             <hr>
+
+            <h6 class="text-muted text-uppercase small mb-3">
+                <i class="fas fa-th me-1"></i> Risk Matrix
+            </h6>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="risk_impact_levels" class="form-label">Impact levels</label>
+                    <input type="number" class="form-control" id="risk_impact_levels"
+                        name="risk_impact_levels" min="{{ min_levels }}" max="{{ max_levels }}"
+                        value="{{ settings.risk_impact_levels }}"
+                        {% if not can_write('settings') %}readonly{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="risk_likelihood_levels" class="form-label">Likelihood levels</label>
+                    <input type="number" class="form-control" id="risk_likelihood_levels"
+                        name="risk_likelihood_levels" min="{{ min_levels }}" max="{{ max_levels }}"
+                        value="{{ settings.risk_likelihood_levels }}"
+                        {% if not can_write('settings') %}readonly{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <p class="text-muted small mb-2">
+                        Currently
+                        <strong>{{ settings.risk_impact_levels }}&times;{{ settings.risk_likelihood_levels }}</strong>
+                        ({{ settings.risk_impact_levels * settings.risk_likelihood_levels }} cells).
+                        The two axes are independent, so the matrix need not be square.
+                    </p>
+                </div>
+            </div>
+            <div class="alert alert-light border small">
+                <i class="fas fa-info-circle me-1"></i>
+                Changing this affects <strong>new assessments only</strong>. Every risk records the
+                matrix it was scored against, so existing scores keep their meaning and stay
+                comparable — a 4 out of 5 and a 6 out of 8 both sit 80% of the way up their own
+                scale. Between {{ min_levels }} and {{ max_levels }} levels per axis.
+            </div>
+
+            <hr>
             {% if can_write('settings') %}
             <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save Settings</button>
             {% endif %}

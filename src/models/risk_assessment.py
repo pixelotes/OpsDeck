@@ -1,7 +1,9 @@
 from src.utils.timezone_helper import now
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
-from ..services.risk_scale import DEFAULT_LEVELS, RiskScale
+from sqlalchemy.orm import validates
+from ..services.risk_scale import (DEFAULT_LEVELS, RiskScale, clamp_score,
+                                  current_scale)
 
 # Association table for Risk Assessment - Change Mitigation M2M
 risk_assessment_changes = db.Table('risk_assessment_changes',
@@ -64,10 +66,18 @@ class RiskAssessmentItem(db.Model):
     # The matrix these were chosen from, stamped when the item is written — see the same
     # pair on Risk. An assessment is a snapshot of a judgement made on a day; re-reading
     # it through a matrix adopted later would change what that judgement said.
-    impact_levels = db.Column(db.Integer, default=DEFAULT_LEVELS, nullable=False,
+    impact_levels = db.Column(db.Integer, nullable=False,
+                              default=lambda: current_scale().impact_levels,
                               server_default=str(DEFAULT_LEVELS))
-    likelihood_levels = db.Column(db.Integer, default=DEFAULT_LEVELS, nullable=False,
+    likelihood_levels = db.Column(db.Integer, nullable=False,
+                                  default=lambda: current_scale().likelihood_levels,
                                   server_default=str(DEFAULT_LEVELS))
+
+    @validates('inherent_impact', 'inherent_likelihood',
+               'residual_impact', 'residual_likelihood')
+    def _validate_level(self, key, value):
+        """See the identical guard on Risk."""
+        return clamp_score(value)
     
     treatment_strategy = db.Column(db.String(50))
     mitigation_notes = db.Column(db.Text) # Specific notes for this assessment

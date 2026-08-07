@@ -1,11 +1,12 @@
-from sqlalchemy.orm import foreign
+from sqlalchemy.orm import foreign, validates
 from sqlalchemy import and_
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from .core import Attachment
 from .auth import User
 from src.utils.timezone_helper import today, now
-from ..services.risk_scale import DEFAULT_LEVELS, RiskScale
+from ..services.risk_scale import (DEFAULT_LEVELS, RiskScale, clamp_score,
+                                  current_scale)
 
 class ComplianceLink(db.Model):
     """
@@ -383,10 +384,33 @@ class Risk(db.Model):
     # a 4 that meant "high" on a 5x5 would silently become "half way" on an 8x8, with no
     # record that anything moved. Keeping it here means old risks stay comparable through
     # the percentage, and the organisation can change its mind without falsifying history.
-    impact_levels = db.Column(db.Integer, default=DEFAULT_LEVELS, nullable=False,
+    #
+    # The default is a callable so the stamp happens on every insert whatever wrote it —
+    # the form, the catalog import, the seeder — rather than only where somebody
+    # remembered to set it.
+    impact_levels = db.Column(db.Integer, nullable=False,
+                              default=lambda: current_scale().impact_levels,
                               server_default=str(DEFAULT_LEVELS))
-    likelihood_levels = db.Column(db.Integer, default=DEFAULT_LEVELS, nullable=False,
+    likelihood_levels = db.Column(db.Integer, nullable=False,
+                                  default=lambda: current_scale().likelihood_levels,
                                   server_default=str(DEFAULT_LEVELS))
+
+    @validates('inherent_impact', 'inherent_likelihood',
+               'residual_impact', 'residual_likelihood')
+    def _validate_level(self, key, value):
+        """Keep a score inside the range any matrix could have.
+
+        Nothing checked this before: the routes did int(request.form.get(...)), so a
+        crafted form could store 99 and a non-numeric one raised ValueError into a 500.
+        Validating on the model catches the importer and the seeder too, which is where
+        the route-level checks were always going to be bypassed.
+
+        Bounded by MAX_LEVELS rather than by this risk's own matrix because at insert
+        time the matrix columns have not been populated yet — their defaults run at
+        flush. The exact per-matrix clamp belongs at the write site, which knows the
+        scale; this is the floor under it.
+        """
+        return clamp_score(value)
     
     mitigation_plan = db.Column(db.Text)
     

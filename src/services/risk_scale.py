@@ -40,6 +40,23 @@ BANDS = (
 )
 
 
+def clamp_score(value):
+    """Coerce a submitted impact or likelihood into 1..MAX_LEVELS.
+
+    The upper bound is the largest matrix anyone can configure, not the largest this
+    particular risk allows: this runs on the model, before the risk's own matrix columns
+    have their defaults, so it is the outer bound. None passes through — both score
+    columns are nullable and a half-filled risk is a real state.
+    """
+    if value is None:
+        return None
+    try:
+        score = int(value)
+    except (TypeError, ValueError):
+        return 1
+    return max(1, min(MAX_LEVELS, score))
+
+
 def clamp_levels(value):
     """Coerce a level count into the supported range, falling back to the default."""
     try:
@@ -114,3 +131,25 @@ class RiskScale:
 
 #: The scale used when nothing says otherwise — what every existing risk was scored on.
 DEFAULT_SCALE = RiskScale()
+
+
+def current_scale():
+    """The organisation's configured matrix, for scoring something new.
+
+    Only for new assessments. Reading an existing risk goes through its own stored
+    levels, never through this: that is the whole point of storing them.
+
+    Falls back to 5x5 whenever the settings row is missing or unreadable — a fresh
+    install has no row yet, and this is called from templates while rendering forms,
+    where raising would take out the page over a setting nobody has chosen.
+    """
+    try:
+        from ..models.core import OrganizationSettings
+        settings = OrganizationSettings.query.first()
+    except Exception:                                   # no table yet, no app context
+        return DEFAULT_SCALE
+
+    if settings is None:
+        return DEFAULT_SCALE
+
+    return RiskScale(settings.risk_impact_levels, settings.risk_likelihood_levels)

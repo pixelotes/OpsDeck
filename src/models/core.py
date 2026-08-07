@@ -3,6 +3,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import foreign
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
+from ..services.risk_scale import DEFAULT_LEVELS as RISK_DEFAULT_LEVELS
 
 # Currency conversion rates (EUR base)
 CURRENCY_RATES = {
@@ -180,6 +181,20 @@ class OrganizationSettings(db.Model):
     primary_domain = db.Column(db.String(255))       # "opsdeck.com"
     logo_filename = db.Column(db.String(255))        # For PDF reports
     email_domains = db.Column(db.String(500))        # Comma-separated: "empresa.com,empresa.es"
+
+    # Size of the risk matrix new assessments are scored against. Rectangular is allowed:
+    # more granularity on impact than on likelihood is a normal way to run this.
+    #
+    # Changing these does not touch existing risks — each one records the matrix it was
+    # scored on, so a change applies to what is assessed from then on. See
+    # services/risk_scale.py.
+    risk_impact_levels = db.Column(db.Integer, default=RISK_DEFAULT_LEVELS,
+                                   nullable=False,
+                                   server_default=str(RISK_DEFAULT_LEVELS))
+    risk_likelihood_levels = db.Column(db.Integer, default=RISK_DEFAULT_LEVELS,
+                                       nullable=False,
+                                       server_default=str(RISK_DEFAULT_LEVELS))
+
     updated_at = db.Column(db.DateTime, default=lambda: now(), onupdate=lambda: now())
     
     def __repr__(self):
