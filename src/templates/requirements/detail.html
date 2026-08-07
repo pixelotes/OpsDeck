@@ -167,7 +167,7 @@
                             </button>
                         </form>
                         <form action="{{ url_for('requirements.delete_action', action_id=action.id) }}" method="POST"
-                            class="d-inline" onsubmit="return confirm('Delete this action?');">
+                            class="d-inline" data-confirm="Delete this action?">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
                                 <i class="fas fa-trash"></i>

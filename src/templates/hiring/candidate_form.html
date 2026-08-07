@@ -24,7 +24,7 @@
                 </form>
                 {% else %}
                 <form method="POST" action="{{ url_for('hiring.archive_candidate', id=candidate.id) }}"
-                    onsubmit="return confirm('Archive this candidate?');">
+                    data-confirm="Archive this candidate?">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-outline-secondary">
                         <i class="fas fa-archive"></i> Archive
@@ -33,7 +33,7 @@
                 {% endif %}
 
                 <form method="POST" action="{{ url_for('hiring.delete_candidate', id=candidate.id) }}"
-                    onsubmit="return confirm('Permanently delete this candidate? This cannot be undone.');">
+                    data-confirm="Permanently delete this candidate? This cannot be undone.">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-danger">
                         <i class="fas fa-trash"></i> Delete

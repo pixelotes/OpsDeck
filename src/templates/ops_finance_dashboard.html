@@ -219,7 +219,7 @@
     <div class="col-md-4">
         <form method="GET" action="{{ url_for('main.ops_finance_dashboard') }}" class="d-flex align-items-center">
             <label for="period" class="form-label me-2 mb-0">Show:</label>
-            <select name="period" id="period" class="form-select" onchange="this.form.submit()">
+            <select name="period" id="period" class="form-select" data-autosubmit>
                 <option value="7" {% if selected_period=='7' %}selected{% endif %}>Next 7 Days</option>
                 <option value="30" {% if selected_period=='30' %}selected{% endif %}>Next 30 Days</option>
                 <option value="90" {% if selected_period=='90' %}selected{% endif %}>Next 90 Days</option>

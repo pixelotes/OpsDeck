@@ -97,7 +97,7 @@
                             <form action="{{ url_for('evaluations.toggle_task', task_id=task.id) }}" method="POST" class="d-inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="checkbox" class="form-check-input" {% if task.is_completed %}checked{% endif %}
-                                    onchange="this.form.submit()" {% if not can_write('procurement') %}disabled{% endif %}>
+                                    data-autosubmit {% if not can_write('procurement') %}disabled{% endif %}>
                             </form>
                             <label class="form-check-label {% if task.is_completed %}text-decoration-line-through text-muted{% endif %}">
                                 {{ task.description }}
@@ -119,7 +119,7 @@
                             </button>
                         </form>
                         <form action="{{ url_for('evaluations.delete_task', task_id=task.id) }}" method="POST"
-                            class="d-inline" onsubmit="return confirm('Delete this task?');">
+                            class="d-inline" data-confirm="Delete this task?">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
                                 <i class="fas fa-trash"></i>
@@ -219,7 +219,7 @@
                             </button>
                         </form>
                         <form action="{{ url_for('evaluations.delete_activity', activity_id=activity.id) }}" method="POST"
-                            class="d-inline" onsubmit="return confirm('Delete this activity?');">
+                            class="d-inline" data-confirm="Delete this activity?">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
                                 <i class="fas fa-trash"></i>

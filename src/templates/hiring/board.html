@@ -63,7 +63,7 @@
                                 <li>
                                     <form method="POST"
                                         action="{{ url_for('hiring.delete_candidate', id=candidate.id) }}"
-                                        onsubmit="return confirm('Delete candidate {{ candidate.name }}?');">
+                                        data-confirm="Delete candidate {{ candidate.name }}?">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                         <button type="submit" class="dropdown-item text-danger">
                                             <i class="fas fa-trash"></i> Delete

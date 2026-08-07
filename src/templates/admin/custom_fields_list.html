@@ -62,7 +62,7 @@
                                 {% if can_write('settings') %}
                                 <form action="{{ url_for('admin.delete_custom_field', id=field.id) }}" method="POST"
                                     class="d-inline"
-                                    onsubmit="return confirm('Are you sure? This will delete all data associated with this field for all {{ entity_type }}s.');">
+                                    data-confirm="Are you sure? This will delete all data associated with this field for all {{ entity_type }}s.">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
                                         <i class="fas fa-trash"></i>

@@ -31,7 +31,7 @@
                 </div>
                 <div class="col-md-2">
                     <label for="status" class="form-label small mb-1">Status</label>
-                    <select class="form-select form-select-sm" id="status" name="status" onchange="this.form.submit()">
+                    <select class="form-select form-select-sm" id="status" name="status" data-autosubmit>
                         <option value="all">All Statuses</option>
                         {% for status in all_statuses %}
                         <option value="{{ status }}" {% if current_filters.status == status %}selected{% endif %}>{{ status }}</option>
@@ -40,7 +40,7 @@
                 </div>
                 <div class="col-md-2">
                     <label for="priority" class="form-label small mb-1">Priority</label>
-                    <select class="form-select form-select-sm" id="priority" name="priority" onchange="this.form.submit()">
+                    <select class="form-select form-select-sm" id="priority" name="priority" data-autosubmit>
                         <option value="all">All Priorities</option>
                         {% for priority in all_priorities %}
                         <option value="{{ priority }}" {% if current_filters.priority == priority %}selected{% endif %}>{{ priority }}</option>
@@ -49,7 +49,7 @@
                 </div>
                 <div class="col-md-2">
                     <label for="type" class="form-label small mb-1">Type</label>
-                    <select class="form-select form-select-sm" id="type" name="type" onchange="this.form.submit()">
+                    <select class="form-select form-select-sm" id="type" name="type" data-autosubmit>
                         <option value="all">All Types</option>
                         {% for type in all_types %}
                         <option value="{{ type }}" {% if current_filters.type == type %}selected{% endif %}>{{ type }}</option>
@@ -58,7 +58,7 @@
                 </div>
                 <div class="col-md-2">
                     <label for="sort" class="form-label small mb-1">Sort By</label>
-                    <select class="form-select form-select-sm" id="sort" name="sort" onchange="this.form.submit()">
+                    <select class="form-select form-select-sm" id="sort" name="sort" data-autosubmit>
                         <option value="created_desc" {% if current_filters.sort == 'created_desc' or not current_filters.sort %}selected{% endif %}>Newest First</option>
                         <option value="created_asc" {% if current_filters.sort == 'created_asc' %}selected{% endif %}>Oldest First</option>
                         <option value="priority" {% if current_filters.sort == 'priority' %}selected{% endif %}>Priority</option>

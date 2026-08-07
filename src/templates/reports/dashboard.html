@@ -13,7 +13,7 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5>Spending by Supplier (€)</h5>
                 <form method="GET" action="{{ url_for('main.reports') }}" class="d-flex align-items-center">
-                    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <select name="year" class="form-select form-select-sm" data-autosubmit>
                         {% for year in available_years %}
                         <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
                         {% endfor %}

@@ -81,7 +81,7 @@
         <form method="GET" action="{{ url_for('treeview.tree_view') }}">
             <div class="input-group">
                 <span class="input-group-text">Root</span>
-                <select name="root" class="form-select" onchange="this.form.submit()">
+                <select name="root" class="form-select" data-autosubmit>
                     {% for option in root_options %}
                     <option value="{{ option.lower() }}" {% if selected_root == option.lower() %}selected{% endif %}>
                         {{ option }}

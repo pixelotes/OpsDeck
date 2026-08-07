@@ -27,7 +27,7 @@
                 <label for="subscription_type" class="form-label visually-hidden">Type</label>
                 <div class="input-group">
                     <span class="input-group-text">Type</span>
-                    <select name="subscription_type" class="form-select" onchange="this.form.submit()">
+                    <select name="subscription_type" class="form-select" data-autosubmit>
                         <option value="all">All Types</option>
                         {% for type in subscription_types %}
                         <option value="{{ type }}" {% if selected_filter==type %}selected{% endif %}>{{ type.title() }}
@@ -40,7 +40,7 @@
                 <label for="tag_id" class="form-label visually-hidden">Tag</label>
                 <div class="input-group">
                     <span class="input-group-text">Tag</span>
-                    <select name="tag_id" class="form-select" onchange="this.form.submit()">
+                    <select name="tag_id" class="form-select" data-autosubmit>
                         <option value="">All Tags</option>
                         {% for tag in tags %}
                         <option value="{{ tag.id }}" {% if selected_tag_id==tag.id %}selected{% endif %}>{{ tag.name }}

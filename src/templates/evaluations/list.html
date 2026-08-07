@@ -33,7 +33,7 @@
                 </div>
                 <div class="col-md-2">
                     <label for="status" class="form-label small mb-1">Status</label>
-                    <select class="form-select form-select-sm" id="status" name="status" onchange="this.form.submit()">
+                    <select class="form-select form-select-sm" id="status" name="status" data-autosubmit>
                         <option value="all">All Statuses</option>
                         {% for status in all_statuses %}
                         <option value="{{ status }}" {% if current_filters.status == status %}selected{% endif %}>{{ status }}</option>
@@ -42,7 +42,7 @@
                 </div>
                 <div class="col-md-2">
                     <label for="supplier" class="form-label small mb-1">Supplier</label>
-                    <select class="form-select form-select-sm" id="supplier" name="supplier" onchange="this.form.submit()">
+                    <select class="form-select form-select-sm" id="supplier" name="supplier" data-autosubmit>
                         <option value="all">All Suppliers</option>
                         {% for supplier in all_suppliers %}
                         <option value="{{ supplier.id }}" {% if current_filters.supplier == supplier.id|string %}selected{% endif %}>{{ supplier.name }}</option>
@@ -51,7 +51,7 @@
                 </div>
                 <div class="col-md-2">
                     <label for="requirement" class="form-label small mb-1">Requirement Link</label>
-                    <select class="form-select form-select-sm" id="requirement" name="requirement" onchange="this.form.submit()">
+                    <select class="form-select form-select-sm" id="requirement" name="requirement" data-autosubmit>
                         <option value="all">All</option>
                         <option value="linked" {% if current_filters.requirement == 'linked' %}selected{% endif %}>Linked to Requirement</option>
                         <option value="unlinked" {% if current_filters.requirement == 'unlinked' %}selected{% endif %}>Not Linked</option>
@@ -59,7 +59,7 @@
                 </div>
                 <div class="col-md-2">
                     <label for="sort" class="form-label small mb-1">Sort By</label>
-                    <select class="form-select form-select-sm" id="sort" name="sort" onchange="this.form.submit()">
+                    <select class="form-select form-select-sm" id="sort" name="sort" data-autosubmit>
                         <option value="close_date" {% if current_filters.sort == 'close_date' or not current_filters.sort %}selected{% endif %}>Close Date</option>
                         <option value="created_desc" {% if current_filters.sort == 'created_desc' %}selected{% endif %}>Newest First</option>
                         <option value="value" {% if current_filters.sort == 'value' %}selected{% endif %}>Value (High to Low)</option>

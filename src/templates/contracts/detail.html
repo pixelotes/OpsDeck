@@ -21,7 +21,7 @@
     <div class="btn-toolbar mb-2 mb-md-0">
         {% if contract and can_write('procurement') %}
         <form action="{{ url_for('contracts.delete_contract', id=contract.id) }}" method="POST" class="ms-2"
-            onsubmit="return confirm('Are you sure you want to delete this contract?');">
+            data-confirm="Are you sure you want to delete this contract?">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <button type="submit" class="btn btn-sm btn-danger">
                 <i class="fas fa-trash"></i> Delete
@@ -220,7 +220,7 @@
                                     style="display:inline;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                     <button type="submit" class="btn btn-sm btn-outline-danger"
-                                        onclick="return confirm('Unlink this item?');">
+                                        data-confirm="Unlink this item?">
                                         <i class="fas fa-unlink"></i> Unlink
                                     </button>
                                 </form>
@@ -338,7 +338,7 @@
                         class="d-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                         <button type="submit" class="btn btn-sm btn-outline-danger border-0"
-                            onclick="return confirm('Delete this file?')">
+                            data-confirm="Delete this file?">
                             <i class="fas fa-times"></i>
                         </button>
                     </form>

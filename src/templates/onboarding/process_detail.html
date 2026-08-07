@@ -44,7 +44,7 @@
                     {% if process.status != 'Completed' and can_write('hr_people') %}
                     <form action="{{ url_for('onboarding.complete_process', type=type, id=process.id) }}" method="POST"
                         class="mt-2"
-                        {% if pct < 100 %}onsubmit="return confirm('{{ total - completed }} item(s) still pending. Close anyway?')"{% endif %}>
+                        {% if pct < 100 %}data-confirm="{{ total - completed }} item(s) still pending. Close anyway?"{% endif %}>
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                         <button class="btn btn-sm btn-{{ theme_color }}">
                             <i class="fas fa-check-double me-1"></i> Complete Process

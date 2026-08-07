@@ -23,7 +23,7 @@
 
             <!-- Filters -->
             <div class="col-md-3">
-                <select class="form-select" name="status" onchange="this.form.submit()">
+                <select class="form-select" name="status" data-autosubmit>
                     <option value="active" {% if status_filter=='active' %}selected{% endif %}>Active Candidates
                     </option>
                     <option value="archived" {% if status_filter=='archived' %}selected{% endif %}>Archived Candidates
@@ -94,7 +94,7 @@
                             </form>
                             {% else %}
                             <form method="POST" action="{{ url_for('hiring.archive_candidate', id=candidate.id) }}"
-                                class="d-inline" onsubmit="return confirm('Archive this candidate?');">
+                                class="d-inline" data-confirm="Archive this candidate?">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-outline-secondary" title="Archive">
                                     <i class="fas fa-archive"></i>
