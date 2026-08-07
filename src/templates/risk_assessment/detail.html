@@ -175,14 +175,14 @@
                                             </div>
                                             <div class="row">
                                                 <div class="col-md-6 mb-3">
-                                                    <label class="form-label">Residual Impact (1-5)</label>
+                                                    <label class="form-label">Residual Impact (1-{{ item.scale.impact_levels }})</label>
                                                     <input type="number" class="form-control" name="residual_impact"
-                                                        value="{{ item.residual_impact }}" min="1" max="5" required>
+                                                        value="{{ item.residual_impact }}" min="1" max="{{ item.scale.impact_levels }}" required>
                                                 </div>
                                                 <div class="col-md-6 mb-3">
-                                                    <label class="form-label">Residual Likelihood (1-5)</label>
+                                                    <label class="form-label">Residual Likelihood (1-{{ item.scale.likelihood_levels }})</label>
                                                     <input type="number" class="form-control" name="residual_likelihood"
-                                                        value="{{ item.residual_likelihood }}" min="1" max="5" required>
+                                                        value="{{ item.residual_likelihood }}" min="1" max="{{ item.scale.likelihood_levels }}" required>
                                                 </div>
                                             </div>
                                             <div class="alert alert-info py-2 small">

@@ -638,6 +638,22 @@ def create_app(test_config=None):
         alerts = get_action_required_alerts(user)
         return {'action_alerts': alerts, 'action_alerts_count': len(alerts)}
 
+    # --- Risk matrix ---
+    @app.context_processor
+    def inject_risk_matrix():
+        """Make the matrix available to any template that renders a severity.
+
+        risk_level_colour replaces a chain of conditionals that was copied into four
+        templates; having it in one place is what stops the heatmap's colours drifting
+        from the badges printed next to it.
+        """
+        from .services.risk_scale import current_appetite, current_scale, level_colour
+        return {
+            'risk_level_colour': level_colour,
+            'current_risk_scale': current_scale,
+            'current_risk_appetite': current_appetite,
+        }
+
     # --- Permissions Context Processor ---
     @app.context_processor
     def inject_permissions():

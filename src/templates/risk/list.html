@@ -56,7 +56,7 @@
                         </td>
                         <td>
                             <span
-                                class="badge bg-{{ 'danger' if risk.criticality_level == 'Critical' else 'warning' if risk.criticality_level == 'High' else 'info' if risk.criticality_level == 'Medium' else 'success' }}">
+                                class="badge bg-{{ risk_level_colour(risk.criticality_level) }}">
                                 {{ risk.residual_score }}
                             </span>
                             <small class="text-muted">({{ risk.residual_impact }}x{{ risk.residual_likelihood

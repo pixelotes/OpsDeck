@@ -371,11 +371,17 @@ class Risk(db.Model):
     next_review_date = db.Column(db.Date)
     
     # Quantitative scoring. The levels are 1..impact_levels and 1..likelihood_levels.
-    inherent_impact = db.Column(db.Integer, default=DEFAULT_LEVELS)
-    inherent_likelihood = db.Column(db.Integer, default=DEFAULT_LEVELS)
+    # Defaults follow the configured matrix. A literal 5 was the top of a 5x5, but on a
+    # 3x3 it is a value that matrix does not have.
+    inherent_impact = db.Column(db.Integer,
+                                default=lambda: current_scale().impact_levels)
+    inherent_likelihood = db.Column(db.Integer,
+                                    default=lambda: current_scale().likelihood_levels)
 
-    residual_impact = db.Column(db.Integer, default=DEFAULT_LEVELS)
-    residual_likelihood = db.Column(db.Integer, default=DEFAULT_LEVELS)
+    residual_impact = db.Column(db.Integer,
+                                default=lambda: current_scale().impact_levels)
+    residual_likelihood = db.Column(db.Integer,
+                                    default=lambda: current_scale().likelihood_levels)
 
     # The matrix these four were chosen from, stamped when the risk is written.
     #

@@ -101,6 +101,21 @@ def _as_int(value, fallback):
 #: The appetite in force when nothing says otherwise — the thresholds that were hardcoded.
 DEFAULT_APPETITE = RiskAppetite()
 
+#: Bootstrap contextual class per severity, so the register, the detail page, the cards
+#: and the heatmap agree. This mapping was written out inline in four templates as a chain
+#: of conditionals, which is why the heatmap grid could drift from the badges beside it.
+LEVEL_COLOURS = {
+    'Critical': 'danger',
+    'High': 'warning',
+    'Medium': 'info',
+    'Low': 'success',
+}
+
+
+def level_colour(level):
+    """Bootstrap contextual class for a severity name."""
+    return LEVEL_COLOURS.get(level, 'secondary')
+
 
 def clamp_score(value):
     """Coerce a submitted impact or likelihood into 1..MAX_LEVELS.
@@ -208,15 +223,22 @@ def _settings_row():
     rendering pages, where raising would lose the page over a setting nobody has chosen.
     """
     try:
-        from flask import g, has_app_context
+        from flask import has_app_context, has_request_context, request
         from ..models.core import OrganizationSettings
 
         if not has_app_context():
             return None
 
-        if not hasattr(g, '_risk_settings'):
-            g._risk_settings = OrganizationSettings.query.first()
-        return g._risk_settings
+        # Cached on the request, not on `g`. `g` lives as long as the application
+        # context, which outlives a single request in a CLI command or a background job —
+        # and there, code that changes the settings and then reads them back would get
+        # the value from before its own write.
+        if not has_request_context():
+            return OrganizationSettings.query.first()
+
+        if not hasattr(request, '_risk_settings'):
+            request._risk_settings = OrganizationSettings.query.first()
+        return request._risk_settings
     except Exception:
         return None
 

@@ -11,7 +11,7 @@
         <small class="text-muted">Risk #{{ risk.id }}</small>
         <div class="d-flex align-items-center gap-2 mt-1">
             <span
-                class="badge bg-{{ 'danger' if risk.criticality_level == 'Critical' else 'warning text-dark' if risk.criticality_level == 'High' else 'info' if risk.criticality_level == 'Medium' else 'success' }}">
+                class="badge bg-{{ risk_level_colour(risk.criticality_level) }}">
                 {{ risk.criticality_level }} ({{ risk.residual_score }})
             </span>
             <span class="badge bg-secondary">{{ risk.status }}</span>
@@ -73,7 +73,7 @@
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">Risk Description</h5>
                                 <span
-                                    class="badge bg-{{ 'danger' if risk.criticality_level == 'Critical' else 'warning' if risk.criticality_level == 'High' else 'info' if risk.criticality_level == 'Medium' else 'success' }}">
+                                    class="badge bg-{{ risk_level_colour(risk.criticality_level) }}">
                                     {{ risk.criticality_level }}
                                 </span>
                             </div>
@@ -147,7 +147,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div
-                                    class="card h-100 border-{{ 'danger' if risk.criticality_level == 'Critical' else 'warning' if risk.criticality_level == 'High' else 'info' if risk.criticality_level == 'Medium' else 'success' }}">
+                                    class="card h-100 border-{{ risk_level_colour(risk.criticality_level) }}">
                                     <div class="card-header text-center">Residual Risk</div>
                                     <div class="card-body text-center">
                                         <h2 class="display-4">{{ risk.residual_score }}</h2>

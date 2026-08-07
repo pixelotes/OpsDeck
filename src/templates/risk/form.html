@@ -3,6 +3,9 @@
 {% block title %}{{ 'Edit' if risk and risk.id else 'New' }} Risk{% endblock %}
 
 {% block content %}
+{# Sliders follow the organisation's matrix; a risk being edited keeps the one it
+   was scored on, so its own levels win. #}
+{% set scale = risk.scale if risk else current_risk_scale() %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">{{ 'Edit' if risk and risk.id else 'New' }} Risk</h1>
 </div>
@@ -116,24 +119,24 @@
                             {% endif %}
                             <div class="row g-3 mb-4">
                                 <div class="col-md-6">
-                                    <label for="inherent_likelihood" class="form-label">Likelihood (1-5)</label>
-                                    <input type="range" class="form-range inherent-slider" min="1" max="5" step="1"
+                                    <label for="inherent_likelihood" class="form-label">Likelihood (1-{{ scale.likelihood_levels }})</label>
+                                    <input type="range" class="form-range inherent-slider" min="1" max="{{ scale.likelihood_levels }}" step="1"
                                         id="inherent_likelihood" name="inherent_likelihood"
-                                        value="{{ risk.inherent_likelihood if risk else 5 }}"
+                                        value="{{ risk.inherent_likelihood if risk else scale.likelihood_levels }}"
                                         data-slider-output="inh_like_val" data-slider-warns="1" {% if
                                         not can_write('risk_governance') %}disabled{% endif %}>
                                     <div class="text-center fw-bold" id="inh_like_val">{{ risk.inherent_likelihood if
-                                        risk else 5 }}</div>
+                                        risk else scale.likelihood_levels }}</div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="inherent_impact" class="form-label">Impact (1-5)</label>
-                                    <input type="range" class="form-range inherent-slider" min="1" max="5" step="1"
+                                    <label for="inherent_impact" class="form-label">Impact (1-{{ scale.impact_levels }})</label>
+                                    <input type="range" class="form-range inherent-slider" min="1" max="{{ scale.impact_levels }}" step="1"
                                         id="inherent_impact" name="inherent_impact"
-                                        value="{{ risk.inherent_impact if risk else 5 }}"
+                                        value="{{ risk.inherent_impact if risk else scale.impact_levels }}"
                                         data-slider-output="inh_imp_val" data-slider-warns="1" {% if
                                         not can_write('risk_governance') %}disabled{% endif %}>
                                     <div class="text-center fw-bold" id="inh_imp_val">{{ risk.inherent_impact if risk
-                                        else 5 }}</div>
+                                        else scale.impact_levels }}</div>
                                 </div>
                             </div>
 
@@ -146,21 +149,21 @@
                             </div>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label for="residual_likelihood" class="form-label">Likelihood (1-5)</label>
-                                    <input type="range" class="form-range" min="1" max="5" step="1"
+                                    <label for="residual_likelihood" class="form-label">Likelihood (1-{{ scale.likelihood_levels }})</label>
+                                    <input type="range" class="form-range" min="1" max="{{ scale.likelihood_levels }}" step="1"
                                         id="residual_likelihood" name="residual_likelihood"
-                                        value="{{ risk.residual_likelihood if risk else 5 }}"
+                                        value="{{ risk.residual_likelihood if risk else scale.likelihood_levels }}"
                                         data-slider-output="res_like_val" disabled>
                                     <div class="text-center fw-bold" id="res_like_val">{{ risk.residual_likelihood if
-                                        risk else 5 }}</div>
+                                        risk else scale.likelihood_levels }}</div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="residual_impact" class="form-label">Impact (1-5)</label>
-                                    <input type="range" class="form-range" min="1" max="5" step="1" id="residual_impact"
-                                        name="residual_impact" value="{{ risk.residual_impact if risk else 5 }}"
+                                    <label for="residual_impact" class="form-label">Impact (1-{{ scale.impact_levels }})</label>
+                                    <input type="range" class="form-range" min="1" max="{{ scale.impact_levels }}" step="1" id="residual_impact"
+                                        name="residual_impact" value="{{ risk.residual_impact if risk else scale.impact_levels }}"
                                         data-slider-output="res_imp_val" disabled>
                                     <div class="text-center fw-bold" id="res_imp_val">{{ risk.residual_impact if risk
-                                        else 5 }}</div>
+                                        else scale.impact_levels }}</div>
                                 </div>
                             </div>
                         </div>
