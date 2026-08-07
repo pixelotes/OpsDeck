@@ -47,6 +47,13 @@ def new_assessment():
                     inherent_likelihood=risk.inherent_likelihood,
                     residual_impact=risk.residual_impact,
                     residual_likelihood=risk.residual_likelihood,
+                    # The matrix travels with the numbers. Without it the item would take
+                    # the organisation's current matrix from its column default, so a risk
+                    # scored 4 out of 5 would be frozen as 4 out of 8 the moment somebody
+                    # widened the matrix — a snapshot that misreports the very risk it is
+                    # a snapshot of.
+                    impact_levels=risk.impact_levels,
+                    likelihood_levels=risk.likelihood_levels,
                     treatment_strategy=risk.treatment_strategy
                 )
                 db.session.add(item)
@@ -115,9 +122,14 @@ def lock_assessment(id):
             if item.original_risk_id:
                 live_risk = db.session.get(Risk,item.original_risk_id)
                 if live_risk:
-                    # Update residual scores from assessment
+                    # Update residual scores from assessment, matrix included: the numbers
+                    # only mean anything alongside the scale they were chosen from, and
+                    # writing them onto a risk still holding a different one would
+                    # misread them.
                     live_risk.residual_impact = item.residual_impact
                     live_risk.residual_likelihood = item.residual_likelihood
+                    live_risk.impact_levels = item.impact_levels
+                    live_risk.likelihood_levels = item.likelihood_levels
                     
                     # Conditional status update/suggestion
                     # If risk was 'Draft' or 'Identified', move it along.

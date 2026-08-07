@@ -50,9 +50,15 @@ def list_risks():
     if residual_likelihood:
         query = query.filter(Risk.residual_likelihood == residual_likelihood)   
 
+    # Filtered on the percentage for the same reason the ordering is: a raw minimum score
+    # means something different on every matrix size. The parameter keeps its name and its
+    # 1-100 reading, which on the default 5x5 is what it always was.
     min_score = request.args.get('min_score', type=int)
     if min_score:
-        query = query.filter((Risk.residual_impact * Risk.residual_likelihood) >= min_score)
+        query = query.filter(
+            (Risk.residual_impact * Risk.residual_likelihood * 100.0)
+            >= (Risk.impact_levels * Risk.likelihood_levels * min_score)
+        )
 
     # Threshold filters (both must be met) — used by the Organizational Health
     # dashboard to link to the exact set of risks that lower the health score.
@@ -68,7 +74,15 @@ def list_risks():
     if request.args.get('active_only'):
         query = query.filter(Risk.status != 'Closed', Risk.treatment_strategy != 'Accept')
 
-    risks = query.order_by((Risk.residual_impact * Risk.residual_likelihood).desc(), Risk.created_at.desc()).all()
+    # Ordered in SQL by the product scaled to its own matrix, not by the raw product: a
+    # register can hold risks measured on differently sized matrices, and 12 out of 16
+    # outranks 15 out of 64. Computed rather than sorted in Python so pagination and the
+    # database keep agreeing about what "the top" means.
+    residual_percent = (
+        Risk.residual_impact * Risk.residual_likelihood * 100.0
+    ) / (Risk.impact_levels * Risk.likelihood_levels)
+
+    risks = query.order_by(residual_percent.desc(), Risk.created_at.desc()).all()
     
     return render_template('risk/list.html', risks=risks)
 

@@ -297,3 +297,61 @@ def test_changing_the_appetite_says_it_applies_to_everything(client, app, init_d
         row = OrganizationSettings.query.first()
         assert (row.risk_appetite_medium_from, row.risk_appetite_high_from,
                 row.risk_appetite_critical_from) == (10, 40, 55)
+
+
+# --- the snapshot must not misreport what it snapshots -----------------------------
+
+def test_an_assessment_snapshot_carries_the_risk_s_own_matrix(app, init_database):
+    """The item copies four numbers; without the scale they mean something else.
+
+    A risk scored 4 out of 5 must be frozen as 4 out of 5, even if the organisation
+    widened its matrix between the assessment and the risk being written.
+    """
+    from src.models import RiskAssessment, RiskAssessmentItem
+
+    _settings(app, impact=5, likelihood=5)
+    risk_id = _risk(app, 'scored on 5x5', 4, 5)
+
+    _settings(app, impact=8, likelihood=8)      # the organisation moves on
+
+    with app.app_context():
+        risk = db.session.get(Risk, risk_id)
+        assessment = RiskAssessment(name='Q2')
+        db.session.add(assessment)
+        db.session.flush()
+
+        item = RiskAssessmentItem(
+            assessment_id=assessment.id, original_risk_id=risk.id,
+            risk_description=risk.risk_description,
+            inherent_impact=risk.inherent_impact,
+            inherent_likelihood=risk.inherent_likelihood,
+            residual_impact=risk.residual_impact,
+            residual_likelihood=risk.residual_likelihood,
+            impact_levels=risk.impact_levels,
+            likelihood_levels=risk.likelihood_levels,
+        )
+        db.session.add(item)
+        db.session.commit()
+
+        assert (item.impact_levels, item.likelihood_levels) == (5, 5)
+        assert item.residual_percent == risk.residual_percent == 80
+        assert item.criticality_level == risk.criticality_level == 'Critical'
+
+
+def test_the_register_orders_by_position_on_each_risk_s_own_matrix(client, app,
+                                                                   init_database):
+    """12 out of 16 outranks 15 out of 64, and the ordering happens in SQL."""
+    _settings(app, impact=4, likelihood=4)
+    _risk(app, 'small matrix high risk', 3, 4)      # 12/16 = 75%
+    _settings(app, impact=8, likelihood=8)
+    _risk(app, 'big matrix lower risk', 3, 5)       # 15/64 = 23%
+
+    _admin(app, 'ordering@test.com')
+    client.post('/login', data={'email': 'ordering@test.com', 'password': 'password'},
+                follow_redirects=True)
+
+    body = client.get('/risk/').get_data(as_text=True)
+
+    assert body.index('small matrix high risk') < body.index('big matrix lower risk'), (
+        'the raw product would have put the 15 above the 12'
+    )
