@@ -9,7 +9,7 @@
         <a href="{{ url_for('compliance.list_assessments') }}" class="btn btn-outline-primary">
             <i class="fas fa-clipboard-list"></i> Assessments History
         </a>
-        <button class="btn btn-outline-success" onclick="exportTableToCSV('compliance-table', 'vendor-compliance.csv')">
+        <button class="btn btn-outline-success" data-export-table="compliance-table" data-export-filename="vendor-compliance.csv">
             <i class="fas fa-file-csv"></i> Export to CSV
         </button>
     </div>

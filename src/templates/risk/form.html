@@ -120,7 +120,7 @@
                                     <input type="range" class="form-range inherent-slider" min="1" max="5" step="1"
                                         id="inherent_likelihood" name="inherent_likelihood"
                                         value="{{ risk.inherent_likelihood if risk else 5 }}"
-                                        oninput="updateOutput('inh_like_val', this.value); showInherentWarning();" {% if
+                                        data-slider-output="inh_like_val" data-slider-warns="1" {% if
                                         not can_write('risk_governance') %}disabled{% endif %}>
                                     <div class="text-center fw-bold" id="inh_like_val">{{ risk.inherent_likelihood if
                                         risk else 5 }}</div>
@@ -130,7 +130,7 @@
                                     <input type="range" class="form-range inherent-slider" min="1" max="5" step="1"
                                         id="inherent_impact" name="inherent_impact"
                                         value="{{ risk.inherent_impact if risk else 5 }}"
-                                        oninput="updateOutput('inh_imp_val', this.value); showInherentWarning();" {% if
+                                        data-slider-output="inh_imp_val" data-slider-warns="1" {% if
                                         not can_write('risk_governance') %}disabled{% endif %}>
                                     <div class="text-center fw-bold" id="inh_imp_val">{{ risk.inherent_impact if risk
                                         else 5 }}</div>
@@ -150,7 +150,7 @@
                                     <input type="range" class="form-range" min="1" max="5" step="1"
                                         id="residual_likelihood" name="residual_likelihood"
                                         value="{{ risk.residual_likelihood if risk else 5 }}"
-                                        oninput="updateOutput('res_like_val', this.value)" disabled>
+                                        data-slider-output="res_like_val" disabled>
                                     <div class="text-center fw-bold" id="res_like_val">{{ risk.residual_likelihood if
                                         risk else 5 }}</div>
                                 </div>
@@ -158,7 +158,7 @@
                                     <label for="residual_impact" class="form-label">Impact (1-5)</label>
                                     <input type="range" class="form-range" min="1" max="5" step="1" id="residual_impact"
                                         name="residual_impact" value="{{ risk.residual_impact if risk else 5 }}"
-                                        oninput="updateOutput('res_imp_val', this.value)" disabled>
+                                        data-slider-output="res_imp_val" disabled>
                                     <div class="text-center fw-bold" id="res_imp_val">{{ risk.residual_impact if risk
                                         else 5 }}</div>
                                 </div>
@@ -266,6 +266,21 @@
 <script>
     // Detect if new risk (risk object is None/null in template or scalar checks)
     const isNewRisk = {{ 'false' if risk and risk.id else 'true' }};
+
+    // Delegated, so the sliders carry data-slider-output rather than an oninput.
+    // data-slider-warns marks the two inherent sliders, which also reveal the notice
+    // that changing an inherent score after the fact rewrites the risk's history.
+    document.addEventListener('input', function (event) {
+        const slider = event.target.closest('[data-slider-output]');
+        if (!slider) {
+            return;
+        }
+
+        updateOutput(slider.dataset.sliderOutput, slider.value);
+        if (slider.dataset.sliderWarns) {
+            showInherentWarning();
+        }
+    });
 
     function updateOutput(id, value) {
         document.getElementById(id).innerText = value;

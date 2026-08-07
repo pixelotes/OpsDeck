@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-archive"></i> Archived Subscriptions</h2>
-    <button class="btn btn-outline-success" onclick="exportTableToCSV('archived-subscriptions-table', 'archived-subscriptions.csv')">
+    <button class="btn btn-outline-success" data-export-table="archived-subscriptions-table" data-export-filename="archived-subscriptions.csv">
         <i class="fas fa-file-csv"></i> Export to CSV
     </button>
     <a href="{{ url_for('subscriptions.subscriptions') }}" class="btn btn-outline-secondary">

@@ -9,7 +9,7 @@
         <h2><i class="fas fa-clipboard-list"></i> Assessments History</h2>
     </div>
     <div>
-        <button class="btn btn-outline-success" onclick="exportTableToCSV('assessments-table', 'security-assessments.csv')">
+        <button class="btn btn-outline-success" data-export-table="assessments-table" data-export-filename="security-assessments.csv">
             <i class="fas fa-file-csv"></i> Export to CSV
         </button>
         {# Note: New assessments are typically created from the Supplier detail page #}

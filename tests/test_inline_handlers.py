@@ -19,10 +19,17 @@ TEMPLATES = Path(__file__).resolve().parent.parent / 'src' / 'templates'
 # onkeyup or onmouseover is caught rather than slipping through a narrow list.
 INLINE_HANDLER = re.compile(r'\son[a-z]+\s*=')
 
-#: Inline handlers remaining. Was 137 before the first tranche:
-#:   -18  onchange="this.form.submit()"      -> data-autosubmit (behaviors.js)
+#: Inline handlers remaining. 137 at the start:
+#:   -18  onchange="this.form.submit()"       -> data-autosubmit (behaviors.js)
 #:   -13  on{submit,click}="return confirm()" -> data-confirm (modal.js, already existed)
-BASELINE = 106
+#:   -32  onclick="exportTableToCSV(...)"     -> data-export-table (export.js)
+#:    -6  onclick="showConfirmModal(...)"     -> data-campaign-confirm-* (campaigns)
+#:    -6  onclick="bulkSetRow(...)"           -> data-bulk-* (permissions matrix)
+#:    -4  oninput="updateOutput(...)"         -> data-slider-output (risk form)
+#:
+#: What is left has no families worth naming: 58 handlers, nothing repeated more than
+#: three times, so from here it is one delegated listener per page.
+BASELINE = 58
 
 
 def _counts():

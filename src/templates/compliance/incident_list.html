@@ -18,7 +18,7 @@
                 <a class="dropdown-item" href="{{ url_for('compliance.list_incidents', status='Closed') }}">Closed</a>
             </div>
         </div>
-        <button class="btn btn-outline-success" onclick="exportTableToCSV('incidents-table', 'incidents.csv')">
+        <button class="btn btn-outline-success" data-export-table="incidents-table" data-export-filename="incidents.csv">
             <i class="fas fa-file-csv"></i> Export to CSV
         </button>
         {% if can_write('operations') %}

@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-cogs"></i> Subscriptions</h2>
     <div>
-        <button class="btn btn-outline-success" onclick="exportTableToCSV('subscriptions-table', 'subscriptions.csv')">
+        <button class="btn btn-outline-success" data-export-table="subscriptions-table" data-export-filename="subscriptions.csv">
             <i class="fas fa-file-csv"></i> Export to CSV
         </button>
         <a href="{{ url_for('subscriptions.archived_subscriptions') }}" class="btn btn-outline-secondary">

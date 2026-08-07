@@ -22,7 +22,7 @@
             class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="button" class="btn btn-success"
-                onclick="showConfirmModal('Schedule this campaign?', 'This will create emails for all recipients.', 'form-schedule')">
+                data-campaign-confirm-title="Schedule this campaign?" data-campaign-confirm-body="This will create emails for all recipients." data-campaign-confirm-form="form-schedule">
                 <i class="fas fa-paper-plane me-1"></i> Schedule & Send
             </button>
         </form>
@@ -33,7 +33,7 @@
             class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="button" class="btn btn-primary"
-                onclick="showConfirmModal('Send Now', 'Send all pending emails immediately?', 'form-send-now')">
+                data-campaign-confirm-title="Send Now" data-campaign-confirm-body="Send all pending emails immediately?" data-campaign-confirm-form="form-send-now">
                 <i class="fas fa-bolt me-1"></i> Send Now
             </button>
         </form>
@@ -44,7 +44,7 @@
             class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="button" class="btn btn-danger"
-                onclick="showConfirmModal('🚨 Cancel Campaign', 'This will cancel all pending emails and return to draft.', 'form-cancel')">
+                data-campaign-confirm-title="🚨 Cancel Campaign" data-campaign-confirm-body="This will cancel all pending emails and return to draft." data-campaign-confirm-form="form-cancel">
                 <i class="fas fa-times-circle me-1"></i> Cancel
             </button>
         </form>
@@ -55,7 +55,7 @@
             class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="button" class="btn btn-success"
-                onclick="showConfirmModal('Finish Campaign', 'Mark this campaign as finished? Any pending retries will be stopped.', 'form-finish')">
+                data-campaign-confirm-title="Finish Campaign" data-campaign-confirm-body="Mark this campaign as finished? Any pending retries will be stopped." data-campaign-confirm-form="form-finish">
                 <i class="fas fa-check-double me-1"></i> Finish
             </button>
         </form>
@@ -66,7 +66,7 @@
             class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="button" class="btn btn-warning"
-                onclick="showConfirmModal('Retry Failed Emails', 'Queue all {{ stats.failed }} failed email(s) for retry?', 'form-retry')">
+                data-campaign-confirm-title="Retry Failed Emails" data-campaign-confirm-body="Queue all {{ stats.failed }} failed email(s) for retry?" data-campaign-confirm-form="form-retry">
                 <i class="fas fa-redo me-1"></i> Retry Failed
             </button>
         </form>
@@ -251,7 +251,7 @@
                     method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="button" class="btn btn-outline-dark w-100"
-                        onclick="showConfirmModal('Archive Campaign', 'Archive this campaign? It will be moved to the archive list.', 'form-archive')">
+                        data-campaign-confirm-title="Archive Campaign" data-campaign-confirm-body="Archive this campaign? It will be moved to the archive list." data-campaign-confirm-form="form-archive">
                         <i class="fas fa-archive me-1"></i> Archive Campaign
                     </button>
                 </form>
@@ -287,12 +287,23 @@
     let targetFormId = null;
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
 
-    function showConfirmModal(title, message, formId) {
-        document.getElementById('confirmModalLabel').textContent = title;
-        document.getElementById('confirmModalBody').textContent = message;
-        targetFormId = formId;
+    // Delegated, so the buttons carry data-campaign-confirm-* rather than an onclick.
+    // One listener on the document: the action buttons are re-rendered when the stats
+    // block auto-refreshes below.
+    document.addEventListener('click', function (event) {
+        const trigger = event.target.closest('[data-campaign-confirm-form]');
+        if (!trigger) {
+            return;
+        }
+
+        event.preventDefault();
+        document.getElementById('confirmModalLabel').textContent =
+            trigger.dataset.campaignConfirmTitle;
+        document.getElementById('confirmModalBody').textContent =
+            trigger.dataset.campaignConfirmBody;
+        targetFormId = trigger.dataset.campaignConfirmForm;
         confirmModal.show();
-    }
+    });
 
     document.getElementById('confirmModalOk').addEventListener('click', function () {
         if (targetFormId) {

@@ -202,11 +202,11 @@
                                     {% if can_write('administration') %}
                                     <div class="btn-group btn-group-sm mb-1 d-block mb-2">
                                         <button type="button" class="btn btn-outline-secondary btn-xs"
-                                            onclick="bulkSetRow('user', {{ u.id }}, 'NONE')">None</button>
+                                            data-bulk-type="user" data-bulk-id="{{ u.id }}" data-bulk-value="NONE">None</button>
                                         <button type="button" class="btn btn-outline-info btn-xs"
-                                            onclick="bulkSetRow('user', {{ u.id }}, 'READ_ONLY')">All Read</button>
+                                            data-bulk-type="user" data-bulk-id="{{ u.id }}" data-bulk-value="READ_ONLY">All Read</button>
                                         <button type="button" class="btn btn-outline-success btn-xs"
-                                            onclick="bulkSetRow('user', {{ u.id }}, 'WRITE')">All Full</button>
+                                            data-bulk-type="user" data-bulk-id="{{ u.id }}" data-bulk-value="WRITE">All Full</button>
                                     </div>
                                     <button type="submit" form="form-user-{{ u.id }}"
                                         class="btn btn-sm btn-primary shadow-sm btn-hover-elevate w-100">
@@ -278,11 +278,11 @@
                                     {% if can_write('administration') %}
                                     <div class="btn-group btn-group-sm mb-1 d-block mb-2">
                                         <button type="button" class="btn btn-outline-secondary btn-xs"
-                                            onclick="bulkSetRow('group', {{ g.id }}, 'NONE')">None</button>
+                                            data-bulk-type="group" data-bulk-id="{{ g.id }}" data-bulk-value="NONE">None</button>
                                         <button type="button" class="btn btn-outline-info btn-xs"
-                                            onclick="bulkSetRow('group', {{ g.id }}, 'READ_ONLY')">All Read</button>
+                                            data-bulk-type="group" data-bulk-id="{{ g.id }}" data-bulk-value="READ_ONLY">All Read</button>
                                         <button type="button" class="btn btn-outline-success btn-xs"
-                                            onclick="bulkSetRow('group', {{ g.id }}, 'WRITE')">All Full</button>
+                                            data-bulk-type="group" data-bulk-id="{{ g.id }}" data-bulk-value="WRITE">All Full</button>
                                     </div>
                                     <button type="submit" form="form-group-{{ g.id }}"
                                         class="btn btn-sm btn-primary shadow-sm btn-hover-elevate w-100">
@@ -351,6 +351,18 @@
         el.className = className;
         el.innerHTML = html;
     }
+
+    // Delegated, so the row buttons carry data-bulk-* rather than an onclick.
+    document.addEventListener('click', function (event) {
+        const trigger = event.target.closest('[data-bulk-value]');
+        if (!trigger) {
+            return;
+        }
+
+        event.preventDefault();
+        bulkSetRow(trigger.dataset.bulkType, trigger.dataset.bulkId,
+                   trigger.dataset.bulkValue);
+    });
 
     function bulkSetRow(type, id, value) {
         const prefix = `perm_${type}_${id}_`;

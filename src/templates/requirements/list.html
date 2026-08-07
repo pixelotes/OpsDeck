@@ -7,7 +7,7 @@
         <a href="{{ url_for('requirements.timeline') }}" class="btn btn-outline-info me-2">
             <i class="fas fa-project-diagram"></i> Timeline View
         </a>
-        <button class="btn btn-outline-success" onclick="exportTableToCSV('requirements-table', 'requirements.csv')">
+        <button class="btn btn-outline-success" data-export-table="requirements-table" data-export-filename="requirements.csv">
             <i class="fas fa-file-csv"></i> Export to CSV
         </button>
         {% if can_write('procurement') %}
