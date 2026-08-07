@@ -149,7 +149,7 @@
 
 {% block scripts_extra %}
 {% if framework and framework.is_custom %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     // --- Modal Logic ---
     const controlModal = new bootstrap.Modal(document.getElementById('controlModal'));
     const modalTitle = document.getElementById('controlModalLabel');

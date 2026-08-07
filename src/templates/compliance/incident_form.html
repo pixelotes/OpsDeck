@@ -2,7 +2,7 @@
 {% set title = "Edit Incident" if incident else "Log New Incident" %}
 {% block title %}{{ title }} - {{ super() }}{% endblock %}
 {% block content %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener("DOMContentLoaded", function () {
         new TomSelect("#tags", {
             valueField: 'id',

@@ -645,7 +645,7 @@
     </div>
 </div>
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         const typeSelect = document.getElementById('linkable_type');
         const itemSelect = document.getElementById('linkable_id');

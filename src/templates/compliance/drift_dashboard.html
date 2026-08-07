@@ -125,7 +125,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 let currentFrameworkId = null;
 let currentDays = 30;
 

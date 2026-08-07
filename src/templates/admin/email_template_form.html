@@ -196,7 +196,7 @@
 {% block scripts_extra %}
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/suneditor/css/suneditor.min.css') }}">
 <script src="{{ url_for('static', filename='vendor/suneditor/suneditor.min.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Initialize SunEditor
     document.addEventListener("DOMContentLoaded", function () {
         const editor = SUNEDITOR.create('body_html', {

@@ -98,7 +98,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         if (document.getElementById('risk-table')) {
             new simpleDatatables.DataTable("#risk-table");

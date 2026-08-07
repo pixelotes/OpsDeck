@@ -15,9 +15,27 @@ from pathlib import Path
 
 TEMPLATES = Path(__file__).resolve().parent.parent / 'src' / 'templates'
 
-# Any on*= attribute. Deliberately broader than the handlers that exist today, so a new
-# onkeyup or onmouseover is caught rather than slipping through a narrow list.
-INLINE_HANDLER = re.compile(r'\son[a-z]+\s*=')
+# An on*= HTML attribute.
+#
+# The first version of this was `\son[a-z]+\s*=` and it lied. It missed two live handlers
+# written as `{% if ... %}onclick="…"`, where the character before `on` is `}` rather than
+# whitespace, and it missed `onclick =` with a space before the equals sign. Anchoring on
+# "not preceded by a letter, dash or dot" instead of "preceded by whitespace" catches both.
+#
+# The excluded dot matters in the other direction: `button.onclick = fn` in a script is a
+# property assignment, which CSP does not block and which is in fact the correct way to
+# wire something up from JavaScript. Matching it would report clean code as a violation.
+#
+# The event list is explicit rather than [a-z]+ because the loose version also matched the
+# word `only=` in an attribute name.
+INLINE_HANDLER = re.compile(
+    r'(?<![a-zA-Z.\-])on('
+    r'click|dblclick|change|input|submit|reset|select|focus|blur|load|error|scroll|'
+    r'keyup|keydown|keypress|mouseover|mouseout|mouseenter|mouseleave|mousedown|mouseup|'
+    r'mousemove|wheel|contextmenu|copy|cut|paste|drag|dragstart|dragend|dragover|drop|'
+    r'toggle|play|pause|ended|invalid|search'
+    r')\s*='
+)
 
 #: Zero. It has to stay zero: script-src can now drop 'unsafe-inline' as soon as the
 #: inline <script> blocks carry nonces, and a single new on* attribute would break that
@@ -79,6 +97,30 @@ def test_the_delegated_replacement_is_actually_loaded():
 
     assert 'js/behaviors.js' in layout, 'behaviors.js is not included in layout.html'
     assert 'js/modal.js' in layout, 'modal.js handles data-confirm and must stay loaded'
+
+
+#: Inline <script> blocks must carry a nonce, or they stop executing the moment
+#: 'unsafe-inline' comes out of script-src. A nonce also makes the browser ignore that
+#: keyword, so a block without one breaks as soon as any block has one.
+SCRIPT_OPEN = re.compile(r'<script(?P<attrs>[^>]*)>')
+
+
+def test_every_inline_script_block_carries_a_nonce():
+    """External <script src> needs nothing — 'self' covers it. Inline blocks do."""
+    offenders = []
+
+    for path in sorted(TEMPLATES.rglob('*.html')):
+        for match in SCRIPT_OPEN.finditer(path.read_text(errors='ignore')):
+            attrs = match.group('attrs')
+            if 'src=' in attrs or 'nonce=' in attrs:
+                continue
+            offenders.append(f'{path.relative_to(TEMPLATES)}: <script{attrs}>')
+
+    assert not offenders, (
+        f'{len(offenders)} inline <script> block(s) without a nonce:\n'
+        + '\n'.join(f'  {o}' for o in offenders)
+        + '\n\nAdd nonce="{{ csp_nonce() }}" to the opening tag.'
+    )
 
 
 def test_every_autosubmit_control_can_find_a_form():

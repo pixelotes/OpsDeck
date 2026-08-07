@@ -268,7 +268,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         // --- CSRF ---
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');

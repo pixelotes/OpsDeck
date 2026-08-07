@@ -221,7 +221,7 @@
 
 {% block scripts_extra %}
 <script src="{{ url_for('static', filename='vendor/easymde/easymde.min.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     new EasyMDE({ element: document.getElementById('mde-justification'), minHeight: "180px" });
     new EasyMDE({ element: document.getElementById('mde-resolution'), minHeight: "150px" });
 

@@ -97,7 +97,7 @@
 
 {% block scripts_extra %}
 <script src="{{ url_for('static', filename='vendor/simple-datatables/umd/simple-datatables.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         if (document.getElementById('contracts-table')) {
             new simpleDatatables.DataTable("#contracts-table");

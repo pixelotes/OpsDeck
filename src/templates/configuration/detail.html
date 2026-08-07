@@ -140,7 +140,7 @@
 </div>
 
 {# Scripts #}
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Initial Data from Server
     let configData = {{ data | tojson | safe }};
 

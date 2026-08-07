@@ -7,7 +7,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}OpsDeck{% endblock %}</title>
     <!-- FOUC Prevention: Apply theme before CSS loads -->
-    <script>
+    <script nonce="{{ csp_nonce() }}">
         (function() {
             var theme = localStorage.getItem('opsdeck-theme') ||
                 (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -903,7 +903,7 @@
         </div>
     </main>
 
-    <script>
+    <script nonce="{{ csp_nonce() }}">
         document.addEventListener('DOMContentLoaded', function () {
             const sidebarBody = document.querySelector('.sidebar-body');
             const scrollPos = localStorage.getItem('sidebarScroll');
@@ -1075,7 +1075,7 @@
     <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 
     <!-- Global Form Submit Loading States -->
-    <script>
+    <script nonce="{{ csp_nonce() }}">
         document.addEventListener('DOMContentLoaded', function() {
             // Add loading state to all form submit buttons
             document.querySelectorAll('form').forEach(function(form) {
@@ -1135,7 +1135,7 @@
     <script src="{{ url_for('static', filename='js/modal.js') }}"></script>
 
     {# ADD Global Initialization Script #}
-    <script>
+    <script nonce="{{ csp_nonce() }}">
         document.addEventListener('DOMContentLoaded', function () {
             // Find all tables with the class 'datatable'
             const tables = document.querySelectorAll('.datatable');
@@ -1173,7 +1173,7 @@
         });
     </script>
 
-    <script>
+    <script nonce="{{ csp_nonce() }}">
         // Action Required bell dropdown (navbar)
         function toggleNavNotif(event) {
             var panel = document.getElementById('navNotifPanel');

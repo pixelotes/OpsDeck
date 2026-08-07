@@ -282,7 +282,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Confirmation modal logic
     let targetFormId = null;
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));

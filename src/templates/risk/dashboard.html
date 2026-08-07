@@ -238,7 +238,7 @@
 </div> <!-- End risk-content -->
 
 <script src="{{ url_for('static', filename='vendor/chart.js/chart.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Hide skeleton and show content, then init charts
     document.addEventListener('DOMContentLoaded', function() {
         const skeleton = document.getElementById('risk-skeleton');

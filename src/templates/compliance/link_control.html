@@ -53,7 +53,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     async function loadControls() {
         const frameworkId = document.getElementById('framework_id').value;
         const controlSelect = document.getElementById('framework_control_id');

@@ -277,7 +277,7 @@
 
     <!-- Link modal: searchable item picker (Tom Select + AJAX).
          Tom Select is loaded globally in layout.html — no extra libraries needed. -->
-    <script>
+    <script nonce="{{ csp_nonce() }}">
         document.addEventListener('DOMContentLoaded', function () {
             var typeSelect = document.getElementById('itemTypeSelect');
             var itemSelect = document.getElementById('itemSelect');

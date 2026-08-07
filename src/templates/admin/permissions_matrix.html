@@ -184,7 +184,7 @@
                                     {% set current_val = matrix.get('user_' ~ u.id, {}).get(module.id, 'NONE') %}
                                     <div class="perm-cell perm-{{ current_val|lower }}"
                                         data-target-id="perm_user_{{ u.id }}_{{ module.id }}" {% if
-                                        can_write('administration') %}onclick="cyclePermission(this)" {% endif %}>
+                                        can_write('administration') %}data-action="cyclePermission" {% endif %}>
                                         {% if current_val == 'WRITE' %}
                                         <i class="fas fa-check-double me-1"></i> FULL
                                         {% elif current_val == 'READ_ONLY' %}
@@ -260,7 +260,7 @@
                                     {% set current_val = matrix.get('group_' ~ g.id, {}).get(module.id, 'NONE') %}
                                     <div class="perm-cell perm-{{ current_val|lower }}"
                                         data-target-id="perm_group_{{ g.id }}_{{ module.id }}" {% if
-                                        can_write('administration') %}onclick="cyclePermission(this)" {% endif %}>
+                                        can_write('administration') %}data-action="cyclePermission" {% endif %}>
                                         {% if current_val == 'WRITE' %}
                                         <i class="fas fa-check-double me-1"></i> FULL
                                         {% elif current_val == 'READ_ONLY' %}
@@ -317,7 +317,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.querySelectorAll('.btn-bulk').forEach(btn => {
         btn.addEventListener('click', function () {
             bulkSetRow(this.dataset.type, this.dataset.id, this.dataset.value);
@@ -390,6 +390,10 @@
             }
         });
     }
+
+    // cyclePermission was an onclick inside a Jinja conditional, which is why it survived
+    // the first sweep: the grep looked for whitespace before `on`, and there a `}` sat.
+    OpsDeck.registerActions({ cyclePermission });
 </script>
 <style>
     .btn-xs {

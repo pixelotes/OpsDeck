@@ -184,7 +184,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function toggleEditAction(actionId) {
     const textDiv = document.getElementById('action-text-' + actionId);
     const editForm = document.getElementById('action-edit-form-' + actionId);

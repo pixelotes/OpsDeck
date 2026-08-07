@@ -421,7 +421,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Bulk Operations JavaScript
 
 // Delegated dispatch for this page's toolbar, so the buttons and checkboxes carry

@@ -240,7 +240,7 @@
 {% block scripts_extra %}
 <script src="{{ url_for('static', filename='vendor/chart.js/chart.js') }}"></script>
 <script src="{{ url_for('static', filename='js/assets_dashboard.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Pass data to external JS file
     window.assetsDashboardData = {
         statusLabels: {{ status_labels | tojson }},

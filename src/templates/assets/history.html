@@ -263,7 +263,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         const searchInput = document.getElementById('timeline-search');
         const timelineEvents = document.querySelectorAll('.timeline-event');

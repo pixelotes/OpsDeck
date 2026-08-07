@@ -152,7 +152,7 @@
 
 {% block scripts_extra %}
 <script src="{{ url_for('static', filename='vendor/sortablejs/Sortable.min.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         // --- Drag & Drop Ordering ---
         const tbody = document.querySelector('#stagesTable tbody');

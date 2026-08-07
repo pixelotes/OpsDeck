@@ -155,7 +155,7 @@
     </div>
 </form>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         const linkType = document.getElementById('link_type');
         const softwareGroup = document.getElementById('software-group');

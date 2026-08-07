@@ -166,7 +166,7 @@
 </div>
 
 <script src="{{ url_for('static', filename='vendor/sortablejs/Sortable.min.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         const columns = document.querySelectorAll('.kanban-col');
         const hiredModal = new bootstrap.Modal(document.getElementById('hiredModal'));

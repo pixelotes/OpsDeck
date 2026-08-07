@@ -160,7 +160,7 @@
 
 {% block scripts_extra %}
 {% if can_write('roadmaps') %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         const body = document.getElementById('periods-body');
         const template = document.getElementById('period-row-template');

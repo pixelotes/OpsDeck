@@ -101,7 +101,7 @@
 </div>
 {% endif %}
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
     const brandSelect = document.getElementById('brand_id');
     const modelSelect = document.getElementById('model_id');

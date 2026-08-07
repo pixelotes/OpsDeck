@@ -309,14 +309,18 @@ def create_app(test_config=None):
     # tests/test_csp.py, which pins that inventory so a dependency bump that introduces
     # a real eval fails the build instead of silently needing this back.
     #
-    # 'unsafe-inline' stays for now: 137 on* handlers across 66 templates and 91 inline
-    # <script> blocks. Nonces are the way out, but a nonce makes the browser ignore
-    # 'unsafe-inline' entirely, so every on* handler has to become a listener first or
-    # they all break at once. style-src is a separate and much larger problem: 328
-    # style="" attributes, which nonces cannot cover at all.
+    # script-src no longer allows inline script. The 137 on* handlers became delegated
+    # listeners and the 91 inline <script> blocks carry a per-request nonce, which
+    # Talisman adds to the header and templates read with csp_nonce(). Both halves had to
+    # land together: a nonce makes the browser ignore 'unsafe-inline' outright, so a
+    # single un-nonced block or leftover handler would have broken on the same deploy.
+    #
+    # style-src keeps it, and probably always will: 328 style="" attributes, and a nonce
+    # cannot cover an attribute — only a <style> block. Removing it would mean moving
+    # every one of those into a stylesheet for a much smaller gain than this.
     content_security_policy = {
         'default-src': "'self'",
-        'script-src': ["'self'", "'unsafe-inline'"],
+        'script-src': ["'self'"],
         'style-src': ["'self'", "'unsafe-inline'"],
         'img-src': ["'self'", 'data:'],
         'font-src': ["'self'", 'data:'],
@@ -335,6 +339,7 @@ def create_app(test_config=None):
     talisman.init_app(
         app,
         content_security_policy=(content_security_policy if csp_enabled else None),
+        content_security_policy_nonce_in=['script-src'],
         content_security_policy_report_only=csp_report_only,
         force_https=not is_development,
     )

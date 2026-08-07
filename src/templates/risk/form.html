@@ -263,7 +263,7 @@
     </div>
 </form>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Detect if new risk (risk object is None/null in template or scalar checks)
     const isNewRisk = {{ 'false' if risk and risk.id else 'true' }};
 

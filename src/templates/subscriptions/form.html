@@ -282,7 +282,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         const periodTypeSelect = document.getElementById('renewal_period_type');
         const monthlyOptionsDiv = document.getElementById('monthly-options');

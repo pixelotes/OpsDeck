@@ -116,7 +116,7 @@ endblock %}
 
 {% block scripts_extra %}
 <script src="{{ url_for('static', filename='vendor/easymde/easymde.min.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         // Initialize EasyMDE for outcome notes
         const easyMDE = new EasyMDE({

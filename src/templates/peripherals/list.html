@@ -137,7 +137,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         // Checkout modal handler
         const checkoutModal = document.getElementById('checkoutModal');

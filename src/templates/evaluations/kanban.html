@@ -130,7 +130,7 @@
 </style>
 
 {% if can_write('procurement') %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Drag and drop functionality
 let draggedElement = null;
 

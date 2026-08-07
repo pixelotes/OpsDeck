@@ -187,7 +187,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Search state
 let currentQuery = '';
 let currentFilters = {};

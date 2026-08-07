@@ -131,7 +131,7 @@
 </div>
 {% endif %}
 
-<script type="module">
+<script type="module" nonce="{{ csp_nonce() }}">
 import OrgChart from "{{ url_for('static', filename='vendor/orgchart.js/orgchart.js') }}";
 
 document.addEventListener('DOMContentLoaded', function() {

@@ -113,10 +113,48 @@ def test_the_directives_that_do_the_work_are_present(client, directive):
     assert directive in _csp(client)
 
 
-def test_inline_script_is_still_allowed_and_this_test_should_one_day_fail(client):
-    """Documents the remaining hole rather than leaving it unstated.
+def test_script_src_no_longer_allows_inline_script(client):
+    """The point of the whole exercise: an injected <script> will not run.
 
-    When the on* handlers are gone and inline blocks carry nonces, this expectation
-    inverts. Until then it records that script-src is not yet doing much.
+    script-src carries a nonce, which also makes a browser ignore 'unsafe-inline' even if
+    it came back, so this is belt and braces — but the keyword being absent is what makes
+    the policy readable as strict.
     """
-    assert "'unsafe-inline'" in _csp(client)
+    directive = next(part.strip() for part in _csp(client).split(';')
+                     if part.strip().startswith('script-src'))
+
+    assert "'unsafe-inline'" not in directive, directive
+    assert "'unsafe-eval'" not in directive, directive
+
+
+def test_each_response_carries_a_fresh_script_nonce(client):
+    """A nonce reused across responses is worth no more than 'unsafe-inline'.
+
+    It is what tells the browser which blocks are ours; if an attacker could learn or
+    predict it, injected script could claim it too.
+    """
+    first = next(p.strip() for p in _csp(client).split(';')
+                 if p.strip().startswith('script-src'))
+    second = next(p.strip() for p in _csp(client).split(';')
+                  if p.strip().startswith('script-src'))
+
+    assert "'nonce-" in first, first
+    assert first != second, 'the same nonce was served twice'
+
+
+def test_the_rendered_page_uses_the_nonce_from_its_own_header(client):
+    """The header and the markup have to agree, or nothing executes.
+
+    Checked against a real response rather than the template source, because the nonce is
+    generated per request and a template could just as easily render an empty attribute.
+    """
+    response = client.get('/login')
+    header = response.headers['Content-Security-Policy']
+    html = response.get_data(as_text=True)
+
+    nonce = re.search(r"'nonce-([^']+)'", header).group(1)
+
+    assert f'nonce="{nonce}"' in html, (
+        'no inline script on the login page carries the nonce from its own CSP header'
+    )
+    assert 'nonce=""' not in html, 'an inline script rendered an empty nonce'

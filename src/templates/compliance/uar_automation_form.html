@@ -329,7 +329,7 @@
     </div>
 </form>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function() {
     // Show/hide source config fields based on type
     function updateSourceFields(side) {

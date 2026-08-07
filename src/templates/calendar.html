@@ -38,7 +38,7 @@
 
 {% block scripts_extra %}
 <script src="{{ url_for('static', filename='vendor/simple-calendar-js/simple-calendar-js.min.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');
 

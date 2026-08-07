@@ -67,7 +67,7 @@ The macro remains callable to avoid breaking templates that invoke it.
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         const objectId = "{{ object.id }}";
         const objectType = "{{ object_type }}";

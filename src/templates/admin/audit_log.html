@@ -246,7 +246,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function showChanges(entryId) {
     const modalBody = document.getElementById('changesModalBody');
     modalBody.innerHTML = `

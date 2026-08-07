@@ -302,7 +302,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Show each channel's config section only when its checkbox is ticked.
 function syncRuleChannels(suffix) {
     ['slack', 'webhook', 'discord'].forEach(function (ch) {

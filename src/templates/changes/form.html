@@ -343,7 +343,7 @@
 
 {% block scripts_extra %}
 <script src="{{ url_for('static', filename='vendor/easymde/easymde.min.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Initialize EasyMDE for the 3 planning fields
     new EasyMDE({ element: document.getElementById('mde-implementation'), minHeight: "200px" });
     new EasyMDE({ element: document.getElementById('mde-rollback'), minHeight: "150px" });

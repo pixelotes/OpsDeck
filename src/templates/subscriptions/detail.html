@@ -406,7 +406,7 @@
 {% block scripts_extra %}
 <script src="{{ url_for('static', filename='js/vendor/chart.js/chart.js') }}"></script>
 <script src="{{ url_for('static', filename='js/reports.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Activate tab from URL hash
     if (window.location.hash) {
         const tab = document.querySelector(`[data-bs-target="${window.location.hash}"]`);

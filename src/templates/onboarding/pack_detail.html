@@ -166,7 +166,7 @@
                         <small class="text-muted">For ServiceAccess, e.g. "Grant user access to App X"</small>
                     </div>
 
-                    <script>
+                    <script nonce="{{ csp_nonce() }}">
                         function toggleLinkedField() {
                             const type = document.getElementById('itemTypeSelect').value;
                             document.getElementById('softwareField').style.display = (type === 'Software') ? 'block' : 'none';

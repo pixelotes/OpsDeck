@@ -851,7 +851,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Script for toggling the manual link type selects
     document.getElementById('manualLinkTypeSelector').addEventListener('change', function () {
         // Hide and disable all
@@ -902,7 +902,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     let targetControlInstance = null;
     const currentControlId = {{ control.id }};
 

@@ -114,7 +114,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         new simpleDatatables.DataTable("#test-logs-table", {
             searchable: false,

@@ -61,7 +61,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function() {
         if (document.getElementById('compliance-table')) {
             new simpleDatatables.DataTable("#compliance-table", {

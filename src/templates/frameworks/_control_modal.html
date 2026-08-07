@@ -70,7 +70,7 @@
                         </select>
                     </div>
 
-                    <script>
+                    <script nonce="{{ csp_nonce() }}">
                         document.addEventListener("DOMContentLoaded", function () {
                             // Avoid re-initialization if script runs multiple times
                             if (window.tomSelectInitialized) return;

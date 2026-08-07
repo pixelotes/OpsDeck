@@ -155,7 +155,7 @@
 
 <script src="{{ url_for('static', filename='vendor/easymde/easymde.min.js') }}"></script>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener('DOMContentLoaded', function () {
         // Inicializar los editores de Markdown
         const editors = ['summary', 'lead_up', 'fault', 'impact_analysis', 'detection', 'response', 'recovery', 'lessons_learned'];

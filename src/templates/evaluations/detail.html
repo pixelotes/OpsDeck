@@ -236,7 +236,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function toggleEditActivity(activityId) {
     const textDiv = document.getElementById('activity-text-' + activityId);
     const editForm = document.getElementById('activity-edit-form-' + activityId);

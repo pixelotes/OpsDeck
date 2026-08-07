@@ -219,7 +219,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     function toggleStrategy(strategy) {
         if (strategy === 'scratch') {
             document.getElementById('section_scratch').style.display = 'block';
