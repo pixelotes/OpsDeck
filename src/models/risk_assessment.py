@@ -3,7 +3,7 @@ from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from sqlalchemy.orm import validates
 from ..services.risk_scale import (DEFAULT_LEVELS, RiskScale, clamp_score,
-                                  current_scale)
+                                  current_appetite, current_scale)
 
 # Association table for Risk Assessment - Change Mitigation M2M
 risk_assessment_changes = db.Table('risk_assessment_changes',
@@ -104,7 +104,9 @@ class RiskAssessmentItem(db.Model):
 
     @property
     def criticality_level(self):
-        return self.scale.level_for(self.residual_impact, self.residual_likelihood)
+        """Judged against the appetite in force now, not the one at assessment time."""
+        return self.scale.level_for(self.residual_impact, self.residual_likelihood,
+                                    current_appetite())
 
 class RiskAssessmentEvidence(db.Model):
     """

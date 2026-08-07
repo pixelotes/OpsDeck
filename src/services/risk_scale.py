@@ -26,18 +26,80 @@ DEFAULT_LEVELS = 5
 MIN_LEVELS = 3
 MAX_LEVELS = 8
 
-#: Lower bound of each band, as a percentage of the maximum possible score, highest first.
+#: Where the bands fall by default, as percentages of the maximum possible score.
 #:
 #: These reproduce the thresholds they replace exactly. On a 5x5 matrix the maximum is 25,
 #: so 80% is 20, 60% is 15 and 20% is 5 — which is precisely `>= 20`, `>= 15`, `>= 5`.
 #: tests/test_risk_scale.py pins that equivalence across all 25 combinations, because
 #: "the refactor changed no risk's severity" is the one claim worth proving here.
-BANDS = (
-    (80, 'Critical'),
-    (60, 'High'),
-    (20, 'Medium'),
-    (0, 'Low'),
-)
+DEFAULT_MEDIUM_FROM = 20
+DEFAULT_HIGH_FROM = 60
+DEFAULT_CRITICAL_FROM = 80
+
+
+@dataclass(frozen=True)
+class RiskAppetite:
+    """Where an organisation draws the line between green, amber and red.
+
+    Two settings govern a severity and they are not the same kind of thing, which is why
+    this is separate from RiskScale and behaves differently:
+
+    * The matrix size is *how you measured*. Changing it must not reinterpret past
+      assessments, so every risk records the matrix it was scored on. Re-measuring
+      history would falsify it.
+    * The appetite is *what you are willing to tolerate*. It is current policy, and
+      changing it is meant to re-judge the whole register — telling the organisation
+      which of the risks it already holds are no longer acceptable. Stamping it per risk
+      would defeat the purpose: you would tighten your appetite and the register would
+      keep reporting yesterday's verdicts.
+
+    So appetite is read live from settings, and scores are re-coloured the moment it
+    changes.
+    """
+
+    medium_from: int = DEFAULT_MEDIUM_FROM
+    high_from: int = DEFAULT_HIGH_FROM
+    critical_from: int = DEFAULT_CRITICAL_FROM
+
+    def __post_init__(self):
+        # Sorted rather than rejected: these arrive from a form, and three numbers in the
+        # wrong order is a mistake with an obvious reading, not a reason to refuse.
+        # Bounds first, so a 0 or a 300 cannot survive by being in order.
+        values = sorted(max(1, min(100, _as_int(value, fallback)))
+                        for value, fallback in (
+                            (self.medium_from, DEFAULT_MEDIUM_FROM),
+                            (self.high_from, DEFAULT_HIGH_FROM),
+                            (self.critical_from, DEFAULT_CRITICAL_FROM)))
+        object.__setattr__(self, 'medium_from', values[0])
+        object.__setattr__(self, 'high_from', values[1])
+        object.__setattr__(self, 'critical_from', values[2])
+
+    @property
+    def bands(self):
+        """Lower bound and name of each band, highest first."""
+        return (
+            (self.critical_from, 'Critical'),
+            (self.high_from, 'High'),
+            (self.medium_from, 'Medium'),
+            (0, 'Low'),
+        )
+
+    def level_for_percent(self, percent):
+        for lower_bound, name in self.bands:
+            if percent >= lower_bound:
+                return name
+        return 'Low'
+
+
+def _as_int(value, fallback):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+#: The appetite in force when nothing says otherwise — the thresholds that were hardcoded.
+DEFAULT_APPETITE = RiskAppetite()
 
 
 def clamp_score(value):
@@ -99,17 +161,20 @@ class RiskScale:
         """
         return round(100 * self.score(impact, likelihood) / self.max_score)
 
-    def level_for(self, impact, likelihood):
-        """Low / Medium / High / Critical for this pair on this scale."""
+    def level_for(self, impact, likelihood, appetite=None):
+        """Low / Medium / High / Critical for this pair, under the given appetite."""
         raw = self.score(impact, likelihood)
-        for lower_bound, name in BANDS:
+        appetite = appetite or DEFAULT_APPETITE
+
+        for lower_bound, name in appetite.bands:
             # Integer arithmetic on purpose: `raw / max_score >= 0.8` invites a float
             # comparison to decide whether a risk is Critical, and a value landing exactly
             # on a boundary is the normal case, not the edge case — 4x5 on a 5x5 matrix is
-            # exactly 80%.
+            # exactly 80%. Comparing against the rounded percent would misjudge the
+            # boundary too, so the raw product is compared instead.
             if raw * 100 >= self.max_score * lower_bound:
                 return name
-        return BANDS[-1][1]
+        return 'Low'
 
     def levels(self, axis):
         """1..n for 'impact' or 'likelihood', for rendering axes and building selects."""
@@ -133,23 +198,52 @@ class RiskScale:
 DEFAULT_SCALE = RiskScale()
 
 
+def _settings_row():
+    """The organisation settings singleton, fetched once per request.
+
+    Cached because criticality_level runs inside loops over the whole register — the risk
+    dashboard reads it for every risk it renders — and an uncached lookup would turn that
+    into one query per row. Falls back to None whenever there is no row, no table or no
+    application context: a fresh install has none of them, and this is reached while
+    rendering pages, where raising would lose the page over a setting nobody has chosen.
+    """
+    try:
+        from flask import g, has_app_context
+        from ..models.core import OrganizationSettings
+
+        if not has_app_context():
+            return None
+
+        if not hasattr(g, '_risk_settings'):
+            g._risk_settings = OrganizationSettings.query.first()
+        return g._risk_settings
+    except Exception:
+        return None
+
+
 def current_scale():
     """The organisation's configured matrix, for scoring something new.
 
     Only for new assessments. Reading an existing risk goes through its own stored
     levels, never through this: that is the whole point of storing them.
-
-    Falls back to 5x5 whenever the settings row is missing or unreadable — a fresh
-    install has no row yet, and this is called from templates while rendering forms,
-    where raising would take out the page over a setting nobody has chosen.
     """
-    try:
-        from ..models.core import OrganizationSettings
-        settings = OrganizationSettings.query.first()
-    except Exception:                                   # no table yet, no app context
-        return DEFAULT_SCALE
-
+    settings = _settings_row()
     if settings is None:
         return DEFAULT_SCALE
 
     return RiskScale(settings.risk_impact_levels, settings.risk_likelihood_levels)
+
+
+def current_appetite():
+    """The appetite in force right now, applied to every risk as it is read.
+
+    Deliberately not stamped per risk — see RiskAppetite. Tightening the appetite is
+    supposed to re-judge the register, which is the reason to change it.
+    """
+    settings = _settings_row()
+    if settings is None:
+        return DEFAULT_APPETITE
+
+    return RiskAppetite(settings.risk_appetite_medium_from,
+                        settings.risk_appetite_high_from,
+                        settings.risk_appetite_critical_from)

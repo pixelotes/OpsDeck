@@ -6,7 +6,7 @@ from .core import Attachment
 from .auth import User
 from src.utils.timezone_helper import today, now
 from ..services.risk_scale import (DEFAULT_LEVELS, RiskScale, clamp_score,
-                                  current_scale)
+                                  current_appetite, current_scale)
 
 class ComplianceLink(db.Model):
     """
@@ -481,7 +481,9 @@ class Risk(db.Model):
 
     @property
     def criticality_level(self):
-        return self.scale.level_for(self.residual_impact, self.residual_likelihood)
+        """Judged against the appetite in force now, not the one at assessment time."""
+        return self.scale.level_for(self.residual_impact, self.residual_likelihood,
+                                    current_appetite())
 
     @property
     def is_overdue(self):

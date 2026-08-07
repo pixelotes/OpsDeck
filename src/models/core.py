@@ -3,7 +3,10 @@ from sqlalchemy import and_
 from sqlalchemy.orm import foreign
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
-from ..services.risk_scale import DEFAULT_LEVELS as RISK_DEFAULT_LEVELS
+from ..services.risk_scale import (DEFAULT_CRITICAL_FROM as RISK_DEFAULT_CRITICAL,
+                                   DEFAULT_HIGH_FROM as RISK_DEFAULT_HIGH,
+                                   DEFAULT_LEVELS as RISK_DEFAULT_LEVELS,
+                                   DEFAULT_MEDIUM_FROM as RISK_DEFAULT_MEDIUM)
 
 # Currency conversion rates (EUR base)
 CURRENCY_RATES = {
@@ -194,6 +197,23 @@ class OrganizationSettings(db.Model):
     risk_likelihood_levels = db.Column(db.Integer, default=RISK_DEFAULT_LEVELS,
                                        nullable=False,
                                        server_default=str(RISK_DEFAULT_LEVELS))
+
+    # Risk appetite: where green becomes amber and amber becomes red, as percentages of
+    # the maximum score on whatever matrix a risk was assessed with.
+    #
+    # Unlike the matrix size, this is NOT stamped per risk and applies immediately to
+    # everything already in the register. The size is how you measured, and rewriting it
+    # would falsify old assessments; the appetite is what you are prepared to tolerate
+    # today, and re-judging the register against it is the reason to change it.
+    risk_appetite_medium_from = db.Column(db.Integer, default=RISK_DEFAULT_MEDIUM,
+                                          nullable=False,
+                                          server_default=str(RISK_DEFAULT_MEDIUM))
+    risk_appetite_high_from = db.Column(db.Integer, default=RISK_DEFAULT_HIGH,
+                                        nullable=False,
+                                        server_default=str(RISK_DEFAULT_HIGH))
+    risk_appetite_critical_from = db.Column(db.Integer, default=RISK_DEFAULT_CRITICAL,
+                                            nullable=False,
+                                            server_default=str(RISK_DEFAULT_CRITICAL))
 
     updated_at = db.Column(db.DateTime, default=lambda: now(), onupdate=lambda: now())
     

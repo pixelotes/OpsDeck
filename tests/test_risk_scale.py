@@ -8,8 +8,8 @@ thresholds on all 25 of them.
 """
 import pytest
 
-from src.services.risk_scale import (BANDS, DEFAULT_LEVELS, MAX_LEVELS, MIN_LEVELS,
-                                     RiskScale, clamp_levels)
+from src.services.risk_scale import (DEFAULT_APPETITE, DEFAULT_LEVELS, MAX_LEVELS,
+                                     MIN_LEVELS, RiskScale, clamp_levels)
 
 
 def _legacy_level(score):
@@ -120,7 +120,19 @@ def test_a_missing_score_does_not_raise():
 
 def test_the_bands_are_ordered_and_reach_zero():
     """A gap between bands would leave a score with no name at all."""
-    bounds = [bound for bound, _ in BANDS]
+    bounds = [bound for bound, _ in DEFAULT_APPETITE.bands]
 
     assert bounds == sorted(bounds, reverse=True)
     assert bounds[-1] == 0
+
+
+def test_a_stricter_appetite_moves_the_verdict_without_moving_the_score():
+    """The two settings are independent: one measures, the other judges."""
+    from src.services.risk_scale import RiskAppetite
+
+    scale = RiskScale(5, 5)
+    strict = RiskAppetite(medium_from=10, high_from=40, critical_from=55)
+
+    assert scale.percent(3, 5) == 60
+    assert scale.level_for(3, 5) == 'High'                    # default appetite
+    assert scale.level_for(3, 5, strict) == 'Critical'        # stricter one

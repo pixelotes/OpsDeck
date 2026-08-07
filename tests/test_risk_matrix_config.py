@@ -208,3 +208,92 @@ def test_changing_the_size_tells_the_user_what_it_did_not_do(client, app, init_d
     body = response.get_data(as_text=True)
     assert '7x7' in body or '7&times;7' in body
     assert 'keep the 5x5 matrix' in body
+
+
+# --- risk appetite ----------------------------------------------------------------
+
+def _appetite(app, medium, high, critical):
+    with app.app_context():
+        row = OrganizationSettings.query.first() or OrganizationSettings()
+        db.session.add(row)
+        row.risk_appetite_medium_from = medium
+        row.risk_appetite_high_from = high
+        row.risk_appetite_critical_from = critical
+        db.session.commit()
+
+
+def test_the_default_appetite_reproduces_the_old_thresholds(app, init_database):
+    from src.services.risk_scale import DEFAULT_APPETITE
+
+    assert (DEFAULT_APPETITE.medium_from, DEFAULT_APPETITE.high_from,
+            DEFAULT_APPETITE.critical_from) == (20, 60, 80)
+
+    with app.app_context():
+        row = OrganizationSettings()
+        db.session.add(row)
+        db.session.commit()
+        assert row.risk_appetite_critical_from == 80
+
+
+def test_tightening_the_appetite_re_judges_risks_already_assessed(app, init_database):
+    """The opposite of the matrix size, and on purpose.
+
+    The matrix is how a risk was measured, so it is stamped and frozen. The appetite is
+    what the organisation tolerates now, so changing it is supposed to change verdicts —
+    otherwise tightening it would report yesterday's opinion forever.
+    """
+    _settings(app, impact=5, likelihood=5)
+    _appetite(app, 20, 60, 80)
+    risk_id = _risk(app, 'three by five', 3, 5)          # 15/25 = 60% -> High
+
+    with app.app_context():
+        assert db.session.get(Risk, risk_id).criticality_level == 'High'
+
+    _appetite(app, 10, 40, 55)                            # a stricter appetite
+
+    with app.app_context():
+        risk = db.session.get(Risk, risk_id)
+        assert risk.residual_percent == 60, 'the measurement must not have moved'
+        assert (risk.impact_levels, risk.likelihood_levels) == (5, 5)
+        assert risk.criticality_level == 'Critical', 'the verdict should have moved'
+
+
+def test_appetite_thresholds_out_of_order_are_read_as_intended(app, init_database):
+    """Three numbers in the wrong order is a typo with an obvious reading."""
+    from src.services.risk_scale import RiskAppetite
+
+    appetite = RiskAppetite(critical_from=30, high_from=90, medium_from=60)
+
+    assert (appetite.medium_from, appetite.high_from, appetite.critical_from) == (30, 60, 90)
+
+
+@pytest.mark.parametrize('given,expected', [
+    (0, 1),
+    (300, 100),
+    ('nonsense', 60),      # falls back to the High default
+    (None, 60),
+])
+def test_appetite_thresholds_are_bounded(given, expected):
+    from src.services.risk_scale import RiskAppetite
+
+    assert RiskAppetite(1, given, 100).high_from == expected
+
+
+def test_changing_the_appetite_says_it_applies_to_everything(client, app, init_database):
+    _admin(app, 'appetite-admin@test.com')
+    client.post('/login', data={'email': 'appetite-admin@test.com', 'password': 'password'},
+                follow_redirects=True)
+
+    response = client.post('/settings/organization/settings', data={
+        'legal_name': 'ACME', 'tax_id': '', 'primary_domain': '', 'email_domains': '',
+        'risk_impact_levels': '5', 'risk_likelihood_levels': '5',
+        'risk_appetite_medium_from': '10', 'risk_appetite_high_from': '40',
+        'risk_appetite_critical_from': '55',
+    }, follow_redirects=True)
+
+    body = response.get_data(as_text=True)
+    assert 'applies to every risk immediately' in body
+    with app.app_context():
+        row = OrganizationSettings.query.first()
+        assert (row.risk_appetite_medium_from, row.risk_appetite_high_from,
+                row.risk_appetite_critical_from) == (10, 40, 55)
