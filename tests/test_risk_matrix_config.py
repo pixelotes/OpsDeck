@@ -355,3 +355,49 @@ def test_the_register_orders_by_position_on_each_risk_s_own_matrix(client, app,
     assert body.index('small matrix high risk') < body.index('big matrix lower risk'), (
         'the raw product would have put the 15 above the 12'
     )
+
+
+# --- importing from a shared catalog ----------------------------------------------
+
+def test_a_catalog_suggestion_is_translated_onto_the_organisation_s_matrix(client, app,
+                                                                          init_database):
+    """A catalog's "4 out of 5" must become the equivalent level here, not a literal 4.
+
+    Clamping instead would call every risk borrowed from a catalog the worst there is,
+    on any matrix smaller than the one the catalog was written for.
+    """
+    from src.models.security import CatalogRisk, RiskCatalog
+
+    _settings(app, impact=3, likelihood=3)
+    _admin(app, 'catalog@test.com')
+    client.post('/login', data={'email': 'catalog@test.com', 'password': 'password'},
+                follow_redirects=True)
+
+    with app.app_context():
+        catalog = RiskCatalog(name='Shared catalog')
+        db.session.add(catalog)
+        db.session.flush()
+        entry = CatalogRisk(catalog_id=catalog.id, name='Borrowed risk',
+                            suggested_impact=5, suggested_likelihood=1,
+                            impact_levels=5, likelihood_levels=5)
+        db.session.add(entry)
+        db.session.commit()
+        entry_id = entry.id
+
+    body = client.get(f'/risk/new?import_id={entry_id}').get_data(as_text=True)
+
+    # 5 of 5 is the top, so it lands on 3 of 3; 1 of 5 is the bottom and stays 1.
+    assert 'max="3"' in body, 'the form should be built for the 3x3 matrix'
+    assert 'value="3"' in body
+    assert 'value="1"' in body
+    assert 'value="5"' not in body, 'a literal 5 has no place on a 3x3 matrix'
+
+
+def test_a_catalog_written_for_the_same_matrix_is_copied_unchanged(app, init_database):
+    from src.models.security import CatalogRisk
+    from src.services.risk_scale import RiskScale
+
+    entry = CatalogRisk(name='same scale', suggested_impact=4, suggested_likelihood=2,
+                        impact_levels=5, likelihood_levels=5)
+
+    assert entry.suggestion_for(RiskScale(5, 5)) == (4, 2)

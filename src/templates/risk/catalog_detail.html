@@ -39,10 +39,10 @@
                     {% endif %}
                 </td>
                 <td class="text-center">
-                    <span class="badge bg-secondary">{{ risk.suggested_impact }}</span>
+                    <span class="badge bg-secondary" title="On the matrix this catalog was written for">{{ risk.suggested_impact }}/{{ risk.impact_levels }}</span>
                 </td>
                 <td class="text-center">
-                    <span class="badge bg-secondary">{{ risk.suggested_likelihood }}</span>
+                    <span class="badge bg-secondary" title="On the matrix this catalog was written for">{{ risk.suggested_likelihood }}/{{ risk.likelihood_levels }}</span>
                 </td>
                 <td class="text-end">
                     <a href="{{ url_for('risk.new_risk', import_id=risk.id) }}" class="btn btn-sm btn-success">

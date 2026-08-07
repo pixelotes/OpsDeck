@@ -12,7 +12,8 @@ from ..models.core import Documentation, Link
 from datetime import datetime
 from src.utils.logger import log_audit
 from ..services.permissions_service import (requires_permission, has_write_permission,
-                                           requires_permission_api)
+                                            requires_permission_api)
+from ..services.risk_scale import current_scale
 
 risk_bp = Blueprint('risk', __name__)
 
@@ -375,13 +376,25 @@ def new_risk():
     if import_id:
         catalog_risk = db.session.get(CatalogRisk,import_id)
         if catalog_risk:
-            # Create transient object for pre-filling form
+            # Create transient object for pre-filling form.
+            #
+            # The suggestion is translated onto this organisation's matrix rather than
+            # copied across. A catalog is shared material written against whatever scale
+            # its author used, so its "4 out of 5" has to become the equivalent level
+            # here — otherwise importing into a 3x3 pre-fills a 4 that matrix does not
+            # have, and clamping it would call every borrowed risk the worst there is.
+            target_scale = current_scale()
+            suggested_impact, suggested_likelihood = catalog_risk.suggestion_for(
+                target_scale)
+
             pre_filled_risk = Risk(
                 risk_description=catalog_risk.name,
                 extended_description=catalog_risk.description,
                 threat_type_id=catalog_risk.threat_type_id,
-                inherent_impact=catalog_risk.suggested_impact,
-                inherent_likelihood=catalog_risk.suggested_likelihood,
+                inherent_impact=suggested_impact,
+                inherent_likelihood=suggested_likelihood,
+                impact_levels=target_scale.impact_levels,
+                likelihood_levels=target_scale.likelihood_levels,
                 # Use this attribute to pass it to the form (though not a DB column on Risk, we can use it on the object) 
                 source_catalog_risk_id=catalog_risk.id 
             )

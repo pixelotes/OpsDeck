@@ -117,6 +117,41 @@ def level_colour(level):
     return LEVEL_COLOURS.get(level, 'secondary')
 
 
+def rescale(value, from_levels, to_levels):
+    """Move a level from one scale to another, keeping its position in the range.
+
+    A shared risk catalog says things like "typically 4 out of 5". Handing that 4 straight
+    to an organisation running a 3x3 matrix produces a level its matrix does not have, and
+    simply clamping it to 3 would call every borrowed risk the worst there is.
+
+    Endpoints map to endpoints — the bottom of one scale is the bottom of the other, and
+    the top is the top — which plain proportional scaling does not guarantee. Rounds half
+    up rather than to even, because "exactly between two levels" is common on small
+    matrices and banker's rounding would send neighbouring values in different directions
+    for no reason a user could see.
+    """
+    if value is None:
+        return None
+
+    try:
+        level = int(value)
+    except (TypeError, ValueError):
+        return 1
+
+    from_levels = clamp_levels(from_levels)
+    to_levels = clamp_levels(to_levels)
+    level = max(1, min(from_levels, level))
+
+    if from_levels == to_levels:
+        return level
+    if from_levels == 1:
+        return 1
+
+    scaled = (level - 1) * (to_levels - 1) * 2 // (from_levels - 1)
+    # scaled is now twice the target offset; +1 then //2 rounds half up.
+    return 1 + (scaled + 1) // 2
+
+
 def clamp_score(value):
     """Coerce a submitted impact or likelihood into 1..MAX_LEVELS.
 

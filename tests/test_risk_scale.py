@@ -136,3 +136,46 @@ def test_a_stricter_appetite_moves_the_verdict_without_moving_the_score():
     assert scale.percent(3, 5) == 60
     assert scale.level_for(3, 5) == 'High'                    # default appetite
     assert scale.level_for(3, 5, strict) == 'Critical'        # stricter one
+
+
+# --- moving a level between scales -------------------------------------------------
+
+@pytest.mark.parametrize('value,from_levels,to_levels,expected', [
+    # Endpoints map to endpoints, whatever the sizes.
+    (1, 5, 3, 1),
+    (5, 5, 3, 3),
+    (1, 3, 8, 1),
+    (3, 3, 8, 8),
+    # The middle stays the middle.
+    (3, 5, 3, 2),
+    (2, 3, 5, 3),
+    # A same-size move is the identity.
+    (4, 5, 5, 4),
+    # 4 of 5 sits 75% up the range; on 3 levels that is exactly between 2 and 3, and
+    # ties go up.
+    (4, 5, 3, 3),
+    # Widening keeps the position rather than the number.
+    (4, 5, 8, 6),
+])
+def test_rescale_keeps_a_level_where_it_was(value, from_levels, to_levels, expected):
+    from src.services.risk_scale import rescale
+
+    assert rescale(value, from_levels, to_levels) == expected
+
+
+def test_rescale_never_leaves_the_target_range():
+    """Whatever comes in, what comes out is a level the target matrix actually has."""
+    from src.services.risk_scale import rescale
+
+    for from_levels in range(MIN_LEVELS, MAX_LEVELS + 1):
+        for to_levels in range(MIN_LEVELS, MAX_LEVELS + 1):
+            for value in range(-2, from_levels + 3):
+                result = rescale(value, from_levels, to_levels)
+                assert 1 <= result <= to_levels, (value, from_levels, to_levels, result)
+
+
+def test_rescale_handles_nothing_gracefully():
+    from src.services.risk_scale import rescale
+
+    assert rescale(None, 5, 3) is None
+    assert rescale('nonsense', 5, 3) == 1

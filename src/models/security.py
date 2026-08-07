@@ -6,7 +6,7 @@ from .core import Attachment
 from .auth import User
 from src.utils.timezone_helper import today, now
 from ..services.risk_scale import (DEFAULT_LEVELS, RiskScale, clamp_score,
-                                  current_appetite, current_scale)
+                                  current_appetite, current_scale, rescale)
 
 class ComplianceLink(db.Model):
     """
@@ -344,8 +344,36 @@ class CatalogRisk(db.Model):
     threat_type = db.relationship('ThreatType')
     
     # Suggested base scores (can be overridden on import)
-    suggested_impact = db.Column(db.Integer, default=5)
-    suggested_likelihood = db.Column(db.Integer, default=5)
+    suggested_impact = db.Column(db.Integer, default=DEFAULT_LEVELS)
+    suggested_likelihood = db.Column(db.Integer, default=DEFAULT_LEVELS)
+
+    # The matrix the suggestions were authored against. A catalog is shared material —
+    # seeded, or imported from elsewhere — so the organisation reading it may well use a
+    # different matrix, and "4" only means something next to the scale it came from.
+    # Existing catalogs were written for a 5x5, which is what the default backfills.
+    impact_levels = db.Column(db.Integer, nullable=False, default=DEFAULT_LEVELS,
+                              server_default=str(DEFAULT_LEVELS))
+    likelihood_levels = db.Column(db.Integer, nullable=False, default=DEFAULT_LEVELS,
+                                  server_default=str(DEFAULT_LEVELS))
+
+    @property
+    def scale(self):
+        return RiskScale(self.impact_levels or DEFAULT_LEVELS,
+                         self.likelihood_levels or DEFAULT_LEVELS)
+
+    def suggestion_for(self, target_scale):
+        """The suggested impact and likelihood, expressed on `target_scale`.
+
+        Returns levels that exist on the target matrix, positioned where the catalog put
+        them on its own — so a catalog's worst case stays the worst case, and its middle
+        stays the middle, whatever size the organisation uses.
+        """
+        return (
+            rescale(self.suggested_impact, self.impact_levels,
+                    target_scale.impact_levels),
+            rescale(self.suggested_likelihood, self.likelihood_levels,
+                    target_scale.likelihood_levels),
+        )
 
     def __repr__(self):
         return f'<CatalogRisk {self.name}>'
