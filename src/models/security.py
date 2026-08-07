@@ -5,6 +5,7 @@ from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
 from .core import Attachment
 from .auth import User
 from src.utils.timezone_helper import today, now
+from ..services.risk_scale import DEFAULT_LEVELS, RiskScale
 
 class ComplianceLink(db.Model):
     """
@@ -368,12 +369,24 @@ class Risk(db.Model):
     treatment_strategy = db.Column(db.String(50)) # Mitigate, Accept, Transfer, Avoid
     next_review_date = db.Column(db.Date)
     
-    # Quantitative Scoring (1-5)
-    inherent_impact = db.Column(db.Integer, default=5)
-    inherent_likelihood = db.Column(db.Integer, default=5)
-    
-    residual_impact = db.Column(db.Integer, default=5)
-    residual_likelihood = db.Column(db.Integer, default=5)
+    # Quantitative scoring. The levels are 1..impact_levels and 1..likelihood_levels.
+    inherent_impact = db.Column(db.Integer, default=DEFAULT_LEVELS)
+    inherent_likelihood = db.Column(db.Integer, default=DEFAULT_LEVELS)
+
+    residual_impact = db.Column(db.Integer, default=DEFAULT_LEVELS)
+    residual_likelihood = db.Column(db.Integer, default=DEFAULT_LEVELS)
+
+    # The matrix these four were chosen from, stamped when the risk is written.
+    #
+    # Stored per risk, not read from the organisation's setting, because the alternative
+    # is that changing the matrix rewrites the meaning of every past assessment at once:
+    # a 4 that meant "high" on a 5x5 would silently become "half way" on an 8x8, with no
+    # record that anything moved. Keeping it here means old risks stay comparable through
+    # the percentage, and the organisation can change its mind without falsifying history.
+    impact_levels = db.Column(db.Integer, default=DEFAULT_LEVELS, nullable=False,
+                              server_default=str(DEFAULT_LEVELS))
+    likelihood_levels = db.Column(db.Integer, default=DEFAULT_LEVELS, nullable=False,
+                                  server_default=str(DEFAULT_LEVELS))
     
     mitigation_plan = db.Column(db.Text)
     
@@ -415,23 +428,36 @@ class Risk(db.Model):
                             overlaps="compliance_links")
 
     @property
+    def scale(self):
+        """The matrix this risk was scored against.
+
+        Read from the risk itself rather than from the organisation's current setting, so
+        that changing the matrix does not silently re-interpret assessments made under the
+        old one. A 4 out of 5 stays a 4 out of 5 after the move to 8x8.
+        """
+        return RiskScale(self.impact_levels or DEFAULT_LEVELS,
+                         self.likelihood_levels or DEFAULT_LEVELS)
+
+    @property
     def inherent_score(self):
-        return (self.inherent_impact or 0) * (self.inherent_likelihood or 0)
+        return self.scale.score(self.inherent_impact, self.inherent_likelihood)
 
     @property
     def residual_score(self):
-        return (self.residual_impact or 0) * (self.residual_likelihood or 0)
+        return self.scale.score(self.residual_impact, self.residual_likelihood)
+
+    @property
+    def residual_percent(self):
+        """The residual score as a percentage of this risk's own maximum.
+
+        What to sort and compare by. Two risks scored on differently sized matrices cannot
+        be ranked by their raw products.
+        """
+        return self.scale.percent(self.residual_impact, self.residual_likelihood)
 
     @property
     def criticality_level(self):
-        score = self.residual_score
-        if score >= 20:
-            return 'Critical'
-        elif score >= 15:
-            return 'High'
-        elif score >= 5:
-            return 'Medium'
-        return 'Low'
+        return self.scale.level_for(self.residual_impact, self.residual_likelihood)
 
     @property
     def is_overdue(self):

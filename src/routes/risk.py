@@ -79,7 +79,7 @@ def dashboard():
     all_risks = Risk.query.all()
     total_risks = len(all_risks)
     
-    critical_risks_count = sum(1 for r in all_risks if r.residual_score >= 20)
+    critical_risks_count = sum(1 for r in all_risks if r.criticality_level == 'Critical')
     risk_exposure = sum(r.residual_score for r in all_risks)
     
     # Efficiency (avoid division by zero)
@@ -146,8 +146,8 @@ def dashboard():
 
     # 3. Tables
     top_critical_risks = sorted(
-        [r for r in all_risks if r.residual_score >= 15],
-        key=lambda x: x.residual_score,
+        [r for r in all_risks if r.criticality_level in ('Critical', 'High')],
+        key=lambda x: x.residual_percent,
         reverse=True
     )[:5]
 
@@ -178,7 +178,7 @@ def dashboard_pdf():
     total_risks = len(all_risks)
     
     # 1. KPIs
-    critical_risks_count = sum(1 for r in all_risks if r.residual_score >= 20)
+    critical_risks_count = sum(1 for r in all_risks if r.criticality_level == 'Critical')
     risk_exposure = sum(r.residual_score for r in all_risks)
     
     total_reduction = sum(r.risk_reduction_percentage for r in all_risks)
@@ -200,18 +200,20 @@ def dashboard_pdf():
     # 3. Lists for Page 1
     # Top Critical Risks (Top 10 for PDF summary)
     top_critical_risks = sorted(
-        [r for r in all_risks if r.residual_score >= 15],
-        key=lambda x: x.residual_score,
+        [r for r in all_risks if r.criticality_level in ('Critical', 'High')],
+        key=lambda x: x.residual_percent,
         reverse=True
     )[:10]
 
     accepted_risks = [r for r in all_risks if r.treatment_strategy == 'Accept']
 
     # 4. Detailed List for Page 2 (Full Register)
-    # Sort by Criticality (Residual Score) Descending
+    # Sorted by where each risk sits on its own matrix, not by the raw product: a register
+    # can hold risks assessed under different matrix sizes, and 12 out of 16 outranks
+    # 15 out of 64.
     detailed_risks = sorted(
         all_risks,
-        key=lambda x: x.residual_score,
+        key=lambda x: x.residual_percent,
         reverse=True
     )
 

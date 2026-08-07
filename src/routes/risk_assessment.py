@@ -123,11 +123,15 @@ def lock_assessment(id):
                     # If risk was 'Draft' or 'Identified', move it along.
                     # If it was 'Accepted', we might not want to auto-change it, but score MUST update.
                     
-                    # Logic: If status is NOT closed, update status based on score
+                    # Logic: If status is NOT closed, update status based on severity.
+                    # Named bands rather than raw scores, which only lined up with the
+                    # intent while every matrix was 5x5: `< 5` meant "Low" and `>= 15`
+                    # meant "High or worse".
                     if live_risk.status not in ['Closed', 'Accepted']:
-                        if item.residual_score < 5:
+                        severity = item.criticality_level
+                        if severity == 'Low':
                             live_risk.status = 'Mitigated'
-                        elif item.residual_score >= 15:
+                        elif severity in ('Critical', 'High'):
                             live_risk.status = 'In Treatment'
                         else:
                             live_risk.status = 'Assessed'

@@ -1,6 +1,7 @@
 from src.utils.timezone_helper import now
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
+from ..services.risk_scale import DEFAULT_LEVELS, RiskScale
 
 # Association table for Risk Assessment - Change Mitigation M2M
 risk_assessment_changes = db.Table('risk_assessment_changes',
@@ -59,6 +60,14 @@ class RiskAssessmentItem(db.Model):
     inherent_likelihood = db.Column(db.Integer)
     residual_impact = db.Column(db.Integer)
     residual_likelihood = db.Column(db.Integer)
+
+    # The matrix these were chosen from, stamped when the item is written — see the same
+    # pair on Risk. An assessment is a snapshot of a judgement made on a day; re-reading
+    # it through a matrix adopted later would change what that judgement said.
+    impact_levels = db.Column(db.Integer, default=DEFAULT_LEVELS, nullable=False,
+                              server_default=str(DEFAULT_LEVELS))
+    likelihood_levels = db.Column(db.Integer, default=DEFAULT_LEVELS, nullable=False,
+                                  server_default=str(DEFAULT_LEVELS))
     
     treatment_strategy = db.Column(db.String(50))
     mitigation_notes = db.Column(db.Text) # Specific notes for this assessment
@@ -67,12 +76,25 @@ class RiskAssessmentItem(db.Model):
     evidence = db.relationship('RiskAssessmentEvidence', backref='item', cascade=CASCADE_ALL_DELETE_ORPHAN)
 
     @property
+    def scale(self):
+        return RiskScale(self.impact_levels or DEFAULT_LEVELS,
+                         self.likelihood_levels or DEFAULT_LEVELS)
+
+    @property
     def residual_score(self):
-        return (self.residual_impact or 0) * (self.residual_likelihood or 0)
+        return self.scale.score(self.residual_impact, self.residual_likelihood)
 
     @property
     def inherent_score(self):
-        return (self.inherent_impact or 0) * (self.inherent_likelihood or 0)
+        return self.scale.score(self.inherent_impact, self.inherent_likelihood)
+
+    @property
+    def residual_percent(self):
+        return self.scale.percent(self.residual_impact, self.residual_likelihood)
+
+    @property
+    def criticality_level(self):
+        return self.scale.level_for(self.residual_impact, self.residual_likelihood)
 
 class RiskAssessmentEvidence(db.Model):
     """
