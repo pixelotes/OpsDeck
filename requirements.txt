@@ -4,7 +4,7 @@ Flask-Migrate==4.1.0
 requests==2.34.2
 APScheduler==3.11.3
 python-dateutil==2.9.0.post0
-python-dotenv==1.2.2
+python-dotenv==1.2.3
 pytz==2026.3.post1
 gunicorn==26.0.0
 MarkupSafe==3.0.3
