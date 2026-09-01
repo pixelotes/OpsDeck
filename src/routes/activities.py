@@ -324,7 +324,8 @@ def get_objects_by_type():
         
         return jsonify({'objects': objects_data})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        current_app.logger.exception("Failed to fetch objects for type '%s'", object_type)
+        return jsonify({'error': 'An internal error has occurred.'}), 500
 
 @activities_bp.route('/<int:id>/link-object', methods=['POST'])
 @login_required
