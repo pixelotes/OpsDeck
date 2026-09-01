@@ -13,7 +13,7 @@
         "chart.js": "^4.5.1",
         "easymde": "^2.21.0",
         "html2canvas": "^1.4.1",
-        "mermaid": "^11.16.1",
+        "mermaid": "^11.17.0",
         "orgchart.js": "^0.0.4",
         "simple-calendar-js": "^3.0.14",
         "simple-datatables": "^10.3.0",
