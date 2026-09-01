@@ -394,7 +394,11 @@
         fetch('/risk-assessments/api/linkable-objects/' + linkableType)
             .then(response => response.json())
             .then(data => {
-                select.innerHTML = '<option value="">Select ' + linkableType + '...</option>';
+                select.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select ' + linkableType + '...';
+                select.appendChild(defaultOption);
                 data.forEach(function (obj) {
                     const option = document.createElement('option');
                     option.value = obj.id;
