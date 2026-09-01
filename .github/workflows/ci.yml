@@ -6,6 +6,9 @@ name: Python CI Test Suite
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
