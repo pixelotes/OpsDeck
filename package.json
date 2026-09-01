@@ -18,7 +18,7 @@
         "simple-calendar-js": "^3.0.14",
         "simple-datatables": "^10.3.0",
         "sortablejs": "^1.15.7",
-        "suneditor": "^3.2.6",
+        "suneditor": "^3.3.1",
         "swagger-ui-dist": "5.32.14",
         "tom-select": "^2.6.2"
     }
