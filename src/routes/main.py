@@ -9,14 +9,11 @@ from functools import wraps
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from ..models import db, User, UserKnownIP, Subscription, NotificationSetting, Asset, Supplier, Contact, Purchase, Peripheral, Location, PaymentMethod, License, MaintenanceLog
-from ..models.security import SecurityIncident, Risk, Framework
-from ..models.credentials import CredentialSecret
-from ..models.certificates import CertificateVersion
-from ..models.audits import ComplianceAudit
 from ..services.permissions_service import (requires_permission, get_user_modules,
                                             user_has_module_access, readable_modules,
                                             can_read_entity)
 from ..services.finance_service import renewal_occurrences_in_range
+from ..services import health_dashboard_service as health_dashboard
 from src import limiter
 from src import notifications
 import calendar
@@ -435,336 +432,38 @@ def home():
 @login_required
 @requires_permission('health_dashboard', access_level='READ_ONLY')
 def organizational_health():
-    """Executive Organizational Health Dashboard."""
+    """Executive Organizational Health Dashboard.
+
+    Every figure comes from services.health_dashboard_service; this view only decides
+    what the page shows together.
+    """
     user_id = session.get('user_id')
     user = db.session.get(User, user_id)
-    current_date = today()
-    ninety_days = current_date + timedelta(days=90)
-    
-    # ----- HEALTH SCORE CALCULATION -----
-    # Based on inverse of critical/high risks (Excluding Closed and Accepted)
-    critical_risks = Risk.query.filter(
-        Risk.status != 'Closed',
-        Risk.treatment_strategy != 'Accept',
-        Risk.residual_likelihood >= 4, 
-        Risk.residual_impact >= 4
-    ).count()
-    
-    high_risks = Risk.query.filter(
-        Risk.status != 'Closed',
-        Risk.treatment_strategy != 'Accept',
-        Risk.residual_likelihood >= 3, 
-        Risk.residual_impact >= 3
-    ).count()
-    health_score = max(0, 100 - (critical_risks * 15) - (high_risks * 5))
-    
-    # ----- GLOBAL STATUS -----
-    active_incidents = SecurityIncident.query.filter(
-        SecurityIncident.status.in_(['Open', 'Investigating', 'Escalated'])
-    ).count()
-    
-    if critical_risks > 0 or active_incidents > 0:
-        global_status = 'critical'
-    elif high_risks > 2:
-        global_status = 'degraded'
-    else:
-        global_status = 'operational'
-    
-    # ----- CRITICAL ACTION ITEMS (RED STATE) -----
-    critical_items = []
-    
-    # Active high-severity incidents
-    incidents = SecurityIncident.query.filter(
-        SecurityIncident.status.in_(['Open', 'Investigating', 'Escalated']),
-        SecurityIncident.severity.in_(['SEV-1', 'SEV-2', 'P1', 'P2'])
-    ).limit(5).all()
-    for inc in incidents:
-        critical_items.append({
-            'type': 'security',
-            'severity': 'critical',
-            'title': inc.title,
-            'description': f'{inc.severity} - {inc.status}',
-            'link': url_for(INCIDENT_DETAIL, id=inc.id)
-        })
-    
-    # Overdue maintenance
-    overdue_logs = MaintenanceLog.query.options(
-        joinedload(MaintenanceLog.asset)
-    ).filter(
-        MaintenanceLog.status.in_(['Open', 'In Progress']),
-        MaintenanceLog.event_date < today()
-    ).limit(5).all()
-    for log in overdue_logs:
-        critical_items.append({
-            'type': 'operational',
-            'severity': 'high',
-            'title': f'{log.asset.name if log.asset else "Unknown"} - Maintenance Overdue',
-            'description': log.description[:50] if log.description else 'Scheduled maintenance delayed',
-            'link': url_for('maintenance.log_detail', id=log.id)
-        })
-    
-    # Expired credentials
-    expired_secrets = CredentialSecret.query.options(
-        joinedload(CredentialSecret.credential)
-    ).filter(
-        CredentialSecret.is_active == True,
-        CredentialSecret.expires_at < now()
-    ).limit(5).all()
-    for secret in expired_secrets:
-        critical_items.append({
-            'type': 'security',
-            'severity': 'critical',
-            'title': f'{secret.credential.name} - Credential Expired',
-            'description': f'Type: {secret.credential.type}',
-            'link': url_for(DETAIL_CREDENTIAL, id=secret.credential.id)
-        })
-    
-    # Expired certificates (still active)
-    expired_certs = CertificateVersion.query.options(
-        joinedload(CertificateVersion.certificate)
-    ).filter(
-        CertificateVersion.is_active == True,
-        CertificateVersion.expires_at < today()
-    ).limit(5).all()
-    for cv in expired_certs:
-        critical_items.append({
-            'type': 'security',
-            'severity': 'critical',
-            'title': f'{cv.certificate.name} - Certificate Expired',
-            'description': f'Expired: {cv.expires_at.strftime("%Y-%m-%d")}' if cv.expires_at else 'Expired',
-            'link': url_for('certificates.certificate_detail', id=cv.certificate.id)
-        })
-    
-    # ----- EXPIRATION HORIZON (YELLOW STATE) -----
-    expirations = {'finance': [], 'identity': [], 'certificates': [], 'legal': []}
-    
-    # Financial: Payment Methods
-    payment_methods = PaymentMethod.query.filter(
-        PaymentMethod.is_archived == False,
-        PaymentMethod.expiry_date.isnot(None)
-    ).all()
-    for pm in payment_methods:
-        last_day = pm.expiry_date.replace(day=calendar.monthrange(pm.expiry_date.year, pm.expiry_date.month)[1])
-        if today() <= last_day <= ninety_days:
-            days = (last_day - today()).days
-            expirations['finance'].append({
-                'name': pm.name,
-                'days': days,
-                'meta': pm.details or pm.method_type,
-                'link': url_for('payment_methods.payment_method_detail', id=pm.id)
-            })
-    expirations['finance'].sort(key=lambda x: x['days'])
-    
-    # Identity: Credentials
-    expiring_secrets = CredentialSecret.query.options(
-        joinedload(CredentialSecret.credential)
-    ).filter(
-        CredentialSecret.is_active == True,
-        CredentialSecret.expires_at.isnot(None),
-        CredentialSecret.expires_at > now(),
-        CredentialSecret.expires_at <= now() + timedelta(days=90)
-    ).all()
-    for secret in expiring_secrets:
-        days = (secret.expires_at.date() - today()).days
-        expirations['identity'].append({
-            'name': secret.credential.name,
-            'type': secret.credential.type,
-            'days': days,
-            'link': url_for(DETAIL_CREDENTIAL, id=secret.credential.id)
-        })
-    expirations['identity'].sort(key=lambda x: x['days'])
-    
-    # Certificates
-    cert_versions = CertificateVersion.query.options(
-        joinedload(CertificateVersion.certificate)
-    ).filter(
-        CertificateVersion.is_active == True,
-        CertificateVersion.expires_at > today(),
-        CertificateVersion.expires_at <= ninety_days
-    ).all()
-    for cv in cert_versions:
-        days = (cv.expires_at - today()).days
-        expirations['certificates'].append({
-            'name': cv.certificate.name,
-            'issuer': cv.issuer,
-            'days': days,
-            'link': url_for('certificates.certificate_detail', id=cv.certificate.id)
-        })
-    expirations['certificates'].sort(key=lambda x: x['days'])
-    
-    # Legal: Subscriptions & Licenses
-    subscriptions = Subscription.query.filter_by(is_archived=False).all()
-    for sub in subscriptions:
-        next_renewal = sub.next_renewal_date
-        if next_renewal and today() <= next_renewal <= ninety_days:
-            days = (next_renewal - today()).days
-            expirations['legal'].append({
-                'name': sub.name,
-                'cost': sub.cost_eur,
-                'days': days,
-                'link': url_for('subscriptions.subscription_detail', id=sub.id)
-            })
-    
-    licenses = License.query.filter(
-        License.expiry_date > today(),
-        License.expiry_date <= ninety_days
-    ).all()
-    for lic in licenses:
-        days = (lic.expiry_date - today()).days
-        expirations['legal'].append({
-            'name': lic.name,
-            'cost': None,
-            'days': days,
-            'link': url_for('licenses.detail', id=lic.id)
-        })
-    expirations['legal'].sort(key=lambda x: x['days'])
-    
-    # ----- COUNTS -----
-    critical_count = len(critical_items)
-    warning_count = sum(1 for v in expirations.values() for item in v if item['days'] <= 30)
-    expiring_count = sum(len(v) for v in expirations.values())
 
-    # ----- UNIFIED COMPLIANCE TASK LIST (prioritized) -----
-    # Critical/expired items first (already due), then upcoming expirations by soonest.
-    compliance_tasks = []
-    for item in critical_items:
-        compliance_tasks.append({
-            'category': item['type'],
-            'severity': item['severity'],
-            'title': item['title'],
-            'meta': item['description'],
-            'days': None,
-            'link': item['link'],
-        })
-    for category, items in expirations.items():
-        for it in items:
-            compliance_tasks.append({
-                'category': category,
-                'severity': 'warning' if it['days'] <= 30 else 'info',
-                'title': it['name'],
-                'meta': it.get('meta') or it.get('type') or it.get('issuer')
-                        or ('€%.2f' % it['cost'] if it.get('cost') else ''),
-                'days': it['days'],
-                'link': it['link'],
-            })
-    # Already-due items (days is None) first, then ascending by days remaining.
-    compliance_tasks.sort(key=lambda t: (1, t['days']) if t['days'] is not None else (0, 0))
-
-    # ----- UPCOMING SECURITY ACTIVITIES (due within 30 days, incl. overdue) -----
-    from ..models.activities import SecurityActivity
-    upcoming_activities = []
-    for activity in SecurityActivity.query.all():
-        days = activity.days_until_due
-        if days is None or days > 30:
-            continue
-        upcoming_activities.append({
-            'name': activity.name,
-            'frequency': activity.frequency,
-            'days': days,
-            'last_execution': activity.last_execution_date,
-            'link': url_for('activities.activity_detail', id=activity.id),
-        })
-    # Soonest first (most overdue at the top), through to +30 days.
-    upcoming_activities.sort(key=lambda a: a['days'])
-    
-    # ----- OPS SUMMARY -----
-    unhealthy_statuses = ['In Repair', 'Awaiting Disposal', 'Disposed', 'Sold']
-    active_assets = Asset.query.filter(
-        Asset.is_archived == False,
-        Asset.status != 'Decommissioned'
-    ).all()
-    total_assets = len(active_assets)
-    healthy_assets = sum(1 for a in active_assets if a.status not in unhealthy_statuses)
-    assets_under_warranty = sum(
-        1 for a in active_assets
-        if a.warranty_end_date and a.warranty_end_date >= current_date
-    )
-    asset_health = int((healthy_assets / total_assets * 100) if total_assets > 0 else 100)
-
-    # Spend projection: subscription renewals landing in the current calendar month.
-    # Uses the same helper as the Ops & Finance dashboard so the two figures match.
-    month_start = current_date.replace(day=1)
-    month_end = month_start + relativedelta(months=1, days=-1)
-    month_renewals = renewal_occurrences_in_range(subscriptions, month_start, month_end)
-    projected_spend = sum(sub.cost_eur for _, sub in month_renewals)
-
-    ops_summary = {
-        'projected_spend': projected_spend,
-        'asset_health': asset_health,
-        'healthy_assets': healthy_assets,
-        'total_assets': total_assets,
-        'assets_under_warranty': assets_under_warranty,
-        'active_subscriptions': len(subscriptions),
-    }
-    
-    # ----- COMPLIANCE SUMMARY -----
-    # Use the same real-time evaluator as the Compliance dashboard so the figures
-    # match the page the "View Compliance Dashboard" button links to.
-    from src.services.compliance_service import get_compliance_evaluator
-    evaluator = get_compliance_evaluator()
-    active_frameworks = Framework.query.filter_by(is_active=True).order_by(Framework.name).all()
-
-    agg = {'total': 0, 'compliant': 0, 'warning': 0, 'non_compliant': 0,
-           'manual': 0, 'uncovered': 0, 'not_applicable': 0}
-    framework_scores = []
-    for fw in active_frameworks:
-        status = evaluator.get_framework_status(fw.id)
-        if not status:
-            continue
-        stats = status['stats']
-        for key in agg:
-            agg[key] += stats.get(key, 0)
-        applicable = stats['total'] - stats.get('not_applicable', 0)
-        # "Covered" = anything with evidence (compliant / warning / non_compliant / manual).
-        covered = stats['compliant'] + stats['manual']
-        pct = int(round(covered / applicable * 100)) if applicable else 100
-        framework_scores.append({
-            'name': fw.name,
-            'pct': pct,
-            'covered': covered,
-            'applicable': applicable,
-        })
-
-    applicable_controls = agg['total'] - agg['not_applicable']
-    covered_controls = agg['compliant'] + agg['manual']
-    compliance_score = int(round(covered_controls / applicable_controls * 100)) if applicable_controls else 100
-    at_risk_controls = agg['warning'] + agg['non_compliant']
-    pending_audits = ComplianceAudit.query.filter(
-        ComplianceAudit.status.in_(['Planned', 'Prep', 'Auditor Review'])
-    ).count()
-
-    compliance_summary = {
-        'score': compliance_score,
-        'compliant_controls': covered_controls,
-        'total_controls': applicable_controls,
-        'at_risk_controls': at_risk_controls,
-        'uncovered_controls': agg['uncovered'],
-        'pending_audits': pending_audits,
-        'frameworks': framework_scores,
-    }
-    
-    # Get user modules and role for template permissions check
-    allowed_modules = get_user_modules(user_id)
-    current_user_role = user.role if user else None
+    posture = health_dashboard.risk_posture()
+    active_incidents = health_dashboard.active_incident_count()
+    critical_items = health_dashboard.critical_action_items()
+    expirations, subscriptions = health_dashboard.expiration_horizon(days=90)
 
     return render_template(
         'organizational_health.html',
         today=today(),
-        health_score=health_score,
-        global_status=global_status,
-        critical_risks=critical_risks,
-        high_risks=high_risks,
+        health_score=posture['health_score'],
+        global_status=health_dashboard.global_status(
+            posture['critical_risks'], posture['high_risks'], active_incidents),
+        critical_risks=posture['critical_risks'],
+        high_risks=posture['high_risks'],
         critical_items=critical_items,
-        critical_count=critical_count,
-        warning_count=warning_count,
-        expiring_count=expiring_count,
-        compliance_tasks=compliance_tasks,
-        upcoming_activities=upcoming_activities,
+        critical_count=len(critical_items),
+        warning_count=sum(1 for group in expirations.values() for item in group if item['days'] <= 30),
+        expiring_count=sum(len(group) for group in expirations.values()),
+        compliance_tasks=health_dashboard.compliance_tasks(critical_items, expirations),
+        upcoming_activities=health_dashboard.upcoming_activities(),
         expirations=expirations,
-        ops_summary=ops_summary,
-        compliance_summary=compliance_summary,
-        allowed_modules=allowed_modules,
-        current_user_role=current_user_role
+        ops_summary=health_dashboard.ops_summary(subscriptions),
+        compliance_summary=health_dashboard.compliance_summary(),
+        allowed_modules=get_user_modules(user_id),
+        current_user_role=user.role if user else None,
     )
 
 
@@ -1037,8 +736,7 @@ def my_dashboard():
     my_risks = Risk.query.filter_by(owner_id=user_id).filter(Risk.status != 'Closed').all()
     my_risks_count = len(my_risks)
 
-    critical_risks = sum(1 for risk in my_risks
-                        if risk.residual_likelihood >= 4 and risk.residual_impact >= 4)
+    critical_risks = health_dashboard.count_risks_by_level(my_risks)['Critical']
 
     # ----- MY SERVICES -----
     my_services = BusinessService.query.filter(

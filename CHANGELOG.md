@@ -15,7 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Audit "defense pack" exports join the attachment's original file name with `basename()` + `secure_filename()`, so a stored `../` name cannot write outside the export directory
 - The MFA one-time code is generated with `secrets` instead of `random`, and compared in constant time
 
+### Changed
+- 91 POST-only routes declare their write requirement as `@requires_permission(MODULE, access_level='WRITE')` instead of repeating the same three-line guard at the top of the body. A read-only user who posts to one of them is sent back to the page they came from with the module's standard read-only notice, rather than to a hard-coded list page
+- The Organizational Health dashboard's figures live in `services/health_dashboard_service.py`, one function per block (risk posture, action items, expiration horizon, ops and compliance summaries), each testable on its own; the view is now the thirty lines that put them on one page
+
 ### Fixed
+- The Organizational Health and My Dashboard pages counted a risk as critical when both residual levels were at least 4 — the red corner of a 5×5 matrix — regardless of the configured matrix size or risk appetite. Both now use the same severity as the risk register
+- Creating an offboarding process loaded each assigned asset and each license's software one query at a time; they are loaded with the assignments and licenses
 - A unique or foreign-key violation on save now shows "that change conflicts with existing data" and returns to the form (409 for JSON callers) instead of a 500 page, and rolls the session back so the request can continue
 
 ### Added
