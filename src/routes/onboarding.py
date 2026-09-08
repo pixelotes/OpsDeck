@@ -3,7 +3,10 @@ from ..services.permissions_service import (requires_permission, has_write_permi
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime
 from ..extensions import db
+from sqlalchemy.orm import joinedload
+
 from ..models import User, Peripheral, License, Software, Course
+from ..models.assets import AssetAssignment
 from ..models import Subscription, PaymentMethod, Risk, BusinessService, Location
 from ..models.procurement import log_subscription_cost_change
 # Models must be exported from models/__init__.py to be importable here
@@ -406,14 +409,18 @@ def new_offboarding():
         db.session.commit()
         
         # 1. HARDWARE
-        for assignment in target_user.assignments:
-            if not assignment.checked_in_date:
-                db.session.add(ProcessItem(
-                    offboarding_process_id=process.id,
-                    description=f"💻 Pick up Asset: {assignment.asset.name} ({assignment.asset.serial_number})",
-                    item_type='Asset',
-                    linked_object_id=assignment.asset.id
-                ))
+        # Each open assignment used to lazy-load its asset one query at a time.
+        open_assignments = AssetAssignment.query.options(joinedload(AssetAssignment.asset)).filter(
+            AssetAssignment.user_id == target_user.id,
+            AssetAssignment.checked_in_date.is_(None),
+        ).all()
+        for assignment in open_assignments:
+            db.session.add(ProcessItem(
+                offboarding_process_id=process.id,
+                description=f"💻 Pick up Asset: {assignment.asset.name} ({assignment.asset.serial_number})",
+                item_type='Asset',
+                linked_object_id=assignment.asset.id
+            ))
 
         peripherals = Peripheral.query.filter_by(user_id=target_user.id).all()
         for p in peripherals:
@@ -425,7 +432,7 @@ def new_offboarding():
             ))
             
         # 2. SOFTWARE
-        licenses = License.query.filter_by(user_id=target_user.id).all()
+        licenses = License.query.options(joinedload(License.software)).filter_by(user_id=target_user.id).all()
         for l in licenses:
             desc = f"🔑 Revoke License: {l.name}"
             if l.software:
