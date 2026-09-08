@@ -13,6 +13,7 @@ from .main import login_required
 from ..services.permissions_service import (requires_permission, has_write_permission,
                                            requires_permission_api)
 from ..services.uar_service import UARAutomationService
+from ..services.readonly_sql import run_readonly_query, validate_readonly_sql, ForbiddenQuery
 from ..utils.json_api import json_endpoint
 from ..utils.uar_engine import AccessReviewEngine
 from src.utils.timezone_helper import now
@@ -256,7 +257,9 @@ def access_review_preview():
                 field_mappings=[{"field_a": f, "field_b": f} for f in legacy_compare_fields] if legacy_compare_fields else []
             )
         else:
-            # Fallback to raw SQL query
+            # Fallback to raw SQL query. This one runs inside AccessReviewEngine's
+            # throwaway in-memory SQLite holding only the two loaded datasets — not the
+            # application database, which is what services.readonly_sql guards above.
             query = data.get('query')
             if not query:
                  # Default fallback if nothing provided
@@ -265,6 +268,8 @@ def access_review_preview():
         
         return jsonify({'success': True, 'results': results})
         
+    except PermissionError as e:
+        return jsonify({'success': False, 'error': str(e)}), 403
     except Exception as e:
         current_app.logger.error(f"[UAR] Error in endpoint: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -383,43 +388,30 @@ def get_access_review_schema():
             'samples': response_samples
         })
 
+    except PermissionError as e:
+        return jsonify({'success': False, 'error': str(e)}), 403
     except Exception as e:
         current_app.logger.error(f"[UAR] Error in endpoint: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 400
     finally:
         engine.cleanup()
 
+def _current_user_is_admin() -> bool:
+    user_id = session.get('user_id')
+    user = db.session.get(User, user_id) if user_id else None
+    return bool(user and user.role == 'admin')
+
+
 def _validate_and_execute_query(sql_query: str):
+    """Run a 'Database Query' data source on behalf of whoever is making this request.
+
+    The SQL rules live in services.readonly_sql; what this adds is *who*: raw SQL
+    against the application's own database is an administrator's tool, so a compliance
+    reader who can preview reviews cannot use it to read the tables the reviews are about.
     """
-    Validates that the query is read-only (SELECT/JOIN only) and executes it against the database.
-    Returns list of dicts.
-    """
-    # Remove comments and normalize
-    query_normalized = sql_query.strip().upper()
-
-    # Security check: only allow SELECT queries
-    if not query_normalized.startswith('SELECT'):
-        raise ValueError("Only SELECT queries are allowed")
-
-    # Block dangerous keywords (even in subqueries)
-    dangerous_keywords = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE', 'ALTER', 'TRUNCATE', 'GRANT', 'REVOKE']
-    for keyword in dangerous_keywords:
-        if keyword in query_normalized:
-            raise ValueError(f"Query contains forbidden keyword: {keyword}")
-
-    # Execute query with read-only connection
-    try:
-        result = db.session.execute(db.text(sql_query))
-        rows = result.fetchall()
-
-        # Convert to list of dicts
-        if rows:
-            columns = result.keys()
-            return [dict(zip(columns, row)) for row in rows]
-        return []
-    except Exception as e:
-        current_app.logger.error(f"[UAR] Database query error: {e}")
-        raise ValueError(f"Query execution failed: {str(e)}")
+    if not _current_user_is_admin():
+        raise PermissionError('Database Query sources are restricted to administrators')
+    return run_readonly_query(sql_query)
 
 def _get_active_users_as_dict():
     """Helper to fetch active users and format them as dicts with flat custom properties."""
@@ -1726,7 +1718,23 @@ def uar_automation_form(id=None):
         comparison.description = request.form.get('description')
         comparison.source_a_type = request.form.get('source_a_type')
         comparison.source_b_type = request.form.get('source_b_type')
-        
+
+        # A stored 'Database Query' runs later, unattended, so the check on who may
+        # write one happens here, at save time — and the query is validated now too,
+        # so a refused statement fails in front of its author rather than in a
+        # scheduled run nobody is watching.
+        if 'Database Query' in (comparison.source_a_type, comparison.source_b_type):
+            if not _current_user_is_admin():
+                flash('Database Query sources can only be configured by an administrator.', 'danger')
+                return redirect(url_for('compliance.uar_automation_list'))
+            for side in ('a', 'b'):
+                if getattr(comparison, f'source_{side}_type') == 'Database Query':
+                    try:
+                        validate_readonly_sql(request.form.get(f'source_{side}_query', ''))
+                    except ForbiddenQuery as exc:
+                        flash(f'Source {side.upper()} query was refused: {exc}', 'danger')
+                        return redirect(request.url)
+
         # Parse source configurations
         source_a_config = {}
         if comparison.source_a_type == 'Subscription':

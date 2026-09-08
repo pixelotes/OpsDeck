@@ -189,7 +189,7 @@ def test_validate_and_execute_query_invalid_keyword(app, init_database, uar_serv
         with pytest.raises(ValueError, match="Only SELECT queries are allowed"):
             uar_service._validate_and_execute_query("DELETE FROM users")
 
-        with pytest.raises(ValueError, match="forbidden keyword"):
+        with pytest.raises(ValueError, match="single statement"):
             uar_service._validate_and_execute_query("SELECT * FROM users; DROP TABLE users")
 
 

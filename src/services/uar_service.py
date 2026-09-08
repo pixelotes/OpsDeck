@@ -15,6 +15,7 @@ from ..models.procurement import Subscription
 from ..models.services import BusinessService
 from ..models.communications import ScheduledCommunication, EmailTemplate
 from ..utils.uar_engine import AccessReviewEngine
+from .readonly_sql import run_readonly_query
 from src.utils.timezone_helper import now
 
 
@@ -241,41 +242,12 @@ class UARAutomationService:
         return data
 
     def _validate_and_execute_query(self, query: str) -> List[Dict[str, Any]]:
+        """Run a 'Database Query' source. The rules live in services.readonly_sql.
+
+        Who may *author* such a query is decided where it is saved (an administrator);
+        by the time a scheduled run gets here the question is only what it may do.
         """
-        Validate and execute a SQL query.
-
-        Args:
-            query: SQL query string
-
-        Returns:
-            list: Query results as list of dicts
-
-        Raises:
-            ValueError: If query is invalid or forbidden
-        """
-        query_normalized = query.strip().upper()
-
-        # Security validation
-        if not query_normalized.startswith('SELECT'):
-            raise ValueError("Only SELECT queries are allowed")
-
-        dangerous_keywords = [
-            'INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE',
-            'ALTER', 'TRUNCATE', 'GRANT', 'REVOKE'
-        ]
-        for keyword in dangerous_keywords:
-            if keyword in query_normalized:
-                raise ValueError(f"Query contains forbidden keyword: {keyword}")
-
-        # Execute query
-        result = db.session.execute(db.text(query))
-        rows = result.fetchall()
-
-        if rows:
-            columns = result.keys()
-            return [dict(zip(columns, row)) for row in rows]
-
-        return []
+        return run_readonly_query(query)
 
     def _create_snapshot(self, data: List[Dict[str, Any]], label: str) -> Dict[str, Any]:
         """Create a snapshot of loaded data for audit trail."""
