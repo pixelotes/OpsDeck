@@ -65,7 +65,6 @@ PUBLIC_ENDPOINTS = [
 csrf = CSRFProtect()
 
 # --- Content Security Policy ---
-talisman = Talisman()
 
 # --- Initialize Extensions ---
 def configure_logging(app):
@@ -336,7 +335,11 @@ def create_app(test_config=None):
     csp_enabled = os.environ.get('CSP_ENABLED', 'True').lower() == 'true'
     csp_report_only = os.environ.get('CSP_REPORT_ONLY', 'False').lower() == 'true'
 
-    talisman.init_app(
+    # One Talisman per application, not a module-level instance shared through
+    # init_app(): Talisman keeps force_https and the CSP on *itself* and registers its
+    # hooks bound to that self, so a second create_app() (the test-suite does this to
+    # check production settings) would silently rewrite the first application's policy.
+    Talisman(
         app,
         content_security_policy=(content_security_policy if csp_enabled else None),
         content_security_policy_nonce_in=['script-src'],
