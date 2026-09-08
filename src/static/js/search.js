@@ -34,7 +34,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const a = document.createElement('a');
                                 a.href = item.url;
                                 a.className = 'list-group-item list-group-item-action py-2';
-                                a.innerHTML = `${item.name} <span class="badge bg-secondary float-end">${item.type}</span>`;
+                                // Names are user-entered data: text, never markup.
+                                a.appendChild(document.createTextNode(item.name));
+                                const badge = document.createElement('span');
+                                badge.className = 'badge bg-secondary float-end';
+                                badge.textContent = item.type;
+                                a.appendChild(badge);
                                 searchResults.appendChild(a);
                             });
                         } else {

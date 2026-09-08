@@ -20,7 +20,8 @@ from ..services.finance_service import renewal_occurrences_in_range
 from src import limiter
 from src import notifications
 import calendar
-import random
+import hmac
+import secrets
 
 main_bp = Blueprint('main', __name__)
 
@@ -124,7 +125,7 @@ def verify_ip_and_login(user):
     # --- NEW IP DETECTED: Trigger MFA ---
     
     # Generate 6-digit OTP
-    otp = "".join([str(random.randint(0, 9)) for _ in range(6)])
+    otp = f"{secrets.randbelow(10**6):06d}"
     
     # Store MFA session data (expires in 10 min)
     session['mfa_user_id'] = user.id
@@ -183,7 +184,7 @@ def mfa_verify():
             flash('The code has expired. Please log in again.', 'warning')
             return redirect(url_for(LOGIN))
         
-        if code == stored_otp:
+        if stored_otp and hmac.compare_digest(str(code), str(stored_otp)):
             # SUCCESS - Get user and complete login
             user = db.session.get(User,user_id)
             if user:

@@ -34,6 +34,7 @@ limiter = Limiter(
 
 # --- CSRF Protection ---
 from flask_wtf.csrf import CSRFError, CSRFProtect
+from sqlalchemy.exc import IntegrityError
 from src.utils.timezone_helper import today
 from .utils.json_api import request_wants_json
 
@@ -437,8 +438,27 @@ def create_app(test_config=None):
             return jsonify({'error': e.description or 'Too many requests.'}), 429
         return render_template('errors/429.html', error=e.description), 429
     
+    @app.errorhandler(IntegrityError)
+    def integrity_error(e):
+        # A unique or foreign-key constraint refused the write. Left alone it is a 500
+        # page and a session that raises PendingRollbackError on its next use; it is
+        # really a message to the user that what they tried collides with existing data.
+        db.session.rollback()
+        app.logger.warning('Integrity error on %s %s: %s', request.method, request.path,
+                           getattr(e, 'orig', e))
+        message = ('That change conflicts with existing data (a duplicate name or a record '
+                   'that is still referenced). Nothing was saved.')
+        if request_wants_json():
+            return jsonify({'error': message}), 409
+        from .utils.redirects import safe_redirect_target
+        flash(message, 'danger')
+        return redirect(safe_redirect_target(request.referrer)), 302
+
     @app.errorhandler(500)
     def internal_server_error(e):
+        # Whatever failed may have left the session mid-transaction; the audit entry
+        # below and the error page must not be the second thing that fails.
+        db.session.rollback()
         from .utils.logger import log_audit
         log_audit(
             event_type='system.internal_error',

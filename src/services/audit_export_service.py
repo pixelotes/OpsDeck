@@ -8,6 +8,8 @@ Generates a ZIP file containing:
 - External links manifest
 """
 import os
+
+from werkzeug.utils import secure_filename
 import tempfile
 import shutil
 import json
@@ -293,11 +295,15 @@ class AuditPackExporter:
             return
 
         try:
-            target_path = os.path.join(target_dir, attachment.filename)
+            # attachment.filename is the name the uploader gave the file, kept for
+            # display; only the on-disk copy went through secure_filename. A stored
+            # "../../evidence.pdf" must land inside target_dir all the same.
+            safe_name = secure_filename(os.path.basename(attachment.filename or '')) or 'attachment'
+            target_path = os.path.join(target_dir, safe_name)
 
             # Avoid duplicate filenames
             if os.path.exists(target_path):
-                base, ext = os.path.splitext(attachment.filename)
+                base, ext = os.path.splitext(safe_name)
                 counter = 1
                 while os.path.exists(target_path):
                     target_path = os.path.join(target_dir, f"{base}_{counter}{ext}")
