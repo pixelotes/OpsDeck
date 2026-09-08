@@ -1,8 +1,33 @@
 # --- Configuración de la App ---
 image:
   repository: pixelotes/opsdeck  # Cambia esto por tu imagen real
-  pullPolicy: IfNotPresent
+  # "latest" con IfNotPresent nunca vuelve a descargar en un nodo que ya la tenga.
+  # Si fijas un tag de versión puedes volver a IfNotPresent.
+  pullPolicy: Always
   tag: "latest"
+
+# --- Seguridad del pod ---
+# La imagen corre como el usuario opsdeck (uid 1000). fsGroup hace que los PVC montados
+# (logs, adjuntos) sean escribibles por ese usuario.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
 
 service:
   type: ClusterIP
@@ -10,10 +35,9 @@ service:
 
 # --- Base de Datos ---
 database:
-  # Opciones: "internal" (despliega pod postgres) o "external" (usa RDS/Aurora/Etc)
+  # Opciones: "internal" (el subchart de PostgreSQL de Bitnami, ver .Values.postgresql;
+  # requiere postgresql.enabled: true) o "external" (RDS, Aurora, etc.)
   type: internal
-
-  # Internal se configura desde la ruta .Values.postgresql
 
   # Solo se usa si type: external
   external:
@@ -50,7 +74,16 @@ postgresql:
   enabled: false
   auth:
     username: opsdeck
-    password: opsdeck_password
+    # Crea tu propia contraseña.
+    # No la escribas aquí: este fichero acaba en git y en el estado de Helm. Opciones:
+    #   - Déjala vacía: el subchart genera una aleatoria en la primera instalación y la
+    #     guarda en el Secret <release>-postgresql (clave "password"); la app y el backup
+    #     la leen de ahí.
+    #   - O crea tú un Secret con la clave "password" y pon su nombre en existingSecret.
+    password: ""
+    existingSecret: ""
+    secretKeys:
+      userPasswordKey: password
     database: opsdeck_db
   # Persistencia de la BBDD interna (puedes desactivarla si quieres que sea efímera)
   primary:

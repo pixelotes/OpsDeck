@@ -20,37 +20,22 @@ spec:
       labels:
         {{- include "opsdeck.selectorLabels" . | nindent 8 }}
     spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           ports:
             - name: http
               containerPort: 5000
               protocol: TCP
           
           env:
-            # --- 1. Lógica de Selección de Base de Datos ---
-            
-            # OPCIÓN A: Postgres Interno (Kubernetes Service)
-            {{- if eq .Values.database.type "internal" }}
-            - name: DATABASE_URL
-              value: postgresql://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "opsdeck.fullname" . }}-db:5432/{{ .Values.postgresql.auth.database }}
-            
-            # OPCIÓN B: Postgres Externo (Aurora, RDS, etc)
-            {{- else if eq .Values.database.type "external" }}
-            # 1. Inyectamos el password como variable de entorno oculta
-            - name: DB_PASSWORD_RAW
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.database.external.existingSecret.name }}
-                  key: {{ .Values.database.external.existingSecret.key }}
-            
-            # 2. Usamos esa variable para construir la URI
-            - name: DATABASE_URL
-              value: postgresql://{{ .Values.database.external.username }}:$(DB_PASSWORD_RAW)@{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}
-            
-            {{- end }}
+            # --- 1. Base de datos (ver opsdeck.databaseEnv en _helpers.tpl) ---
+            {{- include "opsdeck.databaseEnv" . | nindent 12 }}
 
             # --- Session signing key (see secretKey in values.yaml) ---
             # Skipped when existingSecret is set: that secret is expected to carry SECRET_KEY.
@@ -76,39 +61,34 @@ spec:
           {{- end }}
 
           # --- 4. Health Checks ---
-          # All probes use TCP socket check to avoid HTTP/HTTPS scheme issues
-          # Startup probe: verifies port is listening (up to 5 minutes: 60 * 5s = 300s)
+          # /health answers 200 without authentication and is exempt from the HTTPS
+          # redirect, so it can be probed over plain HTTP inside the cluster. A listening
+          # socket is not health: a worker that cannot serve a request still had one.
           startupProbe:
-            tcpSocket:
-              port: 5000
+            httpGet:
+              path: /health
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 5
-            failureThreshold: 60
+            failureThreshold: 60      # migrations and seeding run before gunicorn: up to 5 min
             timeoutSeconds: 3
-          
-          # Liveness probe: only starts checking AFTER startup probe succeeds
           livenessProbe:
-            tcpSocket:
-              port: 5000
+            httpGet:
+              path: /health
+              port: http
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
-          
-          # Readiness probe: only starts checking AFTER startup probe succeeds
           readinessProbe:
-            tcpSocket:
-              port: 5000
+            httpGet:
+              path: /health
+              port: http
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
 
           resources:
-            limits:
-              cpu: 500m
-              memory: 512Mi
-            requests:
-              cpu: 100m
-              memory: 128Mi
+            {{- toYaml .Values.resources | nindent 12 }}
 
           # --- 5. Montaje de Volúmenes ---
           volumeMounts:

@@ -29,19 +29,8 @@ spec:
               image: "{{ .Values.backup.image.repository }}:{{ .Values.backup.image.tag }}"
               command: ["sh", "/scripts/backup.sh"]
               env:
-                # --- Database connection ---
-                {{- if eq .Values.database.type "internal" }}
-                - name: DATABASE_URL
-                  value: postgresql://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "opsdeck.fullname" . }}-db:5432/{{ .Values.postgresql.auth.database }}
-                {{- else if eq .Values.database.type "external" }}
-                - name: DB_PASSWORD_RAW
-                  valueFrom:
-                    secretKeyRef:
-                      name: {{ .Values.database.external.existingSecret.name }}
-                      key: {{ .Values.database.external.existingSecret.key }}
-                - name: DATABASE_URL
-                  value: postgresql://{{ .Values.database.external.username }}:$(DB_PASSWORD_RAW)@{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}
-                {{- end }}
+                # --- Database connection (same Secret-backed URL as the app) ---
+                {{- include "opsdeck.databaseEnv" . | nindent 16 }}
                 # --- Restic config (from user-managed Secret) ---
                 - name: RESTIC_REPOSITORY
                   valueFrom:
