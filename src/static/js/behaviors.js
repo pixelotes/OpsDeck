@@ -20,6 +20,45 @@
     'use strict';
 
     /**
+     * CSRF token on every same-origin write.
+     *
+     * The server validates a token on every POST/PUT/PATCH/DELETE. HTML forms carry it
+     * as a hidden field; the JSON layer (TomSelect sources, kanban, Gantt, bulk actions)
+     * talks through fetch(), and adding the header at each of the ~30 call sites is the
+     * kind of thing that is right until the next one is written. So it is added here,
+     * once, for any same-origin request with an unsafe method that did not set it
+     * itself. Cross-origin requests are left alone: the token must not leak.
+     */
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    var csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : null;
+    if (csrfToken && typeof window.fetch === 'function') {
+        var nativeFetch = window.fetch;
+        var SAFE_METHODS = { GET: true, HEAD: true, OPTIONS: true, TRACE: true };
+        window.fetch = function (input, init) {
+            var method = ((init && init.method) || (input instanceof Request ? input.method : 'GET')).toUpperCase();
+            if (SAFE_METHODS[method]) {
+                return nativeFetch.call(this, input, init);
+            }
+            var url = input instanceof Request ? input.url : String(input);
+            var sameOrigin;
+            try {
+                sameOrigin = new URL(url, window.location.href).origin === window.location.origin;
+            } catch (e) {
+                sameOrigin = false;
+            }
+            if (!sameOrigin) {
+                return nativeFetch.call(this, input, init);
+            }
+            var headers = new Headers((init && init.headers) || (input instanceof Request ? input.headers : undefined));
+            if (!headers.has('X-CSRFToken')) {
+                headers.set('X-CSRFToken', csrfToken);
+            }
+            var merged = Object.assign({}, init || {}, { headers: headers });
+            return nativeFetch.call(this, input, merged);
+        };
+    }
+
+    /**
      * data-autosubmit: submit the closest form when the control changes.
      *
      * Replaces onchange="this.form.submit()" — filter dropdowns that reload the list.

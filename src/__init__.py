@@ -33,7 +33,7 @@ limiter = Limiter(
 )
 
 # --- CSRF Protection ---
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFError, CSRFProtect
 from src.utils.timezone_helper import today
 from .utils.json_api import request_wants_json
 
@@ -288,9 +288,17 @@ def create_app(test_config=None):
             return
         values['v'] = mtime
 
-    # Configure CSRF to not protect JSON requests (for AJAX endpoints)
-    app.config['WTF_CSRF_CHECK_DEFAULT'] = False
-    app.config['WTF_CSRF_ENABLED'] = True
+    # --- CSRF ---
+    # Every state-changing view is protected unless it opts out. This used to be
+    # WTF_CSRF_CHECK_DEFAULT = False "so AJAX endpoints would not be protected", which
+    # in Flask-WTF means nothing is checked unless a view calls csrf.protect() itself —
+    # and none did, so the tokens the templates rendered were never validated. The
+    # application's own fetch() calls send the token in X-CSRFToken (behaviors.js adds
+    # it to every same-origin write), so the JSON layer needs no exemption. The one
+    # layer that does is /api/v1: bearer tokens, no cookie, no CSRF surface — exempted
+    # where it is registered below.
+    app.config.setdefault('WTF_CSRF_ENABLED', True)
+    app.config['WTF_CSRF_CHECK_DEFAULT'] = True
     csrf.init_app(app)
     
     # Disable HTTPS enforcement in development (debug mode) or when explicitly disabled
@@ -354,6 +362,9 @@ def create_app(test_config=None):
     api = Api(app)
     from .api import api_bp
     api.register_blueprint(api_bp)
+    # Bearer-token API: the browser never attaches a session cookie to it, so a forged
+    # cross-site request carries no credentials and there is nothing for CSRF to defend.
+    csrf.exempt(api_bp)
 
     # --- Custom Error Handlers ---
     # The error pages answer JSON for a JSON caller for the same reason the login guard
@@ -371,7 +382,18 @@ def create_app(test_config=None):
         if request_wants_json():
             return jsonify({'error': 'Forbidden.'}), 403
         return render_template('errors/403.html'), 403
-    
+
+    @app.errorhandler(CSRFError)
+    def csrf_failed(e):
+        # A missing or stale token is almost always a form left open past the session,
+        # not an attack. Log it as one, but answer the user with a way back.
+        app.logger.warning('CSRF validation failed for %s %s: %s', request.method, request.path, e.description)
+        if request_wants_json():
+            return jsonify({'error': 'Invalid or missing CSRF token.'}), 400
+        from .utils.redirects import safe_redirect_target
+        flash('Your session expired or the form was stale. Please try again.', 'warning')
+        return redirect(safe_redirect_target(request.referrer)), 302
+
     @app.errorhandler(413)
     def payload_too_large(e):
         """Answer an over-sized request body with something the caller can act on.

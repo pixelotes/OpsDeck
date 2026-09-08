@@ -224,6 +224,7 @@
                             </button>
                             {% if not finding.security_incident_id %}
                             <form action="{{ url_for('compliance.uar_finding_promote', id=finding.id) }}" method="POST" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Promote to Incident">
                                     <i class="fas fa-exclamation-triangle"></i>
                                 </button>
@@ -346,6 +347,7 @@
                         <div class="modal-dialog">
                             <div class="modal-content">
                                 <form action="{{ url_for('compliance.uar_finding_resolve', id=finding.id) }}" method="POST">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <div class="modal-header">
                                         <h5 class="modal-title">Resolve Finding</h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

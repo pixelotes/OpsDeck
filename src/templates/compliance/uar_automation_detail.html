@@ -18,6 +18,7 @@
             <i class="fas fa-edit"></i> Edit
         </a>
         <form action="{{ url_for('compliance.uar_automation_run', id=comparison.id) }}" method="POST" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-success">
                 <i class="fas fa-play"></i> Run Now
             </button>
