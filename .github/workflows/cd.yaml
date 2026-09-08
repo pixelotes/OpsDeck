@@ -6,14 +6,26 @@ on:
     types: [closed]
 
 jobs:
+  # La misma suite que corre en cada PR, otra vez sobre el commit de merge: la imagen
+  # sólo se publica si pasa.
+  test:
+    if: |
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/')
+    uses: ./.github/workflows/ci.yml
+
   build-and-push:
     # CONDICIÓN:
     # 1. El PR debe haber sido mergeado (merged == true)
-    # 2. La rama origen (head.ref) debe contener "release" (ej: release/v0.0.1)
+    # 2. La rama origen (head.ref) debe empezar por "release/" (ej: release/v0.0.1).
+    #    Antes bastaba con que contuviera "release", y una rama feature/release-notes
+    #    también publicaba imagen.
+    # 3. La suite de tests del paso anterior debe haber pasado.
+    needs: test
     if: |
       github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.head.ref, 'release')
-      
+      startsWith(github.event.pull_request.head.ref, 'release/')
+
     runs-on: ubuntu-latest
     steps:
       - name: 1. Clonar el repositorio
@@ -44,6 +56,10 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          # Sin target, buildx construye la última etapa del Dockerfile. Cuando la última
+          # era `dev`, lo que se publicaba como imagen de producción llevaba pytest, faker
+          # y corría como root.
+          target: production
           push: true
           # Usamos el output del paso 2 para etiquetar la imagen
           tags: pixelotes/opsdeck:${{ steps.get_version.outputs.VERSION }}
