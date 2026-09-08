@@ -99,11 +99,8 @@ def edit_assessment_item(id):
     return redirect(url_for(VIEW_ASSESSMENT, id=item.assessment_id))
 
 @risk_assessment_bp.route('/<int:id>/lock', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def lock_assessment(id):
-    if not has_write_permission(MODULE):
-        flash('You do not have permission to lock assessments.', 'danger')
-        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     assessment = db.get_or_404(RiskAssessment, id)
     
     # Checkbox from the sync modal
@@ -178,11 +175,8 @@ def export_pdf(id):
 # --- Evidence Management Routes ---
 
 @risk_assessment_bp.route('/<int:id>/item/<int:item_id>/upload', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def upload_evidence(id, item_id):
-    if not has_write_permission(MODULE):
-        flash('You do not have permission to upload evidence.', 'danger')
-        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     """Upload a file as evidence for an assessment item."""
     from ..models import Attachment, RiskAssessmentEvidence
     from werkzeug.utils import secure_filename
@@ -237,11 +231,8 @@ def upload_evidence(id, item_id):
 
 
 @risk_assessment_bp.route('/<int:id>/item/<int:item_id>/link', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def link_evidence(id, item_id):
-    if not has_write_permission(MODULE):
-        flash('You do not have permission to link evidence.', 'danger')
-        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     """Link an existing OpsDeck object as evidence for an assessment item."""
     from ..models import RiskAssessmentEvidence
     
@@ -278,11 +269,8 @@ def link_evidence(id, item_id):
 
 
 @risk_assessment_bp.route('/<int:id>/evidence/<int:evidence_id>/delete', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_evidence(id, evidence_id):
-    if not has_write_permission(MODULE):
-        flash('You do not have permission to remove evidence.', 'danger')
-        return redirect(url_for(VIEW_ASSESSMENT, id=id))
     """Remove an evidence item from an assessment."""
     from ..models import RiskAssessmentEvidence
     

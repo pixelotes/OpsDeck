@@ -152,11 +152,8 @@ def contract_detail(id):
 
 @contracts_bp.route('/<int:id>/link', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def link_item(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to link items.', 'danger')
-        return redirect(url_for(CONTRACT_DETAIL, id=id))
     contract = db.get_or_404(Contract, id)
     item_type = request.form.get('item_type') # 'Asset', 'Subscription', etc.
     item_id = request.form.get('item_id')
@@ -210,11 +207,8 @@ def unlink_item(link_id):
 
 @contracts_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_contract(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete contracts.', 'danger')
-        return redirect(url_for(CONTRACT_DETAIL, id=id))
     contract = db.get_or_404(Contract, id)
     db.session.delete(contract)
     db.session.commit()

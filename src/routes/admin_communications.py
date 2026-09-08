@@ -139,11 +139,8 @@ def edit_template(id):
 
 @admin_communications_bp.route('/templates/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_template(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete templates.', 'danger')
-        return redirect(url_for(LIST_TEMPLATES))
     """Delete an email template."""
     template = db.get_or_404(EmailTemplate, id)
 
@@ -173,11 +170,8 @@ def delete_template(id):
 
 @admin_communications_bp.route('/templates/<int:id>/toggle', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def toggle_template(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to toggle templates.', 'danger')
-        return redirect(url_for(LIST_TEMPLATES))
     """Toggle template active status."""
     template = db.get_or_404(EmailTemplate, id)
 

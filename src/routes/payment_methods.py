@@ -28,11 +28,8 @@ def archived_payment_methods():
 
 @payment_methods_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def archive_payment_method(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to archive payment methods.', 'danger')
-        return redirect(url_for(PAYMENT_METHODS))
     method = db.get_or_404(PaymentMethod, id)
     method.is_archived = True
     db.session.commit()
@@ -41,11 +38,8 @@ def archive_payment_method(id):
 
 @payment_methods_bp.route('/<int:id>/unarchive', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def unarchive_payment_method(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to restore payment methods.', 'danger')
-        return redirect(url_for('payment_methods.archived_payment_methods'))
     method = db.get_or_404(PaymentMethod, id)
     method.is_archived = False
     db.session.commit()
@@ -123,11 +117,8 @@ def edit_payment_method(id):
 
 @payment_methods_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_payment_method(id):
-    if not has_write_permission(MODULE):
-        flash('You do not have permission to delete payment methods.', 'danger')
-        return redirect(url_for(PAYMENT_METHODS))
     method = db.get_or_404(PaymentMethod, id)
     db.session.delete(method)
     db.session.commit()

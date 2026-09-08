@@ -73,11 +73,8 @@ def archived_tags():
 
 @tags_bp.route('/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def archive_tag(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to archive tags.', 'danger')
-        return redirect(url_for(TAGS))
     tag = db.get_or_404(Tag, id)
     tag.is_archived = True
     db.session.commit()
@@ -87,11 +84,8 @@ def archive_tag(id):
 
 @tags_bp.route('/<int:id>/unarchive', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def unarchive_tag(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to restore tags.', 'danger')
-        return redirect(url_for('tags.archived_tags'))
     tag = db.get_or_404(Tag, id)
     tag.is_archived = False
     db.session.commit()
@@ -136,11 +130,8 @@ def edit_tag(id):
 
 @tags_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_tag(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete tags.', 'danger')
-        return redirect(url_for(TAGS))
     tag = db.get_or_404(Tag, id)
     db.session.delete(tag)
     db.session.commit()

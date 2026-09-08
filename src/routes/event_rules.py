@@ -11,7 +11,7 @@ from ..extensions import db
 from ..models.event_rules import EventRule, ENTITY_CATALOG, EVENT_ACTIONS, RECIPIENT_MODES
 from ..models.communications import EmailTemplate
 from ..models.auth import User
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import requires_permission
 from .main import login_required
 
 event_rules_bp = Blueprint('event_rules', __name__)
@@ -85,11 +85,8 @@ def list_rules():
 
 @event_rules_bp.route('/create', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def create_rule():
-    if not has_write_permission(MODULE):
-        flash(MSG_WRITE_REQUIRED, 'danger')
-        return redirect(url_for(LIST_RULES))
 
     rule = EventRule()
     _apply_form(rule, request.form)
@@ -105,11 +102,8 @@ def create_rule():
 
 @event_rules_bp.route('/<int:rule_id>/update', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def update_rule(rule_id):
-    if not has_write_permission(MODULE):
-        flash(MSG_WRITE_REQUIRED, 'danger')
-        return redirect(url_for(LIST_RULES))
 
     rule = db.get_or_404(EventRule, rule_id)
     _apply_form(rule, request.form)
@@ -125,11 +119,8 @@ def update_rule(rule_id):
 
 @event_rules_bp.route('/<int:rule_id>/toggle', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def toggle_rule(rule_id):
-    if not has_write_permission(MODULE):
-        flash(MSG_WRITE_REQUIRED, 'danger')
-        return redirect(url_for(LIST_RULES))
 
     rule = db.get_or_404(EventRule, rule_id)
     rule.enabled = not rule.enabled
@@ -140,11 +131,8 @@ def toggle_rule(rule_id):
 
 @event_rules_bp.route('/<int:rule_id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_rule(rule_id):
-    if not has_write_permission(MODULE):
-        flash(MSG_WRITE_REQUIRED, 'danger')
-        return redirect(url_for(LIST_RULES))
 
     rule = db.get_or_404(EventRule, rule_id)
     name = rule.name
@@ -156,12 +144,9 @@ def delete_rule(rule_id):
 
 @event_rules_bp.route('/<int:rule_id>/test', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def test_rule(rule_id):
     """Send a one-off test notification with placeholder data to verify wiring."""
-    if not has_write_permission(MODULE):
-        flash(MSG_WRITE_REQUIRED, 'danger')
-        return redirect(url_for(LIST_RULES))
 
     rule = db.get_or_404(EventRule, rule_id)
     from ..notifications import send_test_notification

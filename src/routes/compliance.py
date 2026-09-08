@@ -159,7 +159,7 @@ def access_review():
 
 @compliance_bp.route('/access-review/preview', methods=['POST'])
 @json_endpoint
-@requires_permission(MODULE_COMPLIANCE)
+@requires_permission(MODULE_COMPLIANCE, access_level='WRITE')
 def access_review_preview():
     """
     Executes a comparison of the loaded datasets.
@@ -1361,9 +1361,6 @@ def create_manual_link():
     Processes the manual link modal form.
     Expects: framework_control_id, linkable_type, linkable_id, description
     """
-    if not has_write_permission(MODULE_COMPLIANCE):
-        flash('Write access required to create manual links.', 'danger')
-        return redirect(safe_redirect_target(request.referrer, url_for(FRAMEWORKS_LIST)))
 
     framework_control_id = request.form.get('framework_control_id', type=int)
     linkable_type = request.form.get('linkable_type')
@@ -1523,12 +1520,9 @@ def export_dashboard_pdf():
 
 @compliance_bp.route('/rules/create', methods=['POST'])
 @login_required
-@requires_permission(MODULE_COMPLIANCE)
+@requires_permission(MODULE_COMPLIANCE, access_level='WRITE')
 def create_rule():
     """Creates a new ComplianceRule for automated compliance checking."""
-    if not has_write_permission(MODULE_COMPLIANCE):
-        flash('Write access required to create automation rules.', 'danger')
-        return redirect(safe_redirect_target(request.referrer, url_for(COMPLIANCE_DASHBOARD)))
 
     import json
     
@@ -1652,7 +1646,7 @@ def delete_evidence(id):
 
 @compliance_bp.route('/rules/<int:rule_id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE_COMPLIANCE)
+@requires_permission(MODULE_COMPLIANCE, access_level='WRITE')
 def delete_rule(rule_id):
     """Deletes a ComplianceRule."""
     if not has_write_permission(MODULE_COMPLIANCE):
@@ -1706,9 +1700,6 @@ def uar_automation_list():
 @requires_permission(MODULE_COMPLIANCE)
 def uar_automation_form(id=None):
     """Create or edit UAR comparison."""
-    if not has_write_permission(MODULE_COMPLIANCE):
-        flash('Write access required to manage UAR automation.', 'danger')
-        return redirect(url_for('compliance.uar_automation_list'))
 
     comparison = db.get_or_404(UARComparison, id) if id else UARComparison()
 
@@ -1859,12 +1850,9 @@ def uar_automation_detail(id):
 
 @compliance_bp.route('/uar/automation/<int:id>/run', methods=['POST'])
 @login_required
-@requires_permission(MODULE_COMPLIANCE)
+@requires_permission(MODULE_COMPLIANCE, access_level='WRITE')
 def uar_automation_run(id):
     """Manually trigger UAR comparison execution."""
-    if not has_write_permission(MODULE_COMPLIANCE):
-        flash('Write access required to run comparisons.', 'danger')
-        return redirect(url_for(UAR_AUTOMATION_DETAIL, id=id))
 
     comparison = db.get_or_404(UARComparison, id)
 

@@ -170,11 +170,8 @@ def view_audit(id):
 
 @audits_bp.route('/<int:id>/header', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def update_audit_header(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to update audit header.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
@@ -199,11 +196,8 @@ def update_audit_header(id):
 
 @audits_bp.route('/<int:id>/update', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def update_audit_items(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to update audit items.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
@@ -239,11 +233,8 @@ def update_audit_items(id):
 
 @audits_bp.route('/<int:id>/participants/add', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def add_participant(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to add participants.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
@@ -264,11 +255,8 @@ def add_participant(id):
 
 @audits_bp.route('/<int:id>/participants/<int:user_id>/remove', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def remove_participant(id, user_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to remove participants.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
@@ -291,11 +279,8 @@ def remove_participant(id, user_id):
 
 @audits_bp.route('/<int:id>/attachments/upload', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def upload_audit_attachment(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to upload attachments.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     from flask import current_app
     
     audit = db.get_or_404(ComplianceAudit, id)
@@ -338,11 +323,8 @@ def upload_audit_attachment(id):
 
 @audits_bp.route('/<int:id>/item/<int:item_id>/upload', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def upload_item_attachment(id, item_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to upload evidence.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     from flask import current_app
     
     audit = db.get_or_404(ComplianceAudit, id)
@@ -386,11 +368,8 @@ def upload_item_attachment(id, item_id):
 
 @audits_bp.route('/<int:id>/item/<int:item_id>/link', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def add_item_link(id, item_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to link evidence.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     item = db.get_or_404(AuditControlItem, item_id)
     
@@ -422,11 +401,8 @@ def add_item_link(id, item_id):
 
 @audits_bp.route('/<int:id>/item/<int:item_id>/link/<int:link_id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_item_link(id, item_id, link_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete links.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
@@ -442,11 +418,8 @@ def delete_item_link(id, item_id, link_id):
 
 @audits_bp.route('/<int:id>/link_evidence', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def link_evidence(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to link evidence.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     # Lock check
@@ -478,11 +451,8 @@ def link_evidence(id):
 
 @audits_bp.route('/<int:id>/unlink_evidence', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def unlink_evidence(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to unlink evidence.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     audit = db.get_or_404(ComplianceAudit, id)
     
     if audit.is_locked:
@@ -545,11 +515,8 @@ def api_update_control_status(id):
 
 @audits_bp.route('/<int:id>/lock', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def lock_audit(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to lock audits.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     """Lock the audit to prevent further modifications."""
     audit = db.get_or_404(ComplianceAudit, id)
     
@@ -564,11 +531,8 @@ def lock_audit(id):
 
 @audits_bp.route('/<int:id>/unlock', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def unlock_audit(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to unlock audits.', 'danger')
-        return redirect(url_for(VIEW_AUDIT, id=id))
     """Unlock the audit to allow modifications again."""
     audit = db.get_or_404(ComplianceAudit, id)
     
@@ -603,11 +567,8 @@ def export_audit(id):
 
 @audits_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_audit(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete audits.', 'danger')
-        return redirect(url_for(LIST_AUDITS))
     audit = db.get_or_404(ComplianceAudit, id)
     db.session.delete(audit)
     db.session.commit()

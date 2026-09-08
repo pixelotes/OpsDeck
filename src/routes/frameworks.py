@@ -323,12 +323,9 @@ def control_detail(id):
 
 
 @frameworks_bp.route('/control/<int:id>/soa', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def update_control_soa(id):
     """Updates the Statement of Applicability for a framework control."""
-    if not has_write_permission(MODULE):
-        flash('Write access required to update SOA.', 'danger')
-        return redirect(url_for(CONTROL_DETAIL, id=id))
 
     control = db.get_or_404(FrameworkControl, id)
 
@@ -349,11 +346,8 @@ def update_control_soa(id):
 
 
 @frameworks_bp.route('/control/<int:id>/map', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def map_control(id):
-    if not has_write_permission(MODULE):
-        flash('You do not have permission to modify control mappings.', 'danger')
-        return redirect(url_for(CONTROL_DETAIL, id=id))
     """Links a control to another control (cross-framework mapping)."""
     control = db.get_or_404(FrameworkControl, id)
     target_control_id = request.form.get('target_control_id')
@@ -388,11 +382,8 @@ def map_control(id):
 
 
 @frameworks_bp.route('/control/<int:id>/unmap/<int:target_id>', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def unmap_control(id, target_id):
-    if not has_write_permission(MODULE):
-        flash('You do not have permission to modify control mappings.', 'danger')
-        return redirect(url_for(CONTROL_DETAIL, id=id))
     """Removes a cross-framework mapping between two controls."""
     control = db.get_or_404(FrameworkControl, id)
     target_control = db.get_or_404(FrameworkControl, target_id)

@@ -483,11 +483,8 @@ def edit_risk(id):
                            threat_types=threat_types)
 
 @risk_bp.route('/<int:id>/affected_items/add', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def add_affected_item(id):
-    if not has_write_permission(MODULE):
-        flash('You do not have permission to modify risk items.', 'danger')
-        return redirect(url_for(DETAIL, id=id))
     risk = db.get_or_404(Risk, id)
     linkable_type = request.form.get('linkable_type')
     linkable_id = request.form.get('linkable_id')
@@ -607,11 +604,8 @@ def api_get_references(ref_type):
 
 
 @risk_bp.route('/<int:id>/references/add', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def add_reference(id):
-    if not has_write_permission(MODULE):
-        flash('You do not have permission to modify risk references.', 'danger')
-        return redirect(url_for(DETAIL, id=id))
     """Add a reference (Policy, Documentation, Link) to a risk."""
     risk = db.get_or_404(Risk, id)
     linkable_type = request.form.get('linkable_type')

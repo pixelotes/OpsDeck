@@ -240,11 +240,8 @@ def detail_change(id):
     return render_template('changes/detail.html', change=change)
 
 @changes_bp.route('/<int:id>/approve', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def approve_change(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to approve changes.', 'danger')
-        return redirect(url_for(DETAIL_CHANGE, id=id))
     change = db.get_or_404(Change, id)
     user_id = session.get('user_id')
     user = db.session.get(User,user_id)
@@ -264,11 +261,8 @@ def approve_change(id):
     return redirect(url_for(DETAIL_CHANGE, id=id))
 
 @changes_bp.route('/<int:id>/start', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def start_change(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to start changes.', 'danger')
-        return redirect(url_for(DETAIL_CHANGE, id=id))
     change = db.get_or_404(Change, id)
     if change.status != 'Approved':
         flash('Change must be approved before starting.', 'warning')
@@ -282,11 +276,8 @@ def start_change(id):
     return redirect(url_for(DETAIL_CHANGE, id=id))
 
 @changes_bp.route('/<int:id>/complete', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def complete_change(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to complete changes.', 'danger')
-        return redirect(url_for(DETAIL_CHANGE, id=id))
     change = db.get_or_404(Change, id)
     
     change.status = 'Completed'
@@ -297,11 +288,8 @@ def complete_change(id):
     return redirect(url_for(DETAIL_CHANGE, id=id))
 
 @changes_bp.route('/<int:id>/cancel', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def cancel_change(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to cancel changes.', 'danger')
-        return redirect(url_for(DETAIL_CHANGE, id=id))
     change = db.get_or_404(Change, id)
     change.status = 'Cancelled'
     change.closed_at = now()
@@ -311,11 +299,8 @@ def cancel_change(id):
     return redirect(url_for(DETAIL_CHANGE, id=id))
 
 @changes_bp.route('/<int:id>/add_evidence', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def add_evidence(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to add evidence.', 'danger')
-        return redirect(url_for(DETAIL_CHANGE, id=id))
     change = db.get_or_404(Change, id)
     
     if 'file' not in request.files:

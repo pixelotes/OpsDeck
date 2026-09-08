@@ -198,11 +198,8 @@ def edit_doc(id):
 
 @documentation_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_doc(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete documentation.', 'danger')
-        return redirect(url_for(DETAIL, id=id))
     """Deletes a documentation entry."""
     doc = db.get_or_404(Documentation, id)
     

@@ -144,11 +144,8 @@ def custom_fields():
 
 @admin_bp.route('/custom-fields/new', methods=['POST'])
 @login_required
-@requires_permission(SETTINGS_MODULE)
+@requires_permission(SETTINGS_MODULE, access_level='WRITE')
 def create_custom_field():
-    if not has_write_permission(SETTINGS_MODULE):
-        flash('Write access required to manage custom fields.', 'danger')
-        return redirect(url_for(CUSTOM_FIELDS))
     entity_type = request.form.get('entity_type')
     label = request.form.get('label')
     name = request.form.get('name')
@@ -187,11 +184,8 @@ def create_custom_field():
 
 @admin_bp.route('/custom-fields/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(SETTINGS_MODULE)
+@requires_permission(SETTINGS_MODULE, access_level='WRITE')
 def delete_custom_field(id):
-    if not has_write_permission(SETTINGS_MODULE):
-        flash('Write access required to delete custom fields.', 'danger')
-        return redirect(url_for(CUSTOM_FIELDS))
     field = db.get_or_404(CustomFieldDefinition, id)
     info = f"{field.entity_type}.{field.name}"
     

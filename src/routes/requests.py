@@ -162,11 +162,8 @@ def detail_request(id):
 
 
 @requests_bp.route('/<int:id>/triage', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def triage_request(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to triage requests.', 'danger')
-        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
     if req.status != 'Pending':
         flash('Only pending requests can be sent to triage.', 'warning')
@@ -182,11 +179,8 @@ def triage_request(id):
 
 
 @requests_bp.route('/<int:id>/start', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def start_request(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to start requests.', 'danger')
-        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
     if req.status != 'Triage':
         flash('Request must be in triage before work can start.', 'warning')
@@ -201,11 +195,8 @@ def start_request(id):
 
 
 @requests_bp.route('/<int:id>/complete', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def complete_request(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to complete requests.', 'danger')
-        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
     if req.status != 'In Progress':
         flash('Only in-progress requests can be completed.', 'warning')
@@ -225,11 +216,8 @@ def complete_request(id):
 
 
 @requests_bp.route('/<int:id>/close', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def close_request(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to close requests.', 'danger')
-        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
     if req.status != 'Completed':
         flash('Only completed requests can be closed.', 'warning')
@@ -244,11 +232,8 @@ def close_request(id):
 
 
 @requests_bp.route('/<int:id>/cancel', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def cancel_request(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to cancel requests.', 'danger')
-        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
     if req.status in ['Completed', 'Closed', 'Cancelled']:
         flash('This request can no longer be cancelled.', 'warning')
@@ -263,11 +248,8 @@ def cancel_request(id):
 
 
 @requests_bp.route('/<int:id>/add_evidence', methods=['POST'])
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def add_evidence(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to add evidence.', 'danger')
-        return redirect(url_for(DETAIL_REQUEST, id=id))
     req = db.get_or_404(Request, id)
 
     if 'file' not in request.files:

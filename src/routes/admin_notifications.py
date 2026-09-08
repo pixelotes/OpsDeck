@@ -8,7 +8,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from ..extensions import db
 from ..models.notifications import NotificationEvent
 from ..models.communications import EmailTemplate
-from ..services.permissions_service import requires_permission, has_write_permission
+from ..services.permissions_service import requires_permission
 from .main import login_required
 
 admin_notifications_bp = Blueprint('admin_notifications', __name__)
@@ -30,11 +30,8 @@ def list_events():
 
 @admin_notifications_bp.route('/<int:event_id>/toggle', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def toggle_event(event_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to toggle notifications.', 'danger')
-        return redirect(url_for(LIST_EVENTS))
     """Toggle a notification event on/off."""
     event = db.get_or_404(NotificationEvent, event_id)
     event.enabled = not event.enabled
@@ -47,11 +44,8 @@ def toggle_event(event_id):
 
 @admin_notifications_bp.route('/<int:event_id>/update', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def update_event(event_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to update notifications.', 'danger')
-        return redirect(url_for(LIST_EVENTS))
     """Update a notification event's template and days offset."""
     event = db.get_or_404(NotificationEvent, event_id)
     

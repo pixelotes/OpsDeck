@@ -124,11 +124,8 @@ def edit_purchase(id):
 
 @purchases_bp.route('/<int:id>/approve', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def approve_purchase(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to approve purchases.', 'danger')
-        return redirect(url_for(PURCHASE_DETAIL, id=id))
     purchase = db.get_or_404(Purchase, id)
     user_id = session.get('user_id')
     purchase.validated_cost = purchase.calculated_cost
@@ -144,11 +141,8 @@ def approve_purchase(id):
 
 @purchases_bp.route('/<int:id>/unvalidate_cost', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def unvalidate_cost(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to unvalidate costs.', 'danger')
-        return redirect(url_for(PURCHASE_DETAIL, id=id))
     purchase = db.get_or_404(Purchase, id)
     user_id = session.get('user_id')
     history_log = PurchaseCostHistory(

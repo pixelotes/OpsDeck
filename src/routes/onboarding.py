@@ -53,11 +53,8 @@ def index():
 
 @onboarding_bp.route('/packs/new', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def new_pack():
-    if not has_write_permission(MODULE):
-        flash('Write access required to create packs.', 'danger')
-        return redirect(url_for(_EP_INDEX))
     name = request.form.get('name')
     if name:
         pack = OnboardingPack(name=name, description=request.form.get('description'))
@@ -151,11 +148,8 @@ def pack_detail(id):
 
 @onboarding_bp.route('/packs/<int:pack_id>/communications/add', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def add_pack_communication(pack_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to add communications.', 'danger')
-        return redirect(url_for(PACK_DETAIL, id=pack_id))
     """Add a communication rule to a pack."""
     db.get_or_404(OnboardingPack, pack_id)  # 404s on an unknown pack
     
@@ -182,11 +176,8 @@ def add_pack_communication(pack_id):
 
 @onboarding_bp.route('/packs/<int:pack_id>/communications/<int:comm_id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_pack_communication(pack_id, comm_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete communications.', 'danger')
-        return redirect(url_for(PACK_DETAIL, id=pack_id))
     """Delete a communication rule from a pack."""
     comm = db.get_or_404(PackCommunication, comm_id)
     
@@ -203,12 +194,9 @@ def delete_pack_communication(pack_id, comm_id):
 
 @onboarding_bp.route('/packs/<int:pack_id>/items/<int:item_id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_pack_item(pack_id, item_id):
     """Delete an item from a pack."""
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete items.', 'danger')
-        return redirect(url_for(PACK_DETAIL, id=pack_id))
 
     item = db.get_or_404(PackItem, item_id)
 
@@ -348,11 +336,8 @@ def onboarding_detail(id):
 
 @onboarding_bp.route('/process/<int:id>/update_details', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def update_process_details(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to update process details.', 'danger')
-        return redirect(url_for(_EP_ONBOARDING, id=id))
     process = db.get_or_404(OnboardingProcess, id)
     
     process.target_email = request.form.get('target_email')
@@ -375,11 +360,8 @@ def update_process_details(id):
 
 @onboarding_bp.route('/offboarding/<int:id>/update_details', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def update_offboarding_details(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to update process details.', 'danger')
-        return redirect(url_for(_EP_OFFBOARDING, id=id))
     process = db.get_or_404(OffboardingProcess, id)
 
     departure_date_str = request.form.get('departure_date')
@@ -622,11 +604,8 @@ def toggle_item(id):
 
 @onboarding_bp.route('/process/<string:type>/<int:id>/complete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def complete_process(type, id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to complete process.', 'danger')
-        return redirect(safe_redirect_target(request.referrer))
     """Marca el proceso entero como completado y archiva usuario si es offboarding."""
     if type == 'onboarding':
         process = db.get_or_404(OnboardingProcess, id)
@@ -649,11 +628,8 @@ def complete_process(type, id):
 
 @onboarding_bp.route('/offboarding/<int:process_id>/revoke_service/<int:item_id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def revoke_service_access(process_id, item_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to revoke access.', 'danger')
-        return redirect(url_for(_EP_OFFBOARDING, id=process_id))
     process = db.get_or_404(OffboardingProcess, process_id)
     item = db.get_or_404(ProcessItem, item_id)
     
@@ -690,11 +666,8 @@ def revoke_service_access(process_id, item_id):
 
 @onboarding_bp.route('/offboarding/<int:process_id>/revoke_subscription/<int:item_id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def revoke_subscription_access(process_id, item_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to revoke access.', 'danger')
-        return redirect(url_for(_EP_OFFBOARDING, id=process_id))
     process = db.get_or_404(OffboardingProcess, process_id)
     item = db.get_or_404(ProcessItem, item_id)
     
@@ -730,11 +703,8 @@ def revoke_subscription_access(process_id, item_id):
 
 @onboarding_bp.route('/process/<int:process_id>/create_user/<int:item_id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def create_user_account(process_id, item_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to create user.', 'danger')
-        return redirect(url_for(_EP_ONBOARDING, id=process_id))
     process = db.get_or_404(OnboardingProcess, process_id)
     item = db.get_or_404(ProcessItem, item_id)
     
@@ -791,11 +761,8 @@ def create_user_account(process_id, item_id):
 
 @onboarding_bp.route('/process/<int:process_id>/add_to_service/<int:item_id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def add_user_to_service(process_id, item_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to add user to service.', 'danger')
-        return redirect(url_for(_EP_ONBOARDING, id=process_id))
     process = db.get_or_404(OnboardingProcess, process_id)
     item = db.get_or_404(ProcessItem, item_id)
     
@@ -828,11 +795,8 @@ def add_user_to_service(process_id, item_id):
 
 @onboarding_bp.route('/process/<int:process_id>/add_to_subscription/<int:item_id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def add_user_to_subscription(process_id, item_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to add user to subscription.', 'danger')
-        return redirect(url_for(_EP_ONBOARDING, id=process_id))
     process = db.get_or_404(OnboardingProcess, process_id)
     item = db.get_or_404(ProcessItem, item_id)
     
@@ -868,11 +832,8 @@ def add_user_to_subscription(process_id, item_id):
 
 @onboarding_bp.route('/process/<int:process_id>/add_to_course/<int:item_id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def add_user_to_course(process_id, item_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to add user to course.', 'danger')
-        return redirect(url_for(_EP_ONBOARDING, id=process_id))
     from datetime import timedelta
     from ..models import CourseAssignment
     
@@ -921,11 +882,8 @@ def list_templates():
 
 @onboarding_bp.route('/templates/new', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def new_template_task():
-    if not has_write_permission(MODULE):
-        flash('Write access required to create templates.', 'danger')
-        return redirect(url_for(LIST_TEMPLATES))
     name = request.form.get('name')
     process_type = request.form.get('process_type')
     if name and process_type:
@@ -937,11 +895,8 @@ def new_template_task():
 
 @onboarding_bp.route('/templates/<int:id>/toggle', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def toggle_template_task(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to toggle templates.', 'danger')
-        return redirect(url_for(LIST_TEMPLATES))
     t = db.get_or_404(ProcessTemplate, id)
     t.is_active = not t.is_active
     db.session.commit()
@@ -970,11 +925,8 @@ def history():
 
 @onboarding_bp.route('/transfer/risk/<int:id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def transfer_risk(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to transfer risks.', 'danger')
-        return redirect(safe_redirect_target(request.referrer))
     risk = db.get_or_404(Risk, id)
     new_owner_id = request.form.get('new_owner_id')
     redirect_url = request.form.get('redirect_url')
@@ -1002,11 +954,8 @@ def transfer_risk(id):
 
 @onboarding_bp.route('/transfer/service/<int:id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def transfer_service(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to transfer services.', 'danger')
-        return redirect(safe_redirect_target(request.referrer))
     service = db.get_or_404(BusinessService, id)
     new_owner_id = request.form.get('new_owner_id')
     redirect_url = request.form.get('redirect_url')
@@ -1037,11 +986,8 @@ def transfer_service(id):
 
 @onboarding_bp.route('/transfer/credential/<int:id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def transfer_credential(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to transfer credentials.', 'danger')
-        return redirect(safe_redirect_target(request.referrer))
     from ..models.credentials import Credential
     
     credential = db.get_or_404(Credential, id)
@@ -1080,11 +1026,8 @@ def transfer_credential(id):
 
 @onboarding_bp.route('/communications/<int:id>/send_now', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def send_communication_now(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to send communications.', 'danger')
-        return redirect(safe_redirect_target(request.referrer))
     """Force send a scheduled communication immediately."""
     from ..utils.communications_context import get_template_context, render_email_template
     from .. import notifications
@@ -1134,11 +1077,8 @@ def send_communication_now(id):
 
 @onboarding_bp.route('/communications/<int:id>/cancel', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def cancel_communication(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to cancel communications.', 'danger')
-        return redirect(safe_redirect_target(request.referrer))
     """Cancel a pending scheduled communication."""
     comm = db.get_or_404(ScheduledCommunication, id)
     

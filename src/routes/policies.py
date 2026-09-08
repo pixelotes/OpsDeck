@@ -266,11 +266,8 @@ def acknowledge_version(id):
 
 @policies_bp.route('/policy/<int:policy_id>/remove_user/<int:user_id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def remove_user_from_policy(policy_id, user_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to remove users.', 'danger')
-        return redirect(url_for(DETAIL, id=policy_id))
     db.get_or_404(Policy, policy_id)
     latest_version = PolicyVersion.query.filter_by(policy_id=policy_id).order_by(PolicyVersion.effective_date.desc()).first()
     if latest_version:
@@ -283,11 +280,8 @@ def remove_user_from_policy(policy_id, user_id):
 
 @policies_bp.route('/policy/<int:policy_id>/remove_group/<int:group_id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def remove_group_from_policy(policy_id, group_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to remove groups.', 'danger')
-        return redirect(url_for(DETAIL, id=policy_id))
     db.get_or_404(Policy, policy_id)
     latest_version = PolicyVersion.query.filter_by(policy_id=policy_id).order_by(PolicyVersion.effective_date.desc()).first()
     if latest_version:

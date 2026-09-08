@@ -228,11 +228,8 @@ def edit_candidate(id):
 
 @hiring_bp.route('/candidate/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_candidate(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete candidates.', 'danger')
-        return redirect(url_for(BOARD))
     """Delete a candidate."""
     candidate = db.get_or_404(Candidate, id)
     name = candidate.name
@@ -243,11 +240,8 @@ def delete_candidate(id):
 
 @hiring_bp.route('/candidate/<int:id>/archive', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def archive_candidate(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to archive candidates.', 'danger')
-        return redirect(safe_redirect_target(request.referrer, url_for(BOARD)))
     """Archive a candidate."""
     candidate = db.get_or_404(Candidate, id)
     candidate.is_archived = True
@@ -257,11 +251,8 @@ def archive_candidate(id):
 
 @hiring_bp.route('/candidate/<int:id>/unarchive', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def unarchive_candidate(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to unarchive candidates.', 'danger')
-        return redirect(safe_redirect_target(request.referrer, url_for('hiring.list_candidates')))
     """Unarchive a candidate."""
     candidate = db.get_or_404(Candidate, id)
     candidate.is_archived = False
@@ -446,12 +437,9 @@ def manage_stages():
 
 @hiring_bp.route('/stages/new', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def new_stage():
     """Create a new hiring stage."""
-    if not has_write_permission(MODULE):
-        flash('Write access required to create stages.', 'danger')
-        return redirect(url_for(MANAGE_STAGES))
 
     name = request.form.get('name', '').strip()
     is_hired_stage = 'is_hired_stage' in request.form
@@ -480,11 +468,8 @@ def new_stage():
 
 @hiring_bp.route('/stages/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_stage(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete stages.', 'danger')
-        return redirect(url_for(MANAGE_STAGES))
     """Delete a hiring stage."""
     stage = db.get_or_404(HiringStage, id)
     
@@ -530,11 +515,8 @@ def update_stage_order():
 
 @hiring_bp.route('/stages/<int:id>/update', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def update_stage(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to update stages.', 'danger')
-        return redirect(url_for(MANAGE_STAGES))
     """Update a hiring stage (rename)."""
     stage = db.get_or_404(HiringStage, id)
 

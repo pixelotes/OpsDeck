@@ -154,11 +154,8 @@ def edit_link(id):
 
 @links_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_link(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete links.', 'danger')
-        return redirect(url_for(DETAIL, id=id))
     """Deletes a link."""
     link = db.get_or_404(Link, id)
     

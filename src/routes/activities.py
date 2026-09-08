@@ -133,11 +133,8 @@ def edit_activity(id):
 
 @activities_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def delete_activity(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to delete activities.', 'danger')
-        return redirect(url_for(ACTIVITY_DETAIL, id=id))
     """Deletes a security activity."""
     activity = db.get_or_404(SecurityActivity, id)
     activity_name = activity.name
@@ -328,11 +325,8 @@ def get_objects_by_type():
 
 @activities_bp.route('/<int:id>/link-object', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def link_object(id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to link objects.', 'danger')
-        return redirect(url_for(ACTIVITY_DETAIL, id=id))
     """Links an object to a security activity."""
     db.get_or_404(SecurityActivity, id)
     
@@ -369,11 +363,8 @@ def link_object(id):
 
 @activities_bp.route('/<int:id>/unlink-object/<int:link_id>', methods=['POST'])
 @login_required
-@requires_permission(MODULE)
+@requires_permission(MODULE, access_level='WRITE')
 def unlink_object(id, link_id):
-    if not has_write_permission(MODULE):
-        flash('Write access required to unlink objects.', 'danger')
-        return redirect(url_for(ACTIVITY_DETAIL, id=id))
     """Removes a link between an activity and an object."""
     db.get_or_404(SecurityActivity, id)
     link = db.get_or_404(ActivityRelatedObject, link_id)
