@@ -3,10 +3,8 @@ from ..services.permissions_service import (requires_permission, has_write_permi
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime
 from ..extensions import db
-from sqlalchemy.orm import joinedload
 
-from ..models import User, Peripheral, License, Software, Course
-from ..models.assets import AssetAssignment
+from ..models import User, Software, Course
 from ..models import Subscription, PaymentMethod, Risk, BusinessService, Location
 from ..models.procurement import log_subscription_cost_change
 # Models must be exported from models/__init__.py to be importable here
@@ -16,6 +14,7 @@ from ..models.onboarding import (
 )
 from ..models.communications import EmailTemplate, PackCommunication, ScheduledCommunication
 from ..utils.helpers import generate_secure_password
+from ..services.offboarding_service import build_offboarding_checklist
 from ..utils.communications_manager import trigger_workflow_communications, get_process_communications
 from .main import login_required
 from src.utils.timezone_helper import now, today
@@ -397,8 +396,7 @@ def new_offboarding():
 
         manager_id = session.get('user_id')
         transfer_to_id = request.form.get('transfer_to_id') or None
-        if transfer_to_id:
-            transfer_to_id = int(transfer_to_id)
+        transfer_to_user = db.session.get(User, int(transfer_to_id)) if transfer_to_id else None
 
         process = OffboardingProcess(
             user_id=user_id,
@@ -406,141 +404,11 @@ def new_offboarding():
             departure_date=departure_date
         )
         db.session.add(process)
+        db.session.flush()
+
+        build_offboarding_checklist(process, target_user, transfer_to=transfer_to_user)
         db.session.commit()
-        
-        # 1. HARDWARE
-        # Each open assignment used to lazy-load its asset one query at a time.
-        open_assignments = AssetAssignment.query.options(joinedload(AssetAssignment.asset)).filter(
-            AssetAssignment.user_id == target_user.id,
-            AssetAssignment.checked_in_date.is_(None),
-        ).all()
-        for assignment in open_assignments:
-            db.session.add(ProcessItem(
-                offboarding_process_id=process.id,
-                description=f"💻 Pick up Asset: {assignment.asset.name} ({assignment.asset.serial_number})",
-                item_type='Asset',
-                linked_object_id=assignment.asset.id
-            ))
 
-        peripherals = Peripheral.query.filter_by(user_id=target_user.id).all()
-        for p in peripherals:
-            db.session.add(ProcessItem(
-                offboarding_process_id=process.id,
-                description=f"⌨️ Pick up Peripheral: {p.name}",
-                item_type='Peripheral',
-                linked_object_id=p.id
-            ))
-            
-        # 2. SOFTWARE
-        licenses = License.query.options(joinedload(License.software)).filter_by(user_id=target_user.id).all()
-        for l in licenses:
-            desc = f"🔑 Revoke License: {l.name}"
-            if l.software:
-                desc += f" ({l.software.name})"
-            db.session.add(ProcessItem(
-                offboarding_process_id=process.id,
-                description=desc,
-                item_type='License',
-                linked_object_id=l.id
-            ))
-            
-        subscriptions = Subscription.query.filter_by(user_id=target_user.id).all()
-        for sub in subscriptions:
-            db.session.add(ProcessItem(
-                offboarding_process_id=process.id,
-                description=f"🔄 Cancel/Transfer Subscription: {sub.name}",
-                item_type='Subscription'
-            ))
-
-        # 2b. Subscription Access (Revoke)
-        subscriptions_access = Subscription.query.filter(Subscription.users.contains(target_user)).all()
-        for sub in subscriptions_access:
-             db.session.add(ProcessItem(
-                offboarding_process_id=process.id,
-                description=f"🛑 Revoke access to Subscription: {sub.name}",
-                item_type='RevokeSubscriptionAccess',
-                linked_object_id=sub.id
-            ))
-
-        # 3. COMPLIANCE & OWNERSHIP
-        payment_methods = PaymentMethod.query.filter_by(user_id=target_user.id).all()
-        for pm in payment_methods:
-            linked_subs = len(pm.subscriptions)
-            desc = f"⚠️ BLOCKING: Card '{pm.name}' has {linked_subs} subscriptions. Change before canceling." if linked_subs > 0 else f"💳 Recover/Cancel Payment Method: {pm.name}"
-            db.session.add(ProcessItem(
-                offboarding_process_id=process.id,
-                description=desc,
-                item_type='PaymentMethod',
-                linked_object_id=pm.id
-            ))
-
-        # RISKS
-        risks = Risk.query.filter_by(owner_id=target_user.id).all()
-        for r in risks:
-            short_desc = (r.risk_description[:75] + '..') if len(r.risk_description) > 75 else r.risk_description
-            item = ProcessItem(
-                offboarding_process_id=process.id,
-                description=f"⚠️ TRANSFER RISK: {short_desc}",
-                item_type='Risk',
-                linked_object_id=r.id
-            )
-            if transfer_to_id:
-                r.owner_id = transfer_to_id
-                item.is_completed = True
-            db.session.add(item)
-
-        # SERVICE OWNERSHIP
-        services_owned = BusinessService.query.filter_by(owner_id=target_user.id).all()
-        for s in services_owned:
-            item = ProcessItem(
-                offboarding_process_id=process.id,
-                description=f"⚠️ TRANSFER SERVICE: {s.name} (User is Owner)",
-                item_type='ServiceOwnership',
-                linked_object_id=s.id
-            )
-            if transfer_to_id:
-                s.owner_id = transfer_to_id
-                item.is_completed = True
-            db.session.add(item)
-            
-        # 2. Revoke Access to Services/Applications
-        # Find all services where the user is in the 'users' list
-        services_access = BusinessService.query.filter(BusinessService.users.contains(target_user)).all()
-        for s in services_access:
-            cat_label = s.category if s.category else 'Service'
-            db.session.add(ProcessItem(
-                offboarding_process_id=process.id,
-                description=f"🛑 Revoke access to {cat_label}: {s.name}",
-                item_type='RevokeAccess',
-                linked_object_id=s.id
-            ))
-
-        # CREDENTIALS
-        from ..models.credentials import Credential
-        credentials_owned = Credential.query.filter_by(owner_id=target_user.id, owner_type='User').all()
-        for cred in credentials_owned:
-            item = ProcessItem(
-                offboarding_process_id=process.id,
-                description=f"🔑 REASSIGN CREDENTIAL: {cred.name} ({cred.type})",
-                item_type='Credential',
-                linked_object_id=cred.id
-            )
-            if transfer_to_id:
-                cred.owner_id = transfer_to_id
-                item.is_completed = True
-            db.session.add(item)
-
-        # 4. TAREAS GLOBALES
-        static_tasks = ProcessTemplate.query.filter_by(process_type='offboarding', is_active=True).all()
-        for task in static_tasks:
-            db.session.add(ProcessItem(
-                offboarding_process_id=process.id,
-                description=task.name,
-                item_type='StaticTask'
-            ))
-
-        transfer_to_user = db.session.get(User, transfer_to_id) if transfer_to_id else None
-        db.session.commit()
         if transfer_to_user:
             flash(f'Offboarding started for {target_user.name}. Ownership of risks, services and credentials auto-transferred to {transfer_to_user.name}.', 'warning')
         else:
