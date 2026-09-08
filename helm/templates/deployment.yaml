@@ -51,6 +51,16 @@ spec:
               value: postgresql://{{ .Values.database.external.username }}:$(DB_PASSWORD_RAW)@{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}
             
             {{- end }}
+
+            # --- Session signing key (see secretKey in values.yaml) ---
+            # Skipped when existingSecret is set: that secret is expected to carry SECRET_KEY.
+            {{- if not .Values.existingSecret }}
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretKey.existingSecret.name | default (printf "%s-secret-key" (include "opsdeck.fullname" .)) }}
+                  key: {{ .Values.secretKey.existingSecret.key | default "SECRET_KEY" }}
+            {{- end }}
             
             # --- 2. Variables de Entorno Extra (values.yaml) ---
             {{- range $key, $value := .Values.env }}

@@ -79,6 +79,20 @@ gatewayApi:
 env: 
   FLASK_ENV: "production"
 
+# --- Session signing key ---
+# The application refuses to start in production without a real SECRET_KEY (it signs
+# every session cookie and CSRF token). Three ways to provide it, in order of preference:
+#   1. Put SECRET_KEY in the secret named by `existingSecret` below (loaded via envFrom).
+#   2. Point `secretKey.existingSecret` at a Secret that holds just the key.
+#   3. Leave everything empty: the chart generates a 64-character key on first install
+#      and keeps it across upgrades (it is looked up, not regenerated).
+# `secretKey.value` sets it in plain text in values; only for throwaway environments.
+secretKey:
+  existingSecret:
+    name: ""
+    key: "SECRET_KEY"
+  value: ""
+
 # Si tienes un secreto creado manualmente (ej: sealed-secrets o external-secrets)
 # pon el nombre aquí. La chart cargará todo el contenido como variables de entorno.
 existingSecret: ""

@@ -304,6 +304,17 @@ def create_app(test_config=None):
     # Disable HTTPS enforcement in development (debug mode) or when explicitly disabled
     is_development = app.debug or insecure_transport or os.environ.get('FLASK_ENV') == 'development'
 
+    # --- Refuse to run production on placeholder secrets ---
+    # DATABASE_URL already fails loudly above when missing; SECRET_KEY silently fell back
+    # to a string that is in this repository, which signs every session and CSRF token.
+    if not (is_development or app.testing):
+        from .config import production_config_errors, production_config_warnings
+        errors = production_config_errors(app.config)
+        if errors:
+            raise RuntimeError('Refusing to start with an unsafe configuration:\n  - ' + '\n  - '.join(errors))
+        for warning in production_config_warnings(app.config):
+            app.logger.warning('Configuration: %s', warning)
+
     # --- Content Security Policy (baseline) ---
     # All first-party assets are vendored under /static, so 'self' covers them.
     #
