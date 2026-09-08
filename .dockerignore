@@ -1,15 +1,36 @@
-# Ignorar dependencias locales y caches
+# Dependencias locales y caches
 node_modules/
 src/static/vendor/
 __pycache__/
 *.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+venv/
+.venv/
 .git/
 .env
-tests/
-.docs/
-.migrations/
 .claude/
 .agent/
+.docs/
+.migrations/
+
+# Lo que no debe viajar en la imagen
+tests/
+# base de datos local y adjuntos de desarrollo
+data/
+logs/
+helm/
+images/
+.github/
+plan.md
+*.md
+!README.md
+# Scripts de operador que borran datos: se ejecutan desde fuera, nunca desde el pod
+reset-demo-data.sh
+reset-prod-data.sh
+update-deps.sh
+update-node-deps.sh
 
 # Enterprise plugin: optional, not part of the base image
 opsdeck-enterprise/

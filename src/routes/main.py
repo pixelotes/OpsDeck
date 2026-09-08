@@ -85,6 +85,11 @@ def health_check():
     return jsonify({'status': 'healthy'}), 200
 
 
+# Probes and the container HEALTHCHECK call this over plain HTTP from inside the cluster;
+# with force_https on they would get a 302 to an https URL nobody serves there.
+health_check.talisman_view_options = {'force_https': False}
+
+
 
 def verify_ip_and_login(user):
     """Verify user's IP and either login directly or trigger MFA flow."""
