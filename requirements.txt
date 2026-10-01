@@ -10,7 +10,7 @@ gunicorn==26.1.0
 MarkupSafe==3.0.3
 Markdown==3.10.3
 bleach==6.4.0
-weasyprint==69.0
+weasyprint==70.0
 Flask-Login==0.6.3
 ecs-logging==2.3.0
 Flask-Limiter==4.1.1
