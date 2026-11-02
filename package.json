@@ -10,7 +10,7 @@
         "@fortawesome/fontawesome-free": "^7.3.1",
         "@popperjs/core": "^2.11.8",
         "bootstrap": "^5.3.8",
-        "chart.js": "^4.5.1",
+        "chart.js": "^4.6.1",
         "easymde": "^2.21.0",
         "html2canvas": "^1.4.1",
         "mermaid": "^11.17.0",
