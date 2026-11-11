@@ -21,7 +21,7 @@ RUN npm run build-assets
 # ============================================
 # Stage 2: Python Application
 # ============================================
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 # Install system dependencies for WeasyPrint (PDF generation)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -59,7 +59,7 @@ ENTRYPOINT ["./entrypoint.sh"]
 # ============================================
 # Stage 3: Development (adds faker, pytest)
 # ============================================
-FROM python:3.14-slim AS dev
+FROM python:3.15-slim AS dev
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgobject-2.0-0 \
