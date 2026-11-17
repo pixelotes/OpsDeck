@@ -36,4 +36,5 @@ from .roadmaps import (Roadmap, RoadmapPeriod, RoadmapGoal, RoadmapInitiative,
                        ROADMAP_LINKABLE_TYPES, DEFAULT_GOAL_COLOR)
 
 from .entra import EntraSyncSettings, EntraSyncRun
+from .supplier_review import ReviewTemplate, ReviewQuestion, SupplierReviewAnswer
 from .connectors import ConnectorTask, ConnectorSubtask, ConnectorReport, CONNECTOR_SERVICES

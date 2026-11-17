@@ -1276,6 +1276,15 @@ def my_dashboard():
             f'Request: {req.title}', f'{req.request_type} · status {req.status}',
             url_for(DETAIL_REQUEST, id=req.id), 'View request', due, current_date))
 
+    # 5. Supplier reviews assigned to me (as owner or through an owner group)
+    from ..services.supplier_review_service import open_reviews_for
+    for review in open_reviews_for(user):
+        prioritized_tasks.append(_ticket_task(
+            f'Supplier review: {review.supplier.name}',
+            'Critical supplier' if review.supplier.is_critical else 'Periodic supplier review',
+            url_for('supplier_reviews.fill_review', id=review.id), 'Fill in review',
+            review.due_date, current_date))
+
     # Sort by priority
     prioritized_tasks.sort(key=lambda x: (x['priority'], x['due_text']))
 

@@ -564,36 +564,70 @@ class ComplianceEvaluator:
     
     def _evaluate_supplier_assessment(self, rule):
         """
-        Evaluate rule against SecurityAssessment model.
-        
+        Evaluate rule against SecurityAssessment model (supplier reviews).
+
+        Only completed reviews count: a review scheduled for its owner and not filled
+        in yet is not evidence.
+
         Criteria format:
-            {"supplier_id": 123} (optional - filter by specific supplier)
-        
+            {"supplier_id": 123}  - the latest review of that supplier
+            {"scope": "critical"} - every active critical supplier must have a review;
+                                    the evidence is the stalest of their latest reviews
+            {"scope": "all"}      - the same for every active supplier
+            {}                    - the latest review of any supplier
+
         Returns:
             tuple: (evidence_object, evidence_date) or (None, None)
         """
         from src.models.security import SecurityAssessment
         from src.models.procurement import Supplier
-        
+        from src.models.supplier_review import STATUS_SCHEDULED
+
         criteria = rule.get_criteria()
         supplier_id = criteria.get('supplier_id')
-        
-        query = SecurityAssessment.query.join(Supplier)
-        
+        scope = criteria.get('scope')
+
+        if scope in ('critical', 'all') and not supplier_id:
+            return self._evaluate_supplier_coverage(scope == 'critical')
+
+        query = SecurityAssessment.query.join(Supplier).filter(
+            SecurityAssessment.status != STATUS_SCHEDULED)
+
         # Filter by specific supplier if provided
         if supplier_id:
             query = query.filter(SecurityAssessment.supplier_id == supplier_id)
-        
+
         # Get the most recent assessment
         latest = query.order_by(SecurityAssessment.assessment_date.desc()).first()
-        
+
         if latest:
             # assessment_date is a Date field, convert to datetime for consistency
             evidence_date = naive_to_aware(datetime.combine(latest.assessment_date, datetime.min.time()))
             return latest, evidence_date
-        
+
         return None, None
-    
+
+    def _evaluate_supplier_coverage(self, critical_only):
+        """Stalest latest completed review across active (critical) suppliers.
+
+        A supplier never reviewed makes the whole rule fail (no evidence).
+        """
+        from src.models.procurement import Supplier
+
+        query = Supplier.query.filter(Supplier.is_archived.is_(False))
+        if critical_only:
+            query = query.filter(Supplier.is_critical.is_(True))
+        stalest = None
+        for supplier in query.all():
+            latest = supplier.last_completed_review
+            if latest is None:
+                return None, None
+            if stalest is None or latest.assessment_date < stalest.assessment_date:
+                stalest = latest
+        if stalest is None:
+            return None, None
+        return stalest, naive_to_aware(datetime.combine(stalest.assessment_date, datetime.min.time()))
+
     def _evaluate_risk_assessment(self, rule):
         """
         Evaluate rule against RiskAssessment model.
@@ -820,18 +854,22 @@ class ComplianceEvaluator:
         return []
     
     def _collect_supplier_assessment(self, rule, threshold_date):
-        """Collect SecurityAssessment records within the time period."""
+        """Collect completed SecurityAssessment records within the time period."""
         from src.models.security import SecurityAssessment
         from src.models.procurement import Supplier
-        
+        from src.models.supplier_review import STATUS_SCHEDULED
+
         criteria = rule.get_criteria()
         supplier_id = criteria.get('supplier_id')
-        
-        query = SecurityAssessment.query.join(Supplier)
-        
+
+        query = SecurityAssessment.query.join(Supplier).filter(
+            SecurityAssessment.status != STATUS_SCHEDULED)
+
         if supplier_id:
             query = query.filter(SecurityAssessment.supplier_id == supplier_id)
-        
+        elif criteria.get('scope') == 'critical':
+            query = query.filter(Supplier.is_critical.is_(True))
+
         # Filter by date
         assessments = query.filter(
             SecurityAssessment.assessment_date >= threshold_date.date()

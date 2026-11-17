@@ -422,7 +422,7 @@
                 <hr class="text-white">
                 <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#compliance-menu"
                     aria-expanded="false">Compliance <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
-                <div class="collapse" id="compliance-menu" data-bs-parent="#sidebar-accordion">
+                <ul class="collapse list-unstyled mb-0" id="compliance-menu" data-bs-parent="#sidebar-accordion">
 
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint == 'compliance.dashboard' %}active{% endif %}"
@@ -446,6 +446,10 @@
                             href="{{ url_for('compliance.vendor_compliance') }}"><i class="fa-fw fas fa-tasks"></i>
                             Vendor Compliance</a></li>
                     <li class="nav-item"><a
+                            class="nav-link {% if request.blueprint == 'supplier_reviews' %}active{% endif %}"
+                            href="{{ url_for('supplier_reviews.list_templates') }}"><i class="fa-fw fas fa-clipboard-list"></i>
+                            Supplier Review Templates</a></li>
+                    <li class="nav-item"><a
                             class="nav-link {% if request.endpoint and ('access_review' in request.endpoint or 'uar_execution' in request.endpoint or 'uar_finding' in request.endpoint) %}active{% endif %}"
                             href="{{ url_for('compliance.access_review') }}"><i class="fa-fw fas fa-user-lock"></i>
                             User Access Review</a></li>
@@ -457,7 +461,7 @@
                             class="nav-link {% if request.endpoint and 'drift' in request.endpoint %}active{% endif %}"
                             href="{{ url_for('compliance.drift_dashboard') }}"><i class="fa-fw fas fa-chart-line"></i>
                             Drift Detection</a></li>
-                </div>
+                </ul>
                 {% endif %}
 
                 {% if has_permission('knowledge_policy') %}
@@ -836,6 +840,11 @@
                             <li>
                                 <a class="dropdown-item py-2" href="{{ url_for('main.change_password') }}">
                                     <i class="fas fa-key fa-fw me-2 text-warning"></i> Change Password
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="{{ url_for('supplier_reviews.my_reviews') }}">
+                                    <i class="fas fa-clipboard-check fa-fw me-2 text-primary"></i> My Supplier Reviews
                                 </a>
                             </li>
                             <li>
