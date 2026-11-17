@@ -1,6 +1,10 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+import os
+import uuid
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from datetime import datetime
-from ..models import db, Asset, Peripheral, DisposalRecord, DisposalHistory, Supplier
+from werkzeug.utils import secure_filename
+from ..models import db, Asset, Peripheral, DisposalRecord, DisposalHistory, Supplier, Attachment
+from ..utils.timezone_helper import today
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
 
@@ -8,6 +12,32 @@ disposal_bp = Blueprint('disposal', __name__, url_prefix='/disposal')
 
 # Frequently-referenced literals (avoid duplication, Sonar S1192)
 MODULE = 'operations'
+
+
+def _active_suppliers():
+    return Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all()
+
+
+def _attach_certificate(record):
+    """Save an uploaded disposal certificate as an Attachment on `record`.
+
+    Returns True if a file was attached. Done inline because the generic
+    attachments.upload_file route only accepts a POST and cannot be reached by
+    redirect.
+    """
+    file = request.files.get('certificate')
+    if not file or not file.filename:
+        return False
+    original_filename = secure_filename(file.filename)
+    unique_filename = f"{uuid.uuid4().hex}{os.path.splitext(original_filename)[1]}"
+    file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
+    db.session.add(Attachment(
+        filename=original_filename,
+        secure_filename=unique_filename,
+        linkable_id=record.id,
+        linkable_type='DisposalRecord',
+    ))
+    return True
 
 @disposal_bp.route('/', methods=['GET'])
 @login_required
@@ -61,13 +91,10 @@ def record_disposal():
             record.peripheral_id = item.id
             
         db.session.add(record)
-        db.session.commit() # Commit here to get the record.id
+        db.session.flush()  # assign record.id for the certificate attachment
+        _attach_certificate(record)
+        db.session.commit()
 
-        # Handle file upload for the certificate
-        if 'certificate' in request.files and request.files['certificate'].filename != '':
-             # This is a simplified redirect. A more robust solution would be a helper function.
-            return redirect(url_for('attachments.upload_file', disposal_record_id=record.id, _method='POST', **request.files))
-        
         flash(f'"{item.name}" has been marked as disposed and archived.', 'success')
         
         if isinstance(item, Asset):
@@ -75,8 +102,8 @@ def record_disposal():
         else:
             return redirect(url_for('peripherals.peripherals'))
 
-    suppliers = Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all()
-    return render_template('disposal/form.html', item=item, suppliers=suppliers)
+    return render_template('disposal/form.html', item=item, suppliers=_active_suppliers(),
+                           today=today())
 
 @disposal_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -95,7 +122,7 @@ def edit_disposal(id):
         if not reason:
             flash('A reason for the change is required.', 'danger')
             return render_template('disposal/edit_form.html', record=record, item=item,
-                               suppliers=Supplier.query.filter_by(is_archived=False).order_by(Supplier.name).all())
+                                   suppliers=_active_suppliers())
 
         changes = []
         
@@ -133,13 +160,11 @@ def edit_disposal(id):
             )
             db.session.add(history_entry)
         
+        _attach_certificate(record)
         db.session.commit()
-        
-        # Handle file upload for the certificate
-        if 'certificate' in request.files and request.files['certificate'].filename != '':
-             return redirect(url_for('attachments.upload_file', disposal_record_id=record.id, _method='POST', **request.files))
-        
+
         flash('Disposal record updated successfully.', 'success')
         return redirect(url_for('disposal.disposal_detail', id=id))
 
-    return render_template('disposal/edit_form.html', record=record, item=item)
+    return render_template('disposal/edit_form.html', record=record, item=item,
+                           suppliers=_active_suppliers())

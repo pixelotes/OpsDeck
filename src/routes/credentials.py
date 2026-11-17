@@ -17,6 +17,37 @@ CREDENTIALS_FORM_HTML = 'credentials/form.html'
 # Credential types constant
 CREDENTIAL_TYPES = ['API Key', 'OAuth', 'Service Account', 'SSH Key', 'Password', 'Certificate']
 
+def _apply_target(credential, target_type, target_id):
+    """Point `credential` at the target picked in the form.
+
+    Software, license and asset are single FKs. Services are many-to-many (a credential
+    can also be linked from the service page), so the form only manages the one service
+    it displays (`credential.service_id`): it is unlinked when the target changes and the
+    newly picked service is added, leaving any other service links alone.
+    """
+    shown_service_id = credential.service_id
+    credential.software_id = None
+    credential.license_id = None
+    credential.asset_id = None
+
+    target_id = int(target_id) if target_type and target_id else None
+    new_service = None
+    if target_id is not None:
+        if target_type == 'service':
+            new_service = db.get_or_404(BusinessService, target_id)
+        elif target_type == 'software':
+            credential.software_id = target_id
+        elif target_type == 'license':
+            credential.license_id = target_id
+        elif target_type == 'asset':
+            credential.asset_id = target_id
+
+    if shown_service_id and (new_service is None or new_service.id != shown_service_id):
+        credential.services = [s for s in credential.services if s.id != shown_service_id]
+    if new_service is not None and new_service not in credential.services:
+        credential.services.append(new_service)
+
+
 @credentials_bp.route('/', methods=['GET'])
 @login_required
 @requires_permission(MODULE, access_level='READ_ONLY')
@@ -183,28 +214,7 @@ def new_credential():
         target_type = request.form.get('target_type')
         target_id = request.form.get('target_id')
         
-        if target_type and target_id:
-            target_id = int(target_id)
-            if target_type == 'service':
-                new_credential.service_id = target_id
-                new_credential.software_id = None
-                new_credential.license_id = None
-                new_credential.asset_id = None
-            elif target_type == 'software':
-                new_credential.software_id = target_id
-                new_credential.service_id = None
-                new_credential.license_id = None
-                new_credential.asset_id = None
-            elif target_type == 'license':
-                new_credential.license_id = target_id
-                new_credential.service_id = None
-                new_credential.software_id = None
-                new_credential.asset_id = None
-            elif target_type == 'asset':
-                new_credential.asset_id = target_id
-                new_credential.service_id = None
-                new_credential.software_id = None
-                new_credential.license_id = None
+        _apply_target(new_credential, target_type, target_id)
         
         db.session.add(new_credential)
         db.session.flush()  # Get the credential ID
@@ -292,23 +302,7 @@ def edit_credential(id):
         target_type = request.form.get('target_type')
         target_id = request.form.get('target_id')
         
-        # Clear all targets first
-        credential.service_id = None
-        credential.software_id = None
-        credential.license_id = None
-        credential.asset_id = None
-        
-        # Set the selected target
-        if target_type and target_id:
-            target_id = int(target_id)
-            if target_type == 'service':
-                credential.service_id = target_id
-            elif target_type == 'software':
-                credential.software_id = target_id
-            elif target_type == 'license':
-                credential.license_id = target_id
-            elif target_type == 'asset':
-                credential.asset_id = target_id
+        _apply_target(credential, target_type, target_id)
         
         db.session.commit()
         

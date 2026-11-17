@@ -80,6 +80,14 @@ class Credential(db.Model):
         return self.secrets.filter_by(is_active=True).first()
     
     @property
+    def service_id(self):
+        """Id of the first linked service, for the single-target credential form.
+
+        Read-only: services are many-to-many, so link them through `services`.
+        """
+        return self.services[0].id if self.services else None
+
+    @property
     def owner(self):
         """Returns the owner object based on polymorphic relationship"""
         if self.owner_type == 'User':

@@ -24,7 +24,7 @@
                             <input class="form-check-input" type="radio" name="include_risks" id="import_yes"
                                 value="yes" checked {% if not can_write('risk_governance') %}disabled{% endif %}>
                             <label class="form-check-label" for="import_yes">
-                                <strong>Snaphot All Open Risks (Recommended)</strong><br>
+                                <strong>Snapshot All Open Risks (Recommended)</strong><br>
                                 <small class="text-muted">Import all currently open risks and freeze their
                                     state.</small>
                             </label>
@@ -34,8 +34,8 @@
                                 {% if not can_write('risk_governance') %}disabled{% endif %}>
                             <label class="form-check-label" for="import_no">
                                 <strong>Start Empty</strong><br>
-                                <small class="text-muted">Create a blank assessment and add items manually
-                                    later.</small>
+                                <small class="text-muted">Create a blank assessment and add risks one by one
+                                    from the assessment page.</small>
                             </label>
                         </div>
                     </div>

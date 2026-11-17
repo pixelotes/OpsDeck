@@ -544,9 +544,10 @@ def organizational_health():
     health_score = max(0, 100 - (critical_risks * 15) - (high_risks * 5))
     
     # ----- GLOBAL STATUS -----
-    active_incidents = SecurityIncident.query.filter(
-        SecurityIncident.status.in_(['Open', 'Investigating', 'Escalated'])
-    ).count()
+    # Incidents run Investigating -> Contained -> Resolved -> Closed; anything not yet
+    # resolved is still active.
+    active_incident_filter = SecurityIncident.status.notin_(['Resolved', 'Closed'])
+    active_incidents = SecurityIncident.query.filter(active_incident_filter).count()
     
     if critical_risks > 0 or active_incidents > 0:
         global_status = 'critical'
@@ -560,9 +561,9 @@ def organizational_health():
     
     # Active high-severity incidents
     incidents = SecurityIncident.query.filter(
-        SecurityIncident.status.in_(['Open', 'Investigating', 'Escalated']),
-        SecurityIncident.severity.in_(['SEV-1', 'SEV-2', 'P1', 'P2'])
-    ).limit(5).all()
+        active_incident_filter,
+        SecurityIncident.severity.in_(['SEV-0', 'SEV-1', 'SEV-2', 'P1', 'P2'])
+    ).order_by(SecurityIncident.severity).limit(5).all()
     for inc in incidents:
         critical_items.append({
             'type': 'security',
@@ -1141,27 +1142,21 @@ def my_dashboard():
         PolicyVersion.status == 'Active'
     ).all()
 
-    # ----- PENDING CREDENTIALS (those expiring soon shared with me) -----
-    from ..models.credentials import CredentialSecret
-    expiring_credentials = []
-    try:
-        # Get credentials where user has access
-        thirty_days_ahead = current_datetime + timedelta(days=30)
-        secrets = CredentialSecret.query.filter(
-            CredentialSecret.is_active == True,
-            CredentialSecret.expires_at.isnot(None),
-            CredentialSecret.expires_at <= thirty_days_ahead
-        ).all()
-
-        # Filter those where user has access (simplified - can be enhanced)
-        for secret in secrets:
-            expiring_credentials.append({
-                'credential': secret.credential,
-                'expires_at': secret.expires_at,
-                'days_left': (secret.expires_at.date() - current_date).days
-            })
-    except Exception:
-        pass  # Credentials module might not be available
+    # ----- MY CREDENTIALS EXPIRING SOON -----
+    from ..models.credentials import Credential
+    thirty_days_ahead = current_datetime + timedelta(days=30)
+    secrets = CredentialSecret.query.join(Credential).filter(
+        Credential.owner_type == 'User',
+        Credential.owner_id == user_id,
+        CredentialSecret.is_active.is_(True),
+        CredentialSecret.expires_at.isnot(None),
+        CredentialSecret.expires_at <= thirty_days_ahead
+    ).order_by(CredentialSecret.expires_at).all()
+    expiring_credentials = [{
+        'credential': secret.credential,
+        'expires_at': secret.expires_at,
+        'days_left': (secret.expires_at.date() - current_date).days
+    } for secret in secrets]
 
     # ----- PERSONAL HEALTH SCORE -----
     personal_health_score = 100
@@ -1295,7 +1290,7 @@ def my_dashboard():
         timedelta=timedelta,
         greeting_time=greeting_time,
         current_date=current_date,
-        current_date_pretty=current_date.strftime('%d de %B, %Y'),
+        current_date_pretty=f"{current_date.day} {current_date.strftime('%B %Y')}",
 
         # Stats
         my_equipment_count=my_equipment_count,
