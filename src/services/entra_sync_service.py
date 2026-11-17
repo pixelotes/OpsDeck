@@ -25,10 +25,10 @@ import json
 import logging
 from contextlib import contextmanager
 
-import requests
 from flask import current_app
 from sqlalchemy import func, text
 
+from ..connectors import msgraph
 from ..extensions import db
 from ..models import User
 from ..models.entra import EntraSyncRun, EntraSyncSettings, SCHEDULE_DAILY, SCHEDULE_INTERVAL
@@ -37,11 +37,11 @@ from src.utils.timezone_helper import now
 
 logger = logging.getLogger(__name__)
 
-GRAPH = 'https://graph.microsoft.com/v1.0'
+GRAPH = msgraph.GRAPH
 USER_SELECT = 'id,displayName,userPrincipalName,department,jobTitle,accountEnabled'
 SCHEDULER_JOB_ID = 'entra_user_sync'
 SCHEDULER_REFRESH_JOB_ID = 'entra_user_sync_refresh'
-REQUEST_TIMEOUT = 30
+REQUEST_TIMEOUT = msgraph.REQUEST_TIMEOUT
 # Arbitrary constant identifying the sync's Postgres advisory lock.
 ADVISORY_LOCK_KEY = 0x0E7A5C
 
@@ -59,74 +59,33 @@ class SyncAborted(Exception):
 # --------------------------------------------------------------------------- #
 
 def credentials_configured(config=None):
-    from src import azure_oauth_configured
     config = config or current_app.config
-    return azure_oauth_configured(config) and bool(config.get('AZURE_OAUTH_CLIENT_SECRET'))
+    return msgraph.entra_app_credentials(config) is not None
 
 
-class GraphClient:
-    """Minimal Graph client for the few read-only calls the sync makes."""
+class GraphClient(msgraph.GraphClient):
+    """The shared Graph client, raising EntraSyncError, plus the calls the sync makes."""
 
-    def __init__(self, tenant_id, client_id, client_secret, session=None):
-        self.tenant_id = tenant_id
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.http = session or requests.Session()
-        self._token = None
+    error_cls = EntraSyncError
 
     @classmethod
     def from_config(cls, config=None):
         config = config or current_app.config
-        if not credentials_configured(config):
+        creds = msgraph.entra_app_credentials(config)
+        if creds is None:
             raise EntraSyncError(
                 'Entra ID credentials are not configured (AZURE_OAUTH_CLIENT_ID, '
                 'AZURE_OAUTH_CLIENT_SECRET and a single-tenant AZURE_OAUTH_TENANT_ID).'
             )
-        return cls(config['AZURE_OAUTH_TENANT_ID'].strip(), config['AZURE_OAUTH_CLIENT_ID'],
-                   config['AZURE_OAUTH_CLIENT_SECRET'])
-
-    def _get_token(self):
-        if self._token:
-            return self._token
-        resp = self.http.post(
-            f'https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token',
-            data={
-                'grant_type': 'client_credentials',
-                'client_id': self.client_id,
-                'client_secret': self.client_secret,
-                'scope': 'https://graph.microsoft.com/.default',
-            },
-            timeout=REQUEST_TIMEOUT,
-        )
-        if not resp.ok:
-            raise EntraSyncError(f'Could not obtain a Graph token (HTTP {resp.status_code}).')
-        self._token = resp.json().get('access_token')
-        return self._token
-
-    def get(self, url, params=None, allow_404=False):
-        if not url.startswith('https://'):
-            url = GRAPH + url
-        resp = self.http.get(url, params=params, timeout=REQUEST_TIMEOUT,
-                             headers={'Authorization': f'Bearer {self._get_token()}'})
-        if allow_404 and resp.status_code == 404:
-            return None
-        if not resp.ok:
-            raise EntraSyncError(f'Microsoft Graph error {resp.status_code} for {url.split("?")[0]}')
-        return resp.json()
+        return cls(*creds)
 
     def group_users(self, group_id):
         """All users that are transitive members of ``group_id`` (pagination followed)."""
-        users = []
-        url = f'/groups/{group_id}/transitiveMembers'
-        params = {'$select': USER_SELECT, '$top': 999}
-        while url:
-            page = self.get(url, params=params)
-            params = None  # nextLink already carries the query
-            for member in page.get('value', []):
-                if member.get('@odata.type') == '#microsoft.graph.user':
-                    users.append(member)
-            url = page.get('@odata.nextLink')
-        return users
+        return [
+            member for member in self.paginate(
+                f'/groups/{group_id}/transitiveMembers', params={'$select': USER_SELECT, '$top': 999})
+            if member.get('@odata.type') == '#microsoft.graph.user'
+        ]
 
     def manager_id(self, user_id):
         data = self.get(f'/users/{user_id}/manager', params={'$select': 'id'}, allow_404=True)

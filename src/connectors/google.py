@@ -131,11 +131,11 @@ class GoogleWorkspaceConnector(BaseConnector):
         1. Service account JSON (recommended) - generates access token automatically
         2. Access token (for testing) - uses provided token directly
         """
-        if not self.task.auth_config:
+        if not self.auth:
             raise ValueError("No auth_config found for Google Workspace connector")
         
         # Method 1: Service account JSON (recommended)
-        service_account_json = self.task.auth_config.get('service_account_json')
+        service_account_json = self.auth.get('service_account_json')
         if service_account_json:
             # Parse if it's a string
             if isinstance(service_account_json, str):
@@ -144,7 +144,7 @@ class GoogleWorkspaceConnector(BaseConnector):
                 service_account_info = service_account_json
             
             # Get delegated user (required for domain-wide delegation)
-            delegated_user = self.task.auth_config.get('delegated_user')
+            delegated_user = self.auth.get('delegated_user')
             if not delegated_user:
                 raise ValueError(
                     "Missing 'delegated_user' in auth_config. "
@@ -162,7 +162,7 @@ class GoogleWorkspaceConnector(BaseConnector):
             return
         
         # Method 2: Direct access token (for testing)
-        access_token = self.task.auth_config.get('access_token')
+        access_token = self.auth.get('access_token')
         if access_token:
             self.session.headers.update({
                 'Authorization': f'Bearer {access_token}'

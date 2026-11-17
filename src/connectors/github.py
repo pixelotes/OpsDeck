@@ -47,11 +47,11 @@ class GitHubConnector(BaseConnector):
         """
         logger.debug("[GitHub] Starting authentication")
         
-        if not self.task.auth_config:
+        if not self.auth:
             logger.error("[GitHub] No auth_config found in task")
             raise ValueError("No auth_config found for GitHub connector")
         
-        access_token = self.task.auth_config.get('access_token')
+        access_token = self.auth.get('access_token')
         
         if not access_token:
             logger.error("[GitHub] No 'access_token' in auth_config")

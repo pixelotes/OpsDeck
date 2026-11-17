@@ -67,10 +67,10 @@ class JumpCloudConnector(BaseConnector):
         2. Go to Settings > Organization
         3. Copy the Organization ID
         """
-        if not self.task.auth_config:
+        if not self.auth:
             raise ValueError("No auth_config found for JumpCloud connector")
         
-        api_key = self.task.auth_config.get('api_key')
+        api_key = self.auth.get('api_key')
         
         if not api_key:
             raise ValueError("No 'api_key' found in auth_config")
@@ -84,7 +84,7 @@ class JumpCloudConnector(BaseConnector):
         }
         
         # For multi-tenant organizations, X-Org-Id header is required
-        org_id = self.task.auth_config.get('org_id')
+        org_id = self.auth.get('org_id')
         if org_id:
             headers['X-Org-Id'] = org_id
         

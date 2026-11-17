@@ -8,7 +8,12 @@ diffed against each other and used as a User Access Review source.
 These tables used to belong to the opsdeck-enterprise plugin (enterprise_tasks,
 enterprise_subtasks, enterprise_reports); migration 025 renames them in place.
 """
+import json
+
+from sqlalchemy.orm.attributes import flag_modified
+
 from ..extensions import db
+from ..utils import crypto
 from src.utils.timezone_helper import now
 
 CONNECTOR_SERVICES = {
@@ -19,6 +24,45 @@ CONNECTOR_SERVICES = {
     'atlassian': 'Atlassian',
     'aws': 'AWS',
 }
+
+# auth_config keys that hold secrets. They are stored encrypted, as
+# {"$enc": "<fernet token>"} (plus "$json": true when the value was a dict/list),
+# and every other key (tenant id, region, organization...) stays readable so the
+# credentials form can show it.
+SECRET_FIELDS = frozenset({
+    'client_secret', 'aws_secret_key', 'api_token', 'access_token', 'api_key',
+    'service_account_json',
+})
+ENC_MARKER = '$enc'
+
+
+def _is_encrypted(value):
+    return isinstance(value, dict) and ENC_MARKER in value
+
+
+def encrypt_auth_config(cfg):
+    """Return a copy of ``cfg`` with SECRET_FIELDS encrypted (already-encrypted ones kept)."""
+    out = {}
+    for key, value in (cfg or {}).items():
+        if key in SECRET_FIELDS and value not in (None, '') and not _is_encrypted(value):
+            is_json = not isinstance(value, str)
+            plain = json.dumps(value) if is_json else value
+            value = {ENC_MARKER: crypto.encrypt(plain)}
+            if is_json:
+                value['$json'] = True
+        out[key] = value
+    return out
+
+
+def decrypt_auth_config(cfg):
+    """Return a copy of ``cfg`` with SECRET_FIELDS decrypted. Plaintext legacy values pass through."""
+    out = {}
+    for key, value in (cfg or {}).items():
+        if _is_encrypted(value):
+            plain = crypto.decrypt(value[ENC_MARKER])
+            value = json.loads(plain) if value.get('$json') else plain
+        out[key] = value
+    return out
 
 
 class ConnectorTask(db.Model):
@@ -43,6 +87,16 @@ class ConnectorTask(db.Model):
     @property
     def service_label(self):
         return CONNECTOR_SERVICES.get(self.service, self.service)
+
+    @property
+    def credentials(self):
+        """auth_config with secrets decrypted. Never render or log this."""
+        return decrypt_auth_config(self.auth_config)
+
+    def set_credentials(self, cfg):
+        """Store ``cfg`` (plaintext secrets allowed) with its secrets encrypted."""
+        self.auth_config = encrypt_auth_config(cfg)
+        flag_modified(self, 'auth_config')
 
     def __repr__(self):
         return f'<ConnectorTask {self.name}>'

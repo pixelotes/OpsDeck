@@ -21,10 +21,10 @@ class AtlassianConnector(BaseConnector):
         Expected in auth_config as 'site_url'
         e.g., 'https://yourcompany.atlassian.net'
         """
-        if not self.task.auth_config:
+        if not self.auth:
             raise ValueError("No auth_config found for Atlassian connector")
         
-        site_url = self.task.auth_config.get('site_url')
+        site_url = self.auth.get('site_url')
         if not site_url:
             raise ValueError("No 'site_url' found in auth_config")
         
@@ -35,11 +35,11 @@ class AtlassianConnector(BaseConnector):
         Set up basic auth for Atlassian API.
         Uses email + API token.
         """
-        if not self.task.auth_config:
+        if not self.auth:
             raise ValueError("No auth_config found for Atlassian connector")
         
-        email = self.task.auth_config.get('email')
-        api_token = self.task.auth_config.get('api_token')
+        email = self.auth.get('email')
+        api_token = self.auth.get('api_token')
         
         if not email or not api_token:
             raise ValueError("Atlassian auth requires 'email' and 'api_token' in auth_config")

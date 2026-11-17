@@ -85,7 +85,10 @@ def test_github_credentials_point_endpoints_at_the_organization(auth_client, app
                      data={'access_token': 'ghp_test', 'organization': 'acme'})
     with app.app_context():
         task = db.session.get(ConnectorTask, task_id)
-        assert task.auth_config == {'access_token': 'ghp_test', 'organization': 'acme'}
+        assert task.credentials == {'access_token': 'ghp_test', 'organization': 'acme'}
+        # The token is stored encrypted; the organization stays readable for the form.
+        assert task.auth_config['organization'] == 'acme'
+        assert 'ghp_test' not in str(task.auth_config)
         assert task.subtasks[0].endpoint == '/orgs/acme/members'
 
 
@@ -96,7 +99,7 @@ def test_a_blank_secret_keeps_the_stored_one(auth_client, app):
     auth_client.post(f'/settings/connectors/task/{task_id}/configure-credentials',
                      data={'tenant_id': 't2', 'client_id': 'c2', 'client_secret': ''})
     with app.app_context():
-        cfg = db.session.get(ConnectorTask, task_id).auth_config
+        cfg = db.session.get(ConnectorTask, task_id).credentials
         assert cfg == {'tenant_id': 't2', 'client_id': 'c2', 'client_secret': 'kept'}
 
 

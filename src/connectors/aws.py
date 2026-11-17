@@ -30,12 +30,12 @@ class AWSConnector(BaseConnector):
         """
         Configure boto3 client with credentials.
         """
-        if not self.task.auth_config:
+        if not self.auth:
             raise ValueError("No auth_config found for AWS connector")
 
-        aws_access_key = self.task.auth_config.get('aws_access_key')
-        aws_secret_key = self.task.auth_config.get('aws_secret_key')
-        self.region = self.task.auth_config.get('aws_region', 'us-east-1')
+        aws_access_key = self.auth.get('aws_access_key')
+        aws_secret_key = self.auth.get('aws_secret_key')
+        self.region = self.auth.get('aws_region', 'us-east-1')
 
         if not aws_access_key or not aws_secret_key:
             raise ValueError("Missing AWS Access Key or Secret Key")
