@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}Documentation - {{ super() }}{% endblock %}
 
 {% block content %}
@@ -65,19 +66,14 @@
                             <p class="small text-muted mb-0">{{ doc.description|truncate(100) }}</p>
                         </td>
                         <td>
-                            {% if doc.owner %}
-                            <i class="fas {{ 'fa-user' if doc.owner_type == 'User' else 'fa-users' }}"></i>
-                            {{ doc.owner.name }}
-                            {% else %}
-                            <span class="text-muted">N/A</span>
-                            {% endif %}
+                            {{ L.person(doc.owner) }}
                         </td>
                         <td>
                             {% if doc.software %}
                             <a href="{{ url_for('software.software_detail', id=doc.software.id) }}">{{ doc.software.name
                                 }}</a>
                             {% else %}
-                            <span class="text-muted">N/A</span>
+                            {{ L.empty() }}
                             {% endif %}
                         </td>
                         <td>

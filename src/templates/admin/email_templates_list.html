@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Email Templates - {{ super() }}{% endblock %}
 
@@ -22,7 +23,7 @@
                     <th>Category</th>
                     <th>Status</th>
                     <th>Updated</th>
-                    <th>Actions</th>
+                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -55,31 +56,19 @@
                         <span class="badge bg-secondary">Inactive</span>
                         {% endif %}
                     </td>
-                    <td>{{ template.updated_at.strftime('%Y-%m-%d %H:%M') if template.updated_at else 'N/A' }}</td>
-                    <td>
-                        <a href="{{ url_for('admin_communications.edit_template', id=template.id) }}"
-                            class="btn btn-sm btn-outline-primary me-1"
-                            title="{{ 'View' if template.is_system else 'Edit' }}">
-                            <i class="fas fa-{{ 'eye' if template.is_system else 'edit' }}"></i>
-                        </a>
-                        {% if not template.is_system and can_write('hr_people') %}
-                        <form action="{{ url_for('admin_communications.toggle_template', id=template.id) }}"
-                            method="POST" class="d-inline">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit"
-                                class="btn btn-sm btn-outline-{{ 'warning' if template.is_active else 'success' }}"
-                                title="{{ 'Deactivate' if template.is_active else 'Activate' }}">
-                                <i class="fas fa-{{ 'pause' if template.is_active else 'play' }}"></i>
-                            </button>
-                        </form>
-                        <form action="{{ url_for('admin_communications.delete_template', id=template.id) }}"
-                            method="POST" class="d-inline" data-confirm='Delete this template? This cannot be undone.'>
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="Delete">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
+                    <td>{{ template.updated_at.strftime('%Y-%m-%d %H:%M') if template.updated_at else L.empty() }}</td>
+                    <td class="text-end">
+                        {% call L.actions() %}
+                        {% if template.is_system %}
+                        {{ L.action_view(url_for('admin_communications.edit_template', id=template.id)) }}
+                        {% else %}
+                        {{ L.action_edit(url_for('admin_communications.edit_template', id=template.id)) }}
                         {% endif %}
+                        {% if not template.is_system and can_write('hr_people') %}
+                        {{ L.action_button(url_for('admin_communications.toggle_template', id=template.id), 'pause' if template.is_active else 'play', 'Deactivate' if template.is_active else 'Activate', method='post') }}
+                        {{ L.action_delete(url_for('admin_communications.delete_template', id=template.id), 'Delete this template? This cannot be undone.') }}
+                        {% endif %}
+                        {% endcall %}
                     </td>
                 </tr>
                 {% else %}

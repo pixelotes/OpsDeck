@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}Disposal Log - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -20,7 +21,7 @@
                     <th>Method</th>
                     <th>Partner</th>
                     <th>Certificate</th>
-                    <th>Actions</th>
+                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -40,7 +41,7 @@
                     <td>
                         {% if record.disposal_partner %}
                         <a href="{{ url_for('suppliers.supplier_detail', id=record.disposal_partner.id) }}">{{ record.disposal_partner.name }}</a>
-                        {% else %}N/A{% endif %}
+                        {% else %}{{ L.empty() }}{% endif %}
                     </td>
                     <td>
                         {% if record.attachments %}
@@ -50,9 +51,10 @@
                         No
                         {% endif %}
                     </td>
-                    <td>
-                        <a href="{{ url_for('disposal.disposal_detail', id=record.id) }}"
-                            class="btn btn-sm btn-outline-primary" title="View Details"><i class="fas fa-eye"></i></a>
+                    <td class="text-end">
+                        {% call L.actions() %}
+                        {{ L.action_view(url_for('disposal.disposal_detail', id=record.id)) }}
+                        {% endcall %}
                     </td>
                 </tr>
                 {% else %}

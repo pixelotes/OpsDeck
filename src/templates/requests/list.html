@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Service Requests - OpsDeck{% endblock %}
 
@@ -61,7 +62,7 @@
                         <th>Due</th>
                         <th>Requester</th>
                         <th>Assignee</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -83,40 +84,18 @@
                             {% if req.due_date %}
                             {{ req.due_date.strftime('%d/%m %H:%M') }}
                             {% else %}
-                            <span class="text-muted">-</span>
+                            {{ L.empty() }}
                             {% endif %}
                         </td>
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-circle-sm bg-primary text-white me-2">
-                                    {{ req.requester.name[:1] }}
-                                </div>
-                                <small>{{ req.requester.name.split()[0] }}</small>
-                            </div>
-                        </td>
-                        <td>
-                            {% if req.assignee %}
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-circle-sm bg-info text-white me-2">
-                                    {{ req.assignee.name[:1] }}
-                                </div>
-                                <small>{{ req.assignee.name.split()[0] }}</small>
-                            </div>
-                            {% else %}
-                            <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{{ url_for('requests.detail_request', id=req.id) }}"
-                                class="btn btn-sm btn-outline-primary" title="View">
-                                <i class="fas fa-eye"></i>
-                            </a>
+                        <td>{{ L.person(req.requester) }}</td>
+                        <td>{{ L.person(req.assignee) }}</td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('requests.detail_request', id=req.id)) }}
                             {% if can_write('operations') and req.status not in ['Completed', 'Closed', 'Cancelled'] %}
-                            <a href="{{ url_for('requests.edit_request', id=req.id) }}"
-                                class="btn btn-sm btn-outline-secondary" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
+                            {{ L.action_edit(url_for('requests.edit_request', id=req.id)) }}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% endfor %}

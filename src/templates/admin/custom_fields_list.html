@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Custom Properties - {{ super() }}{% endblock %}
 
@@ -55,20 +56,15 @@
                                 {% if field.is_required %}
                                 <i class="fas fa-check text-success"></i>
                                 {% else %}
-                                <span class="text-muted">-</span>
+                                {{ L.empty() }}
                                 {% endif %}
                             </td>
                             <td class="text-end">
+                                {% call L.actions() %}
                                 {% if can_write('settings') %}
-                                <form action="{{ url_for('admin.delete_custom_field', id=field.id) }}" method="POST"
-                                    class="d-inline"
-                                    onsubmit="return confirm('Are you sure? This will delete all data associated with this field for all {{ entity_type }}s.');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
+                                {{ L.action_delete(url_for('admin.delete_custom_field', id=field.id), "Are you sure? This will delete all data associated with this field for all " ~ entity_type ~ "s.") }}
                                 {% endif %}
+                                {% endcall %}
                             </td>
                         </tr>
                         {% endif %}

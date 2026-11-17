@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Assets - {{ super() }}{% endblock %}
 
@@ -34,18 +35,18 @@
                         <th>User</th>
                         <th>Location</th>
                         <th>Warranty</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for asset in assets %}
                     <tr>
                         <td><a href="{{ url_for('assets.asset_detail', id=asset.id) }}">{{ asset.name }}</a></td>
-                        <td>{{ asset.model.name if asset.model else '-' }}</td>
-                        <td>{{ asset.brand.name if asset.brand else '-' }}</td>
-                        <td>{{ asset.serial_number or '-' }}</td>
+                        <td>{{ asset.model.name if asset.model else L.empty() }}</td>
+                        <td>{{ asset.brand.name if asset.brand else L.empty() }}</td>
+                        <td>{{ asset.serial_number or L.empty() }}</td>
                         <td><span class="badge bg-secondary">{{ asset.status }}</span></td>
-                        <td>{{ asset.user.name if asset.user else '-' }}</td>
+                        <td>{{ L.person(asset.user) }}</td>
                         <td>
                             <span class="badge {{ 'bg-primary' if asset.location else 'bg-info' }}">
                                 {{ asset.location_display }}
@@ -69,36 +70,22 @@
                                     <span class="text-muted">{{ asset.warranty_end_date.strftime('%Y-%m-%d') }}</span>
                                     {% endif %}
                                     {% else %}
-                                    -
+                                    {{ L.empty() }}
                                     {% endif %}
                         </td>
-                        <td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('assets.asset_detail', id=asset.id)) }}
                             {% if can_write('core_inventory') %}
+                            {{ L.action_edit(url_for('assets.edit_asset', id=asset.id)) }}
                             {% if asset.user %}
-                            <button type="button" class="btn btn-sm btn-warning me-1" title="Check In"
-                                data-bs-toggle="modal" data-bs-target="#checkinModal" data-asset-id="{{ asset.id }}"
-                                data-asset-name="{{ asset.name }}" data-asset-user="{{ asset.user.name }}">
-                                <i class="fas fa-sign-in-alt"></i>
-                            </button>
+                            {{ L.action_button(none, 'sign-in-alt', 'Check In', attrs={'data-bs-toggle': 'modal', 'data-bs-target': '#checkinModal', 'data-asset-id': asset.id, 'data-asset-name': asset.name, 'data-asset-user': asset.user.name}) }}
                             {% else %}
-                            <button type="button" class="btn btn-sm btn-success me-1" title="Check Out"
-                                data-bs-toggle="modal" data-bs-target="#checkoutModal" data-asset-id="{{ asset.id }}"
-                                data-asset-name="{{ asset.name }}">
-                                <i class="fas fa-sign-out-alt"></i>
-                            </button>
+                            {{ L.action_button(none, 'sign-out-alt', 'Check Out', attrs={'data-bs-toggle': 'modal', 'data-bs-target': '#checkoutModal', 'data-asset-id': asset.id, 'data-asset-name': asset.name}) }}
                             {% endif %}
-                            <a href="{{ url_for('assets.edit_asset', id=asset.id) }}"
-                                class="btn btn-sm btn-outline-primary me-1" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ url_for('assets.archive_asset', id=asset.id) }}" method="POST"
-                                class="d-inline" data-confirm="Are you sure you want to archive this asset?">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
-                                    <i class="fas fa-archive"></i>
-                                </button>
-                            </form>
+                            {{ L.action_button(url_for('assets.archive_asset', id=asset.id), 'archive', 'Archive', method='post', confirm='Are you sure you want to archive this asset?') }}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% else %}

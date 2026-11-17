@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Evaluations - {{ super() }}{% endblock %}
 
@@ -113,10 +114,10 @@
                             <span class="badge bg-info">{{ eval.status }}</span>
                             {% endif %}
                         </td>
-                        <td>{{ eval.supplier.name if eval.supplier else '-' }}</td>
-                        <td>{{ eval.currency }} {{ "%.2f"|format(eval.potential_value) if eval.potential_value else '-' }}
+                        <td>{{ eval.supplier.name if eval.supplier else L.empty() }}</td>
+                        <td>{{ eval.currency }} {{ "%.2f"|format(eval.potential_value) if eval.potential_value else L.empty() }}
                         </td>
-                        <td>{{ eval.estimated_close_date.strftime('%Y-%m-%d') if eval.estimated_close_date else '-' }}
+                        <td>{{ eval.estimated_close_date.strftime('%Y-%m-%d') if eval.estimated_close_date else L.empty() }}
                         </td>
                         <td>
                             {% if eval.tasks %}
@@ -124,7 +125,7 @@
                             {% set total = eval.tasks|length %}
                             <span class="badge bg-secondary">{{ completed }}/{{ total }}</span>
                             {% else %}
-                            -
+                            {{ L.empty() }}
                             {% endif %}
                         </td>
                     </tr>

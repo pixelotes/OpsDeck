@@ -1,0 +1,90 @@
+{#
+    List macros — the single way to render people, empty cells and row actions in list tables.
+
+    Import at the top of a list template ("with context" is required: the macros use can_read):
+        {% import 'components/list_macros.html' as L with context %}
+
+    People (User or Group, None-safe):
+        <td>{{ L.person(asset.user) }}</td>
+        <td>{{ L.person(link.owner, link=false) }}</td>
+
+    Empty value:
+        <td>{{ asset.serial_number or L.empty() }}</td>
+
+    Actions column (header must be: <th class="text-end">Actions</th>):
+        <td class="text-end">
+            {% call L.actions() %}
+                {{ L.action_view(url_for('assets.asset_detail', id=asset.id)) }}
+                {% if can_write('assets') %}
+                {{ L.action_edit(url_for('assets.edit_asset', id=asset.id)) }}
+                {{ L.action_delete(url_for('assets.delete_asset', id=asset.id), "Delete asset '" ~ asset.name ~ "'?") }}
+                {% endif %}
+            {% endcall %}
+        </td>
+
+    Any other action (GET link, POST form, or url=none for a JS/modal button with extra attrs):
+        {{ L.action_button(url, 'archive', 'Archive', method='post', confirm='Archive?') }}
+        {{ L.action_button(none, 'sign-in-alt', 'Check in', attrs={'data-bs-toggle': 'modal', 'data-bs-target': '#checkinModal'}) }}
+
+    Style rule: every action is btn-sm btn-outline-secondary icon-only, except delete (outline-danger).
+    Order: view, edit, module-specific actions, delete.
+#}
+
+{% macro empty() -%}
+<span class="text-muted">—</span>
+{%- endmacro %}
+
+{% macro _initials(name) -%}
+{%- set parts = (name or '?').split() -%}
+{{- (parts[0][:1] ~ (parts[-1][:1] if parts|length > 1 else ''))|upper -}}
+{%- endmacro %}
+
+{% macro person(p, link=true) -%}
+{%- if not p -%}
+{{ empty() }}
+{%- else -%}
+{%- set is_group = p.__class__.__name__ == 'Group' -%}
+{%- set endpoint = 'groups.group_detail' if is_group else 'users.user_detail' -%}
+{%- set href = url_for(endpoint, id=p.id) if link and can_read('administration') else none -%}
+<span class="list-person">
+    {%- if is_group -%}
+    <span class="list-avatar list-avatar-group" aria-hidden="true"><i class="fas fa-users"></i></span>
+    {%- else -%}
+    <span class="list-avatar list-avatar-c{{ (p.id or 0) % 6 }}" data-initials="{{ _initials(p.name) }}" aria-hidden="true"></span>
+    {%- endif -%}
+    {%- if href %}<a href="{{ href }}">{{ p.name }}</a>{% else %}<span>{{ p.name }}</span>{% endif -%}
+</span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro actions() -%}
+<div class="list-actions">{{ caller() }}</div>
+{%- endmacro %}
+
+{% macro action_button(url, icon, title, variant='secondary', method='get', confirm=none, attrs={}) -%}
+{%- if url is none -%}
+<button type="button" class="btn btn-sm btn-outline-{{ variant }}" title="{{ title }}" aria-label="{{ title }}"
+    {%- for k, v in attrs.items() %} {{ k }}="{{ v }}"{% endfor %}>
+    <i class="fas fa-{{ icon }}"></i>
+</button>
+{%- elif method == 'post' -%}
+<form method="POST" action="{{ url }}" class="d-inline"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-sm btn-outline-{{ variant }}" title="{{ title }}" aria-label="{{ title }}">
+        <i class="fas fa-{{ icon }}"></i>
+    </button>
+</form>
+{%- else -%}
+<a href="{{ url }}" class="btn btn-sm btn-outline-{{ variant }}" title="{{ title }}" aria-label="{{ title }}"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}>
+    <i class="fas fa-{{ icon }}"></i>
+</a>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro action_view(url) -%}{{ action_button(url, 'eye', 'View') }}{%- endmacro %}
+
+{% macro action_edit(url) -%}{{ action_button(url, 'edit', 'Edit') }}{%- endmacro %}
+
+{% macro action_delete(url, confirm='Delete this item? This cannot be undone.') -%}
+{{ action_button(url, 'trash', 'Delete', variant='danger', method='post', confirm=confirm) }}
+{%- endmacro %}

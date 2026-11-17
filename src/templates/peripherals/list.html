@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Peripherals - {{ super() }}{% endblock %}
 
@@ -32,7 +33,7 @@
                         <th>Status</th>
                         <th>User / Location</th>
                         <th>Parent Asset</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -40,17 +41,20 @@
                     <tr>
                         <td><a href="{{ url_for('peripherals.peripheral_detail', id=peripheral.id) }}">{{
                                 peripheral.name }}</a></td>
-                        <td>{{ peripheral.type or '-' }}</td>
-                        <td>{{ peripheral.brand.name if peripheral.brand else '-' }}</td>
+                        <td>{{ peripheral.type or L.empty() }}</td>
+                        <td>{{ peripheral.brand.name if peripheral.brand else L.empty() }}</td>
                         <td><span class="badge bg-secondary">{{ peripheral.status }}</span></td>
                         <td>
                             <span class="badge {{ 'bg-info' if peripheral.user else 'bg-secondary' }}">
                                 {{ peripheral.location_display }}
                             </span>
                         </td>
-                        <td>{{ peripheral.asset.name if peripheral.asset else '-' }}</td>
-                        <td>
+                        <td>{{ peripheral.asset.name if peripheral.asset else L.empty() }}</td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('peripherals.peripheral_detail', id=peripheral.id)) }}
                             {% if can_write('core_inventory') %}
+                            {{ L.action_edit(url_for('peripherals.edit_peripheral', id=peripheral.id)) }}
                             {% if peripheral.user %}
                             <form action="{{ url_for('peripherals.checkin_peripheral', id=peripheral.id) }}"
                                 method="POST" class="d-inline"
@@ -58,30 +62,16 @@
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="redirect_url"
                                     value="{{ url_for('peripherals.peripherals') }}">
-                                <button type="submit" class="btn btn-sm btn-warning me-1" title="Check In">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Check In" aria-label="Check In">
                                     <i class="fas fa-sign-in-alt"></i>
                                 </button>
                             </form>
                             {% else %}
-                            <button type="button" class="btn btn-sm btn-success me-1" title="Check Out"
-                                data-bs-toggle="modal" data-bs-target="#checkoutModal"
-                                data-peripheral-id="{{ peripheral.id }}" data-peripheral-name="{{ peripheral.name }}">
-                                <i class="fas fa-sign-out-alt"></i>
-                            </button>
+                            {{ L.action_button(none, 'sign-out-alt', 'Check Out', attrs={'data-bs-toggle': 'modal', 'data-bs-target': '#checkoutModal', 'data-peripheral-id': peripheral.id, 'data-peripheral-name': peripheral.name}) }}
                             {% endif %}
-                            <a href="{{ url_for('peripherals.edit_peripheral', id=peripheral.id) }}"
-                                class="btn btn-sm btn-outline-primary me-1" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ url_for('peripherals.archive_peripheral', id=peripheral.id) }}"
-                                method="POST" class="d-inline"
-                                data-confirm="Are you sure you want to archive this peripheral?">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
-                                    <i class="fas fa-archive"></i>
-                                </button>
-                            </form>
+                            {{ L.action_button(url_for('peripherals.archive_peripheral', id=peripheral.id), 'archive', 'Archive', method='post', confirm='Are you sure you want to archive this peripheral?') }}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% else %}

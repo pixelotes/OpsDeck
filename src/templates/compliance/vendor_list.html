@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Vendor Compliance - {{ super() }}{% endblock %}
 
@@ -49,7 +50,7 @@
                         </td>
                         <td>
                             {% set latest = supplier.security_assessments|sort(attribute='assessment_date', reverse=True)|first %}
-                            {{ latest.assessment_date.strftime('%Y-%m-%d') if latest else 'N/A' }}
+                            {{ latest.assessment_date.strftime('%Y-%m-%d') if latest else L.empty() }}
                         </td>
                     </tr>
                     {% endfor %}

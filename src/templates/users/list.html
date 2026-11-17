@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Users - {{ super() }}{% endblock %}
 
@@ -31,54 +32,36 @@
                         <th>Email</th>
                         <th>Department</th>
                         <th>Job Title</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for user in users %}
                     <tr>
                         <td><a href="{{ url_for('users.user_detail', id=user.id) }}">{{ user.name }}</a></td>
-                        <td>{{ user.email or '-' }}</td>
-                        <td>{{ user.department or '-' }}</td>
-                        <td>{{ user.job_title or '-' }}</td>
-                        <td>
+                        <td>{{ user.email or L.empty() }}</td>
+                        <td>{{ user.department or L.empty() }}</td>
+                        <td>{{ user.job_title or L.empty() }}</td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('users.user_detail', id=user.id)) }}
                             {% if can_write('administration') %}
-                            <a href="{{ url_for('users.edit_user', id=user.id) }}"
-                                class="btn btn-sm btn-outline-primary me-1" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ url_for('users.archive_user', id=user.id) }}" method="POST"
-                                class="d-inline" data-confirm='Are you sure you want to archive this user?'>
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
-                                    <i class="fas fa-archive"></i>
-                                </button>
-                            </form>
+                            {{ L.action_edit(url_for('users.edit_user', id=user.id)) }}
+                            {{ L.action_button(url_for('users.archive_user', id=user.id), 'archive', 'Archive', method='post', confirm='Are you sure you want to archive this user?') }}
                             {% endif %}
 
                             {% if original_user and original_user.email == config.get('DEFAULT_ADMIN_EMAIL', 'admin@example.com') %}
                             {# Show impersonate button only for break-glass admin #}
                             {% if user.id != current_user.id %}
-                            <form action="{{ url_for('main.impersonate', user_id=user.id) }}" method="POST"
-                                class="d-inline ms-1" data-confirm='Start impersonating {{ user.name }}?'>
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-info" title="Impersonate User">
-                                    <i class="fas fa-user-secret"></i>
-                                </button>
-                            </form>
+                            {{ L.action_button(url_for('main.impersonate', user_id=user.id), 'user-secret', 'Impersonate User', method='post', confirm='Start impersonating ' ~ user.name ~ '?') }}
                             {% endif %}
                             {% elif current_user and current_user.email == config.get('DEFAULT_ADMIN_EMAIL', 'admin@example.com') and not is_impersonating %}
                             {# Show impersonate button when logged in as break-glass admin (not impersonating) #}
                             {% if user.id != current_user.id %}
-                            <form action="{{ url_for('main.impersonate', user_id=user.id) }}" method="POST"
-                                class="d-inline ms-1" data-confirm='Start impersonating {{ user.name }}?'>
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-info" title="Impersonate User">
-                                    <i class="fas fa-user-secret"></i>
-                                </button>
-                            </form>
+                            {{ L.action_button(url_for('main.impersonate', user_id=user.id), 'user-secret', 'Impersonate User', method='post', confirm='Start impersonating ' ~ user.name ~ '?') }}
                             {% endif %}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% endfor %}

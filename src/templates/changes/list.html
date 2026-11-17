@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Change Management - OpsDeck{% endblock %}
 
@@ -44,7 +45,7 @@
                         <th>Scheduled</th>
                         <th>Requester</th>
                         <th>Assignee</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -90,40 +91,15 @@
                             {% if change.scheduled_start %}
                             {{ change.scheduled_start.strftime('%d/%m %H:%M') }}
                             {% else %}
-                            <span class="text-muted">-</span>
+                            {{ L.empty() }}
                             {% endif %}
                         </td>
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-circle-sm bg-primary text-white me-2">
-                                    {{ change.requester.name[:1] }}
-                                </div>
-                                <small>{{ change.requester.name.split()[0] }}</small>
-                            </div>
-                        </td>
-                        <td>
-                            {% if change.assignee %}
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-circle-sm bg-info text-white me-2">
-                                    {{ change.assignee.name[:1] }}
-                                </div>
-                                <small>{{ change.assignee.name.split()[0] }}</small>
-                            </div>
-                            {% else %}
-                            <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{{ url_for('changes.detail_change', id=change.id) }}"
-                                class="btn btn-sm btn-outline-primary" title="View">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            {% if can_write('operations') %}
-                            <a href="{{ url_for('changes.detail_change', id=change.id) }}"
-                                class="btn btn-sm btn-outline-secondary" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            {% endif %}
+                        <td>{{ L.person(change.requester) }}</td>
+                        <td>{{ L.person(change.assignee) }}</td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('changes.detail_change', id=change.id)) }}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% endfor %}

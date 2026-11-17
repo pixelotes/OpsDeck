@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}Manage Tags - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -22,7 +23,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Subscriptions Using Tag</th>
-                    <th>Actions</th>
+                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -31,24 +32,15 @@
                     <td><a href="{{ url_for('tags.tag_detail', id=tag.id) }}">{{ tag.name }}</a></td>
 
                     <td><span class="badge bg-info">{{ tag.subscriptions.count() }}</span></td>
-                    <td>
+                    <td class="text-end">
+                        {% call L.actions() %}
+                        {{ L.action_view(url_for('tags.tag_detail', id=tag.id)) }}
                         {% if can_write('core_inventory') %}
-                        <a href="{{ url_for('tags.edit_tag', id=tag.id) }}" class="btn btn-sm btn-outline-primary"><i
-                                class="fas fa-edit"></i></a>
-                        <form action="{{ url_for('tags.archive_tag', id=tag.id) }}" method="POST" class="d-inline"
-                            data-confirm='Are you sure you want to archive this tag?'>
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
-                                <i class="fas fa-archive"></i>
-                            </button>
-                        </form>
-                        <form action="{{ url_for('tags.delete_tag', id=tag.id) }}" method="POST" class="d-inline"
-                            data-confirm='Are you sure?'>
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-outline-danger"><i
-                                    class="fas fa-trash"></i></button>
-                        </form>
+                        {{ L.action_edit(url_for('tags.edit_tag', id=tag.id)) }}
+                        {{ L.action_button(url_for('tags.archive_tag', id=tag.id), 'archive', 'Archive', method='post', confirm='Are you sure you want to archive this tag?') }}
+                        {{ L.action_delete(url_for('tags.delete_tag', id=tag.id), 'Are you sure?') }}
                         {% endif %}
+                        {% endcall %}
                     </td>
                 </tr>
                 {% endfor %}

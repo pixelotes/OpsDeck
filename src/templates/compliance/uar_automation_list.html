@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}User Access Review Automation - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -28,7 +29,7 @@
                         <th>Last Run</th>
                         <th>Next Run</th>
                         <th>Findings</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -70,7 +71,7 @@
                             {% if comparison.next_run_at and comparison.is_enabled %}
                                 {{ comparison.next_run_at.strftime('%Y-%m-%d %H:%M') }}
                             {% else %}
-                                <span class="text-muted">N/A</span>
+                                {{ L.empty() }}
                             {% endif %}
                         </td>
                         <td>
@@ -80,26 +81,17 @@
                                     {{ last_execution.findings_count }}
                                 </span>
                             {% else %}
-                                <span class="text-muted">-</span>
+                                {{ L.empty() }}
                             {% endif %}
                         </td>
-                        <td>
-                            <a href="{{ url_for('compliance.uar_automation_detail', id=comparison.id) }}"
-                               class="btn btn-sm btn-outline-primary" title="View">
-                                <i class="fas fa-eye"></i>
-                            </a>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('compliance.uar_automation_detail', id=comparison.id)) }}
                             {% if can_write('compliance') %}
-                            <a href="{{ url_for('compliance.uar_automation_form', id=comparison.id) }}"
-                               class="btn btn-sm btn-outline-secondary" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ url_for('compliance.uar_automation_run', id=comparison.id) }}"
-                                  method="POST" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-outline-success" title="Run Now">
-                                    <i class="fas fa-play"></i>
-                                </button>
-                            </form>
+                            {{ L.action_edit(url_for('compliance.uar_automation_form', id=comparison.id)) }}
+                            {{ L.action_button(url_for('compliance.uar_automation_run', id=comparison.id), 'play', 'Run Now', method='post') }}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% endfor %}

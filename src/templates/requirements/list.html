@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}Requirements - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -95,7 +96,7 @@
                     <th>Status</th>
                     <th>Budget</th>
                     <th>Needed By</th>
-                    <th>Actions</th>
+                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -108,7 +109,7 @@
                         {% if req.requirement_type %}
                         <span class="badge bg-secondary">{{ req.requirement_type }}</span>
                         {% else %}
-                        <span class="text-muted">-</span>
+                        {{ L.empty() }}
                         {% endif %}
                     </td>
                     <td>
@@ -139,17 +140,16 @@
                         <span class="text-muted">-</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td class="text-end">
+                        {% call L.actions() %}
+                        {{ L.action_view(url_for('requirements.detail', id=req.id)) }}
                         {% if can_write('procurement') %}
-                        <a href="{{ url_for('requirements.edit_requirement', id=req.id) }}" class="btn btn-sm btn-outline-primary"
-                            title="Edit"><i class="fas fa-edit"></i></a>
+                        {{ L.action_edit(url_for('requirements.edit_requirement', id=req.id)) }}
                         {% if req.status != 'Converted' %}
-                        <a href="{{ url_for('requirements.convert_requirement', id=req.id) }}" class="btn btn-sm btn-outline-success"
-                            title="Convert"><i class="fas fa-exchange-alt"></i></a>
+                        {{ L.action_button(url_for('requirements.convert_requirement', id=req.id), 'exchange-alt', 'Convert') }}
                         {% endif %}
-                        {% else %}
-                        <span class="text-muted small">Read Only</span>
                         {% endif %}
+                        {% endcall %}
                     </td>
                 </tr>
                 {% else %}

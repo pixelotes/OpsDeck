@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}Purchases - {{ super() }}{% endblock %}
 
 {% block content %}
@@ -24,7 +25,7 @@
                         <th>Purchase Date</th>
                         <th>Total Cost (EUR)</th>
                         <th>Supplier</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -34,10 +35,12 @@
                                 }}</a></td>
                         <td>{{ purchase.purchase_date.strftime('%Y-%m-%d') }}</td>
                         <td>{{ "%.2f"|format(purchase.total_cost) }}</td>
-                        <td>{{ purchase.supplier.name if purchase.supplier else 'N/A' }}</td>
-                        <td>
-                            <a href="{{ url_for('purchases.edit_purchase', id=purchase.id) }}"
-                                class="btn btn-sm btn-outline-primary" title="Edit"><i class="fas fa-edit"></i></a>
+                        <td>{{ purchase.supplier.name if purchase.supplier else L.empty() }}</td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('purchases.purchase_detail', id=purchase.id)) }}
+                            {{ L.action_edit(url_for('purchases.edit_purchase', id=purchase.id)) }}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% else %}

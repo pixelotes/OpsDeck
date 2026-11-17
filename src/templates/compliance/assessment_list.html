@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}Assessments History - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -30,7 +31,7 @@
                     <th>Assessment Date</th>
                     <th>Status</th>
                     <th>Notes</th>
-                    <th>Actions</th>
+                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -51,9 +52,10 @@
                         {% endif %}
                     </td>
                     <td>{{ assessment.notes or '' }}</td>
-                    <td>
-                        <a href="{{ url_for('compliance.assessment_detail', id=assessment.id) }}"
-                            class="btn btn-sm btn-outline-primary">View</a>
+                    <td class="text-end">
+                        {% call L.actions() %}
+                        {{ L.action_view(url_for('compliance.assessment_detail', id=assessment.id)) }}
+                        {% endcall %}
                     </td>
                 </tr>
                 {% else %}

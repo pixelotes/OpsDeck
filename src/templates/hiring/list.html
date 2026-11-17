@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}Candidates List - OpsDeck{% endblock %}
 
 {% block content %}
@@ -63,14 +64,14 @@
                                 {% endif %}
                             </div>
                         </td>
-                        <td>{{ candidate.position or '-' }}</td>
+                        <td>{{ candidate.position or L.empty() }}</td>
                         <td>
                             {% if candidate.stage %}
                             <span class="badge bg-light text-dark border">
                                 {{ candidate.stage.name }}
                             </span>
                             {% else %}
-                            <span class="text-muted">-</span>
+                            {{ L.empty() }}
                             {% endif %}
                         </td>
                         <td>
@@ -78,30 +79,16 @@
                                 }}</small>
                         </td>
                         <td class="text-end">
+                            {% call L.actions() %}
                             {% if can_write('hr_people') %}
-                            <a href="{{ url_for('hiring.edit_candidate', id=candidate.id) }}"
-                                class="btn btn-sm btn-outline-primary me-1">
-                                <i class="fas fa-edit"></i>
-                            </a>
-
+                            {{ L.action_edit(url_for('hiring.edit_candidate', id=candidate.id)) }}
                             {% if candidate.is_archived %}
-                            <form method="POST" action="{{ url_for('hiring.unarchive_candidate', id=candidate.id) }}"
-                                class="d-inline">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-success" title="Unarchive">
-                                    <i class="fas fa-box-open"></i>
-                                </button>
-                            </form>
+                            {{ L.action_button(url_for('hiring.unarchive_candidate', id=candidate.id), 'box-open', 'Unarchive', method='post') }}
                             {% else %}
-                            <form method="POST" action="{{ url_for('hiring.archive_candidate', id=candidate.id) }}"
-                                class="d-inline" onsubmit="return confirm('Archive this candidate?');">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Archive">
-                                    <i class="fas fa-archive"></i>
-                                </button>
-                            </form>
+                            {{ L.action_button(url_for('hiring.archive_candidate', id=candidate.id), 'archive', 'Archive', method='post', confirm='Archive this candidate?') }}
                             {% endif %}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% else %}
