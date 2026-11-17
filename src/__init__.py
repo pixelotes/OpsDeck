@@ -589,6 +589,9 @@ def create_app(test_config=None):
     from .routes.connectors import connectors_bp
     app.register_blueprint(connectors_bp, url_prefix='/settings/connectors')
 
+    from .routes.jira_assets import jira_assets_bp
+    app.register_blueprint(jira_assets_bp, url_prefix='/settings/jira-assets')
+
     from .routes.finance import finance_bp
     app.register_blueprint(finance_bp, url_prefix='/finance')
 
@@ -904,6 +907,17 @@ def create_app(test_config=None):
             trigger="interval",
             minutes=POLL_INTERVAL_MINUTES,
             id="connector_polling",
+            replace_existing=True
+        )
+        # Jira Assets sync - every 15 minutes, run the enabled profiles that are due
+        from .services.jira_assets_service import (run_due_profiles, SCHEDULER_JOB_ID as JIRA_ASSETS_JOB_ID,
+                                                   SCHEDULER_INTERVAL_MINUTES as JIRA_ASSETS_INTERVAL)
+        scheduler.add_job(
+            func=run_due_profiles,
+            args=[app],
+            trigger="interval",
+            minutes=JIRA_ASSETS_INTERVAL,
+            id=JIRA_ASSETS_JOB_ID,
             replace_existing=True
         )
         app.extensions['opsdeck_scheduler'] = scheduler

@@ -1,0 +1,112 @@
+{% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
+{% block title %}Jira Assets Sync - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h2 class="mb-0"><i class="fab fa-jira"></i> Jira Assets Sync</h2>
+    <div class="dropdown">
+        <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="fas fa-plus"></i> New profile
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{{ url_for('jira_assets.new_profile', target='asset') }}"><i class="fas fa-laptop fa-fw me-2"></i>Hardware assets</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('jira_assets.new_profile', target='supplier') }}"><i class="fas fa-truck fa-fw me-2"></i>Suppliers</a></li>
+        </ul>
+    </div>
+</div>
+<p class="text-muted">
+    Imports objects from Jira Service Management Assets and keeps their state in sync. Only the state follows Jira
+    (asset status and archived; supplier archived and critical): every other field is OpsDeck's after the import.
+</p>
+
+{% if not connector_ready %}
+<div class="alert alert-warning">
+    <i class="fas fa-exclamation-triangle"></i>
+    Configure the credentials of the <a href="{{ url_for('connectors.dashboard') }}">Atlassian API connector</a> first:
+    the sync uses its site URL, email and API token.
+</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-sliders-h me-2"></i>Profiles</div>
+    <div class="table-responsive">
+        <table class="table table-striped mb-0 align-middle">
+            <thead>
+                <tr><th>Name</th><th>Imports</th><th>Jira object type</th><th>Schedule</th><th>Last run</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for p in profiles %}
+                {% set last = p.last_run %}
+                <tr>
+                    <td>{{ p.name }}{% if not p.enabled %} <span class="badge bg-secondary">disabled</span>{% endif %}</td>
+                    <td>{{ p.target_label }}</td>
+                    <td><code>{{ p.object_type }}</code>{% if p.aql_filter %}<div class="small text-muted text-truncate" style="max-width: 18rem">{{ p.aql_filter }}</div>{% endif %}</td>
+                    <td>
+                        {% if p.enabled and p.interval_hours %}Every {{ p.interval_hours }} h
+                            {% if p.next_run_at %}<div class="small text-muted">next {{ p.next_run_at.strftime('%Y-%m-%d %H:%M') }}</div>{% endif %}
+                        {% else %}{{ L.empty() }}{% endif %}
+                    </td>
+                    <td>
+                        {% if last %}
+                        <a href="{{ url_for('jira_assets.view_run', id=last.id) }}">{{ last.started_at.strftime('%Y-%m-%d %H:%M') }}</a>
+                        <span class="badge bg-{{ {'success': 'success', 'aborted': 'warning text-dark', 'error': 'danger'}.get(last.status, 'secondary') }}">{{ last.status }}</span>
+                        {% else %}{{ L.empty() }}{% endif %}
+                    </td>
+                    <td class="text-end">
+                        <div class="d-inline-flex gap-1 align-items-center">
+                            <form action="{{ url_for('jira_assets.preview', id=p.id) }}" method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-primary text-nowrap" {% if not connector_ready %}disabled{% endif %}
+                                    title="Fetch from Jira and preview the changes">
+                                    <i class="fas fa-sync"></i> Sync now
+                                </button>
+                            </form>
+                            {% call L.actions() %}
+                                {{ L.action_edit(url_for('jira_assets.edit_profile', id=p.id)) }}
+                                {{ L.action_delete(url_for('jira_assets.delete_profile', id=p.id), confirm='Delete this profile and its run history? Imported records keep their link to Jira.') }}
+                            {% endcall %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-muted text-center">No profiles yet. Create one to import laptops or suppliers from Jira Assets.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-history me-2"></i>Recent runs</div>
+    <div class="table-responsive">
+        <table class="table table-striped mb-0 align-middle">
+            <thead>
+                <tr><th>Started</th><th>Profile</th><th>Trigger</th><th>Status</th><th>Fetched</th><th>Created</th><th>Linked</th><th>Updated</th><th>Archived</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td>{{ run.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ run.profile.name }}</td>
+                    <td>{{ run.trigger }}{% if run.triggered_by %} <small class="text-muted">({{ run.triggered_by }})</small>{% endif %}{% if run.dry_run %} <span class="badge bg-secondary">dry run</span>{% endif %}</td>
+                    <td>
+                        <span class="badge bg-{{ {'success': 'success', 'aborted': 'warning text-dark', 'error': 'danger'}.get(run.status, 'secondary') }}">{{ run.status }}</span>
+                        {% if run.error %}<div class="small text-muted">{{ run.error }}</div>{% endif %}
+                    </td>
+                    <td>{{ run.fetched_count }}</td>
+                    <td>{{ run.created_count }}</td>
+                    <td>{{ run.linked_count }}</td>
+                    <td>{{ run.updated_count }}</td>
+                    <td>{{ run.archived_count }}</td>
+                    <td class="text-end">
+                        {% call L.actions() %}{{ L.action_view(url_for('jira_assets.view_run', id=run.id)) }}{% endcall %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="10" class="text-muted text-center">No runs yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
