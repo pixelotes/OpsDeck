@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Renewal Calendar**: Replaced FullCalendar (v6) with SimpleCalendarJS. FullCalendar v7 dropped its global/IIFE bundle in favor of ESM-only builds, which our static-asset pipeline (script-tag based, no bundler) can't consume, and v6 has had no updates since December 2024. SimpleCalendarJS is a maintained, zero-dependency, script-tag-compatible alternative with a comparable feature set
 - **Unified list views**: every list table now renders people, empty cells and row actions through one shared component (`components/list_macros.html`). Users and groups show as an initials avatar (or group icon) plus full name linked to their detail page; empty values are a single muted `—` instead of a mix of `N/A`, `-`, `Unassigned` and `Unknown`; row actions are icon-only outline buttons in a fixed order (view, edit, module actions, delete in red), right-aligned under an `Actions` header, with every destructive action going through the confirmation dialog. Lists whose name already linked to a detail page gained an explicit View button
 - Updated Node dependencies: @fortawesome/fontawesome-free, mermaid, simple-datatables, suneditor, swagger-ui-dist, tom-select (patch/minor bumps)
+- **PostgreSQL driver switched from psycopg2 to psycopg 3** (`psycopg[binary]`). SQLAlchemy 2.1, which Flask-SQLAlchemy now resolves to, uses psycopg 3 for plain `postgresql://` URLs, so a fresh install could no longer connect to the database with the URLs the Helm chart and docs use
+- Security updates: PyJWT 2.14.0 (CVE-2026-102268, critical) and WeasyPrint 70.0 (CVE-2026-106443)
 - Updated Python dependencies: APScheduler, pytz, Markdown, slack_sdk, cryptography, boto3 (patch/minor bumps)
 
 ### Fixed
