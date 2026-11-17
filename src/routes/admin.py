@@ -485,3 +485,134 @@ def import_commit(type_key):
     return render_template('admin/import_preview.html',
                            type_key=type_key, cfg=cfg, result=result,
                            csv_text='', committed=True)
+
+
+# --------------------------------------------------------------------------- #
+# Microsoft Entra ID user sync (configure -> preview -> confirm)
+# --------------------------------------------------------------------------- #
+ENTRA_HOME = 'admin.entra_sync'
+ENTRA_ROLES = ('user', 'viewer', 'editor', 'admin')
+
+
+def _current_email():
+    from flask import session
+    user = db.session.get(User, session.get('user_id'))
+    return user.email if user else None
+
+
+@admin_bp.route('/entra', methods=['GET'])
+@login_required
+@requires_permission(MODULE, access_level='WRITE')
+def entra_sync():
+    from ..models.entra import EntraSyncSettings, EntraSyncRun
+    from ..services.entra_sync_service import credentials_configured
+    runs = EntraSyncRun.query.order_by(EntraSyncRun.started_at.desc()).limit(20).all()
+    return render_template('admin/entra_sync.html', settings=EntraSyncSettings.get(), runs=runs,
+                           roles=ENTRA_ROLES, credentials_ok=credentials_configured())
+
+
+@admin_bp.route('/entra/settings', methods=['POST'])
+@login_required
+@requires_permission(MODULE, access_level='WRITE')
+def entra_sync_settings():
+    from ..models.entra import EntraSyncSettings, SCHEDULE_MODES
+    from ..services.entra_sync_service import parse_daily_time, reschedule_current_app
+
+    settings = EntraSyncSettings.get()
+    form = request.form
+    try:
+        schedule_mode = form.get('schedule_mode', 'off')
+        if schedule_mode not in SCHEDULE_MODES:
+            raise ValueError('Unknown schedule.')
+        default_role = form.get('default_role', 'user')
+        if default_role not in ENTRA_ROLES:
+            raise ValueError('Unknown default role.')
+        daily_time = form.get('daily_time', '03:00').strip() or '03:00'
+        parse_daily_time(daily_time)
+        interval_hours = int(form.get('interval_hours') or 24)
+        threshold = int(form.get('archive_threshold_percent') or 10)
+        if not 1 <= interval_hours <= 168:
+            raise ValueError('Interval must be between 1 and 168 hours.')
+        if not 0 <= threshold <= 100:
+            raise ValueError('Archive threshold must be between 0 and 100%.')
+    except ValueError as exc:
+        flash(str(exc) if str(exc)[0].isupper() else 'Invalid number.', 'danger')
+        return redirect(url_for(ENTRA_HOME))
+
+    settings.enabled = form.get('enabled') == 'on'
+    settings.group_ids = '\n'.join(
+        g.strip() for g in form.get('group_ids', '').replace(',', '\n').splitlines() if g.strip())
+    settings.default_role = default_role
+    settings.schedule_mode = schedule_mode
+    settings.daily_time = daily_time
+    settings.interval_hours = interval_hours
+    settings.archive_threshold_percent = threshold
+    db.session.commit()
+    reschedule_current_app()
+
+    log_audit(
+        event_type='integration.entra_sync',
+        action='configure',
+        target_object='EntraSyncSettings:1',
+        target_info=(f"enabled={settings.enabled}, schedule={schedule_mode}, "
+                     f"groups={len(settings.group_id_list)}, role={default_role}, "
+                     f"threshold={threshold}%"),
+    )
+    flash('Entra ID sync settings saved.', 'success')
+    return redirect(url_for(ENTRA_HOME))
+
+
+@admin_bp.route('/entra/preview', methods=['POST'])
+@login_required
+@requires_permission(MODULE, access_level='WRITE')
+def entra_sync_preview():
+    from ..models.entra import EntraSyncSettings
+    from ..services import entra_sync_service as svc
+    try:
+        plan = svc.preview()
+    except Exception as exc:
+        flash(f'Could not build the preview: {exc}', 'danger')
+        return redirect(url_for(ENTRA_HOME))
+    settings = EntraSyncSettings.get()
+    over_brake = False
+    try:
+        svc.check_archive_brake(plan, settings.archive_threshold_percent)
+    except svc.SyncAborted:
+        over_brake = True
+    return render_template('admin/entra_sync_preview.html', plan=plan, run=None,
+                           over_brake=over_brake, settings=settings)
+
+
+@admin_bp.route('/entra/apply', methods=['POST'])
+@login_required
+@requires_permission(MODULE, access_level='WRITE')
+def entra_sync_apply():
+    from ..services.entra_sync_service import run_sync, EntraSyncError
+    try:
+        run = run_sync('manual', triggered_by=_current_email(),
+                       expected_fingerprint=request.form.get('fingerprint') or None)
+    except EntraSyncError as exc:
+        flash(str(exc), 'danger')
+        return redirect(url_for(ENTRA_HOME))
+    if run.status == 'success':
+        flash(f'Entra ID sync applied: {run.created_count} created, {run.updated_count} updated, '
+              f'{run.archived_count} archived, {run.unarchived_count} unarchived.', 'success')
+    else:
+        flash(f'Entra ID sync {run.status}: {run.error}', 'danger')
+    return redirect(url_for('admin.entra_sync_run', id=run.id))
+
+
+@admin_bp.route('/entra/runs/<int:id>', methods=['GET'])
+@login_required
+@requires_permission(MODULE, access_level='WRITE')
+def entra_sync_run(id):
+    from ..models.entra import EntraSyncRun
+    run = db.get_or_404(EntraSyncRun, id)
+    plan = {
+        'changes': run.changes['changes'],
+        'errors': run.changes['errors'],
+        'counts': {'create': run.created_count, 'update': run.updated_count,
+                   'archive': run.archived_count, 'unarchive': run.unarchived_count},
+    }
+    return render_template('admin/entra_sync_preview.html', plan=plan, run=run,
+                           over_brake=False, settings=None)

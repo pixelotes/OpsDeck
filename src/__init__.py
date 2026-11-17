@@ -881,6 +881,19 @@ def create_app(test_config=None):
             id="compliance_drift_detection",
             replace_existing=True
         )
+        # Entra ID user sync - only registered when enabled and scheduled in its settings
+        # screen. The refresh job picks up changes saved through another gunicorn worker.
+        from .services.entra_sync_service import (refresh_schedule, SCHEDULER_REFRESH_JOB_ID)
+        refresh_schedule(app, scheduler)
+        scheduler.add_job(
+            func=refresh_schedule,
+            args=[app, scheduler],
+            trigger="interval",
+            minutes=5,
+            id=SCHEDULER_REFRESH_JOB_ID,
+            replace_existing=True
+        )
+        app.extensions['opsdeck_scheduler'] = scheduler
         scheduler.start()
         atexit.register(lambda: scheduler.shutdown())
 

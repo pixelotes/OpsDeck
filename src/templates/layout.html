@@ -679,6 +679,10 @@
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.import') %}active{% endif %}"
                             href="{{ url_for('admin.import_home') }}"><i class="fa-fw fas fa-file-import"></i>
                             Import Data</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.entra_sync') %}active{% endif %}"
+                            href="{{ url_for('admin.entra_sync') }}"><i class="fa-fw fab fa-microsoft"></i>
+                            Entra ID Sync</a></li>
                     {% endif %}
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint == 'admin.audit_log' %}active{% endif %}"

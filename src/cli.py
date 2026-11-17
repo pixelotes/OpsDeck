@@ -65,3 +65,32 @@ def register_commands(app):
 
     for _key in IMPORTERS:
         _make_command(_key)
+
+    @app.cli.command('entra-sync')
+    @click.option('--dry-run', is_flag=True, help='Show what would change without writing anything.')
+    @click.option('--force', is_flag=True,
+                  help='Apply even if the run would archive more users than the safety threshold.')
+    def entra_sync(dry_run, force):
+        """Sync users from the configured Microsoft Entra ID groups."""
+        from .services.entra_sync_service import run_sync, EntraSyncError
+
+        try:
+            run = run_sync('cli', dry_run=dry_run, enforce_brake=not force)
+        except EntraSyncError as exc:
+            print(f"❌ {exc}")
+            raise SystemExit(1)
+
+        for change in run.changes['changes']:
+            fields = ', '.join(sorted(change['fields'])) if change['fields'] else ''
+            print(f"  [{change['action']}] {change['upn']} {fields}")
+        for err in run.changes['errors']:
+            print(f"  [error] {err['upn']}: {err['error']}")
+
+        prefix = 'Dry run' if dry_run else 'Sync'
+        summary = (f"{run.created_count} to create, {run.updated_count} to update, "
+                   f"{run.archived_count} to archive, {run.unarchived_count} to unarchive")
+        if run.status == 'success':
+            print(f"✅ {prefix} finished: {summary}.")
+        else:
+            print(f"❌ {prefix} {run.status}: {run.error}")
+            raise SystemExit(1)
