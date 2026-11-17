@@ -13,6 +13,7 @@ import ecs_logging
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_dance.contrib.google import make_google_blueprint
+from flask_dance.contrib.azure import make_azure_blueprint
 from flask_talisman import Talisman
 from flask_smorest import Api
 
@@ -48,6 +49,9 @@ PUBLIC_ENDPOINTS = [
     'main.google_callback',
     'google.login',  # Google OAuth login initiation
     'google.authorized',  # Google OAuth callback handler
+    'main.azure_callback',
+    'azure.login',  # Microsoft Entra ID login initiation
+    'azure.authorized',  # Microsoft Entra ID callback handler
     'main.mfa_verify',  # Necesario para el flujo de 2FA
     'main.health_check',  # Health check for Kubernetes probes
     'main.internal_test_db',  # Internal route for CLI database testing
@@ -103,6 +107,21 @@ def configure_logging(app):
     # Sync Flask's app.logger with our configured logger
     app.logger.handlers = logger.handlers
     app.logger.setLevel(logger.level)
+
+#: Entra "tenant" values that accept accounts from any organisation (or personal
+#: Microsoft accounts). OpsDeck only supports single-tenant sign-in, so these are refused.
+MULTI_TENANT_AZURE_TENANTS = {'common', 'organizations', 'consumers'}
+
+
+def azure_oauth_configured(config):
+    """True when Microsoft Entra ID SSO is configured for a single tenant."""
+    tenant = (config.get('AZURE_OAUTH_TENANT_ID') or '').strip()
+    return bool(
+        config.get('AZURE_OAUTH_CLIENT_ID')
+        and tenant
+        and tenant.lower() not in MULTI_TENANT_AZURE_TENANTS
+    )
+
 
 def create_app(test_config=None):
     """
@@ -218,6 +237,11 @@ def create_app(test_config=None):
     # --- Google OAuth Configuration ---
     app.config['GOOGLE_OAUTH_CLIENT_ID'] = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
     app.config['GOOGLE_OAUTH_CLIENT_SECRET'] = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
+    # --- Microsoft Entra ID OAuth Configuration ---
+    # Single-tenant only: there is deliberately no default tenant, see azure_oauth_configured().
+    app.config['AZURE_OAUTH_CLIENT_ID'] = os.environ.get('AZURE_OAUTH_CLIENT_ID', '')
+    app.config['AZURE_OAUTH_CLIENT_SECRET'] = os.environ.get('AZURE_OAUTH_CLIENT_SECRET', '')
+    app.config['AZURE_OAUTH_TENANT_ID'] = os.environ.get('AZURE_OAUTH_TENANT_ID', '')
     # Allow insecure transport for local development
     insecure_transport = os.environ.get('OAUTHLIB_INSECURE_TRANSPORT') == '1'
     if insecure_transport:
@@ -578,6 +602,22 @@ def create_app(test_config=None):
             redirect_to="main.google_callback"
         )
         app.register_blueprint(google_bp, url_prefix="/login")
+
+    # --- Microsoft Entra ID OAuth Blueprint ---
+    if azure_oauth_configured(app.config):
+        azure_bp = make_azure_blueprint(
+            client_id=app.config['AZURE_OAUTH_CLIENT_ID'],
+            client_secret=app.config['AZURE_OAUTH_CLIENT_SECRET'],
+            tenant=app.config['AZURE_OAUTH_TENANT_ID'].strip(),
+            scope=["openid", "email", "profile", "User.Read"],
+            redirect_to="main.azure_callback"
+        )
+        app.register_blueprint(azure_bp, url_prefix="/login")
+    elif app.config.get('AZURE_OAUTH_CLIENT_ID'):
+        app.logger.warning(
+            "AZURE_OAUTH_CLIENT_ID is set but AZURE_OAUTH_TENANT_ID is missing or "
+            "multi-tenant (common/organizations/consumers); Microsoft sign-in is disabled."
+        )
 
 
     # --- Make user and role available in all templates ---
@@ -1070,7 +1110,8 @@ def create_app(test_config=None):
                 
                 print("OAuth Configuration:")
                 oauth_info = data.get('oauth', {})
-                print(f"  Google OAuth Configured: {oauth_info.get('google_oauth_configured')}\n")
+                print(f"  Google OAuth Configured: {oauth_info.get('google_oauth_configured')}")
+                print(f"  Microsoft OAuth Configured: {oauth_info.get('azure_oauth_configured')}\n")
                 
                 print("Paths:")
                 paths_info = data.get('paths', {})
