@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+
+{% block title %}API Token - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <i class="fas fa-key"></i> New API token for {{ user.name }}
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Copy this token now and hand it over securely. It is stored hashed and will not be shown again.
+                </div>
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control font-monospace" value="{{ new_token }}" readonly
+                        id="apiTokenField">
+                    <button class="btn btn-outline-secondary" type="button"
+                        onclick="navigator.clipboard.writeText(document.getElementById('apiTokenField').value)">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <a href="{{ url_for('users.user_detail', id=user.id) }}" class="btn btn-secondary">Back to user</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

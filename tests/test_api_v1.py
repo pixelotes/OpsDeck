@@ -2,11 +2,15 @@ from src.models import User
 from src import db
 
 
-def _api_user(app, token="test-token-123", name="API User", email="api@test.com"):
-    """Create a user with an API token and return the auth headers."""
+def _api_user(app, token="test-token-123", name="API User", email="api@test.com", role="admin"):
+    """Create a user with an API token and return the auth headers.
+
+    Admin by default: these tests exercise the endpoints, not their authorization
+    (see test_api_permissions.py).
+    """
     with app.app_context():
-        user = User(name=name, email=email)
-        user.api_token = token
+        user = User(name=name, email=email, role=role)
+        user.set_api_token(token)
         db.session.add(user)
         db.session.commit()
     return {'Authorization': f'Bearer {token}'}
@@ -28,7 +32,7 @@ def test_api_security(client, app):
         # Assuming existing users or creating new one
         db = app.extensions['sqlalchemy']
         user = User(name="API User", email="api@test.com")
-        user.api_token = api_token 
+        user.set_api_token(api_token)
         db.session.add(user)
         db.session.commit()
         user_id = user.id

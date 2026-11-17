@@ -1,5 +1,6 @@
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, Response
+    Blueprint, render_template, request, redirect, url_for, flash, Response,
+    stream_with_context
 )
 from ..models import db, User
 from .main import login_required
@@ -277,65 +278,119 @@ def permissions_matrix():
 from ..models.audit_log import AuditLog
 import json
 
+AUDIT_CSV_HEADER = ['Timestamp', 'User', 'IP Address', 'Action', 'Entity Type', 'Entity ID',
+                    'Entity', 'Changes']
+# Spreadsheet apps run a cell that starts with one of these as a formula.
+_CSV_FORMULA_PREFIXES = ('=', '+', '-', '@', '\t', '\r')
+
+
+def _csv_cell(value):
+    if value is None:
+        return ''
+    value = str(value)
+    if value.startswith(_CSV_FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
+
+def _parse_day(value):
+    from datetime import datetime
+    try:
+        return datetime.strptime(value, '%Y-%m-%d')
+    except (TypeError, ValueError):
+        return None
+
+
+def _filtered_audit_query(filters):
+    """The audit log query for the list filters, newest first."""
+    query = AuditLog.query
+
+    if filters['entity_type']:
+        query = query.filter(AuditLog.entity_type == filters['entity_type'])
+    if filters['action']:
+        query = query.filter(AuditLog.action == filters['action'])
+    if filters['user_id']:
+        query = query.filter(AuditLog.user_id == filters['user_id'])
+
+    date_from = _parse_day(filters['date_from'])
+    if date_from:
+        query = query.filter(AuditLog.timestamp >= date_from)
+    date_to = _parse_day(filters['date_to'])
+    if date_to:
+        from dateutil.relativedelta import relativedelta
+        # Add one day to include the entire day
+        query = query.filter(AuditLog.timestamp < date_to + relativedelta(days=1))
+
+    if filters['search']:
+        query = query.filter(AuditLog.entity_repr.ilike(f"%{filters['search']}%"))
+
+    return query.order_by(AuditLog.timestamp.desc(), AuditLog.id.desc())
+
+
+def _audit_log_csv(query):
+    """Stream every entry matching the filters (not just the current page) as CSV."""
+    import csv
+    import io
+
+    def rows():
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+
+        def flush():
+            data = buffer.getvalue()
+            buffer.seek(0)
+            buffer.truncate(0)
+            return data
+
+        writer.writerow(AUDIT_CSV_HEADER)
+        yield flush()
+        for entry in query.yield_per(500):
+            writer.writerow([_csv_cell(v) for v in (
+                entry.timestamp.isoformat() if entry.timestamp else '',
+                entry.user_email or 'System',
+                entry.ip_address,
+                entry.action,
+                entry.entity_type,
+                entry.entity_id,
+                entry.entity_repr,
+                entry.changes,
+            )])
+            yield flush()
+
+    log_audit('audit_log.exported', 'read', target_object='AuditLog')
+    return Response(
+        stream_with_context(rows()),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename="audit_log.csv"'},
+    )
+
+
 @admin_bp.route('/audit-log', methods=['GET'])
 @login_required
 @requires_permission(MODULE, access_level='READ_ONLY')
 def audit_log():
     """
     Display audit log with server-side pagination and filtering.
+
+    With `export=csv`, download every entry matching the filters as CSV instead.
     """
+    filters = {
+        'entity_type': request.args.get('entity_type'),
+        'action': request.args.get('action'),
+        'user_id': request.args.get('user_id', type=int),
+        'date_from': request.args.get('date_from'),
+        'date_to': request.args.get('date_to'),
+        'search': request.args.get('search'),
+    }
+    query = _filtered_audit_query(filters)
+
+    if request.args.get('export') == 'csv':
+        return _audit_log_csv(query)
+
     # Pagination
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
     per_page = min(per_page, 100)  # Max 100 per page
-
-    # Filters
-    entity_type = request.args.get('entity_type')
-    action = request.args.get('action')
-    user_id = request.args.get('user_id', type=int)
-    date_from = request.args.get('date_from')
-    date_to = request.args.get('date_to')
-    search = request.args.get('search')
-
-    # Build query
-    query = AuditLog.query
-
-    if entity_type:
-        query = query.filter(AuditLog.entity_type == entity_type)
-
-    if action:
-        query = query.filter(AuditLog.action == action)
-
-    if user_id:
-        query = query.filter(AuditLog.user_id == user_id)
-
-    if date_from:
-        from datetime import datetime
-        try:
-            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
-            query = query.filter(AuditLog.timestamp >= date_from_obj)
-        except ValueError:
-            pass
-
-    if date_to:
-        from datetime import datetime
-        try:
-            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
-            # Add one day to include the entire day
-            from dateutil.relativedelta import relativedelta
-            date_to_obj = date_to_obj + relativedelta(days=1)
-            query = query.filter(AuditLog.timestamp < date_to_obj)
-        except ValueError:
-            pass
-
-    if search:
-        search_pattern = f"%{search}%"
-        query = query.filter(AuditLog.entity_repr.ilike(search_pattern))
-
-    # Order by timestamp descending (newest first)
-    query = query.order_by(AuditLog.timestamp.desc())
-
-    # Paginate
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     # Get distinct entity types and users for filters
@@ -349,15 +404,7 @@ def audit_log():
                           pagination=pagination,
                           entity_types=entity_types,
                           users=users,
-                          filters={
-                              'entity_type': entity_type,
-                              'action': action,
-                              'user_id': user_id,
-                              'date_from': date_from,
-                              'date_to': date_to,
-                              'search': search,
-                              'per_page': per_page
-                          })
+                          filters={**filters, 'per_page': per_page})
 
 
 @admin_bp.route('/audit-log/<int:id>/detail', methods=['GET'])

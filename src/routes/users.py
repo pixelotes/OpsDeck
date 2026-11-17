@@ -1,7 +1,7 @@
 import os
 import uuid
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, current_app
+    Blueprint, render_template, request, redirect, url_for, flash, current_app, make_response
 )
 from ..models import db, User, Attachment, OrgChartSnapshot
 from ..models.core import CustomFieldDefinition, OrganizationSettings
@@ -260,7 +260,7 @@ def generate_inventory(id):
 def generate_token(id):
     """Generates a new API token for the user."""
     user = db.get_or_404(User, id)
-    user.generate_token()
+    new_token = user.generate_token()
     db.session.commit()
     
     # Log the action
@@ -274,8 +274,11 @@ def generate_token(id):
         }
     )
     
-    flash('New API Token generated successfully.', 'success')
-    return redirect(url_for(USER_DETAIL, id=id))
+    # Only the hash is stored, so this response is the one chance to see the token.
+    response = make_response(render_template('users/api_token_issued.html', user=user,
+                                              new_token=new_token))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 @users_bp.route('/org-chart/snapshot', methods=['POST'])
 @login_required
