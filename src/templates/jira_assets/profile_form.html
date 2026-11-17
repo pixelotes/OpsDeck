@@ -1,0 +1,221 @@
+{% extends "layout.html" %}
+{% from "components/back_button.html" import back_to_list %}
+{% block title %}{{ 'Edit' if profile else 'New' }} Jira Assets profile - {{ super() }}{% endblock %}
+{% block content %}
+{{ back_to_list('jira_assets.index', label='Back to Jira Assets Sync') }}
+{% set f = form or {} %}
+{% macro val(name, default='') -%}{{ f.get(name, default) if form else default }}{%- endmacro %}
+
+{% if not target %}
+<h2><i class="fab fa-jira"></i> New Jira Assets profile</h2>
+<p>What do the Jira objects become in OpsDeck?</p>
+<div class="d-flex gap-2">
+    {% for t in targets %}
+    <a class="btn btn-outline-primary" href="{{ url_for('jira_assets.new_profile', target=t) }}">{{ target_labels[t] }}</a>
+    {% endfor %}
+</div>
+{% else %}
+<h2><i class="fab fa-jira"></i> {{ 'Edit' if profile else 'New' }} profile <small class="text-muted">— {{ target_labels[target] }}</small></h2>
+
+<form method="POST" class="mt-3" id="profileForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="target" value="{{ target }}">
+
+    <div class="card mb-4">
+        <div class="card-header">Which Jira objects</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="name" class="form-label">Profile name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="name" name="name" maxlength="120" required
+                        value="{{ val('name', profile.name if profile else ('Laptops' if target == 'asset' else 'Suppliers')) }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="object_type" class="form-label">Jira object type <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="object_type" name="object_type" maxlength="120" required
+                        placeholder="{{ '260 or Laptop' if target == 'asset' else '236 or Supplier' }}"
+                        value="{{ val('object_type', profile.object_type if profile else '') }}">
+                    <div class="form-text">The object type id (the number in its Jira URL) or its exact name.</div>
+                </div>
+            </div>
+            <div class="mb-0">
+                <label for="aql_filter" class="form-label">Extra AQL filter (optional)</label>
+                <input type="text" class="form-control font-monospace" id="aql_filter" name="aql_filter"
+                    placeholder='e.g. "Purchasing Entity" = "mimacom spain"'
+                    value="{{ val('aql_filter', profile.aql_filter or '' if profile else '') }}">
+                <div class="form-text">Added with AND to the object type. Leave empty to take every object of the type.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">State in OpsDeck</div>
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-6 mb-3">
+                    <label for="status_attribute" class="form-label">Jira attribute holding the status</label>
+                    <input type="text" class="form-control" id="status_attribute" name="status_attribute" maxlength="120"
+                        value="{{ val('status_attribute', profile.status_attribute if profile else default_status_attribute[target]) }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    {% if profile %}
+                    <button type="button" class="btn btn-outline-secondary" id="loadValues"
+                        data-url="{{ url_for('jira_assets.status_values', id=profile.id) }}">
+                        <i class="fas fa-download"></i> Load values from Jira
+                    </button>
+                    <span class="small text-muted ms-2" id="loadStatus"></span>
+                    {% else %}
+                    <div class="form-text">Save the profile once to load the status values from Jira.</div>
+                    {% endif %}
+                </div>
+            </div>
+            <p class="small text-muted mb-2">
+                Map each Jira value to an OpsDeck state. Objects whose value is not mapped are left unchanged and listed as warnings.
+                {% if target == 'asset' %}"archive" archives the asset, and retired objects are not imported.{% else %}"active" keeps the supplier active, "archive" archives it.{% endif %}
+            </p>
+            {% set rows = [] %}
+            {% if form %}
+                {% for v in form.getlist('map_value') %}{% set _ = rows.append((v, form.getlist('map_action')[loop.index0])) %}{% endfor %}
+            {% elif profile %}
+                {% for v, a in profile.status_map.items() %}{% set _ = rows.append((v, a)) %}{% endfor %}
+            {% endif %}
+            <table class="table table-sm align-middle mb-2" id="mapTable">
+                <thead><tr><th>Jira value</th><th style="width: 14rem">OpsDeck state</th><th class="text-muted small" style="width: 6rem">In Jira</th><th style="width: 3rem"></th></tr></thead>
+                <tbody>
+                    {% for v, a in rows or [('', '')] %}
+                    <tr>
+                        <td><input type="text" class="form-control form-control-sm" name="map_value" value="{{ v }}" aria-label="Jira value"></td>
+                        <td>
+                            <select class="form-select form-select-sm" name="map_action" aria-label="OpsDeck state">
+                                <option value="">— not mapped —</option>
+                                {% for action in target_actions[target] %}<option value="{{ action }}" {% if a == action %}selected{% endif %}>{{ action }}</option>{% endfor %}
+                            </select>
+                        </td>
+                        <td class="small text-muted count"></td>
+                        <td><button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove"><i class="fas fa-times"></i></button></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="addRow"><i class="fas fa-plus"></i> Add value</button>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <a class="text-decoration-none" data-bs-toggle="collapse" href="#fieldsBox" role="button" aria-expanded="false" aria-controls="fieldsBox">
+                <i class="fas fa-chevron-down me-1"></i> Fields copied when an object is first imported
+            </a>
+        </div>
+        <div class="collapse" id="fieldsBox">
+            <div class="card-body">
+                <p class="small text-muted">The Jira attribute read for each field. Leave a box empty to skip that field.
+                    {% if target == 'asset' %}Existing assets are matched by serial number before anything is created.{% else %}Existing suppliers are matched by name before anything is created.{% endif %}
+                    People (assignee, owner) are matched to OpsDeck users by email or by unique full name.</p>
+                <div class="row">
+                    {% set overrides = profile.field_overrides if profile else {} %}
+                    {% for key, default in default_fields[target].items() %}
+                    <div class="col-md-4 mb-3">
+                        <label for="field_{{ key }}" class="form-label small">{{ key|replace('_', ' ')|capitalize }}</label>
+                        <input type="text" class="form-control form-control-sm" id="field_{{ key }}" name="field_{{ key }}"
+                            value="{{ val('field_' ~ key, overrides.get(key, default)) }}">
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if target == 'supplier' %}
+                <p class="small text-muted mb-0">The critical flag is also kept in sync on every run (Yes/True = critical).</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Running</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="form-check form-switch mt-md-4">
+                        <input class="form-check-input" type="checkbox" id="create_missing" name="create_missing"
+                            {% if (form and form.get('create_missing')) or (not form and (not profile or profile.create_missing)) %}checked{% endif %}>
+                        <label class="form-check-label" for="create_missing">Import objects that are not in OpsDeck yet</label>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="interval_hours" class="form-label">Run automatically every (hours)</label>
+                    <input type="number" min="0" max="168" class="form-control" id="interval_hours" name="interval_hours"
+                        value="{{ val('interval_hours', profile.interval_hours if profile else 24) }}">
+                    <div class="form-text">0 = only when you click Sync now.</div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="archive_threshold_percent" class="form-label">Safety threshold (%)</label>
+                    <input type="number" min="0" max="100" class="form-control" id="archive_threshold_percent" name="archive_threshold_percent"
+                        value="{{ val('archive_threshold_percent', profile.archive_threshold_percent if profile else 10) }}">
+                    <div class="form-text">Automatic runs abort if they would archive more than this share of linked records.</div>
+                </div>
+            </div>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="enabled" name="enabled"
+                    {% if (form and form.get('enabled')) or (not form and profile and profile.enabled) %}checked{% endif %}>
+                <label class="form-check-label" for="enabled">Enable automatic runs</label>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Save profile</button>
+    <a href="{{ url_for('jira_assets.index') }}" class="btn btn-outline-secondary">Cancel</a>
+</form>
+
+<script>
+(function () {
+    const tbody = document.querySelector('#mapTable tbody');
+    const template = tbody.querySelector('tr').cloneNode(true);
+    function newRow(value) {
+        const row = template.cloneNode(true);
+        row.querySelector('input').value = value || '';
+        row.querySelector('select').value = '';
+        row.querySelector('.count').textContent = '';
+        tbody.appendChild(row);
+        return row;
+    }
+    document.getElementById('addRow').addEventListener('click', () => newRow('').querySelector('input').focus());
+    tbody.addEventListener('click', (e) => {
+        const btn = e.target.closest('.remove-row');
+        if (!btn) return;
+        const row = btn.closest('tr');
+        if (tbody.rows.length > 1) row.remove(); else { row.querySelector('input').value = ''; row.querySelector('select').value = ''; }
+    });
+    const load = document.getElementById('loadValues');
+    if (!load) return;
+    load.addEventListener('click', async () => {
+        const status = document.getElementById('loadStatus');
+        const attribute = document.getElementById('status_attribute').value;
+        status.textContent = 'Loading…';
+        load.disabled = true;
+        try {
+            const resp = await fetch(load.dataset.url + '?attribute=' + encodeURIComponent(attribute),
+                                     {headers: {'Accept': 'application/json'}});
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || resp.statusText);
+            const rows = new Map();
+            tbody.querySelectorAll('tr').forEach(r => rows.set(r.querySelector('input').value.trim().toLowerCase(), r));
+            data.values.forEach(({value, count}) => {
+                let row = rows.get(value.toLowerCase());
+                if (!row) {
+                    const blank = [...tbody.rows].find(r => !r.querySelector('input').value.trim());
+                    row = blank || newRow(value);
+                    row.querySelector('input').value = value;
+                    rows.set(value.toLowerCase(), row);
+                }
+                row.querySelector('.count').textContent = count;
+            });
+            status.textContent = `${data.total} object(s), ${data.values.length} value(s).`;
+        } catch (err) {
+            status.textContent = 'Could not load: ' + err.message;
+        } finally {
+            load.disabled = false;
+        }
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}
