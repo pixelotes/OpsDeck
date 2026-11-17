@@ -45,7 +45,7 @@
                             <option value="Business Service" {% if comparison.source_a_type == 'Business Service' %}selected{% endif %}>Business Service</option>
                             <option value="Database Query" {% if comparison.source_a_type == 'Database Query' %}selected{% endif %}>Database Query (SQL)</option>
                             {% if reports %}
-                            <option value="Enterprise Report" {% if comparison.source_a_type == 'Enterprise Report' %}selected{% endif %}>Enterprise Report</option>
+                            <option value="Connector Report" {% if comparison.source_a_type == 'Connector Report' %}selected{% endif %}>Connector Report</option>
                             {% endif %}
                         </select>
                     </div>
@@ -86,7 +86,7 @@
                         </div>
 
                         {% if reports %}
-                        <div class="mb-3 source-field" data-source="Enterprise Report">
+                        <div class="mb-3 source-field" data-source="Connector Report">
                             <label class="form-label">Report</label>
                             <select class="form-select" name="source_a_report_id">
                                 <option value="">Select...</option>
@@ -120,7 +120,7 @@
                             <option value="Business Service" {% if comparison.source_b_type == 'Business Service' %}selected{% endif %}>Business Service</option>
                             <option value="Database Query" {% if comparison.source_b_type == 'Database Query' %}selected{% endif %}>Database Query (SQL)</option>
                             {% if reports %}
-                            <option value="Enterprise Report" {% if comparison.source_b_type == 'Enterprise Report' %}selected{% endif %}>Enterprise Report</option>
+                            <option value="Connector Report" {% if comparison.source_b_type == 'Connector Report' %}selected{% endif %}>Connector Report</option>
                             {% endif %}
                         </select>
                     </div>
@@ -161,7 +161,7 @@
                         </div>
 
                         {% if reports %}
-                        <div class="mb-3 source-field" data-source="Enterprise Report">
+                        <div class="mb-3 source-field" data-source="Connector Report">
                             <label class="form-label">Report</label>
                             <select class="form-select" name="source_b_report_id">
                                 <option value="">Select...</option>

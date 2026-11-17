@@ -586,6 +586,9 @@ def create_app(test_config=None):
     from .routes.organization import organization_bp
     app.register_blueprint(organization_bp, url_prefix='/settings/organization')
 
+    from .routes.connectors import connectors_bp
+    app.register_blueprint(connectors_bp, url_prefix='/settings/connectors')
+
     from .routes.finance import finance_bp
     app.register_blueprint(finance_bp, url_prefix='/finance')
 
@@ -893,6 +896,16 @@ def create_app(test_config=None):
             id=SCHEDULER_REFRESH_JOB_ID,
             replace_existing=True
         )
+        # API connectors - every 5 minutes, run the enabled tasks whose next_run has passed
+        from .services.connector_service import poll_due_tasks, POLL_INTERVAL_MINUTES
+        scheduler.add_job(
+            func=poll_due_tasks,
+            args=[app],
+            trigger="interval",
+            minutes=POLL_INTERVAL_MINUTES,
+            id="connector_polling",
+            replace_existing=True
+        )
         app.extensions['opsdeck_scheduler'] = scheduler
         scheduler.start()
         atexit.register(lambda: scheduler.shutdown())
@@ -1068,6 +1081,14 @@ def create_app(test_config=None):
         seed_operational_catalog()
         seed_it_infrastructure_catalog()
         seed_notification_templates()
+        from .seeder_connectors import seed_all_connectors
+        seed_all_connectors()
+
+    @app.cli.command('seed-connectors')
+    def seed_connectors_command():
+        """Create one disabled API connector task per supported service (idempotent)."""
+        from .seeder_connectors import seed_all_connectors
+        seed_all_connectors()
 
     @app.cli.command('test-db')
     def test_db_command():

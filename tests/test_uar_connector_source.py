@@ -1,15 +1,13 @@
-"""The 'Enterprise Report' UAR source must call the engine correctly.
+"""The 'Connector Report' UAR source must call the engine correctly.
 
 This source never ran. _load_dataset looked the Report up itself and then called
 ``engine.load_from_report(report)``, while the signature is
 ``load_from_report(table_name, report_id)`` — one argument short, with a Report object
 where a table name belongs. Any attempt to use it raised TypeError immediately.
 
-It survived because the opsdeck_enterprise plugin is not installed here, so the branch
-died earlier on the import and nothing reached the call. These tests therefore stub the
-engine method rather than the plugin: that is enough to pin the calling convention and
-the return value, which is where the bugs were, and it does not pretend to exercise the
-real report loading — that still needs an environment with the plugin.
+The engine method is stubbed in the first tests to pin the calling convention and the
+return value, which is where the bugs were; the last ones exercise the real loader now
+that connector reports live in core instead of the opsdeck-enterprise plugin.
 """
 import pytest
 
@@ -36,7 +34,7 @@ def test_the_engine_is_called_with_a_table_name_and_a_report_id(app, init_databa
 
     with app.app_context():
         UARAutomationService()._load_dataset(
-            engine, 'dataset_a', 'Enterprise Report', {'report_id': 7}
+            engine, 'dataset_a', 'Connector Report', {'report_id': 7}
         )
 
     assert engine.calls == [('dataset_a', 7)]
@@ -53,7 +51,7 @@ def test_the_rows_are_returned_so_the_snapshot_can_count_them(app, init_database
 
     with app.app_context():
         data = UARAutomationService()._load_dataset(
-            engine, 'dataset_b', 'Enterprise Report', {'report_id': 7}
+            engine, 'dataset_b', 'Connector Report', {'report_id': 7}
         )
 
     assert data == engine.rows
@@ -66,20 +64,35 @@ def test_a_missing_report_id_is_refused_before_the_engine_is_touched(app, init_d
     with app.app_context():
         with pytest.raises(ValueError, match='report_id is required'):
             UARAutomationService()._load_dataset(
-                engine, 'dataset_a', 'Enterprise Report', {}
+                engine, 'dataset_a', 'Connector Report', {}
             )
 
     assert engine.calls == []
 
 
-def test_a_missing_plugin_is_reported_as_a_configuration_error(app, init_database):
-    """Without opsdeck_enterprise the engine raises ImportError; callers see a message."""
-    class _NoPluginEngine(AccessReviewEngine):
-        def load_from_report(self, table_name, report_id):
-            raise ImportError('No module named opsdeck_enterprise')
+def test_a_connector_report_is_loaded_into_the_engine(app, init_database):
+    """With connectors in core the real loader runs: the report's items become rows."""
+    import json
+    from src import db
+    from src.models.connectors import ConnectorTask, ConnectorSubtask, ConnectorReport
 
     with app.app_context():
-        with pytest.raises(ValueError, match='Enterprise plugin not available'):
+        task = ConnectorTask(name='GitHub', service='github')
+        subtask = ConnectorSubtask(task=task, name='Members', endpoint='/orgs/x/members')
+        report = ConnectorReport(subtask=subtask, record_count=2, data=json.dumps(
+            {'items': [{'email': 'a@test.com'}, {'email': 'b@test.com'}], 'total_count': 2}))
+        db.session.add_all([task, subtask, report])
+        db.session.commit()
+
+        engine = AccessReviewEngine()
+        data = UARAutomationService()._load_dataset(
+            engine, 'dataset_a', 'Connector Report', {'report_id': report.id})
+
+    assert [row['email'] for row in data] == ['a@test.com', 'b@test.com']
+
+
+def test_a_missing_report_is_refused(app, init_database):
+    with app.app_context():
+        with pytest.raises(ValueError, match='not found'):
             UARAutomationService()._load_dataset(
-                _NoPluginEngine(), 'dataset_a', 'Enterprise Report', {'report_id': 7}
-            )
+                AccessReviewEngine(), 'dataset_a', 'Connector Report', {'report_id': 999})

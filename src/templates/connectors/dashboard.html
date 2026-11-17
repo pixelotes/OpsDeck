@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+
+{% block title %}API Connectors{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>API Connectors</h1>
+            <p class="text-muted mb-0">Scheduled syncs that pull users, groups, devices and repositories from external services. Their reports can be used as a User Access Review source.</p>
+        </div>
+    </div>
+
+    {% if tasks %}
+    <div class="row">
+        {% for task in tasks %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        {{ task.name }}
+                        {% if task.enabled %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </h5>
+                    <p class="card-text">
+                        <strong>Service:</strong> {{ task.service_label }}<br>
+                        <strong>Status:</strong>
+                        {% if task.status == 'idle' %}
+                        <span class="badge bg-info">Idle</span>
+                        {% elif task.status == 'running' %}
+                        <span class="badge bg-warning">Running</span>
+                        {% elif task.status == 'error' %}
+                        <span class="badge bg-danger">Error</span>
+                        {% endif %}
+                        <br>
+                        <strong>Last run:</strong>
+                        {{ task.last_run.strftime('%Y-%m-%d %H:%M') if task.last_run else 'Never' }}
+                    </p>
+                    <a href="{{ url_for('connectors.task_detail', task_id=task.id) }}"
+                        class="btn btn-sm btn-primary">
+                        View details
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        No connectors configured. Run <code>flask seed-connectors</code> to create one per supported service.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

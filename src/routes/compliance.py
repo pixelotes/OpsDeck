@@ -19,11 +19,7 @@ from src.utils.timezone_helper import now
 from ..utils.redirects import safe_redirect_target
 
 
-# Optional import for Enterprise Plugin
-try:
-    from opsdeck_enterprise.models.report import Report
-except ImportError:
-    Report = None
+from ..models.connectors import ConnectorReport
 
 compliance_bp = Blueprint('compliance', __name__)
 
@@ -147,13 +143,8 @@ def get_json_services():
 @requires_permission(MODULE_COMPLIANCE)
 def access_review():
     """Renders the User Access Review interface."""
-    reports = []
-    if Report:
-        # Fetch last 20 reports, joined with subtask info if possible, or just raw
-        # We probably want to show the subtask name if available. 
-        # Lists recent reports only.
-        reports = Report.query.order_by(Report.created_at.desc()).limit(20).all()
-        
+    reports = ConnectorReport.query.order_by(ConnectorReport.created_at.desc()).limit(20).all()
+
     return render_template('compliance/access_review.html', reports=reports)
 
 @compliance_bp.route('/access-review/preview', methods=['POST'])
@@ -1735,7 +1726,7 @@ def uar_automation_form(id=None):
             source_a_config['service_id'] = int(request.form.get('source_a_service_id', 0))
         elif comparison.source_a_type == 'Database Query':
             source_a_config['query'] = request.form.get('source_a_query', '')
-        elif comparison.source_a_type == 'Enterprise Report':
+        elif comparison.source_a_type == 'Connector Report':
             source_a_config['report_id'] = int(request.form.get('source_a_report_id', 0))
         
         comparison.source_a_config = source_a_config
@@ -1747,7 +1738,7 @@ def uar_automation_form(id=None):
             source_b_config['service_id'] = int(request.form.get('source_b_service_id', 0))
         elif comparison.source_b_type == 'Database Query':
             source_b_config['query'] = request.form.get('source_b_query', '')
-        elif comparison.source_b_type == 'Enterprise Report':
+        elif comparison.source_b_type == 'Connector Report':
             source_b_config['report_id'] = int(request.form.get('source_b_report_id', 0))
         
         comparison.source_b_config = source_b_config
@@ -1824,7 +1815,7 @@ def uar_automation_form(id=None):
     # GET: render form
     subscriptions = Subscription.query.all()
     services = BusinessService.query.all()
-    reports = Report.query.order_by(Report.created_at.desc()).limit(50).all() if Report else []
+    reports = ConnectorReport.query.order_by(ConnectorReport.created_at.desc()).limit(50).all()
 
     return render_template('compliance/uar_automation_form.html',
                          comparison=comparison,

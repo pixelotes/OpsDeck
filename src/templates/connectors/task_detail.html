@@ -1,0 +1,220 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ task.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('connectors.dashboard') }}">Connectors</a></li>
+            <li class="breadcrumb-item active">{{ task.name }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ task.name }}</h1>
+        <div>
+            <button type="button" class="btn btn-warning me-2" data-bs-toggle="modal"
+                data-bs-target="#credentialsModal">
+                <i class="fas fa-key"></i>
+                {% if task.auth_config %}Update{% else %}Configure{% endif %} Credentials
+            </button>
+            <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#editTaskModal">
+                <i class="fas fa-edit"></i> Edit
+            </button>
+            <form method="POST" action="{{ url_for('connectors.run_task', task_id=task.id) }}"
+                style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-play"></i> Run now
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">General Information</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Service:</th>
+                            <td>{{ task.service }}</td>
+                        </tr>
+                        <tr>
+                            <th>Credentials:</th>
+                            <td>
+                                {% if task.auth_config %}
+                                <span class="badge bg-success"><i class="fas fa-check"></i> Configured</span>
+                                {% else %}
+                                <span class="badge bg-danger"><i class="fas fa-times"></i> Not configured</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                {% if task.status == 'idle' %}
+                                <span class="badge bg-info">Idle</span>
+                                {% elif task.status == 'running' %}
+                                <span class="badge bg-warning">Running</span>
+                                {% elif task.status == 'error' %}
+                                <span class="badge bg-danger">Error</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Enabled:</th>
+                            <td>
+                                {% if task.enabled %}
+                                <span class="badge bg-success">Yes</span>
+                                {% else %}
+                                <span class="badge bg-secondary">No</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Interval:</th>
+                            <td>{{ task.polling_interval // 60 }} minutes</td>
+                        </tr>
+                        <tr>
+                            <th>Last run:</th>
+                            <td>{{ task.last_run.strftime('%Y-%m-%d %H:%M') if task.last_run else 'Never' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Next run:</th>
+                            <td>{{ task.next_run.strftime('%Y-%m-%d %H:%M') if task.next_run else 'Not scheduled' }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Subtasks ({{ task.subtasks|length }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if task.subtasks %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Endpoint</th>
+                                    <th>Status</th>
+                                    <th>Reports</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for subtask in task.subtasks %}
+                                <tr>
+                                    <td>{{ subtask.name }}</td>
+                                    <td><code>{{ subtask.endpoint[:50] }}...</code></td>
+                                    <td>
+                                        {% if subtask.enabled %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ subtask.reports|length }}</td>
+                                    <td>
+                                        <a href="{{ url_for('connectors.subtask_reports', subtask_id=subtask.id) }}"
+                                            class="btn btn-sm btn-primary" title="View reports">
+                                            <i class="fas fa-history"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No subtasks configured.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para editar tarea -->
+<div class="modal fade" id="editTaskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Task</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('connectors.update_task', task_id=task.id) }}">
+                <div class="modal-body">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="taskName" class="form-label">Task name</label>
+                        <input type="text" class="form-control" id="taskName" name="name" value="{{ task.name }}"
+                            required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="taskEnabled" class="form-label">Status</label>
+                        <select class="form-select" id="taskEnabled" name="enabled" required>
+                            <option value="true" {% if task.enabled %}selected{% endif %}>Active</option>
+                            <option value="false" {% if not task.enabled %}selected{% endif %}>Inactive</option>
+                        </select>
+                        <div class="form-text">If inactive, the scheduler will not run this task automatically
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="taskInterval" class="form-label">Polling interval</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="taskInterval" name="polling_interval"
+                                value="{{ task.polling_interval }}" min="300" max="604800" required>
+                            <span class="input-group-text">seconds</span>
+                        </div>
+                        <div class="form-text">
+                            Automatic execution frequency (minimum: 5 min = 300s, maximum: 7 days = 604800s)
+                            <br>
+                            <strong>Common values:</strong>
+                            <ul class="mb-0 mt-1">
+                                <li>5 minutes = 300</li>
+                                <li>15 minutes = 900</li>
+                                <li>30 minutes = 1800</li>
+                                <li>1 hour = 3600</li>
+                                <li>2 hours = 7200</li>
+                                <li>6 hours = 21600</li>
+                                <li>12 hours = 43200</li>
+                                <li>24 hours = 86400</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Service:</strong> {{ task.service }}<br>
+                        <strong>Last run:</strong> {{ task.last_run.strftime('%Y-%m-%d %H:%M') if task.last_run
+                        else 'Never' }}<br>
+                        <strong>Next run:</strong> {{ task.next_run.strftime('%Y-%m-%d %H:%M') if task.next_run
+                        else 'Not scheduled' }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% include 'connectors/_credentials_modal.html' %}
+{% endblock %}

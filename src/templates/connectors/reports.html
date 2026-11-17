@@ -1,0 +1,866 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ subtask.name }} - Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('connectors.dashboard') }}">Connectors</a></li>
+            <li class="breadcrumb-item"><a
+                    href="{{ url_for('connectors.task_detail', task_id=subtask.task_id) }}">{{
+                    subtask.task.name }}</a></li>
+            <li class="breadcrumb-item active">{{ subtask.name }} - Reports</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ subtask.name }}</h1>
+        <a href="{{ url_for('connectors.task_detail', task_id=subtask.task_id) }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+
+    {% if reports %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Execution History ({{ pagination.total }} total)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Date</th>
+                            <th>Records</th>
+                            <th>Duration</th>
+                            <th>Checksum</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in reports %}
+                        <tr>
+                            <td>#{{ report.id }}</td>
+                            <td>
+                                <span title="{{ report.created_at }}">
+                                    {{ report.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ report.record_count }} items</span>
+                            </td>
+                            <td>{{ report.fetch_duration_ms }} ms</td>
+                            <td>
+                                <code class="small">{{ report.checksum[:12] }}...</code>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="viewReport({{ report.id }})"
+                                    title="View data">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+
+                                <!-- Always show diff button - API will compare with previous report -->
+                                <button class="btn btn-sm btn-warning" onclick="viewDiffForReport({{ report.id }})"
+                                    title="Compare with previous">
+                                    <i class="fas fa-code-compare"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination controls -->
+            {% if pagination.pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="text-muted">
+                    Showing {{ pagination.per_page * (pagination.page - 1) + 1 }} to {{ [pagination.per_page *
+                    pagination.page, pagination.total]|min }} of {{ pagination.total }} reports
+                </div>
+                <nav aria-label="Reports pagination">
+                    <ul class="pagination mb-0">
+                        <!-- First page -->
+                        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                            <a class="page-link"
+                                href="{% if pagination.has_prev %}{{ url_for('connectors.subtask_reports', subtask_id=subtask.id, page=1) }}{% else %}#{% endif %}">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                        </li>
+
+                        <!-- Previous page -->
+                        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                            <a class="page-link"
+                                href="{% if pagination.has_prev %}{{ url_for('connectors.subtask_reports', subtask_id=subtask.id, page=pagination.prev_num) }}{% else %}#{% endif %}">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        </li>
+
+                        <!-- Page numbers -->
+                        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2,
+                        right_current=2) %}
+                        {% if page_num %}
+                        <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                            <a class="page-link"
+                                href="{{ url_for('connectors.subtask_reports', subtask_id=subtask.id, page=page_num) }}">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+
+                        <!-- Next page -->
+                        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                            <a class="page-link"
+                                href="{% if pagination.has_next %}{{ url_for('connectors.subtask_reports', subtask_id=subtask.id, page=pagination.next_num) }}{% else %}#{% endif %}">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+
+                        <!-- Last page -->
+                        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                            <a class="page-link"
+                                href="{% if pagination.has_next %}{{ url_for('connectors.subtask_reports', subtask_id=subtask.id, page=pagination.pages) }}{% else %}#{% endif %}">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        No reports for this subtask. Run the task to generate the first report.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal para ver datos -->
+<div class="modal fade" id="reportModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reportModalTitle">Report Data</h5>
+                <div class="btn-group ms-3" role="group">
+                    <button type="button" class="btn btn-sm btn-outline-primary active" id="btnTableView"
+                        onclick="switchView('table')">
+                        <i class="fas fa-table"></i> Table
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnJsonView"
+                        onclick="switchView('json')">
+                        <i class="fas fa-code"></i> JSON
+                    </button>
+                </div>
+
+                <!-- Column visibility toggle (only visible in table view) - Custom dropdown -->
+                <div class="position-relative ms-2" id="columnToggleDropdown" style="display: none;">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" id="columnToggleButton">
+                        <i class="fas fa-columns"></i> Columns <i class="fas fa-caret-down ms-1"></i>
+                    </button>
+                    <div class="position-absolute bg-white border rounded shadow-sm" id="columnTogglePanel"
+                        style="display: none; top: 100%; right: 0; min-width: 220px; max-height: 300px; overflow-y: auto; z-index: 1060;">
+                        <!-- Column checkboxes will be dynamically added here -->
+                    </div>
+                </div>
+
+                <!-- Search/filter input (only visible in table view) -->
+                <div class="ms-2" id="searchInputContainer" style="display: none;">
+                    <div class="input-group input-group-sm" style="width: 200px;">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" id="tableSearchInput" placeholder="Search...">
+                        <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" title="Clear">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Download CSV button (only visible in table view) -->
+                <button class="btn btn-sm btn-outline-success ms-2" type="button" id="downloadCsvBtn"
+                    style="display: none;" title="Download CSV">
+                    <i class="fas fa-download"></i> CSV
+                </button>
+
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Table view -->
+                <div id="reportTableView" class="table-responsive">
+                    <table class="table table-sm table-hover" id="reportTable">
+                        <thead class="table-dark">
+                            <tr id="reportTableHeaders"></tr>
+                        </thead>
+                        <tbody id="reportTableBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- JSON view -->
+                <div id="reportJsonView" style="display: none;">
+                    <pre id="reportData" class="bg-light p-3" style="max-height: 500px; overflow-y: auto;"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="text-muted me-auto" id="reportStats"></span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para ver diff -->
+<div class="modal fade" id="diffModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Report Comparison</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="diffInfo" class="mb-3"></div>
+
+                <!-- Semantic diff viewer -->
+                <div id="diffViewer"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentReportData = null;
+    let currentReportId = null;
+    let currentColumns = [];
+    let hiddenColumns = new Set();
+    let defaultsApplied = false;
+    let sortColumn = null;
+    let sortDirection = 'asc'; // 'asc' or 'desc'
+    let searchFilter = '';
+
+    function switchView(view) {
+        const tableView = document.getElementById('reportTableView');
+        const jsonView = document.getElementById('reportJsonView');
+        const btnTable = document.getElementById('btnTableView');
+        const btnJson = document.getElementById('btnJsonView');
+        const columnToggle = document.getElementById('columnToggleDropdown');
+        const searchContainer = document.getElementById('searchInputContainer');
+        const downloadBtn = document.getElementById('downloadCsvBtn');
+
+        if (view === 'table') {
+            tableView.style.display = 'block';
+            jsonView.style.display = 'none';
+            btnTable.classList.add('active');
+            btnJson.classList.remove('active');
+            columnToggle.style.display = 'block';
+            searchContainer.style.display = 'block';
+            downloadBtn.style.display = 'inline-block';
+        } else {
+            tableView.style.display = 'none';
+            jsonView.style.display = 'block';
+            btnTable.classList.remove('active');
+            btnJson.classList.add('active');
+            columnToggle.style.display = 'none';
+            searchContainer.style.display = 'none';
+            downloadBtn.style.display = 'none';
+        }
+    }
+
+    function sortByColumn(columnIndex) {
+        const columnName = currentColumns[columnIndex];
+        if (sortColumn === columnName) {
+            // Toggle direction
+            sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortColumn = columnName;
+            sortDirection = 'asc';
+        }
+        renderTable(currentReportData, null, true);
+    }
+
+    function applySearch(query) {
+        searchFilter = query.toLowerCase().trim();
+        renderTable(currentReportData, null, true);
+    }
+
+    function downloadCsv() {
+        if (!currentReportData) return;
+
+        // Get visible items (apply same filtering and sorting as the table)
+        let items = [];
+        if (currentReportData.items && Array.isArray(currentReportData.items)) {
+            items = currentReportData.items;
+        } else if (Array.isArray(currentReportData)) {
+            items = currentReportData;
+        } else {
+            items = [currentReportData];
+        }
+
+        // Apply search filter
+        if (searchFilter) {
+            items = items.filter(item => {
+                return currentColumns.some((col, idx) => {
+                    if (hiddenColumns.has(idx)) return false;
+                    const value = item[col];
+                    if (value === null || value === undefined) return false;
+                    const strValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                    return strValue.toLowerCase().includes(searchFilter);
+                });
+            });
+        }
+
+        // Apply sorting
+        if (sortColumn && currentColumns.includes(sortColumn)) {
+            items = [...items].sort((a, b) => {
+                const valA = a[sortColumn];
+                const valB = b[sortColumn];
+                if (valA === null || valA === undefined) return sortDirection === 'asc' ? 1 : -1;
+                if (valB === null || valB === undefined) return sortDirection === 'asc' ? -1 : 1;
+                let comparison = 0;
+                if (typeof valA === 'boolean') {
+                    comparison = valA === valB ? 0 : (valA ? -1 : 1);
+                } else if (typeof valA === 'number') {
+                    comparison = valA - valB;
+                } else if (typeof valA === 'string') {
+                    comparison = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+                } else {
+                    comparison = String(valA).localeCompare(String(valB));
+                }
+                return sortDirection === 'asc' ? comparison : -comparison;
+            });
+        }
+
+        // Get visible columns
+        const visibleColumns = currentColumns.filter((col, idx) => !hiddenColumns.has(idx));
+
+        // Build CSV
+        const escapeCSV = (val) => {
+            if (val === null || val === undefined) return '';
+            let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+            // Escape quotes and wrap in quotes if contains comma, quote, or newline
+            if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+                str = '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        };
+
+        // Header row
+        const csvRows = [];
+        csvRows.push(visibleColumns.map(col => escapeCSV(col)).join(','));
+
+        // Data rows
+        items.forEach(item => {
+            const row = visibleColumns.map(col => escapeCSV(item[col]));
+            csvRows.push(row.join(','));
+        });
+
+        // Create and download file
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `report_${currentReportId}_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    function toggleColumn(columnIndex) {
+        if (hiddenColumns.has(columnIndex)) {
+            hiddenColumns.delete(columnIndex);
+        } else {
+            hiddenColumns.add(columnIndex);
+        }
+        // Pass true to skip recalculating default columns
+        renderTable(currentReportData, null, true);
+    }
+
+    function updateColumnToggles() {
+        const togglePanel = document.getElementById('columnTogglePanel');
+        togglePanel.innerHTML = '';
+
+        currentColumns.forEach((col, idx) => {
+            const item = document.createElement('div');
+            item.className = 'px-3 py-2 d-flex align-items-center column-toggle-item';
+            item.style.cursor = 'pointer';
+            item.style.userSelect = 'none';
+            item.style.borderBottom = '1px solid #eee';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'form-check-input me-2';
+            checkbox.id = 'col-toggle-' + idx;
+            checkbox.checked = !hiddenColumns.has(idx);
+
+            const label = document.createElement('label');
+            label.htmlFor = 'col-toggle-' + idx;
+            label.style.cursor = 'pointer';
+            label.style.marginBottom = '0';
+            label.style.flex = '1';
+            const colName = col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            label.textContent = colName;
+
+            item.appendChild(checkbox);
+            item.appendChild(label);
+
+            // Handle click on the entire row
+            item.addEventListener('click', function (e) {
+                if (e.target !== checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                }
+                toggleColumn(idx);
+            });
+
+            togglePanel.appendChild(item);
+        });
+    }
+
+    // Initialize custom dropdown behavior
+    document.addEventListener('DOMContentLoaded', function () {
+        const toggleButton = document.getElementById('columnToggleButton');
+        const togglePanel = document.getElementById('columnTogglePanel');
+
+        // Toggle panel visibility on button click
+        toggleButton.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const isVisible = togglePanel.style.display === 'block';
+            togglePanel.style.display = isVisible ? 'none' : 'block';
+        });
+
+        // Close panel when clicking outside
+        document.addEventListener('click', function (e) {
+            if (!togglePanel.contains(e.target) && e.target !== toggleButton) {
+                togglePanel.style.display = 'none';
+            }
+        });
+
+        // Prevent clicks inside panel from closing it
+        togglePanel.addEventListener('click', function (e) {
+            e.stopPropagation();
+        });
+
+        // Search input handling
+        const searchInput = document.getElementById('tableSearchInput');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+        let searchTimeout = null;
+
+        searchInput.addEventListener('input', function (e) {
+            // Debounce search
+            if (searchTimeout) clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                applySearch(e.target.value);
+            }, 300);
+        });
+
+        clearSearchBtn.addEventListener('click', function () {
+            searchInput.value = '';
+            applySearch('');
+        });
+
+        // Download CSV button
+        document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
+    });
+
+    function openFullscreen() {
+        const view = document.getElementById('btnTableView').classList.contains('active') ? 'table' : 'json';
+        const url = `/settings/connectors/report/${currentReportId}/fullscreen?view=${view}`;
+        window.open(url, '_blank');
+    }
+
+    function renderTable(data, defaultVisibleColumns = null, skipDefaults = false) {
+        const tableHeaders = document.getElementById('reportTableHeaders');
+        const tableBody = document.getElementById('reportTableBody');
+
+        // Clear existing content
+        tableHeaders.innerHTML = '';
+        tableBody.innerHTML = '';
+
+        // Parse the data items
+        let items = [];
+        if (data.items && Array.isArray(data.items)) {
+            items = data.items;
+        } else if (Array.isArray(data)) {
+            items = data;
+        } else {
+            // Single object, wrap in array
+            items = [data];
+        }
+
+        if (items.length === 0) {
+            tableBody.innerHTML = '<tr><td class="text-center text-muted">No data</td></tr>';
+            return;
+        }
+
+        // Extract column names from first item
+        const firstItem = items[0];
+        currentColumns = Object.keys(firstItem);
+
+        // Auto-detect GitHub data and set default visible columns
+        if (defaultVisibleColumns === null) {
+            // Check if this looks like GitHub user/collaborator data
+            const hasGitHubUserFields = currentColumns.some(col =>
+                ['login', 'avatar_url', 'html_url', 'site_admin'].includes(col.toLowerCase())
+            );
+
+            // Check if this looks like GitHub repository data
+            const hasGitHubRepoFields = currentColumns.some(col =>
+                ['full_name', 'private', 'owner', 'default_branch'].includes(col.toLowerCase())
+            );
+
+            // Check if this looks like JumpCloud systemusers (users) data
+            const hasJumpCloudUserFields = currentColumns.some(col =>
+                ['email', 'firstname', 'lastname', 'systemusername', 'ldap_binding_user'].includes(col.toLowerCase())
+            );
+
+            // Check if this looks like JumpCloud systems data
+            const hasJumpCloudSystemFields = currentColumns.some(col =>
+                ['hostname', 'displayname', 'os', 'lastcontact', 'serialnumber'].includes(col.toLowerCase())
+            );
+
+            // Check if this looks like Confluence spaces data
+            const hasConfluenceSpaceFields = currentColumns.some(col =>
+                ['key', 'name', 'type', '_expandable', '_links'].includes(col.toLowerCase())
+            );
+
+            if (hasGitHubRepoFields) {
+                // GitHub Repositories default columns
+                const repoDefaults = ['name', 'url', 'visibility', 'created_at', 'archived', 'disabled', 'default_branch'];
+                defaultVisibleColumns = currentColumns.filter(col =>
+                    repoDefaults.includes(col.toLowerCase())
+                );
+            } else if (hasGitHubUserFields) {
+                // GitHub Users/Collaborators default columns
+                const userDefaults = ['html_url', 'id', 'login', 'site_admin', 'type', 'user_view_type'];
+                defaultVisibleColumns = currentColumns.filter(col =>
+                    userDefaults.includes(col.toLowerCase())
+                );
+            } else if (hasJumpCloudUserFields) {
+                // JumpCloud SystemUsers (Users) default columns
+                const jumpcloudUserDefaults = ['id', 'created', 'email', 'firstname', 'lastname', 'ldap_binding_user', 'password_date', 'state', 'suspended', 'systemusername', 'username'];
+                defaultVisibleColumns = currentColumns.filter(col =>
+                    jumpcloudUserDefaults.includes(col.toLowerCase())
+                );
+            } else if (hasJumpCloudSystemFields) {
+                // JumpCloud Systems default columns
+                const jumpcloudDefaults = ['id', 'active', 'arch', 'created', 'description', 'displayname', 'hostname', 'hwvendor', 'ispolicybound', 'lastcontact', 'os', 'remoteip', 'serialnumber', 'version'];
+                defaultVisibleColumns = currentColumns.filter(col =>
+                    jumpcloudDefaults.includes(col.toLowerCase())
+                );
+            } else if (hasConfluenceSpaceFields) {
+                // Confluence Spaces default columns - hide _expandable and _ari
+                defaultVisibleColumns = currentColumns.filter(col =>
+                    !['_expandable', '_ari'].includes(col.toLowerCase())
+                );
+            }
+        }
+
+        // Initialize hidden columns based on default visible columns (only on first render)
+        if (!skipDefaults && !defaultsApplied && defaultVisibleColumns && defaultVisibleColumns.length > 0) {
+            hiddenColumns.clear();
+            currentColumns.forEach((col, idx) => {
+                // Hide column if it's not in the default visible list (case-insensitive)
+                if (!defaultVisibleColumns.some(defCol => defCol.toLowerCase() === col.toLowerCase())) {
+                    hiddenColumns.add(idx);
+                }
+            });
+            defaultsApplied = true;
+        }
+
+        // Update column toggles
+        updateColumnToggles();
+
+        // Apply search filter
+        let filteredItems = items;
+        if (searchFilter) {
+            filteredItems = items.filter(item => {
+                return currentColumns.some((col, idx) => {
+                    if (hiddenColumns.has(idx)) return false;
+                    const value = item[col];
+                    if (value === null || value === undefined) return false;
+                    const strValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                    return strValue.toLowerCase().includes(searchFilter);
+                });
+            });
+        }
+
+        // Apply sorting
+        if (sortColumn && currentColumns.includes(sortColumn)) {
+            filteredItems = [...filteredItems].sort((a, b) => {
+                const valA = a[sortColumn];
+                const valB = b[sortColumn];
+
+                // Handle nulls
+                if (valA === null || valA === undefined) return sortDirection === 'asc' ? 1 : -1;
+                if (valB === null || valB === undefined) return sortDirection === 'asc' ? -1 : 1;
+
+                // Compare based on type
+                let comparison = 0;
+                if (typeof valA === 'boolean') {
+                    comparison = valA === valB ? 0 : (valA ? -1 : 1);
+                } else if (typeof valA === 'number') {
+                    comparison = valA - valB;
+                } else if (typeof valA === 'string') {
+                    comparison = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+                } else {
+                    comparison = String(valA).localeCompare(String(valB));
+                }
+
+                return sortDirection === 'asc' ? comparison : -comparison;
+            });
+        }
+
+        // Render headers (only visible columns) with sort indicators
+        currentColumns.forEach((col, idx) => {
+            if (hiddenColumns.has(idx)) return;
+
+            const th = document.createElement('th');
+            th.style.cursor = 'pointer';
+            th.style.userSelect = 'none';
+            th.style.whiteSpace = 'nowrap';
+            th.onclick = () => sortByColumn(idx);
+
+            const colName = col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            let sortIndicator = '';
+            if (sortColumn === col) {
+                sortIndicator = sortDirection === 'asc' ? ' <i class="fas fa-sort-up"></i>' : ' <i class="fas fa-sort-down"></i>';
+            } else {
+                sortIndicator = ' <i class="fas fa-sort text-muted"></i>';
+            }
+            th.innerHTML = colName + sortIndicator;
+            tableHeaders.appendChild(th);
+        });
+
+        // Render rows
+        filteredItems.forEach(item => {
+            const tr = document.createElement('tr');
+            currentColumns.forEach((col, idx) => {
+                if (hiddenColumns.has(idx)) return;
+
+                const td = document.createElement('td');
+                const value = item[col];
+
+                // Format different data types
+                if (value === null || value === undefined) {
+                    td.textContent = '-';
+                    td.className = 'text-muted';
+                } else if (typeof value === 'boolean') {
+                    td.innerHTML = value ?
+                        '<span class="badge bg-success">Yes</span>' :
+                        '<span class="badge bg-secondary">No</span>';
+                } else if (typeof value === 'object') {
+                    td.innerHTML = '<code class="small">' + JSON.stringify(value) + '</code>';
+                } else if (col.includes('url') || col.includes('html_url')) {
+                    td.innerHTML = `<a href="${value}" target="_blank" class="small text-truncate d-inline-block" style="max-width: 300px;">${value}</a>`;
+                } else if (col.includes('avatar')) {
+                    td.innerHTML = `<img src="${value}" class="rounded" width="32" height="32">`;
+                } else if (col.includes('date') || col.includes('_at')) {
+                    td.innerHTML = `<small>${new Date(value).toLocaleString()}</small>`;
+                } else {
+                    td.textContent = value;
+                }
+
+                tr.appendChild(td);
+            });
+            tableBody.appendChild(tr);
+        });
+
+        // Update stats
+        const visibleColumns = currentColumns.length - hiddenColumns.size;
+        const totalItems = items.length;
+        const shownItems = filteredItems.length;
+        let statsText = `${shownItems} record${shownItems !== 1 ? 's' : ''}`;
+        if (searchFilter && shownItems !== totalItems) {
+            statsText += ` (of ${totalItems})`;
+        }
+        statsText += ` • ${visibleColumns}/${currentColumns.length} columns`;
+        if (sortColumn) {
+            statsText += ` • Sorted by ${sortColumn.replace(/_/g, ' ')} (${sortDirection === 'asc' ? '↑' : '↓'})`;
+        }
+        document.getElementById('reportStats').textContent = statsText;
+    }
+
+    function viewReport(reportId) {
+        currentReportId = reportId;
+        hiddenColumns.clear(); // Reset hidden columns
+        defaultsApplied = false; // Allow defaults to be recalculated for new report
+        sortColumn = null; // Reset sorting
+        sortDirection = 'asc';
+        searchFilter = ''; // Reset search
+        document.getElementById('tableSearchInput').value = '';
+
+        // Fetch report data
+        fetch(`/settings/connectors/api/report/${reportId}`)
+            .then(response => response.json())
+            .then(data => {
+                const parsedData = JSON.parse(data.data);
+                currentReportData = parsedData;
+
+                // Update title
+                document.getElementById('reportModalTitle').textContent = `Report #${reportId}`;
+
+                // Render JSON view
+                document.getElementById('reportData').textContent = JSON.stringify(parsedData, null, 2);
+
+                // Render table view
+                renderTable(parsedData);
+
+                // Show table view by default
+                switchView('table');
+
+                // Show modal
+                new bootstrap.Modal(document.getElementById('reportModal')).show();
+            })
+            .catch(error => {
+                alert('Error loading report: ' + error);
+            });
+    }
+
+    function viewDiff(newId, oldId) {
+        // Fetch diff
+        fetch(`/settings/connectors/api/diff/{{ subtask.id }}?report1=${oldId}&report2=${newId}`)
+            .then(response => response.json())
+            .then(data => {
+                const info = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>New Report:</strong> #${data.report_new_id}<br>
+                        <small class="text-muted">${data.report_new_date}</small>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Previous Report:</strong> #${data.report_old_id}<br>
+                        <small class="text-muted">${data.report_old_date}</small>
+                    </div>
+                </div>
+                ${data.has_changes ? '<div class="alert alert-warning mt-2">⚠️ Changes detected</div>' : '<div class="alert alert-success mt-2">✓ No changes</div>'}
+            `;
+
+                document.getElementById('diffInfo').innerHTML = info;
+
+                // Render semantic diff viewer
+                const diffViewer = document.getElementById('diffViewer');
+                diffViewer.innerHTML = renderSemanticDiff(data.diff);
+
+                new bootstrap.Modal(document.getElementById('diffModal')).show();
+            })
+            .catch(error => {
+                alert('Error loading diff: ' + error);
+            });
+    }
+
+    function viewDiffForReport(reportId) {
+        // Fetch diff for a specific report (compares with chronologically previous report)
+        // The API endpoint will automatically find and compare with the previous report
+        fetch(`/settings/connectors/api/diff/{{ subtask.id }}`)
+            .then(response => response.json())
+            .then(data => {
+                // Check if we have enough reports
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                const info = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>New Report:</strong> #${data.report_new_id}<br>
+                        <small class="text-muted">${data.report_new_date}</small>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Previous Report:</strong> #${data.report_old_id}<br>
+                        <small class="text-muted">${data.report_old_date}</small>
+                    </div>
+                </div>
+                ${data.has_changes ? '<div class="alert alert-warning mt-2">⚠️ Changes detected</div>' : '<div class="alert alert-success mt-2">✓ No changes</div>'}
+            `;
+
+                document.getElementById('diffInfo').innerHTML = info;
+
+                // Render semantic diff viewer
+                const diffViewer = document.getElementById('diffViewer');
+                diffViewer.innerHTML = renderSemanticDiff(data.diff);
+
+                new bootstrap.Modal(document.getElementById('diffModal')).show();
+            })
+            .catch(error => {
+                alert('Error loading diff: ' + error);
+            });
+    }
+
+    function renderSemanticDiff(diff) {
+        let html = '<div class="diff-viewer"><table class="table table-sm table-bordered">';
+        html += '<thead><tr>';
+        html += '<th style="width: 40%">Field</th>';
+        html += '<th style="width: 30%">Previous Value</th>';
+        html += '<th style="width: 30%">New Value</th>';
+        html += '</tr></thead><tbody>';
+
+        // Added items
+        if (diff.added && diff.added.length > 0) {
+            diff.added.forEach(([path, value]) => {
+                html += '<tr class="table-success">';
+                html += `<td><i class="fas fa-plus-circle text-success me-2"></i><strong>${escapeHtml(path)}</strong></td>`;
+                html += '<td class="text-muted fst-italic">None</td>';
+                html += `<td>${formatValue(value)}</td>`;
+                html += '</tr>';
+            });
+        }
+
+        // Removed items
+        if (diff.removed && diff.removed.length > 0) {
+            diff.removed.forEach(([path, value]) => {
+                html += '<tr class="table-danger">';
+                html += `<td><i class="fas fa-minus-circle text-danger me-2"></i><strong>${escapeHtml(path)}</strong></td>`;
+                html += `<td>${formatValue(value)}</td>`;
+                html += '<td class="text-muted fst-italic">Removed</td>';
+                html += '</tr>';
+            });
+        }
+
+        // Changed items
+        if (diff.changed && diff.changed.length > 0) {
+            diff.changed.forEach(([path, oldVal, newVal]) => {
+                html += '<tr class="table-warning">';
+                html += `<td><i class="fas fa-pencil-alt text-warning me-2"></i><strong>${escapeHtml(path)}</strong></td>`;
+                html += `<td>${formatValue(oldVal)}</td>`;
+                html += `<td>${formatValue(newVal)}</td>`;
+                html += '</tr>';
+            });
+        }
+
+        if ((!diff.added || diff.added.length === 0) &&
+            (!diff.removed || diff.removed.length === 0) &&
+            (!diff.changed || diff.changed.length === 0)) {
+            html += '<tr><td colspan="3" class="text-center text-muted">';
+            html += '<i class="fas fa-check-circle me-1"></i> No changes detected.';
+            html += '</td></tr>';
+        }
+
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    function formatValue(value) {
+        if (typeof value === 'object' && value !== null) {
+            return '<pre class="m-0 bg-transparent p-0">' + JSON.stringify(value, null, 2) + '</pre>';
+        }
+        return escapeHtml(String(value));
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}
