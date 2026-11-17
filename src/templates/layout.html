@@ -422,7 +422,7 @@
                 <hr class="text-white">
                 <h6 class="sidebar-heading" data-bs-toggle="collapse" data-bs-target="#compliance-menu"
                     aria-expanded="false">Compliance <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
-                <div class="collapse" id="compliance-menu" data-bs-parent="#sidebar-accordion">
+                <ul class="collapse list-unstyled mb-0" id="compliance-menu" data-bs-parent="#sidebar-accordion">
 
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint == 'compliance.dashboard' %}active{% endif %}"
@@ -461,7 +461,7 @@
                             class="nav-link {% if request.endpoint and 'drift' in request.endpoint %}active{% endif %}"
                             href="{{ url_for('compliance.drift_dashboard') }}"><i class="fa-fw fas fa-chart-line"></i>
                             Drift Detection</a></li>
-                </div>
+                </ul>
                 {% endif %}
 
                 {% if has_permission('knowledge_policy') %}
