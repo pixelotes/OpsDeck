@@ -88,6 +88,8 @@ env:
 #     User sync also needs the Graph application permissions User.Read.All and
 #     GroupMember.Read.All. With several replicas/workers, scheduled syncs are
 #     serialised with a Postgres advisory lock.
+#   DATA_ENCRYPTION_KEY: Fernet key that encrypts API connector credentials in the
+#     database. Strongly recommended; without it the key is derived from SECRET_KEY.
 existingSecret: ""
 
 # --- Backup Configuration ---

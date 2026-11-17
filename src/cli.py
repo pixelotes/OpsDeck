@@ -94,3 +94,36 @@ def register_commands(app):
         else:
             print(f"❌ {prefix} {run.status}: {run.error}")
             raise SystemExit(1)
+
+    @app.cli.command('rotate-data-encryption-key')
+    def rotate_data_encryption_key():
+        """Re-encrypt stored secrets under the first DATA_ENCRYPTION_KEY.
+
+        To rotate: prepend the new key to DATA_ENCRYPTION_KEY (new,old), run this, then
+        remove the old key. Run it too after first setting DATA_ENCRYPTION_KEY: values
+        encrypted with the SECRET_KEY-derived key are moved to the new key.
+        """
+        from sqlalchemy.orm.attributes import flag_modified
+        from .extensions import db
+        from .models.connectors import ConnectorTask, ENC_MARKER
+        from .utils import crypto
+
+        rotated = 0
+        try:
+            for task in ConnectorTask.query.all():
+                cfg = dict(task.auth_config or {})
+                changed = False
+                for key, value in cfg.items():
+                    if isinstance(value, dict) and ENC_MARKER in value:
+                        cfg[key] = {**value, ENC_MARKER: crypto.rotate(value[ENC_MARKER])}
+                        changed = True
+                if changed:
+                    task.auth_config = cfg
+                    flag_modified(task, 'auth_config')
+                    rotated += 1
+            db.session.commit()
+        except crypto.DecryptionError as exc:
+            db.session.rollback()
+            print(f"❌ {exc} Nothing was changed.")
+            raise SystemExit(1)
+        print(f"✅ Re-encrypted the secrets of {rotated} connector task(s).")

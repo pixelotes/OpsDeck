@@ -29,11 +29,19 @@ class BaseConnector(ABC):
     def __init__(self, task, subtask):
         self.task = task
         self.subtask = subtask
+        self._auth = None
         self.session = requests.Session()
         self.max_retries = 3
         self.retry_delay = 2  # seconds
         self.rate_limit_delay = 60  # seconds
         
+    @property
+    def auth(self):
+        """The task's credentials, decrypted once per run. Never log this."""
+        if self._auth is None:
+            self._auth = self.task.credentials
+        return self._auth
+
     @abstractmethod
     def authenticate(self) -> None:
         """

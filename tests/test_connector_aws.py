@@ -12,6 +12,10 @@ class MockTask:
             'aws_region': 'us-east-1'
         }
 
+    @property
+    def credentials(self):
+        return self.auth_config
+
 class MockSubtask:
     def __init__(self, endpoint):
         self.endpoint = endpoint

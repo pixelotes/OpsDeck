@@ -1951,6 +1951,21 @@ def internal_test_security():
             'message': 'SECRET_KEY is configured properly'
         }
     
+    # 1b. Encryption key for secrets stored in the database (API connector credentials)
+    from src.utils import crypto
+    if crypto.key_source() == 'dedicated':
+        audit_results['checks']['data_encryption_key'] = {
+            'status': 'ok',
+            'message': 'DATA_ENCRYPTION_KEY is configured'
+        }
+    else:
+        audit_results['checks']['data_encryption_key'] = {
+            'status': 'warning',
+            'message': 'Stored secrets are encrypted with a key derived from SECRET_KEY'
+        }
+        audit_results['warnings'].append('DATA_ENCRYPTION_KEY is not set: rotating SECRET_KEY would make stored connector credentials unreadable')
+        audit_results['recommendations'].append('Set DATA_ENCRYPTION_KEY and run "flask rotate-data-encryption-key"')
+
     # 2. Check MFA
     mfa_enabled = current_app.config.get('MFA_ENABLED', False)
     audit_results['checks']['mfa'] = {

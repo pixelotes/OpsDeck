@@ -4,8 +4,8 @@ import re
 from datetime import timedelta
 
 from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
-from sqlalchemy.orm.attributes import flag_modified
 
+from ..connectors import msgraph
 from ..extensions import db
 from ..models.connectors import ConnectorReport, ConnectorSubtask, ConnectorTask
 from ..services import connector_service
@@ -38,7 +38,9 @@ def dashboard():
 @requires_permission(MODULE)
 def task_detail(task_id):
     task = db.get_or_404(ConnectorTask, task_id)
-    return render_template('connectors/task_detail.html', task=task)
+    entra_app_available = msgraph.entra_app_credentials(current_app.config) is not None
+    return render_template('connectors/task_detail.html', task=task,
+                           entra_app_available=entra_app_available)
 
 
 @connectors_bp.route('/task/<int:task_id>/run', methods=['POST'])
@@ -133,11 +135,19 @@ def _configure_google(task, cfg):
 
 
 def _configure_microsoft(task, cfg):
+    if _form('use_entra_app'):
+        if msgraph.entra_app_credentials(current_app.config) is None:
+            return 'The Entra ID app registration is not configured on this server (AZURE_OAUTH_* settings)'
+        # Nothing secret is stored: the token comes from the server-side AZURE_OAUTH_* settings.
+        cfg.clear()
+        cfg['use_entra_app'] = True
+        return None
     tenant_id, client_id, client_secret = _form('tenant_id'), _form('client_id'), _form('client_secret')
     if not tenant_id or not client_id:
         return 'Tenant ID and Client ID are required'
     if not client_secret and 'client_secret' not in cfg:
         return 'Client Secret is required for the initial configuration'
+    cfg.pop('use_entra_app', None)
     cfg['tenant_id'], cfg['client_id'] = tenant_id, client_id
     if client_secret:
         cfg['client_secret'] = client_secret
@@ -228,8 +238,7 @@ def configure_credentials(task_id):
         flash(error, 'warning')
         return _back_to(task_id)
 
-    task.auth_config = cfg
-    flag_modified(task, 'auth_config')
+    task.set_credentials(cfg)
     db.session.commit()
     flash(f'{task.service_label} credentials saved', 'success')
     return _back_to(task_id)
