@@ -29,6 +29,7 @@
                 <thead>
                     <tr>
                         <th>Name</th>
+                        <th>Owner</th>
                         <th>Email</th>
                         <th>Phone</th>
                         <th>Subscriptions</th>
@@ -44,7 +45,7 @@
                             <span class="badge bg-danger">Critical</span>
                             {% endif %}
                         </td>
-
+                        <td>{{ L.person(supplier.owner) }}</td>
                         <td>{{ supplier.email or L.empty() }}</td>
                         <td>{{ supplier.phone or L.empty() }}</td>
                         <td><span class="badge bg-info">{{ supplier.subscriptions|length }}</span></td>

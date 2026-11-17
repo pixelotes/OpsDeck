@@ -4,6 +4,7 @@ from flask import (
 from ..models import db, Supplier
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
+from ..utils.owner import parse_owner, owner_choices, InvalidOwner
 
 suppliers_bp = Blueprint('suppliers', __name__)
 
@@ -53,7 +54,15 @@ def new_supplier():
         if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
                 return redirect(url_for(SUPPLIERS_LIST_ENDPOINT))
+        try:
+            owner_type, owner_id = parse_owner(request.form.get('owner'))
+        except InvalidOwner:
+            flash('The selected owner does not exist.', 'danger')
+            users, groups = owner_choices()
+            return render_template('suppliers/form.html', users=users, groups=groups), 400
         supplier = Supplier(
+            owner_type=owner_type,
+            owner_id=owner_id,
             name=request.form['name'],
             email=request.form.get('email'),
             phone=request.form.get('phone'),
@@ -69,7 +78,8 @@ def new_supplier():
         flash('Supplier created successfully!', 'success')
         return redirect(url_for(SUPPLIERS_LIST_ENDPOINT))
 
-    return render_template('suppliers/form.html')
+    users, groups = owner_choices()
+    return render_template('suppliers/form.html', users=users, groups=groups)
 
 @suppliers_bp.route('/<int:id>', methods=['GET'])
 @login_required
@@ -88,6 +98,14 @@ def edit_supplier(id):
         if not has_write_permission(MODULE):
                 flash('Write access required for this action.', 'danger')
                 return redirect(url_for('suppliers.supplier_detail', id=id))
+        try:
+            supplier.owner_type, supplier.owner_id = parse_owner(
+                request.form.get('owner'), current=(supplier.owner_type, supplier.owner_id))
+        except InvalidOwner:
+            db.session.rollback()
+            flash('The selected owner does not exist.', 'danger')
+            users, groups = owner_choices()
+            return render_template('suppliers/form.html', supplier=supplier, users=users, groups=groups), 400
         supplier.name = request.form['name']
         supplier.email = request.form.get('email')
         supplier.phone = request.form.get('phone')
@@ -102,7 +120,8 @@ def edit_supplier(id):
         flash('Supplier updated successfully!', 'success')
         return redirect(url_for('suppliers.supplier_detail', id=supplier.id)) # Redirect to detail view
     
-    return render_template('suppliers/form.html', supplier=supplier)
+    users, groups = owner_choices()
+    return render_template('suppliers/form.html', supplier=supplier, users=users, groups=groups)
 
 @suppliers_bp.route('/<int:id>/delete', methods=['POST'])
 @login_required

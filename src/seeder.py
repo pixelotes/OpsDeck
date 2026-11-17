@@ -382,6 +382,19 @@ def seed_data(app=None):
         
         db.session.commit()
 
+        # Supplier owners (SRM). Only fills suppliers that have none yet, so a re-run
+        # never overrides an owner someone changed by hand.
+        supplier_owners = {
+            'Microsoft': ('User', users[0].id), 'Okta': ('User', users[0].id),
+            'Atlassian': ('Group', group_engineering.id), 'Amazon Web Subscriptions': ('Group', group_engineering.id),
+            'Slack (Salesforce)': ('User', users[2].id), 'Adobe': ('Group', group_design.id),
+            'Figma': ('User', users[3].id), 'Dell Technologies': ('User', users[5].id),
+        }
+        for supplier in suppliers:
+            if supplier.name in supplier_owners and not supplier.owner_id:
+                supplier.owner_type, supplier.owner_id = supplier_owners[supplier.name]
+        db.session.commit()
+
         # 3. Create Budgets and Purchases (without cost)
         print("Creating budgets and purchases...")
         budgets = [
