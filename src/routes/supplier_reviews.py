@@ -22,6 +22,7 @@ MODULE = 'compliance'
 TEMPLATES_LIST = 'supplier_reviews.list_templates'
 FILL = 'supplier_reviews.fill_review'
 VIEW = 'supplier_reviews.view_review'
+TEMPLATE_FORM = 'supplier_reviews/template_form.html'
 
 
 def _current_user():
@@ -42,7 +43,7 @@ def _can_view(review, user):
 # Reviews
 # --------------------------------------------------------------------------- #
 
-@supplier_reviews_bp.route('/mine')
+@supplier_reviews_bp.route('/mine', methods=['GET'])
 @login_required
 def my_reviews():
     user = _current_user()
@@ -72,7 +73,7 @@ def start_review(supplier_id):
     return redirect(url_for(FILL, id=review.id))
 
 
-@supplier_reviews_bp.route('/<int:id>')
+@supplier_reviews_bp.route('/<int:id>', methods=['GET'])
 @login_required
 def view_review(id):
     review = db.get_or_404(SecurityAssessment, id)
@@ -120,7 +121,7 @@ def fill_review(id):
 # Templates
 # --------------------------------------------------------------------------- #
 
-@supplier_reviews_bp.route('/templates')
+@supplier_reviews_bp.route('/templates', methods=['GET'])
 @login_required
 @requires_permission(MODULE)
 def list_templates():
@@ -189,13 +190,13 @@ def new_template():
         db.session.rollback()
         for e in errors:
             flash(e, 'danger')
-        return render_template('supplier_reviews/template_form.html', template=None,
+        return render_template(TEMPLATE_FORM, template=None,
                                form_questions=_questions_from_form(request.form)[0],
                                kinds=QUESTION_KINDS, check_codes=CHECK_CODES), 400
     default = reviews.ensure_default_template()
     db.session.commit()
     rows = [(q.text, q.kind, q.help_text, q.code) for q in default.questions]
-    return render_template('supplier_reviews/template_form.html', template=None, form_questions=rows,
+    return render_template(TEMPLATE_FORM, template=None, form_questions=rows,
                            kinds=QUESTION_KINDS, check_codes=CHECK_CODES)
 
 
@@ -213,11 +214,11 @@ def edit_template(id):
         db.session.rollback()
         for e in errors:
             flash(e, 'danger')
-        return render_template('supplier_reviews/template_form.html', template=template,
+        return render_template(TEMPLATE_FORM, template=template,
                                form_questions=_questions_from_form(request.form)[0],
                                kinds=QUESTION_KINDS, check_codes=CHECK_CODES), 400
     rows = [(q.text, q.kind, q.help_text, q.code) for q in template.questions]
-    return render_template('supplier_reviews/template_form.html', template=template, form_questions=rows,
+    return render_template(TEMPLATE_FORM, template=template, form_questions=rows,
                            kinds=QUESTION_KINDS, check_codes=CHECK_CODES)
 
 

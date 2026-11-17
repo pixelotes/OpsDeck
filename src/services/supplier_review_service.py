@@ -286,15 +286,14 @@ def _run_lock():
 
 def run_daily(app):
     """Scheduler entry point."""
-    with app.app_context():
-        with _run_lock() as acquired:
-            if not acquired:
-                return
-            try:
-                created = schedule_due_reviews()
-                reminded = send_overdue_reminders()
-                app.logger.info('Supplier reviews: %d opened, %d reminders sent.', len(created), len(reminded))
-            except Exception:  # the scheduler must not crash
-                db.session.rollback()
-                app.logger.exception('Supplier review scheduling failed.')
+    with app.app_context(), _run_lock() as acquired:
+        if not acquired:
+            return
+        try:
+            created = schedule_due_reviews()
+            reminded = send_overdue_reminders()
+            app.logger.info('Supplier reviews: %d opened, %d reminders sent.', len(created), len(reminded))
+        except Exception:  # the scheduler must not crash
+            db.session.rollback()
+            app.logger.exception('Supplier review scheduling failed.')
 

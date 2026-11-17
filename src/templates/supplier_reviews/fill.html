@@ -57,7 +57,8 @@
                     </div>
                     {{ choice(q, check_answers) }}
                 </div>
-                <input type="text" class="form-control form-control-sm mt-2" name="comment_{{ q.id }}"
+                <label class="visually-hidden" for="comment_{{ q.id }}">Comment on: {{ q.text }}</label>
+                <input type="text" class="form-control form-control-sm mt-2" name="comment_{{ q.id }}" id="comment_{{ q.id }}"
                     placeholder="Comment (optional)" value="{{ form.get('comment_' ~ q.id, '') }}">
             </li>
             {% endfor %}
@@ -89,7 +90,8 @@
                     </div>
                     {{ choice(q, review_answers) }}
                 </div>
-                <textarea class="form-control form-control-sm mt-2" name="comment_{{ q.id }}" rows="1"
+                <label class="visually-hidden" for="comment_{{ q.id }}">Comment on: {{ q.text }}</label>
+                <textarea class="form-control form-control-sm mt-2" name="comment_{{ q.id }}" id="comment_{{ q.id }}" rows="1"
                     placeholder="Comment">{{ form.get('comment_' ~ q.id, '') }}</textarea>
             </li>
             {% endfor %}
