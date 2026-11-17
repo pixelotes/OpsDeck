@@ -456,3 +456,13 @@ def test_connector_credentials_are_used(init_database):
 def test_regular_users_cannot_open_the_sync(user_client):
     resp = user_client.get('/settings/jira-assets/')
     assert resp.status_code in (302, 403)
+
+
+def test_status_values_endpoint_hides_error_details(auth_client):
+    auth_client.post('/settings/jira-assets/profiles/new', data=_profile_form())
+    profile = JiraAssetsProfile.query.one()
+    with patch.object(svc.JiraAssetsClient, 'from_connector', side_effect=JiraAssetsError('internal detail')):
+        resp = auth_client.get(f'/settings/jira-assets/profiles/{profile.id}/status-values')
+    assert resp.status_code == 502
+    assert 'internal detail' not in resp.get_data(as_text=True)
+    assert 'Atlassian connector' in resp.get_json()['error']

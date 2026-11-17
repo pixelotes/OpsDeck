@@ -121,7 +121,7 @@ class _Plan:
 
     def result(self, linked_total):
         self.changes.sort(key=lambda c: (ACTIONS.index(c['action']), c['label'] or '', c['jira_id']))
-        counts = {a: 0 for a in ACTIONS}
+        counts = dict.fromkeys(ACTIONS, 0)
         for change in self.changes:
             counts[change['action']] += 1
         return {'changes': self.changes, 'warnings': self.warnings, 'counts': counts,

@@ -1,4 +1,5 @@
 """Jira Assets sync: profiles, preview -> confirm, and run history (Settings module)."""
+import logging
 from collections import Counter
 
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
@@ -17,6 +18,7 @@ from ..utils.logger import log_audit
 from .main import login_required
 
 jira_assets_bp = Blueprint('jira_assets', __name__)
+logger = logging.getLogger(__name__)
 
 MODULE = 'settings'
 HOME = 'jira_assets.index'
@@ -49,9 +51,9 @@ def index():
 # --------------------------------------------------------------------------- #
 
 def _form_context(profile, target):
-    return dict(profile=profile, target=target, targets=TARGETS, target_labels=TARGET_LABELS,
-                target_actions=TARGET_ACTIONS, default_fields=DEFAULT_FIELDS,
-                default_status_attribute=DEFAULT_STATUS_ATTRIBUTE)
+    return {'profile': profile, 'target': target, 'targets': TARGETS, 'target_labels': TARGET_LABELS,
+            'target_actions': TARGET_ACTIONS, 'default_fields': DEFAULT_FIELDS,
+            'default_status_attribute': DEFAULT_STATUS_ATTRIBUTE}
 
 
 def _parse_form(profile, form):
@@ -187,8 +189,11 @@ def status_values(id):
     attribute = request.args.get('attribute') or profile.status_attribute
     try:
         objects = svc.fetch(profile)
-    except JiraAssetsError as exc:
-        return jsonify({'error': str(exc)}), 502
+    except JiraAssetsError:
+        # The details may include API responses: log them, answer with a fixed message.
+        logger.exception('Loading Jira status values for profile %s failed', profile.id)
+        return jsonify({'error': 'Jira Assets could not be queried. Check the Atlassian connector '
+                                 'credentials and the object type; the server log has the details.'}), 502
     counts = Counter((o['attrs'].get(attribute) or ['(empty)'])[0] for o in objects)
     return jsonify({'attribute': attribute, 'total': len(objects),
                     'values': [{'value': v, 'count': c} for v, c in counts.most_common()]})
