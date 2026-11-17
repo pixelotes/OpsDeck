@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+
+{% block title %}Report #{{ report.id }} - {{ report.subtask.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h4">Report #{{ report.id }}</h1>
+            <p class="text-muted mb-0">
+                <strong>{{ report.subtask.name }}</strong> •
+                {{ report.created_at.strftime('%Y-%m-%d %H:%M:%S') }} •
+                {{ report.record_count }} records
+            </p>
+        </div>
+        <div class="btn-group">
+            <a href="?view=table" class="btn btn-sm btn-outline-primary {% if view_type == 'table' %}active{% endif %}">
+                <i class="fas fa-table"></i> Table
+            </a>
+            <a href="?view=json" class="btn btn-sm btn-outline-primary {% if view_type == 'json' %}active{% endif %}">
+                <i class="fas fa-code"></i> JSON
+            </a>
+        </div>
+    </div>
+
+    {% if view_type == 'table' %}
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover" id="dataTable">
+                    <thead class="table-dark">
+                        <tr id="tableHeaders"><th scope="col">Data</th></tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body">
+            <pre class="bg-light p-3 m-0" style="max-height: 80vh; overflow-y: auto;" id="jsonData"></pre>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script src="{{ url_for('static', filename='js/connector-reports.js') }}"></script>
+<script>
+    const reportData = {{ report_data | tojson }};
+
+    {% if view_type == 'table' %}
+    (function () {
+        const CR = window.ConnectorReports;
+        const headerRow = document.getElementById('tableHeaders');
+        const body = document.getElementById('tableBody');
+        const items = CR.extractItems(reportData);
+        headerRow.replaceChildren();
+        if (items.length === 0) {
+            CR.renderEmpty(body);
+            return;
+        }
+        const columns = Object.keys(items[0]);
+        columns.forEach(col => {
+            const th = document.createElement('th');
+            th.scope = 'col';
+            th.textContent = CR.humanize(col);
+            headerRow.appendChild(th);
+        });
+        CR.renderRows(body, items, columns);
+    })();
+    {% else %}
+    document.getElementById('jsonData').textContent = JSON.stringify(reportData, null, 2);
+    {% endif %}
+</script>
+{% endblock %}

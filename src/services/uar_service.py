@@ -198,19 +198,13 @@ class UARAutomationService:
                 raise ValueError("json_data is required for JSON source")
             data = json_data if isinstance(json_data, list) else []
 
-        elif source_type == 'Enterprise Report':
+        elif source_type == 'Connector Report':
             report_id = source_config.get('report_id')
             if not report_id:
-                raise ValueError("report_id is required for Enterprise Report source")
-
+                raise ValueError("report_id is required for Connector Report source")
             # load_from_report resolves the report, raises if it does not exist, and
-            # loads it into the engine itself, so there is nothing to fetch here. This
-            # used to look up the Report and pass the object as the table name, one
-            # argument short — a TypeError, which is to say this source never once ran.
-            try:
-                return engine.load_from_report(table_name, report_id)
-            except ImportError:
-                raise ValueError("OpsDeck Enterprise plugin not available")
+            # loads it into the engine itself.
+            return engine.load_from_report(table_name, report_id)
 
         else:
             raise ValueError(f"Unknown source type: {source_type}")

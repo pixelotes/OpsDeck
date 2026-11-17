@@ -95,8 +95,7 @@ fi
 if [ "$ENTERPRISE_ENABLED" = "True" ]; then
     if [ -d "/app/opsdeck-enterprise" ]; then
         echo "Seeding enterprise data..."
-        # We assume plugin was installed at the beginning of the script
-        flask seed-connectors
+        # API connectors are core now and seeded by seed-db-prod
         flask seed-ai-profiles
         echo "✓ Enterprise plugin configured and seeded"
     fi

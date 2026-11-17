@@ -1,0 +1,488 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ subtask.name }} - Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('connectors.dashboard') }}">Connectors</a></li>
+            <li class="breadcrumb-item"><a
+                    href="{{ url_for('connectors.task_detail', task_id=subtask.task_id) }}">{{
+                    subtask.task.name }}</a></li>
+            <li class="breadcrumb-item active">{{ subtask.name }} - Reports</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ subtask.name }}</h1>
+        <a href="{{ url_for('connectors.task_detail', task_id=subtask.task_id) }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+
+    {% if reports %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Execution History ({{ pagination.total }} total)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Date</th>
+                            <th>Records</th>
+                            <th>Duration</th>
+                            <th>Checksum</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in reports %}
+                        <tr>
+                            <td>#{{ report.id }}</td>
+                            <td>
+                                <span title="{{ report.created_at }}">
+                                    {{ report.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ report.record_count }} items</span>
+                            </td>
+                            <td>{{ report.fetch_duration_ms }} ms</td>
+                            <td>
+                                <code class="small">{{ (report.checksum or "")[:12] }}…</code>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="viewReport({{ report.id }})"
+                                    title="View data">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+
+                                <!-- Always show diff button - API will compare with previous report -->
+                                <button class="btn btn-sm btn-warning" onclick="viewDiffForReport({{ report.id }})"
+                                    title="Compare with previous">
+                                    <i class="fas fa-code-compare"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination controls -->
+            {% if pagination.pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="text-muted">
+                    Showing {{ pagination.per_page * (pagination.page - 1) + 1 }} to {{ [pagination.per_page *
+                    pagination.page, pagination.total]|min }} of {{ pagination.total }} reports
+                </div>
+                <nav aria-label="Reports pagination">
+                    <ul class="pagination mb-0">
+                        <!-- First page -->
+                        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                            <a class="page-link"
+                                href="{% if pagination.has_prev %}{{ url_for('connectors.subtask_reports', subtask_id=subtask.id, page=1) }}{% else %}#{% endif %}">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                        </li>
+
+                        <!-- Previous page -->
+                        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                            <a class="page-link"
+                                href="{% if pagination.has_prev %}{{ url_for('connectors.subtask_reports', subtask_id=subtask.id, page=pagination.prev_num) }}{% else %}#{% endif %}">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        </li>
+
+                        <!-- Page numbers -->
+                        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2,
+                        right_current=2) %}
+                        {% if page_num %}
+                        <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                            <a class="page-link"
+                                href="{{ url_for('connectors.subtask_reports', subtask_id=subtask.id, page=page_num) }}">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+
+                        <!-- Next page -->
+                        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                            <a class="page-link"
+                                href="{% if pagination.has_next %}{{ url_for('connectors.subtask_reports', subtask_id=subtask.id, page=pagination.next_num) }}{% else %}#{% endif %}">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+
+                        <!-- Last page -->
+                        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                            <a class="page-link"
+                                href="{% if pagination.has_next %}{{ url_for('connectors.subtask_reports', subtask_id=subtask.id, page=pagination.pages) }}{% else %}#{% endif %}">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        No reports for this subtask. Run the task to generate the first report.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal para ver datos -->
+<div class="modal fade" id="reportModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reportModalTitle">Report Data</h5>
+                <fieldset class="btn-group ms-3" aria-label="Report view">
+                    <button type="button" class="btn btn-sm btn-outline-primary active" id="btnTableView"
+                        onclick="switchView('table')">
+                        <i class="fas fa-table"></i> Table
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnJsonView"
+                        onclick="switchView('json')">
+                        <i class="fas fa-code"></i> JSON
+                    </button>
+                </fieldset>
+
+                <!-- Column visibility toggle (only visible in table view) - Custom dropdown -->
+                <div class="position-relative ms-2" id="columnToggleDropdown" style="display: none;">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" id="columnToggleButton">
+                        <i class="fas fa-columns"></i> Columns <i class="fas fa-caret-down ms-1"></i>
+                    </button>
+                    <div class="position-absolute bg-white border rounded shadow-sm" id="columnTogglePanel"
+                        style="display: none; top: 100%; right: 0; min-width: 220px; max-height: 300px; overflow-y: auto; z-index: 1060;">
+                        <!-- Column checkboxes will be dynamically added here -->
+                    </div>
+                </div>
+
+                <!-- Search/filter input (only visible in table view) -->
+                <div class="ms-2" id="searchInputContainer" style="display: none;">
+                    <div class="input-group input-group-sm" style="width: 200px;">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <label class="visually-hidden" for="tableSearchInput">Search records</label>
+                        <input type="text" class="form-control" id="tableSearchInput" placeholder="Search...">
+                        <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" title="Clear">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Download CSV button (only visible in table view) -->
+                <button class="btn btn-sm btn-outline-success ms-2" type="button" id="downloadCsvBtn"
+                    style="display: none;" title="Download CSV">
+                    <i class="fas fa-download"></i> CSV
+                </button>
+
+                <button class="btn btn-sm btn-outline-secondary ms-2" type="button" id="fullscreenBtn"
+                    title="Open in a new tab">
+                    <i class="fas fa-expand"></i> Full screen
+                </button>
+
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Table view -->
+                <div id="reportTableView" class="table-responsive">
+                    <table class="table table-sm table-hover" id="reportTable">
+                        <thead class="table-dark">
+                            <tr id="reportTableHeaders"><th scope="col">Data</th></tr>
+                        </thead>
+                        <tbody id="reportTableBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- JSON view -->
+                <div id="reportJsonView" style="display: none;">
+                    <pre id="reportData" class="bg-light p-3" style="max-height: 500px; overflow-y: auto;"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="text-muted me-auto" id="reportStats"></span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para ver diff -->
+<div class="modal fade" id="diffModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Report Comparison</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="diffInfo" class="mb-3"></div>
+
+                <!-- Semantic diff viewer -->
+                <div id="diffViewer"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/connector-reports.js') }}"></script>
+<script>
+    const CR = window.ConnectorReports;
+    const DIFF_URL = "{{ url_for('connectors.get_diff', subtask_id=subtask.id) }}";
+    const REPORT_URL = "{{ url_for('connectors.get_report', report_id=0) }}".replace(/0$/, '');
+    const FULLSCREEN_URL = "{{ url_for('connectors.report_fullscreen', report_id=0) }}".replace(/0\/fullscreen$/, '');
+
+    const state = {
+        data: null, reportId: null, columns: [], hidden: new Set(),
+        sortColumn: null, sortDirection: 'asc', search: '',
+    };
+
+    function setTableControlsVisible(visible) {
+        document.getElementById('reportTableView').style.display = visible ? 'block' : 'none';
+        document.getElementById('reportJsonView').style.display = visible ? 'none' : 'block';
+        document.getElementById('btnTableView').classList.toggle('active', visible);
+        document.getElementById('btnJsonView').classList.toggle('active', !visible);
+        document.getElementById('columnToggleDropdown').style.display = visible ? 'block' : 'none';
+        document.getElementById('searchInputContainer').style.display = visible ? 'block' : 'none';
+        document.getElementById('downloadCsvBtn').style.display = visible ? 'inline-block' : 'none';
+    }
+
+    function switchView(view) {
+        setTableControlsVisible(view === 'table');
+    }
+
+    function sortByColumn(columnIndex) {
+        const column = state.columns[columnIndex];
+        if (state.sortColumn === column) {
+            state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            state.sortColumn = column;
+            state.sortDirection = 'asc';
+        }
+        renderTable();
+    }
+
+    function applySearch(query) {
+        state.search = query.toLowerCase().trim();
+        renderTable();
+    }
+
+    /** The rows currently shown: filtered by the search box and sorted. */
+    function visibleItems() {
+        const items = CR.filterItems(CR.extractItems(state.data), state.columns, state.hidden, state.search);
+        if (state.sortColumn && state.columns.includes(state.sortColumn)) {
+            return CR.sortItems(items, state.sortColumn, state.sortDirection);
+        }
+        return items;
+    }
+
+    function downloadCsv() {
+        if (!state.data) return;
+        const columns = state.columns.filter((col, idx) => !state.hidden.has(idx));
+        const escapeCsv = (value) => {
+            if (value === null || value === undefined) return '';
+            const text = CR.stringify(value);
+            return /[",\n]/.test(text) ? '"' + text.replaceAll('"', '""') + '"' : text;
+        };
+        const rows = [columns.map(escapeCsv).join(',')];
+        visibleItems().forEach(item => rows.push(columns.map(col => escapeCsv(item[col])).join(',')));
+
+        const url = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `report_${state.reportId}_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    function toggleColumn(columnIndex) {
+        if (state.hidden.has(columnIndex)) {
+            state.hidden.delete(columnIndex);
+        } else {
+            state.hidden.add(columnIndex);
+        }
+        renderTable();
+    }
+
+    function updateColumnToggles() {
+        const panel = document.getElementById('columnTogglePanel');
+        panel.replaceChildren();
+        state.columns.forEach((col, idx) => {
+            const item = document.createElement('div');
+            item.className = 'px-3 py-2 d-flex align-items-center column-toggle-item';
+            item.style.cursor = 'pointer';
+            item.style.userSelect = 'none';
+            item.style.borderBottom = '1px solid #eee';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'form-check-input me-2';
+            checkbox.id = 'col-toggle-' + idx;
+            checkbox.checked = !state.hidden.has(idx);
+
+            const label = document.createElement('label');
+            label.htmlFor = checkbox.id;
+            label.style.cursor = 'pointer';
+            label.style.marginBottom = '0';
+            label.style.flex = '1';
+            label.textContent = CR.humanize(col);
+
+            item.append(checkbox, label);
+            item.addEventListener('click', function (e) {
+                if (e.target !== checkbox) checkbox.checked = !checkbox.checked;
+                toggleColumn(idx);
+            });
+            panel.appendChild(item);
+        });
+    }
+
+    function renderHeader(headerRow) {
+        state.columns.forEach((col, idx) => {
+            if (state.hidden.has(idx)) return;
+            const th = document.createElement('th');
+            th.scope = 'col';
+            th.style.cursor = 'pointer';
+            th.style.userSelect = 'none';
+            th.style.whiteSpace = 'nowrap';
+            th.onclick = () => sortByColumn(idx);
+
+            let icon = 'fas fa-sort text-muted';
+            if (state.sortColumn === col) {
+                icon = state.sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+            }
+            const indicator = document.createElement('i');
+            indicator.className = icon + ' ms-1';
+            th.append(CR.humanize(col), indicator);
+            headerRow.appendChild(th);
+        });
+    }
+
+    function updateStats(shown, total) {
+        const visibleColumns = state.columns.length - state.hidden.size;
+        let text = `${shown} record${shown === 1 ? '' : 's'}`;
+        if (state.search && shown !== total) text += ` (of ${total})`;
+        text += ` • ${visibleColumns}/${state.columns.length} columns`;
+        if (state.sortColumn) {
+            const arrow = state.sortDirection === 'asc' ? '↑' : '↓';
+            text += ` • Sorted by ${state.sortColumn.replaceAll('_', ' ')} (${arrow})`;
+        }
+        document.getElementById('reportStats').textContent = text;
+    }
+
+    function renderTable() {
+        const headerRow = document.getElementById('reportTableHeaders');
+        const body = document.getElementById('reportTableBody');
+        headerRow.replaceChildren();
+        body.replaceChildren();
+
+        const items = CR.extractItems(state.data);
+        if (items.length === 0) {
+            CR.renderEmpty(body);
+            return;
+        }
+        updateColumnToggles();
+        renderHeader(headerRow);
+        const shown = visibleItems();
+        CR.renderRows(body, shown, state.columns, state.hidden);
+        updateStats(shown.length, items.length);
+    }
+
+    function loadReport(reportId, data) {
+        const items = CR.extractItems(data);
+        Object.assign(state, {
+            data, reportId, columns: items.length ? Object.keys(items[0]) : [], hidden: new Set(),
+            sortColumn: null, sortDirection: 'asc', search: '',
+        });
+        const defaults = CR.defaultVisibleColumns(state.columns);
+        if (defaults && defaults.length) {
+            const show = new Set(defaults);
+            state.columns.forEach((col, idx) => { if (!show.has(col)) state.hidden.add(idx); });
+        }
+        document.getElementById('tableSearchInput').value = '';
+    }
+
+    function viewReport(reportId) {
+        fetch(REPORT_URL + reportId)
+            .then(response => response.json())
+            .then(payload => {
+                const data = JSON.parse(payload.data);
+                loadReport(reportId, data);
+                document.getElementById('reportModalTitle').textContent = `Report #${reportId}`;
+                document.getElementById('reportData').textContent = JSON.stringify(data, null, 2);
+                renderTable();
+                switchView('table');
+                new bootstrap.Modal(document.getElementById('reportModal')).show();
+            })
+            .catch(error => alert('Error loading report: ' + error));
+    }
+
+    function openFullscreen() {
+        const view = document.getElementById('btnTableView').classList.contains('active') ? 'table' : 'json';
+        window.open(`${FULLSCREEN_URL}${state.reportId}/fullscreen?view=${view}`, '_blank');
+    }
+
+    /** Compare a report with the one fetched just before it. */
+    function viewDiffForReport(reportId) {
+        fetch(`${DIFF_URL}?report=${reportId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                document.getElementById('diffInfo').replaceChildren(CR.renderDiffSummary(data));
+                document.getElementById('diffViewer').replaceChildren(CR.renderDiffTable(data.diff));
+                new bootstrap.Modal(document.getElementById('diffModal')).show();
+            })
+            .catch(error => alert('Error loading diff: ' + error));
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const toggleButton = document.getElementById('columnToggleButton');
+        const togglePanel = document.getElementById('columnTogglePanel');
+
+        toggleButton.addEventListener('click', function (e) {
+            e.stopPropagation();
+            togglePanel.style.display = togglePanel.style.display === 'block' ? 'none' : 'block';
+        });
+        document.addEventListener('click', function (e) {
+            if (!togglePanel.contains(e.target) && e.target !== toggleButton) {
+                togglePanel.style.display = 'none';
+            }
+        });
+        togglePanel.addEventListener('click', e => e.stopPropagation());
+
+        const searchInput = document.getElementById('tableSearchInput');
+        let searchTimeout = null;
+        searchInput.addEventListener('input', function (e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => applySearch(e.target.value), 300);
+        });
+        document.getElementById('clearSearchBtn').addEventListener('click', function () {
+            searchInput.value = '';
+            applySearch('');
+        });
+        document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
+        document.getElementById('fullscreenBtn').addEventListener('click', openFullscreen);
+    });
+</script>
+{% endblock %}
