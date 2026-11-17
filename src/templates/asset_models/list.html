@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Models - {{ super() }}{% endblock %}
 
@@ -33,7 +34,7 @@
                         <th>Notes</th>
                         <th class="text-end">Assets</th>
                         <th class="text-end">Peripherals</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -41,23 +42,17 @@
                     <tr>
                         <td><a href="{{ url_for('asset_models.model_detail', id=m.id) }}">{{ m.name }}</a></td>
                         <td><a href="{{ url_for('brands.brand_detail', id=m.brand_id) }}">{{ m.brand.name }}</a></td>
-                        <td>{{ m.notes or '-' }}</td>
+                        <td>{{ m.notes or L.empty() }}</td>
                         <td class="text-end">{{ m.assets|length }}</td>
                         <td class="text-end">{{ m.peripherals|length }}</td>
-                        <td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('asset_models.model_detail', id=m.id)) }}
                             {% if can_write('core_inventory') %}
-                            <a href="{{ url_for('asset_models.edit_model', id=m.id) }}"
-                                class="btn btn-sm btn-outline-primary me-1" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ url_for('asset_models.delete_model', id=m.id) }}" method="POST"
-                                class="d-inline" data-confirm="Delete model '{{ m.name }}'?">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </form>
+                            {{ L.action_edit(url_for('asset_models.edit_model', id=m.id)) }}
+                            {{ L.action_delete(url_for('asset_models.delete_model', id=m.id), "Delete model '" ~ m.name ~ "'?") }}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% else %}

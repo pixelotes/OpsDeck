@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}Security Incidents - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -43,7 +44,7 @@
                     <th>Tags</th>
                     <th>Owner</th>
                     <th>Assignee</th>
-                    <th>Actions</th>
+                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -60,15 +61,15 @@
                         <span class="badge bg-secondary">{{ tag.name }}</span>
                         {% endfor %}
                     </td>
-                    <td>{{ incident.owner.name if incident.owner else 'N/A' }}</td>
-                    <td>{{ incident.assignee.name if incident.assignee else 'N/A' }}</td>
-                    <td>
-                        <a href="{{ url_for('compliance.incident_detail', id=incident.id) }}"
-                            class="btn btn-sm btn-outline-primary me-1" title="View"><i class="fas fa-eye"></i></a>
+                    <td>{{ L.person(incident.owner) }}</td>
+                    <td>{{ L.person(incident.assignee) }}</td>
+                    <td class="text-end">
+                        {% call L.actions() %}
+                        {{ L.action_view(url_for('compliance.incident_detail', id=incident.id)) }}
                         {% if can_write('operations') %}
-                        <a href="{{ url_for('compliance.edit_incident', id=incident.id) }}"
-                            class="btn btn-sm btn-outline-primary" title="Edit"><i class="fas fa-edit"></i></a>
+                        {{ L.action_edit(url_for('compliance.edit_incident', id=incident.id)) }}
                         {% endif %}
+                        {% endcall %}
                     </td>
                 </tr>
                 {% endfor %}

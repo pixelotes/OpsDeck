@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Locations - {{ super() }}{% endblock %}
 
@@ -27,7 +28,7 @@
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -35,20 +36,14 @@
                     <tr>
                         <td><a href="{{ url_for('locations.location_detail', id=location.id) }}">{{ location.name }}</a>
                         </td>
-                        <td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('locations.location_detail', id=location.id)) }}
                             {% if can_write('core_inventory') %}
-                            <a href="{{ url_for('locations.edit_location', id=location.id) }}"
-                                class="btn btn-sm btn-outline-primary me-1" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ url_for('locations.archive_location', id=location.id) }}" method="POST"
-                                class="d-inline" data-confirm="Are you sure you want to archive this location?">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
-                                    <i class="fas fa-archive"></i>
-                                </button>
-                            </form>
+                            {{ L.action_edit(url_for('locations.edit_location', id=location.id)) }}
+                            {{ L.action_button(url_for('locations.archive_location', id=location.id), 'archive', 'Archive', method='post', confirm='Are you sure you want to archive this location?') }}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% else %}

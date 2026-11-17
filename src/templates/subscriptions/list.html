@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Subscriptions - {{ super() }}{% endblock %}
 
@@ -70,7 +71,7 @@
                         <th>Autorenew</th>
                         <th>Cost (EUR)</th>
                         <th>Tags</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -84,11 +85,11 @@
                             <a href="{{ url_for('suppliers.supplier_detail', id=subscription.supplier.id) }}">{{
                                 subscription.supplier.name }}</a>
                             {% else %}
-                            <span class="text-muted">N/A</span>
+                            {{ L.empty() }}
                             {% endif %}
                         </td>
                         <td>{{ subscription.renewal_period_value }} {{ subscription.renewal_period_type.title() }}</td>
-                        <td>{{ subscription.next_renewal_date.strftime('%Y-%m-%d') if subscription.next_renewal_date else 'N/A' }}</td>
+                        <td>{{ subscription.next_renewal_date.strftime('%Y-%m-%d') if subscription.next_renewal_date else L.empty() }}</td>
                         <td>
                             <span class="badge {{ 'bg-success' if subscription.auto_renew else 'bg-warning' }}">
                                 {{ 'Yes' if subscription.auto_renew else 'No' }}
@@ -101,21 +102,14 @@
                                 class="badge bg-primary text-decoration-none">{{ tag.name }}</a>
                             {% endfor %}
                         </td>
-                        <td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('subscriptions.subscription_detail', id=subscription.id)) }}
                             {% if can_write('core_inventory') %}
-                            <a href="{{ url_for('subscriptions.edit_subscription', id=subscription.id) }}"
-                                class="btn btn-sm btn-outline-primary me-1" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ url_for('subscriptions.archive_subscription', id=subscription.id) }}"
-                                method="POST" class="d-inline"
-                                data-confirm='Are you sure you want to archive this subscription?'>
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
-                                    <i class="fas fa-archive"></i>
-                                </button>
-                            </form>
+                            {{ L.action_edit(url_for('subscriptions.edit_subscription', id=subscription.id)) }}
+                            {{ L.action_button(url_for('subscriptions.archive_subscription', id=subscription.id), 'archive', 'Archive', method='post', confirm='Are you sure you want to archive this subscription?') }}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% endfor %}

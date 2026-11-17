@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}Manage Courses - {{ super() }}{% endblock %}
 
 {% block content %}
@@ -24,7 +25,7 @@
                     <tr>
                         <th style="width: 40%;">Title</th>
                         <th style="width: 45%;">Completion</th>
-                        <th style="width: 15%;">Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -48,10 +49,10 @@
                             <span class="text-muted">Not Assigned</span>
                             {% endif %}
                         </td>
-                        <td>
-                            <a href="{{ url_for('training.course_detail', id=course.id) }}"
-                                class="btn btn-sm btn-outline-primary" title="View Details"><i
-                                    class="fas fa-eye"></i></a>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('training.course_detail', id=course.id)) }}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% else %}

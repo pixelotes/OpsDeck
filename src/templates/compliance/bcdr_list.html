@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}BCDR Plans - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -27,12 +28,12 @@
                         <small>Last test: {{ plan.test_logs.first().test_date.strftime('%Y-%m-%d') if
                             plan.test_logs.first() else 'N/A' }}</small>
                         <div class="mt-2">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('compliance.bcdr_detail', id=plan.id)) }}
                             {% if can_write('operations') %}
-                            <a href="{{ url_for('compliance.edit_bcdr_plan', id=plan.id) }}"
-                                class="btn btn-sm btn-outline-primary me-1" title="Edit"><i class="fas fa-edit"></i></a>
+                            {{ L.action_edit(url_for('compliance.edit_bcdr_plan', id=plan.id)) }}
                             {% endif %}
-                            <a href="{{ url_for('compliance.bcdr_detail', id=plan.id) }}"
-                                class="btn btn-sm btn-outline-primary" title="View"><i class="fas fa-eye"></i></a>
+                            {% endcall %}
                         </div>
                     </div>
                 </div>

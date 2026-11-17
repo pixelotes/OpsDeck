@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Suppliers - {{ super() }}{% endblock %}
 
@@ -31,7 +32,7 @@
                         <th>Email</th>
                         <th>Phone</th>
                         <th>Subscriptions</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -44,30 +45,18 @@
                             {% endif %}
                         </td>
 
-                        <td>{{ supplier.email or '-' }}</td>
-                        <td>{{ supplier.phone or '-' }}</td>
+                        <td>{{ supplier.email or L.empty() }}</td>
+                        <td>{{ supplier.phone or L.empty() }}</td>
                         <td><span class="badge bg-info">{{ supplier.subscriptions|length }}</span></td>
-                        <td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('suppliers.supplier_detail', id=supplier.id)) }}
                             {% if can_write('procurement') %}
-                            <a href="{{ url_for('suppliers.edit_supplier', id=supplier.id) }}"
-                                class="btn btn-sm btn-outline-primary me-1" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ url_for('suppliers.archive_supplier', id=supplier.id) }}" method="POST"
-                                class="d-inline" data-confirm='Are you sure you want to archive this supplier?'>
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Archive">
-                                    <i class="fas fa-archive"></i>
-                                </button>
-                            </form>
-                            <form action="{{ url_for('suppliers.delete_supplier', id=supplier.id) }}" method="POST"
-                                class="d-inline" data-confirm='Are you sure you want to delete this supplier?'>
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </form>
+                            {{ L.action_edit(url_for('suppliers.edit_supplier', id=supplier.id)) }}
+                            {{ L.action_button(url_for('suppliers.archive_supplier', id=supplier.id), 'archive', 'Archive', method='post', confirm='Are you sure you want to archive this supplier?') }}
+                            {{ L.action_delete(url_for('suppliers.delete_supplier', id=supplier.id), "Are you sure you want to delete this supplier?") }}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% endfor %}

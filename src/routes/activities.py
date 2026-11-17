@@ -323,7 +323,7 @@ def get_objects_by_type():
         objects_data = [{'id': obj.id, 'name': obj.name} for obj in objects]
         
         return jsonify({'objects': objects_data})
-    except Exception as e:
+    except Exception:
         current_app.logger.exception("Failed to fetch objects for type '%s'", object_type)
         return jsonify({'error': 'An internal error has occurred.'}), 500
 

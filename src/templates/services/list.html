@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Service Catalog{% endblock %}
 
@@ -26,7 +27,7 @@
                         <th>Criticality</th>
                         <th>Status</th>
                         <th>SLA (Resp/Res)</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -43,13 +44,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if service.owner %}
-                            <span class="badge bg-light text-dark border">
-                                <i class="fas fa-user-circle"></i> {{ service.owner.name }}
-                            </span>
-                            {% else %}
-                            <span class="text-muted fst-italic">Unassigned</span>
-                            {% endif %}
+                            {{ L.person(service.owner) }}
                         </td>
                         <td>
                             {% if 'Tier 1' in service.criticality|default('', true) %}
@@ -72,16 +67,16 @@
                             <small>{{ service.sla_response_hours|default('-', true) }}h / {{
                                 service.sla_resolution_hours|default('-', true) }}h</small>
                             {% else %}
-                            <span class="text-muted">-</span>
+                            {{ L.empty() }}
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('services.detail', id=service.id)) }}
                             {% if can_write('core_inventory') %}
-                            <a href="{{ url_for('services.edit_service', id=service.id) }}"
-                                class="btn btn-sm btn-outline-primary" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
+                            {{ L.action_edit(url_for('services.edit_service', id=service.id)) }}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% endfor %}

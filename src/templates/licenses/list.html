@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}Licenses - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -35,10 +36,8 @@
                         <span class="badge bg-danger">Expired</span>
                         {% endif %}
                     </td>
-                    <td>{% if license.user %}{{ license.user.name }}{% else %}<span
-                            class="text-muted">Unassigned</span>{% endif %}</td>
-                    <td>{% if license.subscription %}{{ license.subscription.name }}{% else %}<span
-                            class="text-muted">N/A</span>{% endif %}</td>
+                    <td>{{ L.person(license.user) }}</td>
+                    <td>{{ license.subscription.name if license.subscription else L.empty() }}</td>
                     <td>{{ license.expiry_date.strftime('%Y-%m-%d') if license.expiry_date else 'Perpetual' }}</td>
                     <td>{{ license.currency }} {{ "%.2f"|format(license.cost) if license.cost else '' }}</td>
                 </tr>

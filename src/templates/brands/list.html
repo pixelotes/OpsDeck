@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}Brands - {{ super() }}{% endblock %}
 
@@ -25,7 +26,7 @@
                         <th class="text-end">Models</th>
                         <th class="text-end">Assets</th>
                         <th class="text-end">Peripherals</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -35,25 +36,19 @@
                         <td>
                             {% if brand.website %}
                             <a href="{{ brand.website }}" target="_blank" rel="noopener">{{ brand.website }}</a>
-                            {% else %}-{% endif %}
+                            {% else %}{{ L.empty() }}{% endif %}
                         </td>
                         <td class="text-end">{{ brand.models|length }}</td>
                         <td class="text-end">{{ brand.assets|length }}</td>
                         <td class="text-end">{{ brand.peripherals|length }}</td>
-                        <td>
+                        <td class="text-end">
+                            {% call L.actions() %}
+                            {{ L.action_view(url_for('brands.brand_detail', id=brand.id)) }}
                             {% if can_write('core_inventory') %}
-                            <a href="{{ url_for('brands.edit_brand', id=brand.id) }}"
-                                class="btn btn-sm btn-outline-primary me-1" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ url_for('brands.delete_brand', id=brand.id) }}" method="POST"
-                                class="d-inline" data-confirm="Delete brand '{{ brand.name }}'? This will also delete all of its models.">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </form>
+                            {{ L.action_edit(url_for('brands.edit_brand', id=brand.id)) }}
+                            {{ L.action_delete(url_for('brands.delete_brand', id=brand.id), "Delete brand '" ~ brand.name ~ "'? This will also delete all of its models.") }}
                             {% endif %}
+                            {% endcall %}
                         </td>
                     </tr>
                     {% else %}

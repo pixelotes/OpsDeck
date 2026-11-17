@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}User Groups - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -22,7 +23,7 @@
                     <th>Group Name</th>
                     <th>Description</th>
                     <th>Members</th>
-                    <th>Actions</th>
+                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -31,11 +32,13 @@
                     <td><a href="{{ url_for('groups.group_detail', id=group.id) }}">{{ group.name }}</a></td>
                     <td>{{ group.description }}</td>
                     <td><span class="badge bg-info">{{ group.users|length }}</span></td>
-                    <td>
+                    <td class="text-end">
+                        {% call L.actions() %}
+                        {{ L.action_view(url_for('groups.group_detail', id=group.id)) }}
                         {% if can_write('administration') %}
-                        <a href="{{ url_for('groups.edit_group', id=group.id) }}" class="btn btn-sm btn-outline-primary"
-                            title="Edit"><i class="fas fa-edit"></i></a>
+                        {{ L.action_edit(url_for('groups.edit_group', id=group.id)) }}
                         {% endif %}
+                        {% endcall %}
                     </td>
                 </tr>
                 {% else %}
