@@ -6,6 +6,7 @@ from datetime import timedelta
 from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 
 from ..connectors import msgraph
+from ..connectors.atlassian import validate_site_url
 from ..extensions import db
 from ..models.connectors import ConnectorReport, ConnectorSubtask, ConnectorTask
 from ..services import connector_service
@@ -158,6 +159,20 @@ def _configure_atlassian(task, cfg):
     site_url, email, api_token = _form('site_url'), _form('email'), _form('api_token')
     if not site_url or not email or (not api_token and 'api_token' not in cfg):
         return 'You must provide Site URL, Email and API Token'
+    try:
+        site_url = validate_site_url(site_url)
+    except ValueError as exc:
+        return str(exc)
+    # The stored token is only kept for the site and account it was entered for:
+    # otherwise an editor could point it at another host without knowing it.
+    previous_site = cfg.get('site_url')
+    try:
+        previous_site = validate_site_url(previous_site) if previous_site else None
+    except ValueError:
+        previous_site = None
+    changed = previous_site != site_url or (cfg.get('email') or '').lower() != email.lower()
+    if not api_token and changed:
+        return 'Re-enter the API Token when changing the Site URL or Email'
     cfg['site_url'], cfg['email'] = site_url, email
     if api_token:
         cfg['api_token'] = api_token
