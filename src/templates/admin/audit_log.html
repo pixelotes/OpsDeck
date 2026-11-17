@@ -255,39 +255,81 @@ function showChanges(entryId) {
         </div>
     `;
 
-    fetch(`{{ url_for('admin.audit_log_detail', id=0) }}`.replace('/0/', `/${entryId}/`))
-        .then(response => response.json())
+    // Every value below comes from audited data (names, field values), so it is set
+    // with textContent and never parsed as HTML.
+    const el = (tag, text, className) => {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined && text !== null) node.textContent = String(text);
+        return node;
+    };
+    const field = (label, value) => {
+        const p = el('p');
+        p.appendChild(el('strong', label + ': '));
+        if (value instanceof Node) {
+            p.appendChild(value);
+        } else {
+            p.appendChild(document.createTextNode(value));
+        }
+        return p;
+    };
+    const cellValue = value => {
+        const td = el('td');
+        if (value === null || value === undefined) {
+            td.appendChild(el('em', 'null', 'text-muted'));
+        } else {
+            td.textContent = typeof value === 'object' ? JSON.stringify(value) : String(value);
+        }
+        return td;
+    };
+    const badgeClass = {create: 'success', update: 'primary'};
+
+    fetch(`{{ url_for('admin.audit_log_detail', id=0) }}`.replace('/0/', `/${encodeURIComponent(entryId)}/`))
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        })
         .then(data => {
-            let html = '<div class="mb-3">';
-            html += `<p><strong>Action:</strong> <span class="badge bg-${data.action === 'create' ? 'success' : data.action === 'update' ? 'primary' : 'danger'}">${data.action}</span></p>`;
-            html += `<p><strong>Entity:</strong> <code>${data.entity_type}</code> #${data.entity_id}</p>`;
-            html += `<p><strong>Name:</strong> ${data.entity_repr || 'N/A'}</p>`;
-            html += `<p><strong>User:</strong> ${data.user_email || 'System'}</p>`;
-            html += `<p><strong>IP Address:</strong> ${data.ip_address || 'N/A'}</p>`;
-            html += `<p><strong>Timestamp:</strong> ${new Date(data.timestamp).toLocaleString()}</p>`;
-            html += '</div>';
+            const container = document.createDocumentFragment();
+            const summary = el('div', null, 'mb-3');
+            summary.appendChild(field('Action',
+                el('span', data.action, `badge bg-${badgeClass[data.action] || 'danger'}`)));
+            const entity = document.createDocumentFragment();
+            entity.appendChild(el('code', data.entity_type));
+            entity.appendChild(document.createTextNode(` #${data.entity_id}`));
+            summary.appendChild(field('Entity', entity));
+            summary.appendChild(field('Name', data.entity_repr || 'N/A'));
+            summary.appendChild(field('User', data.user_email || 'System'));
+            summary.appendChild(field('IP Address', data.ip_address || 'N/A'));
+            summary.appendChild(field('Timestamp', new Date(data.timestamp).toLocaleString()));
+            container.appendChild(summary);
 
             if (data.changes) {
-                html += '<hr><h6>Changes:</h6>';
-                html += '<table class="table table-sm table-bordered">';
-                html += '<thead><tr><th>Field</th><th>Old Value</th><th>New Value</th></tr></thead>';
-                html += '<tbody>';
-
-                for (const [field, change] of Object.entries(data.changes)) {
-                    const oldVal = change.old === null ? '<em class="text-muted">null</em>' : change.old;
-                    const newVal = change.new === null ? '<em class="text-muted">null</em>' : change.new;
-                    html += `<tr><td><code>${field}</code></td><td>${oldVal}</td><td>${newVal}</td></tr>`;
+                container.appendChild(el('hr'));
+                container.appendChild(el('h6', 'Changes:'));
+                const table = el('table', null, 'table table-sm table-bordered');
+                const headRow = el('tr');
+                ['Field', 'Old Value', 'New Value'].forEach(h => headRow.appendChild(el('th', h)));
+                table.appendChild(el('thead')).appendChild(headRow);
+                const tbody = table.appendChild(el('tbody'));
+                for (const [name, change] of Object.entries(data.changes)) {
+                    const row = el('tr');
+                    row.appendChild(el('td')).appendChild(el('code', name));
+                    const isPair = change !== null && typeof change === 'object';
+                    row.appendChild(cellValue(isPair ? change.old : null));
+                    row.appendChild(cellValue(isPair ? change.new : change));
+                    tbody.appendChild(row);
                 }
-
-                html += '</tbody></table>';
+                container.appendChild(table);
             } else {
-                html += '<p class="text-muted">No detailed changes recorded.</p>';
+                container.appendChild(el('p', 'No detailed changes recorded.', 'text-muted'));
             }
 
-            modalBody.innerHTML = html;
+            modalBody.replaceChildren(container);
         })
         .catch(error => {
-            modalBody.innerHTML = `<div class="alert alert-danger">Error loading details: ${error.message}</div>`;
+            modalBody.replaceChildren(
+                el('div', `Error loading details: ${error.message}`, 'alert alert-danger'));
         });
 }
 

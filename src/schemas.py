@@ -26,7 +26,10 @@ class UserSchema(BaseSchema):
     class Meta(BaseSchema.Meta):
         model = User
         # Exclude sensitive data automatically
-        exclude = ('password_hash', 'api_token')
+        exclude = ('password_hash', 'api_token_hash')
+
+USER_ROLES = ('user', 'editor', 'admin')
+
 
 class UserInputSchema(Schema):
     email = fields.Email(required=True, validate=validate.Length(min=1, max=100))
@@ -34,7 +37,8 @@ class UserInputSchema(Schema):
     department = fields.String(load_default=None, validate=validate.Length(max=100))
     job_title = fields.String(load_default=None, validate=validate.Length(max=100))
     personal_email = fields.String(load_default=None, validate=validate.Length(max=120))
-    role = fields.String(load_default='user', validate=validate.Length(max=50))
+    # None (not 'user') when omitted, so an upsert of an existing user keeps its role.
+    role = fields.String(load_default=None, validate=validate.OneOf(USER_ROLES))
 
 class AssetSchema(BaseSchema):
     custom_properties = fields.Dict(dump_only=True)

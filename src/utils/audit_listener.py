@@ -19,17 +19,52 @@ EXCLUDED_MODELS = {
     'NotificationSetting',    # User preferences
 }
 
-# Fields to exclude from change tracking (sensitive or redundant)
+# Fields whose values must never reach the audit log. They are still recorded, so the
+# log shows that a password or token changed, but with the value replaced by REDACTED.
+# Matching is by substring as well as by exact name: an exact-name list silently missed
+# `api_token` (a substring of nothing in it), and the next secret column will have a new
+# name too.
 SENSITIVE_FIELDS = {
-    'password_hash', 'password', 'secret', 'token', 'api_key',
-    'encrypted_value', 'secret_key', 'private_key'
+    'password_hash', 'password', 'secret', 'token', 'api_key', 'api_token',
+    'api_token_hash', 'encrypted_value', 'secret_key', 'private_key', 'auth_config',
+    'license_key',
 }
+SENSITIVE_SUBSTRINGS = ('password', 'secret', 'token', 'api_key', 'auth_config')
+REDACTED = '[REDACTED]'
 
 REDUNDANT_FIELDS = {
     'created_at', 'updated_at', '_sa_instance_state'
 }
 
-EXCLUDED_FIELDS = SENSITIVE_FIELDS | REDUNDANT_FIELDS
+EXCLUDED_FIELDS = REDUNDANT_FIELDS
+
+
+def is_sensitive_field(key):
+    """True for a column whose value must be redacted in the audit log."""
+    key = key.lower()
+    return key in SENSITIVE_FIELDS or any(part in key for part in SENSITIVE_SUBSTRINGS)
+
+
+def _redact(key, value):
+    if value is None or not is_sensitive_field(key):
+        return value
+    return REDACTED
+
+
+def redact_changes(changes):
+    """Return an audit `changes` dict with every sensitive field's values redacted.
+
+    Used for existing rows (see migration 027) as well as new ones. The key of a
+    relationship snapshot is `<relationship>.name`; it is checked as a whole.
+    """
+    if not isinstance(changes, dict):
+        return changes
+    redacted = {}
+    for key, change in changes.items():
+        if isinstance(change, dict) and is_sensitive_field(key):
+            change = {k: _redact(key, v) for k, v in change.items()}
+        redacted[key] = change
+    return redacted
 
 
 def _get_entity_repr(obj):
@@ -97,8 +132,8 @@ def _get_changes(obj):
             # Only track if values actually changed
             if old_value != new_value:
                 changes[attr.key] = {
-                    'old': _serialize_value(old_value),
-                    'new': _serialize_value(new_value)
+                    'old': _redact(attr.key, _serialize_value(old_value)),
+                    'new': _redact(attr.key, _serialize_value(new_value)),
                 }
 
     return changes if changes else None
@@ -163,7 +198,7 @@ def _record_change(session, obj, action):
                         snapshot[attr.key + '.name'] = {'old': None, 'new': name_val} if action == 'create' else {'old': name_val, 'new': None}
             else:
                 val = getattr(obj, attr.key, None)
-                val = _serialize_value(val)
+                val = _redact(attr.key, _serialize_value(val))
                 snapshot[attr.key] = {'old': None, 'new': val} if action == 'create' else {'old': val, 'new': None}
                 
         if snapshot:

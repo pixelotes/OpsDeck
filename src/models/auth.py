@@ -2,6 +2,7 @@ from src.utils.timezone_helper import now
 from werkzeug.security import generate_password_hash, check_password_hash
 from ..extensions import db
 from .constants import CASCADE_ALL_DELETE_ORPHAN, LAZY_DYNAMIC
+import hashlib
 import secrets
 
 user_groups = db.Table('user_groups',
@@ -27,7 +28,9 @@ class User(db.Model, CustomPropertiesMixin): # Add UserMixin here if using Flask
     email = db.Column(db.String(100), unique=True, nullable=False) # Make email unique and required for login
     personal_email = db.Column(db.String(120), nullable=True)
     password_hash = db.Column(db.String(255)) # Can be nullable for users who don't log in
-    api_token = db.Column(db.String(64), unique=True, nullable=True, index=True)
+    # SHA-256 of the API token; the token itself is shown once, when generated, and never
+    # stored. Tokens are 256-bit random values, so an unsalted fast hash is enough.
+    api_token_hash = db.Column(db.String(64), unique=True, nullable=True, index=True)
     # Microsoft Entra ID object id, bound on the first Microsoft sign-in (see azure_callback).
     entra_oid = db.Column(db.String(36), unique=True, nullable=True, index=True)
     role = db.Column(db.String(50), default='user') # e.g., 'user', 'editor', 'admin'
@@ -72,9 +75,33 @@ class User(db.Model, CustomPropertiesMixin): # Add UserMixin here if using Flask
             return check_password_hash(self.password_hash, password)
         return False
 
+    @staticmethod
+    def hash_api_token(token):
+        return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+    def set_api_token(self, token):
+        """Store `token` (its hash) as this user's API token."""
+        self.api_token_hash = self.hash_api_token(token) if token else None
+
     def generate_token(self):
-        self.api_token = secrets.token_hex(32)
-        return self.api_token
+        """Issue a new API token, replacing any previous one, and return it.
+
+        The return value is the only time the token exists in clear: show it to the
+        user once, do not store it.
+        """
+        token = secrets.token_hex(32)
+        self.set_api_token(token)
+        return token
+
+    @property
+    def has_api_token(self):
+        return self.api_token_hash is not None
+
+    @classmethod
+    def find_by_api_token(cls, token):
+        if not token:
+            return None
+        return cls.query.filter_by(api_token_hash=cls.hash_api_token(token)).first()
 
     def can_be_archived(self):
         """

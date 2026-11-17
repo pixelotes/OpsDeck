@@ -1,7 +1,7 @@
 # src/api.py
 from flask import request, current_app, jsonify, g
 from flask.views import MethodView
-from flask_smorest import Blueprint
+from flask_smorest import Blueprint, abort
 from .extensions import db
 from .models import User, Asset, Peripheral, License, Subscription
 from .models.services import BusinessService
@@ -11,6 +11,7 @@ from .models.security import SecurityIncident
 from .models.onboarding import OnboardingProcess
 from .models.procurement import Supplier
 from .models.crm import Contact
+from .services.permissions_service import user_has_module_access
 from .schemas import (
     UserSchema, UserInputSchema, AssetSchema, PeripheralSchema,
     LicenseSchema, SubscriptionSchema, ServiceSchema,
@@ -53,8 +54,9 @@ def check_token():
         )
         return jsonify({"error": "Token is missing"}), 401
     
-    current_api_user = User.query.filter_by(api_token=token).first()
-    if not current_api_user:
+    current_api_user = User.find_by_api_token(token)
+    # An archived user cannot sign in, so their token must not work either.
+    if not current_api_user or current_api_user.is_archived:
         current_app.logger.warning(
             "API Access Failed: Invalid Token",
             extra={
@@ -80,6 +82,53 @@ def check_token():
             "url.path": request.path
         }
     )
+
+# --- Authorization ---
+#
+# A token acts as its user, with that user's permissions:
+# * GET endpoints are open to any valid token (integrations read inventory with it).
+# * POST endpoints need WRITE access to the module that owns the data, as the same
+#   action would in the web interface (an admin has every module).
+# * Setting a user's role, or changing a user who is an admin, needs an admin token.
+
+# Module that governs writes to each resource; mirrors the web routes' MODULE.
+WRITE_MODULES = {
+    'users': 'administration',
+    'changes': 'operations',
+    'requests': 'operations',
+    'incidents': 'operations',
+    'onboardings': 'hr_people',
+}
+
+
+def _forbidden(reason, message):
+    current_app.logger.warning(
+        "API Access Denied",
+        extra={
+            "event.action": "api.request.denied",
+            "failure.reason": reason,
+            "user.id": g.api_user.id,
+            "user.email": g.api_user.email,
+            "source.ip": request.remote_addr,
+            "http.request.method": request.method,
+            "url.path": request.path
+        }
+    )
+    abort(403, message=message)
+
+
+def require_write(resource):
+    """Abort with 403 unless the token's user may write to `resource`."""
+    module_slug = WRITE_MODULES[resource]
+    if not user_has_module_access(g.api_user.id, module_slug, 'WRITE'):
+        _forbidden('missing_write_permission',
+                   f"Write access to the {module_slug} module is required.")
+
+
+def require_admin(message):
+    if g.api_user.role != 'admin':
+        _forbidden('admin_required', message)
+
 
 # --- Helper to register Read-Only routes ---
 def register_read_only_resource(blueprint, model, schema, url_name):
@@ -145,8 +194,18 @@ class UserListResource(MethodView):
     @api_bp.arguments(UserInputSchema)
     @api_bp.response(201, UserSchema)
     def post(self, data):
-        """Create or update a User (upsert by email)"""
+        """Create or update a User (upsert by email)
+
+        Needs write access to the administration module. Setting `role`, or updating
+        a user who is an admin, needs an admin token. A new user without a role gets
+        the `user` role; an update without a role keeps the current one.
+        """
+        require_write('users')
+        if data.get('role') is not None:
+            require_admin("Only an admin token can set a user's role.")
         existing = User.query.filter_by(email=data['email']).first()
+        if existing and existing.role == 'admin':
+            require_admin("Only an admin token can modify an admin user.")
         if existing:
             for key, value in data.items():
                 if value is not None and key != 'email':
@@ -155,6 +214,7 @@ class UserListResource(MethodView):
             return existing, 200
 
         user = User(**{k: v for k, v in data.items() if v is not None})
+        user.role = user.role or 'user'
         db.session.add(user)
         db.session.commit()
         return user, 201
@@ -188,6 +248,7 @@ class ChangeResource(MethodView):
     @api_bp.response(201, ChangeApiSchema)
     def post(self, data):
         """Create or update a Change (upsert by external_ref)"""
+        require_write('changes')
         existing = None
         if data.get('external_ref'):
             existing = Change.query.filter_by(external_ref=data['external_ref']).first()
@@ -242,6 +303,7 @@ class RequestResource(MethodView):
     @api_bp.response(201, RequestApiSchema)
     def post(self, data):
         """Create or update a service Request (upsert by external_ref)"""
+        require_write('requests')
         existing = None
         if data.get('external_ref'):
             existing = Request.query.filter_by(external_ref=data['external_ref']).first()
@@ -288,6 +350,7 @@ class IncidentResource(MethodView):
     @api_bp.response(201, IncidentApiSchema)
     def post(self, data):
         """Create or update a Security Incident (upsert by external_ref)"""
+        require_write('incidents')
         existing = None
         if data.get('external_ref'):
             existing = SecurityIncident.query.filter_by(external_ref=data['external_ref']).first()
@@ -328,6 +391,7 @@ class OnboardingResource(MethodView):
     @api_bp.response(201, OnboardingApiSchema)
     def post(self, data):
         """Create or update an Onboarding Process (upsert by external_ref)"""
+        require_write('onboardings')
         existing = None
         if data.get('external_ref'):
             existing = OnboardingProcess.query.filter_by(external_ref=data['external_ref']).first()
