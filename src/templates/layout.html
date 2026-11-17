@@ -654,6 +654,7 @@
                     aria-expanded="false">Administration <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
 
                 <div class="collapse" id="admin-menu" data-bs-parent="#sidebar-accordion">
+                    <ul class="nav flex-column">
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('users.') %}active{% endif %}"
                             href="{{ url_for('users.users') }}"><i class="fa-fw fas fa-users"></i> Users</a></li>
@@ -692,6 +693,7 @@
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('treeview.') %}active{% endif %}"
                             href="{{ url_for('treeview.tree_view') }}"><i class="fa-fw fas fa-sitemap"></i> Tree
                             View</a></li>
+                    </ul>
                 </div>
                 {% endif %}
 

@@ -167,6 +167,25 @@ def _change(action, user, member=None, fields=None):
     }
 
 
+#: (User attribute, Graph property) pairs kept in sync for existing users.
+SYNCED_FIELDS = (('name', 'displayName'), ('department', 'department'), ('job_title', 'jobTitle'))
+
+
+class _PlanContext:
+    """State shared by the planning helpers while one plan is built."""
+
+    def __init__(self, scope, default_role):
+        self.scope = scope
+        self.default_role = default_role
+        self.by_oid = {u.entra_oid: u for u in
+                       User.query.filter(User.entra_oid.isnot(None)).order_by(User.id).all()}
+        # oid -> OpsDeck user (existing) or None (to be created), for manager resolution.
+        self.resolved = {}
+        self.planned_emails = set()
+        self.changes = []
+        self.errors = []
+
+
 def build_plan(scope, default_role='user'):
     """Compute the changes needed to reconcile OpsDeck users with ``scope``.
 
@@ -174,82 +193,109 @@ def build_plan(scope, default_role='user'):
     ``errors`` (conflicts that were skipped) and ``linked_count`` (Entra-linked,
     non-archived users today, the base of the archive brake). Nothing is written.
     """
-    changes, errors = [], []
-    by_oid = {u.entra_oid: u for u in User.query.filter(User.entra_oid.isnot(None)).order_by(User.id).all()}
-    # oid -> OpsDeck user (existing) or None (to be created), for manager resolution.
-    resolved = {}
-    planned_emails = set()
-
+    ctx = _PlanContext(scope, default_role)
     for oid, member in sorted(scope.items(), key=lambda kv: (kv[1].get('userPrincipalName') or '').lower()):
-        upn = (member.get('userPrincipalName') or '').strip()
-        user = by_oid.get(oid)
-        link = False
-        if user is None and upn:
-            user = User.query.filter(func.lower(User.email) == upn.lower()).first()
-            if user is not None:
-                if user.entra_oid and user.entra_oid != oid:
-                    errors.append({'upn': upn, 'error': 'Email already linked to a different Entra object id'})
-                    continue
-                link = True
-        if user is None:
-            if not upn or upn.lower() in planned_emails:
-                errors.append({'upn': upn or oid, 'error': 'Missing or duplicate userPrincipalName'})
-                continue
-            planned_emails.add(upn.lower())
-            resolved[oid] = None
-            changes.append(_change('create', None, member, {
-                'email': [None, upn],
-                'name': [None, member.get('displayName') or upn],
-                'department': [None, member.get('department')],
-                'job_title': [None, member.get('jobTitle')],
-                'role': [None, default_role],
-            }))
-            continue
+        _plan_member(ctx, oid, member)
+    for change in ctx.changes:
+        _plan_manager(ctx, change)
+    _plan_archives(ctx)
 
-        resolved[oid] = user
-        fields = {}
-        if link:
-            fields['entra_oid'] = [user.entra_oid, oid]
-        for attr, key in (('name', 'displayName'), ('department', 'department'), ('job_title', 'jobTitle')):
-            new = member.get(key)
-            if attr == 'name' and not new:
-                continue
-            if (getattr(user, attr) or None) != (new or None):
-                fields[attr] = [getattr(user, attr), new]
-        if user.is_archived:
-            changes.append(_change('unarchive', user, member, fields))
-        elif fields:
-            changes.append(_change('update', user, member, fields))
-        else:
-            changes.append(_change('unchanged', user, member))
-
-    # Manager links: only to users that are (or will be) in OpsDeck.
-    for change in changes:
-        member = scope.get(change['oid']) if change['oid'] else None
-        if not member:
-            continue
-        manager_oid = member.get('managerId')
-        if manager_oid not in resolved and manager_oid not in by_oid:
-            manager_oid = None
-        current = resolved.get(change['oid'])
-        current_manager_oid = current.manager.entra_oid if current and current.manager else None
-        if current and current.manager and not current.manager.entra_oid:
-            continue  # manually set to a local-only user: leave it alone
-        if manager_oid != current_manager_oid:
-            change['fields']['manager'] = [current_manager_oid, manager_oid]
-            change['manager_display'] = [_name_of(current_manager_oid, scope, by_oid),
-                                         _name_of(manager_oid, scope, by_oid)]
-            if change['action'] == 'unchanged':
-                change['action'] = 'update'
-
-    for oid, user in by_oid.items():
-        if oid not in scope and not user.is_archived:
-            changes.append(_change('archive', user))
-
-    changes = [c for c in changes if c['action'] != 'unchanged']
-    linked_count = sum(1 for u in by_oid.values() if not u.is_archived)
-    return {'changes': changes, 'errors': errors, 'linked_count': linked_count,
+    changes = [c for c in ctx.changes if c['action'] != 'unchanged']
+    linked_count = sum(1 for u in ctx.by_oid.values() if not u.is_archived)
+    return {'changes': changes, 'errors': ctx.errors, 'linked_count': linked_count,
             'counts': _counts(changes)}
+
+
+def _match_user(ctx, oid, upn):
+    """Find the OpsDeck user for an Entra member: by oid, else by UPN.
+
+    Returns (user, linked_by_upn, error).
+    """
+    user = ctx.by_oid.get(oid)
+    if user is not None or not upn:
+        return user, False, None
+    user = User.query.filter(func.lower(User.email) == upn.lower()).first()
+    if user is None:
+        return None, False, None
+    if user.entra_oid and user.entra_oid != oid:
+        return None, False, 'Email already linked to a different Entra object id'
+    return user, True, None
+
+
+def _plan_member(ctx, oid, member):
+    upn = (member.get('userPrincipalName') or '').strip()
+    user, linked_by_upn, error = _match_user(ctx, oid, upn)
+    if error:
+        ctx.errors.append({'upn': upn, 'error': error})
+        return
+    if user is None:
+        _plan_create(ctx, oid, member, upn)
+        return
+
+    ctx.resolved[oid] = user
+    fields = {'entra_oid': [user.entra_oid, oid]} if linked_by_upn else {}
+    fields.update(_field_diff(user, member))
+    if user.is_archived:
+        action = 'unarchive'
+    else:
+        action = 'update' if fields else 'unchanged'
+    ctx.changes.append(_change(action, user, member, fields))
+
+
+def _plan_create(ctx, oid, member, upn):
+    if not upn or upn.lower() in ctx.planned_emails:
+        ctx.errors.append({'upn': upn or oid, 'error': 'Missing or duplicate userPrincipalName'})
+        return
+    ctx.planned_emails.add(upn.lower())
+    ctx.resolved[oid] = None
+    ctx.changes.append(_change('create', None, member, {
+        'email': [None, upn],
+        'name': [None, member.get('displayName') or upn],
+        'department': [None, member.get('department')],
+        'job_title': [None, member.get('jobTitle')],
+        'role': [None, ctx.default_role],
+    }))
+
+
+def _field_diff(user, member):
+    fields = {}
+    for attr, key in SYNCED_FIELDS:
+        new = member.get(key)
+        if attr == 'name' and not new:
+            continue  # never blank a name
+        old = getattr(user, attr)
+        if (old or None) != (new or None):
+            fields[attr] = [old, new]
+    return fields
+
+
+def _plan_manager(ctx, change):
+    """Link the manager, only to users that are (or will be) in OpsDeck."""
+    member = ctx.scope.get(change['oid']) if change['oid'] else None
+    if not member:
+        return
+    current = ctx.resolved.get(change['oid'])
+    current_manager = current.manager if current else None
+    if current_manager and not current_manager.entra_oid:
+        return  # manually set to a local-only user: leave it alone
+    current_manager_oid = current_manager.entra_oid if current_manager else None
+
+    manager_oid = member.get('managerId')
+    if manager_oid not in ctx.resolved and manager_oid not in ctx.by_oid:
+        manager_oid = None
+    if manager_oid == current_manager_oid:
+        return
+    change['fields']['manager'] = [current_manager_oid, manager_oid]
+    change['manager_display'] = [_name_of(current_manager_oid, ctx.scope, ctx.by_oid),
+                                 _name_of(manager_oid, ctx.scope, ctx.by_oid)]
+    if change['action'] == 'unchanged':
+        change['action'] = 'update'
+
+
+def _plan_archives(ctx):
+    for oid, user in ctx.by_oid.items():
+        if oid not in ctx.scope and not user.is_archived:
+            ctx.changes.append(_change('archive', user))
 
 
 def _name_of(oid, scope, by_oid):
@@ -284,27 +330,35 @@ def check_archive_brake(plan, threshold_percent):
         )
 
 
+ARCHIVE_STATE = {'archive': True, 'unarchive': False}
+
+
 def apply_plan(plan):
     """Write ``plan`` to the database in one transaction."""
-    by_oid = {}
-    for change in plan['changes']:
-        if change['action'] == 'create':
-            f = change['fields']
-            user = User(email=f['email'][1], name=f['name'][1], department=f['department'][1],
-                        job_title=f['job_title'][1], role=f['role'][1], entra_oid=change['oid'])
-            db.session.add(user)
-        else:
-            user = db.session.get(User, change['user_id'])
-            for attr in ('entra_oid', 'name', 'department', 'job_title'):
-                if attr in change['fields']:
-                    setattr(user, attr, change['fields'][attr][1])
-            if change['action'] == 'archive':
-                user.is_archived = True
-            elif change['action'] == 'unarchive':
-                user.is_archived = False
-        by_oid[change['oid']] = user
+    by_oid = {change['oid']: _apply_user_change(change) for change in plan['changes']}
     db.session.flush()
+    _apply_managers(plan, by_oid)
+    db.session.commit()
+    _audit_changes(plan, by_oid)
 
+
+def _apply_user_change(change):
+    if change['action'] == 'create':
+        f = change['fields']
+        user = User(email=f['email'][1], name=f['name'][1], department=f['department'][1],
+                    job_title=f['job_title'][1], role=f['role'][1], entra_oid=change['oid'])
+        db.session.add(user)
+        return user
+    user = db.session.get(User, change['user_id'])
+    for attr in ('entra_oid', 'name', 'department', 'job_title'):
+        if attr in change['fields']:
+            setattr(user, attr, change['fields'][attr][1])
+    if change['action'] in ARCHIVE_STATE:
+        user.is_archived = ARCHIVE_STATE[change['action']]
+    return user
+
+
+def _apply_managers(plan, by_oid):
     for change in plan['changes']:
         if 'manager' not in change['fields']:
             continue
@@ -313,8 +367,9 @@ def apply_plan(plan):
         if manager_oid:
             manager = by_oid.get(manager_oid) or User.query.filter_by(entra_oid=manager_oid).first()
         by_oid[change['oid']].manager = manager
-    db.session.commit()
 
+
+def _audit_changes(plan, by_oid):
     for change in plan['changes']:
         user = by_oid[change['oid']]
         log_audit(
@@ -370,46 +425,66 @@ def run_sync(trigger, triggered_by=None, dry_run=False, graph=None, enforce_brak
 
     ``enforce_brake`` defaults to True for scheduled runs. ``expected_fingerprint``,
     when given, makes the run abort if the plan differs from the one the admin
-    previewed. Returns the EntraSyncRun row.
+    previewed. Returns the EntraSyncRun row, or None when a scheduled run was skipped
+    because another worker already ran it.
     """
     settings = EntraSyncSettings.get()
     if enforce_brake is None:
         enforce_brake = trigger == 'scheduled'
 
     with _run_lock() as acquired:
-        if not acquired or (trigger == 'scheduled' and _recent_scheduled_run()):
-            # Every gunicorn worker runs its own scheduler: the first one to fire does
-            # the work and the others skip silently instead of recording a failure.
-            if trigger == 'scheduled':
-                return None
-            raise EntraSyncError('Another Entra sync is already running.')
-
+        if _should_skip(acquired, trigger):
+            return None
         run = EntraSyncRun(trigger=trigger, triggered_by=triggered_by, dry_run=dry_run, status='running')
         db.session.add(run)
         db.session.commit()
+        plan = _execute(run, settings, graph, dry_run, enforce_brake, expected_fingerprint)
 
-        plan = None
-        try:
-            if not settings.enabled:
-                raise EntraSyncError('Entra ID sync is disabled.')
-            graph = graph or GraphClient.from_config()
-            scope = fetch_scope(graph, settings.group_id_list)
-            plan = build_plan(scope, settings.default_role)
-            if expected_fingerprint and plan_fingerprint(plan) != expected_fingerprint:
-                raise SyncAborted('Entra ID changed since the preview. Review the new preview and confirm again.')
-            if enforce_brake and not dry_run:
+    _finish_run(run, plan)
+    if run.status != 'success' and trigger == 'scheduled':
+        notify_admins(run)
+    return run
+
+
+def _should_skip(acquired, trigger):
+    """True if a scheduled run must be skipped; raises for a busy manual/CLI run.
+
+    Every gunicorn worker runs its own scheduler: the first one to fire does the work
+    and the others skip silently instead of recording a failure.
+    """
+    if acquired and not (trigger == 'scheduled' and _recent_scheduled_run()):
+        return False
+    if trigger == 'scheduled':
+        return True
+    raise EntraSyncError('Another Entra sync is already running.')
+
+
+def _execute(run, settings, graph, dry_run, enforce_brake, expected_fingerprint):
+    """Fetch, plan, check and (unless dry run) apply. Sets run.status; returns the plan."""
+    plan = None
+    try:
+        if not settings.enabled:
+            raise EntraSyncError('Entra ID sync is disabled.')
+        scope = fetch_scope(graph or GraphClient.from_config(), settings.group_id_list)
+        plan = build_plan(scope, settings.default_role)
+        if expected_fingerprint and plan_fingerprint(plan) != expected_fingerprint:
+            raise SyncAborted('Entra ID changed since the preview. Review the new preview and confirm again.')
+        if not dry_run:
+            if enforce_brake:
                 check_archive_brake(plan, settings.archive_threshold_percent)
-            if not dry_run:
-                apply_plan(plan)
-            run.status = 'success'
-        except SyncAborted as exc:
-            db.session.rollback()
-            run.status, run.error = 'aborted', str(exc)
-        except Exception as exc:  # recorded on the run; the scheduler must not crash
-            db.session.rollback()
-            logger.exception('Entra ID sync failed')
-            run.status, run.error = 'error', str(exc)
+            apply_plan(plan)
+        run.status = 'success'
+    except SyncAborted as exc:
+        db.session.rollback()
+        run.status, run.error = 'aborted', str(exc)
+    except Exception as exc:  # recorded on the run; the scheduler must not crash
+        db.session.rollback()
+        logger.exception('Entra ID sync failed')
+        run.status, run.error = 'error', str(exc)
+    return plan
 
+
+def _finish_run(run, plan):
     if plan:
         counts = plan['counts']
         run.created_count, run.updated_count = counts['create'], counts['update']
@@ -420,18 +495,15 @@ def run_sync(trigger, triggered_by=None, dry_run=False, graph=None, enforce_brak
 
     log_audit(
         event_type='integration.entra_sync',
-        action='dry_run' if dry_run else 'sync',
+        action='dry_run' if run.dry_run else 'sync',
         outcome='success' if run.status == 'success' else 'failure',
         target_object=f'EntraSyncRun:{run.id}',
-        user_email=triggered_by,
-        trigger=trigger,
+        user_email=run.triggered_by,
+        trigger=run.trigger,
         target_info=(f'{run.created_count} created, {run.updated_count} updated, '
                      f'{run.archived_count} archived, {run.unarchived_count} unarchived'),
         error_message=run.error,
     )
-    if run.status != 'success' and trigger == 'scheduled':
-        notify_admins(run)
-    return run
 
 
 def notify_admins(run):

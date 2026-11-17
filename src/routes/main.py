@@ -444,7 +444,7 @@ def _find_entra_user(oid, upn):
     return user, None
 
 
-@main_bp.route('/azure/callback')
+@main_bp.route('/azure/callback', methods=['GET'])
 def azure_callback():
     """Handle Microsoft Entra ID OAuth callback and authenticate user."""
     from flask_dance.contrib.azure import azure
@@ -466,7 +466,7 @@ def azure_callback():
         oid = me.get("id")
         upn = me.get("userPrincipalName")
     except Exception as e:
-        current_app.logger.error(f"Exception during Microsoft OAuth: {str(e)}")
+        current_app.logger.exception("Exception during Microsoft OAuth")
         return _oauth_failure(
             str(e), 'Error processing Microsoft authentication', provider='azure'
         )

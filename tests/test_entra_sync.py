@@ -66,7 +66,8 @@ def sync(graph, **kw):
 def test_creates_missing_users_with_default_role(entra):
     graph = FakeGraph({GROUP: [member('o1', 'ana@corp.com', 'Ana', 'IT', 'SRE')]})
     run = sync(graph)
-    assert run.status == 'success' and run.created_count == 1
+    assert run.status == 'success'
+    assert run.created_count == 1
     user = User.query.filter_by(entra_oid='o1').one()
     assert (user.email, user.name, user.department, user.job_title, user.role) == \
         ('ana@corp.com', 'Ana', 'IT', 'SRE', 'viewer')
@@ -163,7 +164,8 @@ def test_unchanged_users_produce_no_changes(entra):
 def test_dry_run_makes_no_changes(entra):
     ana = add_user('ana@corp.com', name='Ana', oid='o1')
     run = sync(FakeGraph({GROUP: [member('o2', 'new@corp.com')]}), dry_run=True)
-    assert run.status == 'success' and run.dry_run
+    assert run.status == 'success'
+    assert run.dry_run
     assert (run.created_count, run.archived_count) == (1, 1)
     assert User.query.count() == 1
     assert db.session.get(User, ana.id).is_archived is False
@@ -171,7 +173,8 @@ def test_dry_run_makes_no_changes(entra):
 
 def test_preview_returns_plan_without_writing(entra):
     plan = svc.preview(graph=FakeGraph({GROUP: [member('o1', 'ana@corp.com')]}))
-    assert plan['counts']['create'] == 1 and plan['fingerprint']
+    assert plan['counts']['create'] == 1
+    assert plan['fingerprint']
     assert User.query.count() == 0
     assert EntraSyncRun.query.count() == 0
 
@@ -190,7 +193,8 @@ def test_brake_aborts_scheduled_run_and_notifies(entra):
     keep = [member(f'o{i}', f'u{i}@corp.com') for i in range(8)]  # 2 of 10 leave: 20% > 10%
     with patch.object(svc, 'notify_admins') as notify:
         run = sync(FakeGraph({GROUP: keep}), trigger='scheduled')
-    assert run.status == 'aborted' and 'threshold' in run.error
+    assert run.status == 'aborted'
+    assert 'threshold' in run.error
     notify.assert_called_once()
     assert User.query.filter_by(is_archived=True).count() == 0
 
@@ -200,13 +204,15 @@ def test_brake_allows_runs_under_threshold(entra):
         add_user(f'u{i}@corp.com', name='Someone', oid=f'o{i}')
     keep = [member(f'o{i}', f'u{i}@corp.com', 'Someone') for i in range(9)]  # 10%: not above
     run = sync(FakeGraph({GROUP: keep}), trigger='scheduled')
-    assert run.status == 'success' and run.archived_count == 1
+    assert run.status == 'success'
+    assert run.archived_count == 1
 
 
 def test_manual_run_does_not_enforce_brake(entra):
     add_user('ana@corp.com', oid='o1')
     run = sync(FakeGraph({GROUP: []}))
-    assert run.status == 'success' and run.archived_count == 1
+    assert run.status == 'success'
+    assert run.archived_count == 1
 
 
 def test_disabled_sync_does_nothing(entra):
@@ -214,7 +220,8 @@ def test_disabled_sync_does_nothing(entra):
     db.session.commit()
     graph = MagicMock()
     run = sync(graph)
-    assert run.status == 'error' and 'disabled' in run.error
+    assert run.status == 'error'
+    assert 'disabled' in run.error
     graph.group_users.assert_not_called()
     with pytest.raises(svc.EntraSyncError):
         svc.preview(graph=graph)
@@ -244,7 +251,8 @@ def test_second_scheduled_run_within_window_is_skipped(entra):
 def test_run_is_recorded_with_changes(entra):
     run = sync(FakeGraph({GROUP: [member('o1', 'ana@corp.com')]}), triggered_by='admin@corp.com')
     stored = db.session.get(EntraSyncRun, run.id)
-    assert stored.trigger == 'manual' and stored.triggered_by == 'admin@corp.com'
+    assert stored.trigger == 'manual'
+    assert stored.triggered_by == 'admin@corp.com'
     assert stored.finished_at is not None
     assert stored.changes['changes'][0]['action'] == 'create'
 
@@ -269,7 +277,8 @@ def test_scheduler_registration_follows_settings(app, entra):
     entra.schedule_mode, entra.daily_time = 'daily', '04:30'
     db.session.commit()
     job = svc.configure_schedule(app, scheduler)
-    assert 'hour=\'4\'' in str(job.trigger) and 'minute=\'30\'' in str(job.trigger)
+    assert 'hour=\'4\'' in str(job.trigger)
+    assert 'minute=\'30\'' in str(job.trigger)
 
     entra.schedule_mode, entra.interval_hours = 'interval', 6
     db.session.commit()
@@ -334,12 +343,15 @@ def test_graph_client_follows_pages_and_filters_non_users():
 def test_graph_client_errors():
     http = MagicMock()
     http.post.return_value = _resp(status=401)
+    token_refused = svc.GraphClient('t', 'c', 's', session=http)
     with pytest.raises(svc.EntraSyncError):
-        svc.GraphClient('t', 'c', 's', session=http).get('/me')
+        token_refused.get('/me')
+
     http.post.return_value = _resp(payload={'access_token': 't'})
     http.get.return_value = _resp(status=403)
+    group_forbidden = svc.GraphClient('t', 'c', 's', session=http)
     with pytest.raises(svc.EntraSyncError):
-        svc.GraphClient('t', 'c', 's', session=http).group_users('g')
+        group_forbidden.group_users('g')
 
 
 def test_graph_client_requires_credentials(app, init_database):
@@ -380,7 +392,8 @@ def test_preview_and_apply_screens(auth_client, entra):
         resp = auth_client.post('/admin/entra/preview')
         html = resp.get_data(as_text=True)
         assert resp.status_code == 200
-        assert 'ana@corp.com' in html and 'Apply 2 change(s)' in html
+        assert 'ana@corp.com' in html
+        assert 'Apply 2 change(s)' in html
         assert 'above the' in html  # 1 of 1 synced users would be archived
         assert User.query.filter_by(entra_oid='o1').first() is None
 
@@ -389,7 +402,8 @@ def test_preview_and_apply_screens(auth_client, entra):
     assert resp.status_code == 302
     assert User.query.filter_by(entra_oid='o1').one().name == 'Ana'
     run = EntraSyncRun.query.one()
-    assert run.trigger == 'manual' and run.triggered_by == 'admin@test.com'
+    assert run.trigger == 'manual'
+    assert run.triggered_by == 'admin@test.com'
     detail = auth_client.get(f'/admin/entra/runs/{run.id}').get_data(as_text=True)
     assert 'ana@corp.com' in detail
     assert f'/admin/entra/runs/{run.id}' in auth_client.get('/admin/entra').get_data(as_text=True)
@@ -423,7 +437,8 @@ def test_cli_apply_and_brake(app, entra):
     add_user('ana@corp.com', oid='o1')
     with patch.object(svc.GraphClient, 'from_config', return_value=FakeGraph({GROUP: []})):
         result = app.test_cli_runner().invoke(args=['entra-sync'])
-        assert result.exit_code == 1 and 'aborted' in result.output
+        assert result.exit_code == 1
+        assert 'aborted' in result.output
         result = app.test_cli_runner().invoke(args=['entra-sync', '--force'])
     assert result.exit_code == 0, result.output
     assert User.query.filter_by(entra_oid='o1').one().is_archived is True
