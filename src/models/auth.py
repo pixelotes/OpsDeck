@@ -40,6 +40,9 @@ class User(db.Model, CustomPropertiesMixin): # Add UserMixin here if using Flask
     licenses = db.relationship('License', backref='user', lazy=True)
     
     is_archived = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    # False for "directory only" users: kept so they can own or be assigned assets,
+    # but refused on every sign-in path (password, Google/Microsoft SSO, API token).
+    login_enabled = db.Column(db.Boolean, default=True, server_default=db.true(), nullable=False)
     hide_from_org_chart = db.Column(db.Boolean, default=False, nullable=False, index=True)
     
     acknowledgements = db.relationship('PolicyAcknowledgement', backref='user', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)

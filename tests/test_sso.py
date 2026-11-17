@@ -64,8 +64,9 @@ def sso_client(sso_app):
     return sso_app.test_client()
 
 
-def _add_user(email, archived=False, entra_oid=None):
-    user = User(name='SSO User', email=email, role='user', is_archived=archived, entra_oid=entra_oid)
+def _add_user(email, archived=False, entra_oid=None, login_enabled=True):
+    user = User(name='SSO User', email=email, role='user', is_archived=archived, entra_oid=entra_oid,
+                login_enabled=login_enabled)
     db.session.add(user)
     db.session.commit()
     return user.id
@@ -187,6 +188,19 @@ def test_azure_archived_user(sso_client):
         assert 'user_id' not in sess
 
 
+def test_azure_directory_only_user_refused_and_audited(sso_client):
+    user_id = _add_user('dir@corp.com', entra_oid=OID, login_enabled=False)
+    with patch('src.routes.main.log_audit') as audit:
+        resp, _ = _azure_login(sso_client, {'id': OID, 'userPrincipalName': 'dir@corp.com'})
+    assert '/login' in resp.headers['Location']
+    with sso_client.session_transaction() as sess:
+        assert 'user_id' not in sess
+    kwargs = audit.call_args.kwargs
+    assert (kwargs['outcome'], kwargs['target_object'], kwargs['provider']) == \
+        ('failure', f'User:{user_id}', 'azure')
+    assert 'Login disabled' in kwargs['error_message']
+
+
 def test_azure_graph_error(sso_client):
     _add_user('jane@corp.com')
     resp, _ = _azure_login(sso_client, status=500)
@@ -259,3 +273,15 @@ def test_google_archived_user_unchanged(sso_client):
     _google_login(sso_client, {'email': 'gone@corp.com'})
     with sso_client.session_transaction() as sess:
         assert sess['user_id'] == user_id
+
+
+def test_google_directory_only_user_refused_and_audited(sso_client):
+    user_id = _add_user('dir@corp.com', login_enabled=False)
+    with patch('src.routes.main.log_audit') as audit:
+        resp, _ = _google_login(sso_client, {'email': 'dir@corp.com'})
+    assert '/login' in resp.headers['Location']
+    with sso_client.session_transaction() as sess:
+        assert 'user_id' not in sess
+    kwargs = audit.call_args.kwargs
+    assert (kwargs['outcome'], kwargs['target_object'], kwargs['provider']) == \
+        ('failure', f'User:{user_id}', 'google')
