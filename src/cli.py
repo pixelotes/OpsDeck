@@ -95,6 +95,17 @@ def register_commands(app):
             print(f"❌ {prefix} {run.status}: {run.error}")
             raise SystemExit(1)
 
+    @app.cli.command('schedule-supplier-reviews')
+    def schedule_supplier_reviews():
+        """Open the supplier reviews that are due and remind owners of overdue ones.
+
+        The scheduler does this every morning; run it by hand to test the setup.
+        """
+        from .services.supplier_review_service import schedule_due_reviews, send_overdue_reminders
+        created = schedule_due_reviews()
+        reminded = send_overdue_reminders()
+        print(f"✅ {len(created)} review(s) opened, {len(reminded)} reminder(s) sent.")
+
     @app.cli.command('rotate-data-encryption-key')
     def rotate_data_encryption_key():
         """Re-encrypt stored secrets under the first DATA_ENCRYPTION_KEY.

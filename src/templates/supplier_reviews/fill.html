@@ -1,0 +1,128 @@
+{% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
+
+{% block title %}Review {{ review.supplier.name }} - {{ super() }}{% endblock %}
+
+{% macro choice(q, options) -%}
+{%- set current = form.get('answer_' ~ q.id) -%}
+<div class="btn-group flex-wrap" role="group" aria-label="{{ q.text }}">
+    {% for opt in options %}
+    <input type="radio" class="btn-check" name="answer_{{ q.id }}" id="answer_{{ q.id }}_{{ opt }}"
+        value="{{ opt }}" autocomplete="off" {% if current == opt %}checked{% endif %}
+        {% if q.code == 'supplier_active' %}data-active-toggle{% endif %}>
+    <label class="btn btn-outline-{{ {'ok': 'success', 'not_ok': 'danger', 'yes': 'primary', 'no': 'secondary'}.get(opt, 'secondary') }}"
+        for="answer_{{ q.id }}_{{ opt }}">{{ answer_labels[opt] }}</label>
+    {% endfor %}
+</div>
+{%- endmacro %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h2><i class="fas fa-clipboard-check"></i> Supplier review</h2>
+        <h5 class="text-muted mb-0">{{ review.supplier.name }}
+            {% if review.supplier.is_critical %}<span class="badge bg-danger ms-1">Critical</span>{% endif %}
+        </h5>
+    </div>
+    <div class="text-end small text-muted">
+        <div>Owner: {{ L.person(review.supplier.owner, link=false) }}</div>
+        {% if review.due_date %}
+        <div>Due {{ review.due_date.strftime('%Y-%m-%d') }}
+            {% if review.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}</div>
+        {% endif %}
+        <div>Template: {{ template.name }}</div>
+    </div>
+</div>
+
+{% if errors %}
+<div class="alert alert-danger" role="alert" id="reviewErrors" tabindex="-1">
+    <strong>The review is not complete yet:</strong>
+    <ul class="mb-0">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<form method="POST" id="reviewForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% if template.check_questions %}
+    <div class="card mb-4">
+        <div class="card-header"><strong>1. Check</strong></div>
+        <ul class="list-group list-group-flush">
+            {% for q in template.check_questions %}
+            <li class="list-group-item py-3{{ ' border-start border-4 border-danger' if q.id in error_ids }}" id="q{{ q.id }}">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <div class="fw-semibold">{{ q.text }}</div>
+                        {% if q.help_text %}<div class="small text-muted">{{ q.help_text }}</div>{% endif %}
+                    </div>
+                    {{ choice(q, check_answers) }}
+                </div>
+                <input type="text" class="form-control form-control-sm mt-2" name="comment_{{ q.id }}"
+                    placeholder="Comment (optional)" value="{{ form.get('comment_' ~ q.id, '') }}">
+            </li>
+            {% endfor %}
+        </ul>
+        <div class="card-body border-top d-none" id="inactiveBox">
+            <div class="alert alert-secondary mb-2">
+                The supplier is no longer active: the review points below are optional.
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="archive_supplier" id="archive_supplier"
+                    value="1" {% if form.get('archive_supplier') %}checked{% endif %}>
+                <label class="form-check-label" for="archive_supplier">Archive the supplier when I submit</label>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-header"><strong>{{ '2. ' if template.check_questions }}Review</strong>
+            <span class="small text-muted ms-2">OK = nothing to report. Not OK needs a comment.</span>
+        </div>
+        <ul class="list-group list-group-flush">
+            {% for q in template.review_questions %}
+            <li class="list-group-item py-3{{ ' border-start border-4 border-danger' if q.id in error_ids }}" id="q{{ q.id }}">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <div class="fw-semibold">{{ q.text }}</div>
+                        {% if q.help_text %}<div class="small text-muted">{{ q.help_text }}</div>{% endif %}
+                    </div>
+                    {{ choice(q, review_answers) }}
+                </div>
+                <textarea class="form-control form-control-sm mt-2" name="comment_{{ q.id }}" rows="1"
+                    placeholder="Comment">{{ form.get('comment_' ~ q.id, '') }}</textarea>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <label for="notes" class="form-label fw-semibold">Summary (optional)</label>
+            <textarea class="form-control" id="notes" name="notes" rows="3">{{ form.get('notes', '') }}</textarea>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Submit review</button>
+        <a href="{{ url_for('main.my_dashboard') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+
+<script>
+    (function () {
+        const errorsBox = document.getElementById('reviewErrors');
+        if (errorsBox) { window.scrollTo(0, 0); errorsBox.focus(); }
+
+        const box = document.getElementById('inactiveBox');
+        if (!box) return;
+        const radios = document.querySelectorAll('[data-active-toggle]');
+        function update() {
+            const no = Array.from(radios).some(r => r.checked && r.value === 'no');
+            box.classList.toggle('d-none', !no);
+        }
+        radios.forEach(r => r.addEventListener('change', update));
+        update();
+    })();
+</script>
+{% endblock %}

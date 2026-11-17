@@ -1,0 +1,101 @@
+{% extends "layout.html" %}
+{% set title = "Edit review template" if template else "New review template" %}
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% macro question_row(text='', kind='review', help_text='', code='') -%}
+<div class="card mb-2 question-row">
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-center">
+            <div class="col-auto">
+                <select class="form-select form-select-sm" name="q_kind" aria-label="Question type">
+                    <option value="check" {% if kind == 'check' %}selected{% endif %}>Check (Yes / No)</option>
+                    <option value="review" {% if kind == 'review' %}selected{% endif %}>Review (OK / Not OK / N/A)</option>
+                </select>
+            </div>
+            <div class="col">
+                <input type="text" class="form-control form-control-sm" name="q_text" value="{{ text or '' }}"
+                    maxlength="255" placeholder="Question" aria-label="Question">
+            </div>
+            <div class="col-auto">
+                <select class="form-select form-select-sm" name="q_code" aria-label="Effect"
+                    title="What the app does with a check answer">
+                    <option value="">No effect</option>
+                    <option value="supplier_active" {% if code == 'supplier_active' %}selected{% endif %}>No = supplier inactive</option>
+                    <option value="supplier_critical" {% if code == 'supplier_critical' %}selected{% endif %}>Sets "critical"</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-move="-1" title="Move up" aria-label="Move up"><i class="fas fa-arrow-up"></i></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-move="1" title="Move down" aria-label="Move down"><i class="fas fa-arrow-down"></i></button>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-remove title="Remove" aria-label="Remove"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>
+        <input type="text" class="form-control form-control-sm mt-2" name="q_help" value="{{ help_text or '' }}"
+            placeholder="Help text shown under the question (optional)" aria-label="Help text">
+    </div>
+</div>
+{%- endmacro %}
+
+{% block content %}
+<h2><i class="fas fa-clipboard-list"></i> {{ title }}</h2>
+<p class="text-muted">Changes apply to reviews filled in from now on. Completed reviews keep the questions they were answered with.</p>
+<hr>
+
+<form method="POST" id="templateForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="name" class="form-label">Name *</label>
+            <input type="text" class="form-control" id="name" name="name" maxlength="150" required
+                value="{{ request.form.get('name', template.name if template else '') }}">
+        </div>
+        <div class="col-md-6 d-flex align-items-end">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="is_default" name="is_default" value="1"
+                    {% if (template and template.is_default) or request.form.get('is_default') %}checked{% endif %}>
+                <label class="form-check-label" for="is_default">Default template for new reviews</label>
+            </div>
+        </div>
+    </div>
+    <div class="mb-4">
+        <label for="description" class="form-label">Description</label>
+        <textarea class="form-control" id="description" name="description" rows="2">{{ request.form.get('description', (template.description or '') if template else '') }}</textarea>
+    </div>
+
+    <h5>Questions</h5>
+    <p class="small text-muted">Check questions are asked first. A Not OK answer to a review question needs a comment.</p>
+    <div id="questions">
+        {% for text, kind, help_text, code in form_questions %}
+        {{ question_row(text, kind, help_text, code) }}
+        {% endfor %}
+    </div>
+    <template id="questionTemplate">{{ question_row() }}</template>
+    <button type="button" class="btn btn-sm btn-outline-primary mb-4" id="addQuestion"><i class="fas fa-plus"></i> Add question</button>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="{{ url_for('supplier_reviews.list_templates') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+
+<script>
+    (function () {
+        const list = document.getElementById('questions');
+        document.getElementById('addQuestion').addEventListener('click', function () {
+            list.appendChild(document.getElementById('questionTemplate').content.cloneNode(true));
+        });
+        list.addEventListener('click', function (e) {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const row = btn.closest('.question-row');
+            if (btn.hasAttribute('data-remove')) {
+                row.remove();
+            } else if (btn.dataset.move === '-1' && row.previousElementSibling) {
+                list.insertBefore(row, row.previousElementSibling);
+            } else if (btn.dataset.move === '1' && row.nextElementSibling) {
+                list.insertBefore(row.nextElementSibling, row);
+            }
+        });
+    })();
+</script>
+{% endblock %}

@@ -734,7 +734,16 @@
                     <div id="criteria-supplier-assessment" class="d-none">
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle me-2"></i>
-                            Checks for the most recent Supplier Security Assessment.
+                            Checks completed supplier reviews and assessments. Scheduled reviews not filled in yet do not count.
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Which suppliers</label>
+                            <select class="form-select" name="supplier_scope">
+                                <option value="">Any supplier (the most recent review counts)</option>
+                                <option value="critical">Every active critical supplier must be reviewed</option>
+                                <option value="all">Every active supplier must be reviewed</option>
+                            </select>
+                            <div class="form-text">With "every", the oldest of their latest reviews must fall within the frequency.</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Specific Supplier (Optional)</label>

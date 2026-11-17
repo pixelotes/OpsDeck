@@ -544,8 +544,21 @@ class SecurityAssessment(db.Model):
     status = db.Column(db.String(50), default='Pending Review') # Pending Review, Approved, Rejected
     notes = db.Column(db.Text)
     
+    # Questionnaire reviews (see models/supplier_review.py). A review is 'Scheduled'
+    # until its owner fills it in; only completed reviews count as compliance evidence.
+    template_id = db.Column(db.Integer, db.ForeignKey('review_template.id'), index=True)
+    due_date = db.Column(db.Date)
+    completed_at = db.Column(db.DateTime)
+    completed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
+    last_reminder_at = db.Column(db.DateTime)
+
     # Relationships
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False, index=True)
+    template = db.relationship('ReviewTemplate')
+    completed_by = db.relationship('User', foreign_keys=[completed_by_id])
+    answers = db.relationship('SupplierReviewAnswer', backref='assessment', lazy=True,
+                              order_by='SupplierReviewAnswer.position',
+                              cascade=CASCADE_ALL_DELETE_ORPHAN)
     attachments = db.relationship('Attachment',
                             primaryjoin="and_(SecurityAssessment.id==foreign(Attachment.linkable_id), "
                                         "Attachment.linkable_type=='SecurityAssessment')",
@@ -557,6 +570,28 @@ class SecurityAssessment(db.Model):
                                         "ComplianceLink.linkable_type=='SecurityAssessment')",
                             lazy=LAZY_DYNAMIC, cascade=CASCADE_ALL_DELETE_ORPHAN,
                             overlaps="compliance_links")
+
+    @property
+    def is_questionnaire(self):
+        return self.template_id is not None or bool(self.answers)
+
+    @property
+    def is_open(self):
+        """Assigned to the owner and not completed yet."""
+        from .supplier_review import STATUS_SCHEDULED
+        return self.status == STATUS_SCHEDULED
+
+    @property
+    def is_overdue(self):
+        return self.is_open and self.due_date is not None and self.due_date < today()
+
+    @property
+    def check_answers(self):
+        return [a for a in self.answers if a.kind == 'check']
+
+    @property
+    def review_answers(self):
+        return [a for a in self.answers if a.kind == 'review']
 
 class AssetInventory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
