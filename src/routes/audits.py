@@ -790,4 +790,4 @@ def export_defense_pack(id):
 
     except Exception as e:
         flash(f'Error generating defense pack: {str(e)}', 'danger')
-        return redirect(url_for('audits.audit_detail', id=id))
+        return redirect(url_for(VIEW_AUDIT, id=id))

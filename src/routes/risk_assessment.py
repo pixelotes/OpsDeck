@@ -12,6 +12,22 @@ risk_assessment_bp = Blueprint('risk_assessment', __name__, url_prefix='/risk-as
 MODULE = 'risk_governance'
 VIEW_ASSESSMENT = 'risk_assessment.view_assessment'
 
+def _snapshot_item(assessment, risk):
+    """Freeze the current state of `risk` as an item of `assessment`."""
+    return RiskAssessmentItem(
+        assessment_id=assessment.id,
+        original_risk_id=risk.id,
+        risk_description=risk.risk_description,
+        threat_type_name=risk.threat_type.name if risk.threat_type else None,
+        category_list=",".join([c.category for c in risk.categories]),
+        inherent_impact=risk.inherent_impact,
+        inherent_likelihood=risk.inherent_likelihood,
+        residual_impact=risk.residual_impact,
+        residual_likelihood=risk.residual_likelihood,
+        treatment_strategy=risk.treatment_strategy
+    )
+
+
 @risk_assessment_bp.route('/', methods=['GET'])
 @requires_permission(MODULE)
 def list_assessments():
@@ -37,19 +53,7 @@ def new_assessment():
             # Snapshot Logic
             open_risks = Risk.query.filter(Risk.status != 'Closed').all()
             for risk in open_risks:
-                item = RiskAssessmentItem(
-                    assessment_id=assessment.id,
-                    original_risk_id=risk.id,
-                    risk_description=risk.risk_description,
-                    threat_type_name=risk.threat_type.name if risk.threat_type else None,
-                    category_list=",".join([c.category for c in risk.categories]),
-                    inherent_impact=risk.inherent_impact,
-                    inherent_likelihood=risk.inherent_likelihood,
-                    residual_impact=risk.residual_impact,
-                    residual_likelihood=risk.residual_likelihood,
-                    treatment_strategy=risk.treatment_strategy
-                )
-                db.session.add(item)
+                db.session.add(_snapshot_item(assessment, risk))
             
             assessment.calculate_total_risk()
             db.session.commit()
@@ -65,7 +69,38 @@ def new_assessment():
 @requires_permission(MODULE)
 def view_assessment(id):
     assessment = db.get_or_404(RiskAssessment, id)
-    return render_template('risk_assessment/detail.html', assessment=assessment)
+    included = {item.original_risk_id for item in assessment.items}
+    addable_risks = [r for r in Risk.query.filter(Risk.status != 'Closed')
+                     .order_by(Risk.risk_description).all() if r.id not in included]
+    return render_template('risk_assessment/detail.html', assessment=assessment,
+                           addable_risks=addable_risks)
+
+@risk_assessment_bp.route('/<int:id>/items/add', methods=['POST'])
+@requires_permission(MODULE)
+def add_assessment_item(id):
+    """Snapshot one more risk into a draft assessment (e.g. one started empty)."""
+    if not has_write_permission(MODULE):
+        flash('You do not have permission to edit assessments.', 'danger')
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
+    assessment = db.get_or_404(RiskAssessment, id)
+    if assessment.status == 'Locked':
+        flash('Cannot add items to a locked assessment.', 'warning')
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
+    risk_id = request.form.get('risk_id', '')
+    risk = db.session.get(Risk, int(risk_id)) if risk_id.isdigit() else None
+    if risk is None:
+        flash('Choose a risk to add.', 'warning')
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
+    if any(item.original_risk_id == risk.id for item in assessment.items):
+        flash('That risk is already in this assessment.', 'info')
+        return redirect(url_for(VIEW_ASSESSMENT, id=id))
+    db.session.add(_snapshot_item(assessment, risk))
+    db.session.flush()
+    db.session.refresh(assessment)
+    assessment.calculate_total_risk()
+    db.session.commit()
+    flash('Risk added to the assessment.', 'success')
+    return redirect(url_for(VIEW_ASSESSMENT, id=id))
 
 @risk_assessment_bp.route('/item/<int:id>/edit', methods=['POST'])
 @requires_permission(MODULE)

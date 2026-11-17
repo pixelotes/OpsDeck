@@ -1,4 +1,10 @@
 {{- if eq .Values.database.type "internal" -}}
+{{- if not .Values.postgresql.enabled -}}
+{{- fail "database.type=internal needs the bundled PostgreSQL: set postgresql.enabled=true (or use database.type=external)" -}}
+{{- end -}}
+# Stable in-cluster name for the bundled PostgreSQL (Bitnami subchart). The
+# selector targets the subchart's primary pod, whose labels are set by the
+# subchart, not by this chart.
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,6 +20,7 @@ spec:
       protocol: TCP
       name: postgres
   selector:
-    {{- include "opsdeck.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/component: database
+    app.kubernetes.io/name: {{ .Values.postgresql.nameOverride | default "postgresql" }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: primary
 {{- end }}
