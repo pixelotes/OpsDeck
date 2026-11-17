@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
+{% block title %}Entra ID Sync - {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fab fa-microsoft"></i> Microsoft Entra ID Sync</h2>
+    <form action="{{ url_for('admin.entra_sync_preview') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-primary"
+            {% if not (settings.enabled and credentials_ok and settings.group_id_list) %}disabled{% endif %}>
+            <i class="fas fa-sync"></i> Sync now (preview)
+        </button>
+    </form>
+</div>
+<p class="text-muted">
+    Creates, updates and archives OpsDeck users from the members of the Entra ID groups below.
+    Users are matched by Entra object id, then by userPrincipalName. Users no longer in scope
+    (or disabled in Entra) are archived, never deleted. Accounts never linked to Entra are not touched.
+</p>
+
+{% if not credentials_ok %}
+<div class="alert alert-warning">
+    <i class="fas fa-exclamation-triangle"></i>
+    Credentials are not configured. Set <code>AZURE_OAUTH_CLIENT_ID</code>, <code>AZURE_OAUTH_CLIENT_SECRET</code>
+    and <code>AZURE_OAUTH_TENANT_ID</code>, and grant the app registration the <em>application</em> permissions
+    <code>User.Read.All</code> and <code>GroupMember.Read.All</code> (with admin consent).
+</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-cog me-2"></i>Settings</div>
+    <div class="card-body">
+        <form action="{{ url_for('admin.entra_sync_settings') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="enabled" name="enabled" {% if settings.enabled %}checked{% endif %}>
+                <label class="form-check-label" for="enabled">Enable Entra ID sync</label>
+            </div>
+            <div class="mb-3">
+                <label for="group_ids" class="form-label">Entra group object ids (one per line)</label>
+                <textarea class="form-control font-monospace" id="group_ids" name="group_ids" rows="3">{{ settings.group_ids or '' }}</textarea>
+                <div class="form-text">Transitive members (nested groups included) of these groups are in scope.</div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="default_role" class="form-label">Role for new users</label>
+                    <select class="form-select" id="default_role" name="default_role">
+                        {% for r in roles %}<option value="{{ r }}" {% if settings.default_role == r %}selected{% endif %}>{{ r|capitalize }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="archive_threshold_percent" class="form-label">Archive safety threshold (%)</label>
+                    <input type="number" min="0" max="100" class="form-control" id="archive_threshold_percent"
+                        name="archive_threshold_percent" value="{{ settings.archive_threshold_percent }}">
+                    <div class="form-text">Scheduled runs abort (and notify admins) above this share of synced users.</div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="schedule_mode" class="form-label">Schedule</label>
+                    <select class="form-select" id="schedule_mode" name="schedule_mode">
+                        <option value="off" {% if settings.schedule_mode == 'off' %}selected{% endif %}>Off (manual only)</option>
+                        <option value="daily" {% if settings.schedule_mode == 'daily' %}selected{% endif %}>Daily at…</option>
+                        <option value="interval" {% if settings.schedule_mode == 'interval' %}selected{% endif %}>Every N hours</option>
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="daily_time" class="form-label">Daily at (HH:MM)</label>
+                    <input type="time" class="form-control" id="daily_time" name="daily_time" value="{{ settings.daily_time or '03:00' }}">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="interval_hours" class="form-label">Every N hours</label>
+                    <input type="number" min="1" max="168" class="form-control" id="interval_hours" name="interval_hours" value="{{ settings.interval_hours or 24 }}">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Save settings</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-history me-2"></i>Recent runs</div>
+    <div class="table-responsive">
+        <table class="table table-striped mb-0">
+            <thead>
+                <tr><th>Started</th><th>Trigger</th><th>Status</th><th>Created</th><th>Updated</th><th>Archived</th><th>Unarchived</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td>{{ run.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ run.trigger }}{% if run.triggered_by %} <small class="text-muted">({{ run.triggered_by }})</small>{% endif %}{% if run.dry_run %} <span class="badge bg-secondary">dry run</span>{% endif %}</td>
+                    <td>
+                        <span class="badge bg-{{ {'success': 'success', 'aborted': 'warning text-dark', 'error': 'danger'}.get(run.status, 'secondary') }}">{{ run.status }}</span>
+                        {% if run.error %}<div class="small text-muted">{{ run.error }}</div>{% endif %}
+                    </td>
+                    <td>{{ run.created_count }}</td>
+                    <td>{{ run.updated_count }}</td>
+                    <td>{{ run.archived_count }}</td>
+                    <td>{{ run.unarchived_count }}</td>
+                    <td class="text-end">
+                        {% call L.actions() %}
+                            {{ L.action_view(url_for('admin.entra_sync_run', id=run.id)) }}
+                        {% endcall %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-muted text-center">No runs yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

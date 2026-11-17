@@ -3,7 +3,7 @@ from flask import (
     current_app, abort
 )
 import os
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import joinedload
 from functools import wraps
 from datetime import timedelta
@@ -17,7 +17,7 @@ from ..services.permissions_service import (requires_permission, get_user_module
                                             user_has_module_access, readable_modules,
                                             can_read_entity)
 from ..services.finance_service import renewal_occurrences_in_range
-from src import limiter
+from src import limiter, azure_oauth_configured
 from src import notifications
 import calendar
 import random
@@ -74,7 +74,12 @@ def login():
             )
             flash('Invalid email or password', 'danger')
 
-    return render_template('login.html')
+    return render_template(
+        'login.html',
+        google_oauth_configured=bool(current_app.config.get('GOOGLE_OAUTH_CLIENT_ID')),
+        # The blueprint is the source of truth: it is only registered for a valid tenant.
+        azure_oauth_configured='azure' in current_app.blueprints,
+    )
 
 
 @main_bp.route('/health', methods=['GET'])
@@ -322,79 +327,160 @@ def stop_impersonate():
     return redirect(url_for(USERS))
 
 
+def _oauth_failure(error_message, flash_message, target_object=None, provider=None):
+    """Audit a failed SSO login and send the user back to the login page."""
+    extra = {'provider': provider} if provider else {}
+    log_audit(
+        event_type='security.login_oauth',
+        action='login',
+        outcome='failure',
+        target_object=target_object,
+        error_message=error_message,
+        **extra
+    )
+    flash(flash_message, 'danger')
+    return redirect(url_for(LOGIN))
+
+
+def complete_oauth_login(user, identifier, provider, provider_label, reject_archived=True):
+    """Finish an SSO login once the identity provider has vouched for ``identifier``.
+
+    Shared by every SSO callback so they audit and build the session the same way.
+    ``user`` is the local account the callback matched, or None. There is no
+    auto-provisioning: an identity without a matching OpsDeck user is refused.
+
+    ``reject_archived`` is False only for Google, which never checked it, so that
+    refactoring the callback into this helper does not change its behaviour.
+    """
+    if not user:
+        return _oauth_failure(
+            "User not found in database",
+            'No registered user found with this email.',
+            target_object=identifier,
+            provider=None if provider == 'google' else provider,
+        )
+
+    if reject_archived and user.is_archived:
+        return _oauth_failure(
+            "User is archived",
+            'This account is archived and cannot sign in.',
+            target_object=f"User:{user.id}",
+            provider=provider,
+        )
+
+    log_audit(
+        event_type='security.login_oauth',
+        action='login',
+        outcome='success',
+        target_object=f"User:{user.id}",
+        user_email=identifier,
+        provider=provider
+    )
+    session['user_id'] = user.id
+    session['user_role'] = user.role
+
+    # Populate permissions cache immediately
+    get_user_modules(user.id)
+
+    flash(f'Logged in successfully via {provider_label}', 'success')
+    return redirect(url_for(DASHBOARD))
+
+
 @main_bp.route('/google/callback')
 def google_callback():
     """Handle Google OAuth callback and authenticate user."""
     from flask_dance.contrib.google import google
-    
+
     if not google.authorized:
-        log_audit(
-            event_type='security.login_oauth',
-            action='login',
-            outcome='failure',
-            error_message="Google not authorized"
-        )
-        flash('Error authorizing with Google', 'danger')
-        return redirect(url_for(LOGIN))
-    
+        return _oauth_failure("Google not authorized", 'Error authorizing with Google')
+
     # Get user info from Google
     try:
         resp = google.get("/oauth2/v2/userinfo")
         if not resp.ok:
-            log_audit(
-                event_type='security.login_oauth',
-                action='login',
-                outcome='failure',
-                error_message=f"Google API error: {resp.status_code}"
+            return _oauth_failure(
+                f"Google API error: {resp.status_code}",
+                'Error retrieving information from Google',
             )
-            flash('Error retrieving information from Google', 'danger')
-            return redirect(url_for(LOGIN))
-        
+
         google_info = resp.json()
         email = google_info.get("email")
     except Exception as e:
         current_app.logger.error(f"Exception during Google OAuth: {str(e)}")
-        log_audit(
-            event_type='security.login_oauth',
-            action='login',
-            outcome='failure',
-            error_message=str(e)
-        )
-        flash('Error processing Google authentication', 'danger')
-        return redirect(url_for(LOGIN))
-    
+        return _oauth_failure(str(e), 'Error processing Google authentication')
+
     # Find user in database
     user = User.query.filter_by(email=email).first()
-    
-    if user:
-        # Success - log and create session
-        log_audit(
-            event_type='security.login_oauth',
-            action='login',
-            outcome='success',
-            target_object=f"User:{user.id}",
-            user_email=email,
-            provider="google"
+    return complete_oauth_login(user, email, 'google', 'Google', reject_archived=False)
+
+
+def _find_entra_user(oid, upn):
+    """Match a Microsoft Graph identity to a local user.
+
+    The Entra object id (``oid``) is immutable and unique per tenant, so once a user
+    has signed in it is the only thing trusted. Before that, the user is matched on
+    ``userPrincipalName``, which is the tenant's sign-in name and is verified by
+    Entra. ``mail`` is never used: an administrator can set it to any value without
+    verification, which is how the "nOAuth" account-takeover works.
+
+    Returns (user, error) where error is set when a match must be refused.
+    """
+    if oid:
+        user = User.query.filter_by(entra_oid=oid).first()
+        if user:
+            return user, None
+
+    if not upn:
+        return None, None
+
+    user = User.query.filter(func.lower(User.email) == upn.lower()).first()
+    if user and user.entra_oid and user.entra_oid != oid:
+        # The account is already bound to a different Entra identity: someone has
+        # taken over this UPN (e.g. a recycled name). Do not let them in.
+        return None, "Entra object id mismatch"
+    if user and oid and not user.entra_oid:
+        user.entra_oid = oid
+        db.session.commit()
+    return user, None
+
+
+@main_bp.route('/azure/callback', methods=['GET'])
+def azure_callback():
+    """Handle Microsoft Entra ID OAuth callback and authenticate user."""
+    from flask_dance.contrib.azure import azure
+
+    if not azure.authorized:
+        return _oauth_failure(
+            "Microsoft not authorized", 'Error authorizing with Microsoft', provider='azure'
         )
-        session['user_id'] = user.id
-        session['user_role'] = user.role
-        
-        # Populate permissions cache immediately
-        get_user_modules(user.id)
-        
-        flash('Logged in successfully via Google', 'success')
-        return redirect(url_for(DASHBOARD))
-    else:
-        # User not found in database
-        log_audit(
-            event_type='security.login_oauth',
-            action='login',
-            outcome='failure',
-            target_object=email,
-            error_message="User not found in database"
+
+    try:
+        resp = azure.get("/v1.0/me")
+        if not resp.ok:
+            return _oauth_failure(
+                f"Microsoft Graph error: {resp.status_code}",
+                'Error retrieving information from Microsoft',
+                provider='azure',
+            )
+        me = resp.json()
+        oid = me.get("id")
+        upn = me.get("userPrincipalName")
+    except Exception as e:
+        current_app.logger.exception("Exception during Microsoft OAuth")
+        return _oauth_failure(
+            str(e), 'Error processing Microsoft authentication', provider='azure'
         )
-        flash('No registered user found with this email.', 'danger')
-        return redirect(url_for(LOGIN))
+
+    user, error = _find_entra_user(oid, upn)
+    if error:
+        return _oauth_failure(
+            error,
+            'This Microsoft account does not match the registered user.',
+            target_object=upn,
+            provider='azure',
+        )
+    return complete_oauth_login(user, upn, 'azure', 'Microsoft')
+
 
 def password_change_required(f):
     @wraps(f)
@@ -1649,7 +1735,8 @@ def internal_app_info():
                 'email_configured': bool(current_app.config.get('EMAIL_USERNAME'))
             },
             'oauth': {
-                'google_oauth_configured': bool(current_app.config.get('GOOGLE_OAUTH_CLIENT_ID'))
+                'google_oauth_configured': bool(current_app.config.get('GOOGLE_OAUTH_CLIENT_ID')),
+                'azure_oauth_configured': azure_oauth_configured(current_app.config)
             },
             'paths': {
                 'upload_folder': current_app.config.get('UPLOAD_FOLDER', 'Not configured')

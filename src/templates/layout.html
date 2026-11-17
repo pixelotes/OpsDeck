@@ -654,6 +654,7 @@
                     aria-expanded="false">Administration <i class="fa-fw fas fa-chevron-down float-end"></i></h6>
 
                 <div class="collapse" id="admin-menu" data-bs-parent="#sidebar-accordion">
+                    <ul class="nav flex-column">
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('users.') %}active{% endif %}"
                             href="{{ url_for('users.users') }}"><i class="fa-fw fas fa-users"></i> Users</a></li>
@@ -679,6 +680,10 @@
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.import') %}active{% endif %}"
                             href="{{ url_for('admin.import_home') }}"><i class="fa-fw fas fa-file-import"></i>
                             Import Data</a></li>
+                    <li class="nav-item"><a
+                            class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.entra_sync') %}active{% endif %}"
+                            href="{{ url_for('admin.entra_sync') }}"><i class="fa-fw fab fa-microsoft"></i>
+                            Entra ID Sync</a></li>
                     {% endif %}
                     <li class="nav-item"><a
                             class="nav-link {% if request.endpoint == 'admin.audit_log' %}active{% endif %}"
@@ -688,6 +693,7 @@
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('treeview.') %}active{% endif %}"
                             href="{{ url_for('treeview.tree_view') }}"><i class="fa-fw fas fa-sitemap"></i> Tree
                             View</a></li>
+                    </ul>
                 </div>
                 {% endif %}
 

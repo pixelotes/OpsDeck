@@ -81,6 +81,13 @@ env:
 
 # Si tienes un secreto creado manualmente (ej: sealed-secrets o external-secrets)
 # pon el nombre aquí. La chart cargará todo el contenido como variables de entorno.
+# Recommended home for the SSO credentials (see .env.example for the app registration):
+#   Google:            GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET
+#   Microsoft Entra ID: AZURE_OAUTH_CLIENT_ID, AZURE_OAUTH_CLIENT_SECRET, AZURE_OAUTH_TENANT_ID
+#     Redirect URI: https://<ingress host>/login/azure/authorized (set TRUST_PROXY=1 in env)
+#     User sync also needs the Graph application permissions User.Read.All and
+#     GroupMember.Read.All. With several replicas/workers, scheduled syncs are
+#     serialised with a Postgres advisory lock.
 existingSecret: ""
 
 # --- Backup Configuration ---

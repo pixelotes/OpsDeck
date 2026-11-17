@@ -1,0 +1,75 @@
+{% extends "layout.html" %}
+{% from "components/back_button.html" import back_to_list %}
+{% block title %}{{ 'Entra ID sync run' if run else 'Preview Entra ID sync' }} - {{ super() }}{% endblock %}
+{% block content %}
+{{ back_to_list('admin.entra_sync', label='Back to Entra ID Sync') }}
+<h2>
+    <i class="fab fa-microsoft"></i> Entra ID Sync —
+    {% if run %}run #{{ run.id }} <small class="text-muted">({{ run.trigger }}{% if run.dry_run %}, dry run{% endif %}, {{ run.status }})</small>{% else %}Preview{% endif %}
+</h2>
+
+{% if run and run.error %}<div class="alert alert-warning">{{ run.error }}</div>{% endif %}
+
+<div class="my-3">
+    <span class="badge bg-success fs-6">{{ plan.counts.create }} {{ 'to create' if not run else 'create' }}</span>
+    <span class="badge bg-primary fs-6">{{ plan.counts.update }} {{ 'to update' if not run else 'update' }}</span>
+    <span class="badge bg-danger fs-6">{{ plan.counts.archive }} {{ 'to archive' if not run else 'archive' }}</span>
+    <span class="badge bg-info text-dark fs-6">{{ plan.counts.unarchive }} {{ 'to unarchive' if not run else 'unarchive' }}</span>
+    {% if plan.errors %}<span class="badge bg-warning text-dark fs-6">{{ plan.errors|length }} skipped</span>{% endif %}
+</div>
+
+{% if not run %}
+    {% if over_brake %}
+    <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle"></i>
+        This would archive {{ plan.counts.archive }} of {{ plan.linked_count }} synced users, above the
+        {{ settings.archive_threshold_percent }}% threshold. A scheduled run would abort. Check the group ids before confirming.
+    </div>
+    {% endif %}
+    {% if plan.changes %}
+    <form action="{{ url_for('admin.entra_sync_apply') }}" method="POST" class="mb-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="fingerprint" value="{{ plan.fingerprint }}">
+        <button type="submit" class="btn btn-{{ 'danger' if over_brake else 'success' }}">
+            <i class="fas fa-check"></i> Apply {{ plan.changes|length }} change(s)
+        </button>
+        <a href="{{ url_for('admin.entra_sync') }}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+    {% else %}
+    <div class="alert alert-success">OpsDeck is already in sync with Entra ID. Nothing to do.</div>
+    {% endif %}
+{% endif %}
+
+{% if plan.errors %}
+<div class="card mb-4 border-warning">
+    <div class="card-header">Skipped</div>
+    <ul class="list-group list-group-flush">
+        {% for e in plan.errors %}<li class="list-group-item"><code>{{ e.upn }}</code> — {{ e.error }}</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if plan.changes %}
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-striped mb-0">
+            <thead><tr><th>Action</th><th>User</th><th>Changes</th></tr></thead>
+            <tbody>
+                {% for c in plan.changes %}
+                <tr class="{{ 'table-danger' if c.action == 'archive' else '' }}">
+                    <td><span class="badge bg-{{ {'create': 'success', 'update': 'primary', 'archive': 'danger', 'unarchive': 'info text-dark'}[c.action] }}">{{ c.action }}</span></td>
+                    <td>{{ c.name }}<br><small class="text-muted">{{ c.upn }}</small></td>
+                    <td class="small">
+                        {% for field, values in c.fields.items() %}
+                        {% if field == 'manager' and c.manager_display %}{% set values = c.manager_display %}{% endif %}
+                        <div><strong>{{ field }}</strong>: {% if values[0] is not none %}<del>{{ values[0] }}</del> → {% endif %}{{ values[1] if values[1] is not none else '—' }}</div>
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

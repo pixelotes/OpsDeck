@@ -49,10 +49,17 @@
                     <button type="submit" class="btn btn-primary w-100">Login</button>
                 </form>
 
-                {% if config.get('GOOGLE_OAUTH_CLIENT_ID') %}
+                {% if google_oauth_configured or azure_oauth_configured %}
                 <hr class="my-3">
-                <a href="{{ url_for('google.login') }}" class="btn btn-danger w-100">
+                {% endif %}
+                {% if google_oauth_configured %}
+                <a href="{{ url_for('google.login') }}" class="btn btn-danger w-100 mb-2">
                     <i class="fab fa-google"></i> Iniciar sesión con Google
+                </a>
+                {% endif %}
+                {% if azure_oauth_configured %}
+                <a href="{{ url_for('azure.login') }}" class="btn btn-primary w-100 mb-2">
+                    <i class="fab fa-microsoft"></i> Iniciar sesión con Microsoft
                 </a>
                 {% endif %}
             </div>
