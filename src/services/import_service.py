@@ -19,6 +19,7 @@ from ..models import (
     Risk, RiskCategory, Tag, CostCenter, PaymentMethod,
 )
 from ..models.assets import Brand, AssetModel
+from ..models.auth import Group
 from ..utils.helpers import generate_secure_password, get_csv_reader
 from src.utils.timezone_helper import today, now
 
@@ -148,15 +149,42 @@ def _suppliers_init(_rows):
     return {'existing': {n for (n,) in db.session.query(Supplier.name).all() if n}, 'seen': set()}
 
 
+def _resolve_owner(value):
+    """Map an import 'owner' cell to (owner_type, owner_id).
+
+    An email resolves to an active user; anything else to a group by exact name.
+    Returns (None, None) for an empty cell and raises LookupError when nothing matches.
+    """
+    value = (value or '').strip()
+    if not value:
+        return None, None
+    if '@' in value:
+        user = User.query.filter(db.func.lower(User.email) == value.lower(),
+                                 User.is_archived.is_(False)).first()
+        if user:
+            return 'User', user.id
+    else:
+        group = Group.query.filter_by(name=value).first()
+        if group:
+            return 'Group', group.id
+    raise LookupError(value)
+
+
 def _suppliers_handle(row, ctx, persist):
     name = (row.get('name') or '').strip()
     if not name:
         return 'error', MSG_MISSING_NAME, None
     if name in ctx['existing'] or name in ctx['seen']:
         return 'skip', 'A supplier with this name already exists', None
+    try:
+        owner_type, owner_id = _resolve_owner(row.get('owner'))
+    except LookupError as e:
+        return 'error', f'Unknown owner {e.args[0]!r} (use an active user email or a group name)', None
     ctx['seen'].add(name)
     if persist:
         db.session.add(Supplier(
+            owner_type=owner_type,
+            owner_id=owner_id,
             name=name,
             email=row.get('email') or None,
             phone=row.get('phone') or None,
@@ -561,11 +589,12 @@ IMPORTERS = {
     },
     'suppliers': {
         'label': 'Suppliers',
-        'description': 'Create suppliers/vendors. Skips names that already exist.',
+        'description': 'Create suppliers/vendors. Skips names that already exist. owner: an active user email or a group name.',
         'required': ['name'],
-        'optional': ['email', 'phone', 'address', 'website', 'compliance_status'],
+        'optional': ['email', 'phone', 'address', 'website', 'compliance_status', 'owner'],
         'sample': [{'name': 'Acme Corp', 'email': 'sales@acme.com', 'phone': '+1 555 0100',
-                    'address': '1 Main St', 'website': 'https://acme.com', 'compliance_status': 'Approved'}],
+                    'address': '1 Main St', 'website': 'https://acme.com', 'compliance_status': 'Approved',
+                    'owner': 'jane.doe@example.com'}],
         'init': _suppliers_init,
         'handle': _suppliers_handle,
     },

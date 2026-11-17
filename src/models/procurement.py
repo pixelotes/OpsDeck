@@ -64,6 +64,12 @@ class Supplier(db.Model):
     security_assessment_completed = db.Column(db.Date, nullable=True)
     compliance_notes = db.Column(db.Text, nullable=True)
     data_storage_region = db.Column(db.String(50), default='EU')
+
+    # Internal owner accountable for the supplier (SRM): a User or a Group.
+    # Polymorphic, same pattern as Link / SecurityActivity.
+    owner_id = db.Column(db.Integer)
+    owner_type = db.Column(db.String(50))  # 'User' or 'Group'
+
     attachments = db.relationship('Attachment',
         primaryjoin="and_(Supplier.id==foreign(Attachment.linkable_id), "
         "Attachment.linkable_type=='Supplier')",
@@ -86,6 +92,20 @@ class Supplier(db.Model):
     peripherals = db.relationship('Peripheral', backref='supplier', lazy=True)
     opportunities = db.relationship('Opportunity', backref='supplier', foreign_keys='Opportunity.supplier_id')
     security_assessments = db.relationship('SecurityAssessment', backref='supplier', lazy=True, cascade=CASCADE_ALL_DELETE_ORPHAN)
+
+    __table_args__ = (
+        db.Index('ix_supplier_owner', 'owner_type', 'owner_id'),
+    )
+
+    @property
+    def owner(self):
+        """Returns the owning User or Group, or None."""
+        from .auth import User, Group
+        if self.owner_type == 'User' and self.owner_id:
+            return db.session.get(User, self.owner_id)
+        if self.owner_type == 'Group' and self.owner_id:
+            return db.session.get(Group, self.owner_id)
+        return None
 
 
 class PurchaseCostHistory(db.Model):

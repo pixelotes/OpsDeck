@@ -1,6 +1,7 @@
 {% extends "layout.html" %}
 {% from "components/back_button.html" import back_to_list %}
 {% from "components/compliance_link_macro.html" import compliance_links %}
+{% import 'components/list_macros.html' as L with context %}
 
 {% block title %}{{ supplier.name }} - {{ super() }}{% endblock %}
 
@@ -23,6 +24,7 @@
 <div class="card mb-4">
     <div class="card-header">Supplier Details</div>
     <div class="card-body">
+        <p><strong>Owner:</strong> {{ L.person(supplier.owner) }}</p>
         <p><strong>Email:</strong> {{ supplier.email or 'N/A' }}</p>
         <p><strong>Phone:</strong> {{ supplier.phone or 'N/A' }}</p>
         <p><strong>Website:</strong>
