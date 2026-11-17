@@ -29,7 +29,7 @@
             <div class="table-responsive">
                 <table class="table table-sm table-hover" id="dataTable">
                     <thead class="table-dark">
-                        <tr id="tableHeaders"></tr>
+                        <tr id="tableHeaders"><th scope="col">Data</th></tr>
                     </thead>
                     <tbody id="tableBody"></tbody>
                 </table>
@@ -45,73 +45,32 @@
     {% endif %}
 </div>
 
+<script src="{{ url_for('static', filename='js/connector-reports.js') }}"></script>
 <script>
     const reportData = {{ report_data | tojson }};
-    const viewType = '{{ view_type }}';
 
-    if (viewType === 'table') {
-        renderTable(reportData);
-    } else {
-        document.getElementById('jsonData').textContent = JSON.stringify(reportData, null, 2);
-    }
-
-    function renderTable(data) {
-        const tableHeaders = document.getElementById('tableHeaders');
-        const tableBody = document.getElementById('tableBody');
-
-        let items = [];
-        if (data.items && Array.isArray(data.items)) {
-            items = data.items;
-        } else if (Array.isArray(data)) {
-            items = data;
-        } else {
-            items = [data];
-        }
-
+    {% if view_type == 'table' %}
+    (function () {
+        const CR = window.ConnectorReports;
+        const headerRow = document.getElementById('tableHeaders');
+        const body = document.getElementById('tableBody');
+        const items = CR.extractItems(reportData);
+        headerRow.replaceChildren();
         if (items.length === 0) {
-            tableBody.innerHTML = '<tr><td class="text-center text-muted">No data</td></tr>';
+            CR.renderEmpty(body);
             return;
         }
-
         const columns = Object.keys(items[0]);
-
-        // Render headers
         columns.forEach(col => {
             const th = document.createElement('th');
-            th.textContent = col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            tableHeaders.appendChild(th);
+            th.scope = 'col';
+            th.textContent = CR.humanize(col);
+            headerRow.appendChild(th);
         });
-
-        // Render rows
-        items.forEach(item => {
-            const tr = document.createElement('tr');
-            columns.forEach(col => {
-                const td = document.createElement('td');
-                const value = item[col];
-
-                if (value === null || value === undefined) {
-                    td.textContent = '-';
-                    td.className = 'text-muted';
-                } else if (typeof value === 'boolean') {
-                    td.innerHTML = value ?
-                        '<span class="badge bg-success">Yes</span>' :
-                        '<span class="badge bg-secondary">No</span>';
-                } else if (typeof value === 'object') {
-                    td.innerHTML = '<code class="small">' + JSON.stringify(value) + '</code>';
-                } else if (col.includes('url') || col.includes('html_url')) {
-                    td.innerHTML = `<a href="${value}" target="_blank">${value}</a>`;
-                } else if (col.includes('avatar')) {
-                    td.innerHTML = `<img src="${value}" class="rounded" width="32" height="32">`;
-                } else if (col.includes('date') || col.includes('_at')) {
-                    td.innerHTML = `<small>${new Date(value).toLocaleString()}</small>`;
-                } else {
-                    td.textContent = value;
-                }
-
-                tr.appendChild(td);
-            });
-            tableBody.appendChild(tr);
-        });
-    }
+        CR.renderRows(body, items, columns);
+    })();
+    {% else %}
+    document.getElementById('jsonData').textContent = JSON.stringify(reportData, null, 2);
+    {% endif %}
 </script>
 {% endblock %}

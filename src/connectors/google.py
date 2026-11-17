@@ -20,23 +20,11 @@ class GoogleWorkspaceConnector(BaseConnector):
     - Uses OAuth2 service account (recommended for production)
     - Supports both service account JSON and access tokens
     
-    Example auth_config with service account:
-    {
-        "service_account_json": {
-            "type": "service_account",
-            "project_id": "your-project",
-            "private_key_id": "...",
-            "private_key": "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n",
-            "client_email": "your-sa@your-project.iam.gserviceaccount.com",
-            "client_id": "...",
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_x509_cert_url": "..."
-        },
-        "delegated_user": "admin@yourdomain.com"  # Required for domain-wide delegation
-    }
-    
+    auth_config with a service account:
+    - service_account_json: the key file downloaded from Google Cloud, parsed as a dict
+      (it must contain client_email and private_key)
+    - delegated_user: the admin the service account impersonates (domain-wide delegation)
+
     Or with access token (for testing):
     {
         "access_token": "ya29...."
@@ -116,7 +104,7 @@ class GoogleWorkspaceConnector(BaseConnector):
         }
         
         try:
-            response = requests.post(token_url, data=data)
+            response = requests.post(token_url, data=data, timeout=30)
             response.raise_for_status()
             
             token_data = response.json()
@@ -127,7 +115,7 @@ class GoogleWorkspaceConnector(BaseConnector):
             try:
                 error_data = response.json()
                 error_detail = f": {error_data.get('error_description', error_data.get('error', 'Unknown error'))}"
-            except:
+            except ValueError:  # the error body is not JSON
                 pass
             
             raise ValueError(

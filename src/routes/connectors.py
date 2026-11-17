@@ -265,19 +265,32 @@ def report_fullscreen(report_id):
 @login_required
 @requires_permission_api(MODULE)
 def get_diff(subtask_id):
-    """Diff two reports of a subtask: ?report1=&report2=, or the two most recent."""
+    """Diff two reports of a subtask.
+
+    ?report=<id> compares that report with the one fetched just before it;
+    ?report1=<older>&report2=<newer> compares two given reports; with neither,
+    the two most recent reports are compared.
+    """
+    of_subtask = ConnectorReport.query.filter_by(subtask_id=subtask_id)
+    report_id = request.args.get('report', type=int)
     report_id_1 = request.args.get('report1', type=int)
     report_id_2 = request.args.get('report2', type=int)
 
-    if report_id_1 and report_id_2:
+    if report_id:
+        newer = db.get_or_404(ConnectorReport, report_id)
+        if newer.subtask_id != subtask_id:
+            return jsonify({'error': 'Report does not belong to this subtask'}), 400
+        older = (of_subtask.filter(ConnectorReport.id < newer.id)
+                 .order_by(ConnectorReport.id.desc()).first())
+        reports = [newer, older] if older else [newer]
+    elif report_id_1 and report_id_2:
         older = db.get_or_404(ConnectorReport, report_id_1)
         newer = db.get_or_404(ConnectorReport, report_id_2)
         if older.subtask_id != subtask_id or newer.subtask_id != subtask_id:
             return jsonify({'error': 'Reports do not belong to this subtask'}), 400
         reports = [newer, older]
     else:
-        reports = (ConnectorReport.query.filter_by(subtask_id=subtask_id)
-                   .order_by(ConnectorReport.created_at.desc()).limit(2).all())
+        reports = of_subtask.order_by(ConnectorReport.id.desc()).limit(2).all()
 
     if len(reports) < 2:
         return jsonify({'error': 'Not enough reports to compare'}), 404

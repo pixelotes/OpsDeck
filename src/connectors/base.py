@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 
 class PaginationStrategy:
     """Define pagination strategies"""
-    CURSOR = 'cursor'          # nextPageToken, cursor
-    OFFSET = 'offset'          # offset=0&limit=100
-    PAGE = 'page'              # page=1&per_page=100
+    CURSOR = 'cursor'          # nextPageToken / cursor in the response body
+    OFFSET = 'offset'          # offset and limit query parameters
+    PAGE = 'page'              # page number and page size query parameters
     LINK_HEADER = 'link'       # RFC 5988 Link headers
 
 
@@ -138,7 +138,7 @@ class BaseConnector(ABC):
                 logger.debug(f"[{self.task.service}] Retrying in {retry_delay}s...")
                 time.sleep(retry_delay)
         
-        raise Exception(f"Failed to fetch {url} after {self.max_retries} attempts")
+        raise ConnectionError(f"Failed to fetch {url} after {self.max_retries} attempts")
     
     def fetch_all_pages(self) -> Dict[str, Any]:
         """
@@ -155,8 +155,8 @@ class BaseConnector(ABC):
         try:
             self.authenticate()
             logger.info(f"[{self.task.service}] Authentication successful")
-        except Exception as e:
-            logger.error(f"[{self.task.service}] Authentication failed: {str(e)}", exc_info=True)
+        except Exception:
+            logger.exception(f"[{self.task.service}] Authentication failed")
             raise
         
         all_items = []
@@ -198,9 +198,9 @@ class BaseConnector(ABC):
                 'pages_fetched': page_count,
                 'duration_ms': duration_ms
             }
-        except Exception as e:
+        except Exception:
             duration_ms = int((time.time() - start_time) * 1000)
-            logger.error(f"[{self.task.service}] fetch_all_pages failed after {page_count} pages and {duration_ms}ms: {str(e)}", exc_info=True)
+            logger.exception(f"[{self.task.service}] fetch_all_pages failed after {page_count} pages and {duration_ms}ms")
             raise
     
     def save_report(self, data: Dict) -> 'ConnectorReport':

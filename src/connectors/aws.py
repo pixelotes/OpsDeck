@@ -51,8 +51,8 @@ class AWSConnector(BaseConnector):
                 aws_secret_access_key=aws_secret_key,
                 region_name=self.region
             )
-        except Exception as e:
-            logger.error(f"[AWS] Failed to create boto3 client: {e}")
+        except Exception:
+            logger.exception("[AWS] Failed to create boto3 client")
             raise
 
     def parse_items(self, response_data: Dict) -> List[Dict]:
@@ -98,11 +98,11 @@ class AWSConnector(BaseConnector):
                 'duration_ms': duration_ms
             }
 
-        except ClientError as e:
-            logger.error(f"[{self.task.service}] AWS ClientError: {e}")
+        except ClientError:
+            logger.exception(f"[{self.task.service}] AWS ClientError")
             raise
-        except Exception as e:
-            logger.error(f"[{self.task.service}] Unexpected error: {e}", exc_info=True)
+        except Exception:
+            logger.exception(f"[{self.task.service}] Unexpected error")
             raise
 
     def _fetch_iam_users(self) -> List[Dict]:
@@ -172,7 +172,7 @@ class AWSConnector(BaseConnector):
                 # but get_bucket_location works on general client usually
                 loc_resp = self.client.get_bucket_location(Bucket=bucket['Name'])
                 region = loc_resp['LocationConstraint'] or 'us-east-1'
-            except:
+            except ClientError:
                 region = 'unknown'
 
             buckets.append({

@@ -53,7 +53,7 @@
                             </td>
                             <td>{{ report.fetch_duration_ms }} ms</td>
                             <td>
-                                <code class="small">{{ report.checksum[:12] }}...</code>
+                                <code class="small">{{ (report.checksum or "")[:12] }}…</code>
                             </td>
                             <td>
                                 <button class="btn btn-sm btn-primary" onclick="viewReport({{ report.id }})"
@@ -150,7 +150,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="reportModalTitle">Report Data</h5>
-                <div class="btn-group ms-3" role="group">
+                <fieldset class="btn-group ms-3" aria-label="Report view">
                     <button type="button" class="btn btn-sm btn-outline-primary active" id="btnTableView"
                         onclick="switchView('table')">
                         <i class="fas fa-table"></i> Table
@@ -159,7 +159,7 @@
                         onclick="switchView('json')">
                         <i class="fas fa-code"></i> JSON
                     </button>
-                </div>
+                </fieldset>
 
                 <!-- Column visibility toggle (only visible in table view) - Custom dropdown -->
                 <div class="position-relative ms-2" id="columnToggleDropdown" style="display: none;">
@@ -176,6 +176,7 @@
                 <div class="ms-2" id="searchInputContainer" style="display: none;">
                     <div class="input-group input-group-sm" style="width: 200px;">
                         <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <label class="visually-hidden" for="tableSearchInput">Search records</label>
                         <input type="text" class="form-control" id="tableSearchInput" placeholder="Search...">
                         <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" title="Clear">
                             <i class="fas fa-times"></i>
@@ -189,6 +190,11 @@
                     <i class="fas fa-download"></i> CSV
                 </button>
 
+                <button class="btn btn-sm btn-outline-secondary ms-2" type="button" id="fullscreenBtn"
+                    title="Open in a new tab">
+                    <i class="fas fa-expand"></i> Full screen
+                </button>
+
                 <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -196,7 +202,7 @@
                 <div id="reportTableView" class="table-responsive">
                     <table class="table table-sm table-hover" id="reportTable">
                         <thead class="table-dark">
-                            <tr id="reportTableHeaders"></tr>
+                            <tr id="reportTableHeaders"><th scope="col">Data</th></tr>
                         </thead>
                         <tbody id="reportTableBody"></tbody>
                     </table>
@@ -236,161 +242,91 @@
     </div>
 </div>
 
+<script src="{{ url_for('static', filename='js/connector-reports.js') }}"></script>
 <script>
-    let currentReportData = null;
-    let currentReportId = null;
-    let currentColumns = [];
-    let hiddenColumns = new Set();
-    let defaultsApplied = false;
-    let sortColumn = null;
-    let sortDirection = 'asc'; // 'asc' or 'desc'
-    let searchFilter = '';
+    const CR = window.ConnectorReports;
+    const DIFF_URL = "{{ url_for('connectors.get_diff', subtask_id=subtask.id) }}";
+    const REPORT_URL = "{{ url_for('connectors.get_report', report_id=0) }}".replace(/0$/, '');
+    const FULLSCREEN_URL = "{{ url_for('connectors.report_fullscreen', report_id=0) }}".replace(/0\/fullscreen$/, '');
+
+    const state = {
+        data: null, reportId: null, columns: [], hidden: new Set(),
+        sortColumn: null, sortDirection: 'asc', search: '',
+    };
+
+    function setTableControlsVisible(visible) {
+        document.getElementById('reportTableView').style.display = visible ? 'block' : 'none';
+        document.getElementById('reportJsonView').style.display = visible ? 'none' : 'block';
+        document.getElementById('btnTableView').classList.toggle('active', visible);
+        document.getElementById('btnJsonView').classList.toggle('active', !visible);
+        document.getElementById('columnToggleDropdown').style.display = visible ? 'block' : 'none';
+        document.getElementById('searchInputContainer').style.display = visible ? 'block' : 'none';
+        document.getElementById('downloadCsvBtn').style.display = visible ? 'inline-block' : 'none';
+    }
 
     function switchView(view) {
-        const tableView = document.getElementById('reportTableView');
-        const jsonView = document.getElementById('reportJsonView');
-        const btnTable = document.getElementById('btnTableView');
-        const btnJson = document.getElementById('btnJsonView');
-        const columnToggle = document.getElementById('columnToggleDropdown');
-        const searchContainer = document.getElementById('searchInputContainer');
-        const downloadBtn = document.getElementById('downloadCsvBtn');
-
-        if (view === 'table') {
-            tableView.style.display = 'block';
-            jsonView.style.display = 'none';
-            btnTable.classList.add('active');
-            btnJson.classList.remove('active');
-            columnToggle.style.display = 'block';
-            searchContainer.style.display = 'block';
-            downloadBtn.style.display = 'inline-block';
-        } else {
-            tableView.style.display = 'none';
-            jsonView.style.display = 'block';
-            btnTable.classList.remove('active');
-            btnJson.classList.add('active');
-            columnToggle.style.display = 'none';
-            searchContainer.style.display = 'none';
-            downloadBtn.style.display = 'none';
-        }
+        setTableControlsVisible(view === 'table');
     }
 
     function sortByColumn(columnIndex) {
-        const columnName = currentColumns[columnIndex];
-        if (sortColumn === columnName) {
-            // Toggle direction
-            sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+        const column = state.columns[columnIndex];
+        if (state.sortColumn === column) {
+            state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
-            sortColumn = columnName;
-            sortDirection = 'asc';
+            state.sortColumn = column;
+            state.sortDirection = 'asc';
         }
-        renderTable(currentReportData, null, true);
+        renderTable();
     }
 
     function applySearch(query) {
-        searchFilter = query.toLowerCase().trim();
-        renderTable(currentReportData, null, true);
+        state.search = query.toLowerCase().trim();
+        renderTable();
+    }
+
+    /** The rows currently shown: filtered by the search box and sorted. */
+    function visibleItems() {
+        const items = CR.filterItems(CR.extractItems(state.data), state.columns, state.hidden, state.search);
+        if (state.sortColumn && state.columns.includes(state.sortColumn)) {
+            return CR.sortItems(items, state.sortColumn, state.sortDirection);
+        }
+        return items;
     }
 
     function downloadCsv() {
-        if (!currentReportData) return;
-
-        // Get visible items (apply same filtering and sorting as the table)
-        let items = [];
-        if (currentReportData.items && Array.isArray(currentReportData.items)) {
-            items = currentReportData.items;
-        } else if (Array.isArray(currentReportData)) {
-            items = currentReportData;
-        } else {
-            items = [currentReportData];
-        }
-
-        // Apply search filter
-        if (searchFilter) {
-            items = items.filter(item => {
-                return currentColumns.some((col, idx) => {
-                    if (hiddenColumns.has(idx)) return false;
-                    const value = item[col];
-                    if (value === null || value === undefined) return false;
-                    const strValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
-                    return strValue.toLowerCase().includes(searchFilter);
-                });
-            });
-        }
-
-        // Apply sorting
-        if (sortColumn && currentColumns.includes(sortColumn)) {
-            items = [...items].sort((a, b) => {
-                const valA = a[sortColumn];
-                const valB = b[sortColumn];
-                if (valA === null || valA === undefined) return sortDirection === 'asc' ? 1 : -1;
-                if (valB === null || valB === undefined) return sortDirection === 'asc' ? -1 : 1;
-                let comparison = 0;
-                if (typeof valA === 'boolean') {
-                    comparison = valA === valB ? 0 : (valA ? -1 : 1);
-                } else if (typeof valA === 'number') {
-                    comparison = valA - valB;
-                } else if (typeof valA === 'string') {
-                    comparison = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
-                } else {
-                    comparison = String(valA).localeCompare(String(valB));
-                }
-                return sortDirection === 'asc' ? comparison : -comparison;
-            });
-        }
-
-        // Get visible columns
-        const visibleColumns = currentColumns.filter((col, idx) => !hiddenColumns.has(idx));
-
-        // Build CSV
-        const escapeCSV = (val) => {
-            if (val === null || val === undefined) return '';
-            let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
-            // Escape quotes and wrap in quotes if contains comma, quote, or newline
-            if (str.includes('"') || str.includes(',') || str.includes('\n')) {
-                str = '"' + str.replace(/"/g, '""') + '"';
-            }
-            return str;
+        if (!state.data) return;
+        const columns = state.columns.filter((col, idx) => !state.hidden.has(idx));
+        const escapeCsv = (value) => {
+            if (value === null || value === undefined) return '';
+            const text = CR.stringify(value);
+            return /[",\n]/.test(text) ? '"' + text.replaceAll('"', '""') + '"' : text;
         };
+        const rows = [columns.map(escapeCsv).join(',')];
+        visibleItems().forEach(item => rows.push(columns.map(col => escapeCsv(item[col])).join(',')));
 
-        // Header row
-        const csvRows = [];
-        csvRows.push(visibleColumns.map(col => escapeCSV(col)).join(','));
-
-        // Data rows
-        items.forEach(item => {
-            const row = visibleColumns.map(col => escapeCSV(item[col]));
-            csvRows.push(row.join(','));
-        });
-
-        // Create and download file
-        const csvContent = csvRows.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' }));
         const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `report_${currentReportId}_${new Date().toISOString().slice(0, 10)}.csv`);
-        link.style.visibility = 'hidden';
+        link.href = url;
+        link.download = `report_${state.reportId}_${new Date().toISOString().slice(0, 10)}.csv`;
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        link.remove();
         URL.revokeObjectURL(url);
     }
 
     function toggleColumn(columnIndex) {
-        if (hiddenColumns.has(columnIndex)) {
-            hiddenColumns.delete(columnIndex);
+        if (state.hidden.has(columnIndex)) {
+            state.hidden.delete(columnIndex);
         } else {
-            hiddenColumns.add(columnIndex);
+            state.hidden.add(columnIndex);
         }
-        // Pass true to skip recalculating default columns
-        renderTable(currentReportData, null, true);
+        renderTable();
     }
 
     function updateColumnToggles() {
-        const togglePanel = document.getElementById('columnTogglePanel');
-        togglePanel.innerHTML = '';
-
-        currentColumns.forEach((col, idx) => {
+        const panel = document.getElementById('columnTogglePanel');
+        panel.replaceChildren();
+        state.columns.forEach((col, idx) => {
             const item = document.createElement('div');
             item.className = 'px-3 py-2 d-flex align-items-center column-toggle-item';
             item.style.cursor = 'pointer';
@@ -401,466 +337,152 @@
             checkbox.type = 'checkbox';
             checkbox.className = 'form-check-input me-2';
             checkbox.id = 'col-toggle-' + idx;
-            checkbox.checked = !hiddenColumns.has(idx);
+            checkbox.checked = !state.hidden.has(idx);
 
             const label = document.createElement('label');
-            label.htmlFor = 'col-toggle-' + idx;
+            label.htmlFor = checkbox.id;
             label.style.cursor = 'pointer';
             label.style.marginBottom = '0';
             label.style.flex = '1';
-            const colName = col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            label.textContent = colName;
+            label.textContent = CR.humanize(col);
 
-            item.appendChild(checkbox);
-            item.appendChild(label);
-
-            // Handle click on the entire row
+            item.append(checkbox, label);
             item.addEventListener('click', function (e) {
-                if (e.target !== checkbox) {
-                    checkbox.checked = !checkbox.checked;
-                }
+                if (e.target !== checkbox) checkbox.checked = !checkbox.checked;
                 toggleColumn(idx);
             });
-
-            togglePanel.appendChild(item);
+            panel.appendChild(item);
         });
     }
 
-    // Initialize custom dropdown behavior
-    document.addEventListener('DOMContentLoaded', function () {
-        const toggleButton = document.getElementById('columnToggleButton');
-        const togglePanel = document.getElementById('columnTogglePanel');
-
-        // Toggle panel visibility on button click
-        toggleButton.addEventListener('click', function (e) {
-            e.stopPropagation();
-            const isVisible = togglePanel.style.display === 'block';
-            togglePanel.style.display = isVisible ? 'none' : 'block';
-        });
-
-        // Close panel when clicking outside
-        document.addEventListener('click', function (e) {
-            if (!togglePanel.contains(e.target) && e.target !== toggleButton) {
-                togglePanel.style.display = 'none';
-            }
-        });
-
-        // Prevent clicks inside panel from closing it
-        togglePanel.addEventListener('click', function (e) {
-            e.stopPropagation();
-        });
-
-        // Search input handling
-        const searchInput = document.getElementById('tableSearchInput');
-        const clearSearchBtn = document.getElementById('clearSearchBtn');
-        let searchTimeout = null;
-
-        searchInput.addEventListener('input', function (e) {
-            // Debounce search
-            if (searchTimeout) clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                applySearch(e.target.value);
-            }, 300);
-        });
-
-        clearSearchBtn.addEventListener('click', function () {
-            searchInput.value = '';
-            applySearch('');
-        });
-
-        // Download CSV button
-        document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
-    });
-
-    function openFullscreen() {
-        const view = document.getElementById('btnTableView').classList.contains('active') ? 'table' : 'json';
-        const url = `/settings/connectors/report/${currentReportId}/fullscreen?view=${view}`;
-        window.open(url, '_blank');
-    }
-
-    function renderTable(data, defaultVisibleColumns = null, skipDefaults = false) {
-        const tableHeaders = document.getElementById('reportTableHeaders');
-        const tableBody = document.getElementById('reportTableBody');
-
-        // Clear existing content
-        tableHeaders.innerHTML = '';
-        tableBody.innerHTML = '';
-
-        // Parse the data items
-        let items = [];
-        if (data.items && Array.isArray(data.items)) {
-            items = data.items;
-        } else if (Array.isArray(data)) {
-            items = data;
-        } else {
-            // Single object, wrap in array
-            items = [data];
-        }
-
-        if (items.length === 0) {
-            tableBody.innerHTML = '<tr><td class="text-center text-muted">No data</td></tr>';
-            return;
-        }
-
-        // Extract column names from first item
-        const firstItem = items[0];
-        currentColumns = Object.keys(firstItem);
-
-        // Auto-detect GitHub data and set default visible columns
-        if (defaultVisibleColumns === null) {
-            // Check if this looks like GitHub user/collaborator data
-            const hasGitHubUserFields = currentColumns.some(col =>
-                ['login', 'avatar_url', 'html_url', 'site_admin'].includes(col.toLowerCase())
-            );
-
-            // Check if this looks like GitHub repository data
-            const hasGitHubRepoFields = currentColumns.some(col =>
-                ['full_name', 'private', 'owner', 'default_branch'].includes(col.toLowerCase())
-            );
-
-            // Check if this looks like JumpCloud systemusers (users) data
-            const hasJumpCloudUserFields = currentColumns.some(col =>
-                ['email', 'firstname', 'lastname', 'systemusername', 'ldap_binding_user'].includes(col.toLowerCase())
-            );
-
-            // Check if this looks like JumpCloud systems data
-            const hasJumpCloudSystemFields = currentColumns.some(col =>
-                ['hostname', 'displayname', 'os', 'lastcontact', 'serialnumber'].includes(col.toLowerCase())
-            );
-
-            // Check if this looks like Confluence spaces data
-            const hasConfluenceSpaceFields = currentColumns.some(col =>
-                ['key', 'name', 'type', '_expandable', '_links'].includes(col.toLowerCase())
-            );
-
-            if (hasGitHubRepoFields) {
-                // GitHub Repositories default columns
-                const repoDefaults = ['name', 'url', 'visibility', 'created_at', 'archived', 'disabled', 'default_branch'];
-                defaultVisibleColumns = currentColumns.filter(col =>
-                    repoDefaults.includes(col.toLowerCase())
-                );
-            } else if (hasGitHubUserFields) {
-                // GitHub Users/Collaborators default columns
-                const userDefaults = ['html_url', 'id', 'login', 'site_admin', 'type', 'user_view_type'];
-                defaultVisibleColumns = currentColumns.filter(col =>
-                    userDefaults.includes(col.toLowerCase())
-                );
-            } else if (hasJumpCloudUserFields) {
-                // JumpCloud SystemUsers (Users) default columns
-                const jumpcloudUserDefaults = ['id', 'created', 'email', 'firstname', 'lastname', 'ldap_binding_user', 'password_date', 'state', 'suspended', 'systemusername', 'username'];
-                defaultVisibleColumns = currentColumns.filter(col =>
-                    jumpcloudUserDefaults.includes(col.toLowerCase())
-                );
-            } else if (hasJumpCloudSystemFields) {
-                // JumpCloud Systems default columns
-                const jumpcloudDefaults = ['id', 'active', 'arch', 'created', 'description', 'displayname', 'hostname', 'hwvendor', 'ispolicybound', 'lastcontact', 'os', 'remoteip', 'serialnumber', 'version'];
-                defaultVisibleColumns = currentColumns.filter(col =>
-                    jumpcloudDefaults.includes(col.toLowerCase())
-                );
-            } else if (hasConfluenceSpaceFields) {
-                // Confluence Spaces default columns - hide _expandable and _ari
-                defaultVisibleColumns = currentColumns.filter(col =>
-                    !['_expandable', '_ari'].includes(col.toLowerCase())
-                );
-            }
-        }
-
-        // Initialize hidden columns based on default visible columns (only on first render)
-        if (!skipDefaults && !defaultsApplied && defaultVisibleColumns && defaultVisibleColumns.length > 0) {
-            hiddenColumns.clear();
-            currentColumns.forEach((col, idx) => {
-                // Hide column if it's not in the default visible list (case-insensitive)
-                if (!defaultVisibleColumns.some(defCol => defCol.toLowerCase() === col.toLowerCase())) {
-                    hiddenColumns.add(idx);
-                }
-            });
-            defaultsApplied = true;
-        }
-
-        // Update column toggles
-        updateColumnToggles();
-
-        // Apply search filter
-        let filteredItems = items;
-        if (searchFilter) {
-            filteredItems = items.filter(item => {
-                return currentColumns.some((col, idx) => {
-                    if (hiddenColumns.has(idx)) return false;
-                    const value = item[col];
-                    if (value === null || value === undefined) return false;
-                    const strValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
-                    return strValue.toLowerCase().includes(searchFilter);
-                });
-            });
-        }
-
-        // Apply sorting
-        if (sortColumn && currentColumns.includes(sortColumn)) {
-            filteredItems = [...filteredItems].sort((a, b) => {
-                const valA = a[sortColumn];
-                const valB = b[sortColumn];
-
-                // Handle nulls
-                if (valA === null || valA === undefined) return sortDirection === 'asc' ? 1 : -1;
-                if (valB === null || valB === undefined) return sortDirection === 'asc' ? -1 : 1;
-
-                // Compare based on type
-                let comparison = 0;
-                if (typeof valA === 'boolean') {
-                    comparison = valA === valB ? 0 : (valA ? -1 : 1);
-                } else if (typeof valA === 'number') {
-                    comparison = valA - valB;
-                } else if (typeof valA === 'string') {
-                    comparison = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
-                } else {
-                    comparison = String(valA).localeCompare(String(valB));
-                }
-
-                return sortDirection === 'asc' ? comparison : -comparison;
-            });
-        }
-
-        // Render headers (only visible columns) with sort indicators
-        currentColumns.forEach((col, idx) => {
-            if (hiddenColumns.has(idx)) return;
-
+    function renderHeader(headerRow) {
+        state.columns.forEach((col, idx) => {
+            if (state.hidden.has(idx)) return;
             const th = document.createElement('th');
+            th.scope = 'col';
             th.style.cursor = 'pointer';
             th.style.userSelect = 'none';
             th.style.whiteSpace = 'nowrap';
             th.onclick = () => sortByColumn(idx);
 
-            const colName = col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            let sortIndicator = '';
-            if (sortColumn === col) {
-                sortIndicator = sortDirection === 'asc' ? ' <i class="fas fa-sort-up"></i>' : ' <i class="fas fa-sort-down"></i>';
-            } else {
-                sortIndicator = ' <i class="fas fa-sort text-muted"></i>';
+            let icon = 'fas fa-sort text-muted';
+            if (state.sortColumn === col) {
+                icon = state.sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
             }
-            th.innerHTML = colName + sortIndicator;
-            tableHeaders.appendChild(th);
+            const indicator = document.createElement('i');
+            indicator.className = icon + ' ms-1';
+            th.append(CR.humanize(col), indicator);
+            headerRow.appendChild(th);
         });
+    }
 
-        // Render rows
-        filteredItems.forEach(item => {
-            const tr = document.createElement('tr');
-            currentColumns.forEach((col, idx) => {
-                if (hiddenColumns.has(idx)) return;
+    function updateStats(shown, total) {
+        const visibleColumns = state.columns.length - state.hidden.size;
+        let text = `${shown} record${shown === 1 ? '' : 's'}`;
+        if (state.search && shown !== total) text += ` (of ${total})`;
+        text += ` • ${visibleColumns}/${state.columns.length} columns`;
+        if (state.sortColumn) {
+            const arrow = state.sortDirection === 'asc' ? '↑' : '↓';
+            text += ` • Sorted by ${state.sortColumn.replaceAll('_', ' ')} (${arrow})`;
+        }
+        document.getElementById('reportStats').textContent = text;
+    }
 
-                const td = document.createElement('td');
-                const value = item[col];
+    function renderTable() {
+        const headerRow = document.getElementById('reportTableHeaders');
+        const body = document.getElementById('reportTableBody');
+        headerRow.replaceChildren();
+        body.replaceChildren();
 
-                // Format different data types
-                if (value === null || value === undefined) {
-                    td.textContent = '-';
-                    td.className = 'text-muted';
-                } else if (typeof value === 'boolean') {
-                    td.innerHTML = value ?
-                        '<span class="badge bg-success">Yes</span>' :
-                        '<span class="badge bg-secondary">No</span>';
-                } else if (typeof value === 'object') {
-                    td.innerHTML = '<code class="small">' + JSON.stringify(value) + '</code>';
-                } else if (col.includes('url') || col.includes('html_url')) {
-                    td.innerHTML = `<a href="${value}" target="_blank" class="small text-truncate d-inline-block" style="max-width: 300px;">${value}</a>`;
-                } else if (col.includes('avatar')) {
-                    td.innerHTML = `<img src="${value}" class="rounded" width="32" height="32">`;
-                } else if (col.includes('date') || col.includes('_at')) {
-                    td.innerHTML = `<small>${new Date(value).toLocaleString()}</small>`;
-                } else {
-                    td.textContent = value;
-                }
+        const items = CR.extractItems(state.data);
+        if (items.length === 0) {
+            CR.renderEmpty(body);
+            return;
+        }
+        updateColumnToggles();
+        renderHeader(headerRow);
+        const shown = visibleItems();
+        CR.renderRows(body, shown, state.columns, state.hidden);
+        updateStats(shown.length, items.length);
+    }
 
-                tr.appendChild(td);
-            });
-            tableBody.appendChild(tr);
+    function loadReport(reportId, data) {
+        const items = CR.extractItems(data);
+        Object.assign(state, {
+            data, reportId, columns: items.length ? Object.keys(items[0]) : [], hidden: new Set(),
+            sortColumn: null, sortDirection: 'asc', search: '',
         });
-
-        // Update stats
-        const visibleColumns = currentColumns.length - hiddenColumns.size;
-        const totalItems = items.length;
-        const shownItems = filteredItems.length;
-        let statsText = `${shownItems} record${shownItems !== 1 ? 's' : ''}`;
-        if (searchFilter && shownItems !== totalItems) {
-            statsText += ` (of ${totalItems})`;
+        const defaults = CR.defaultVisibleColumns(state.columns);
+        if (defaults && defaults.length) {
+            const show = new Set(defaults);
+            state.columns.forEach((col, idx) => { if (!show.has(col)) state.hidden.add(idx); });
         }
-        statsText += ` • ${visibleColumns}/${currentColumns.length} columns`;
-        if (sortColumn) {
-            statsText += ` • Sorted by ${sortColumn.replace(/_/g, ' ')} (${sortDirection === 'asc' ? '↑' : '↓'})`;
-        }
-        document.getElementById('reportStats').textContent = statsText;
+        document.getElementById('tableSearchInput').value = '';
     }
 
     function viewReport(reportId) {
-        currentReportId = reportId;
-        hiddenColumns.clear(); // Reset hidden columns
-        defaultsApplied = false; // Allow defaults to be recalculated for new report
-        sortColumn = null; // Reset sorting
-        sortDirection = 'asc';
-        searchFilter = ''; // Reset search
-        document.getElementById('tableSearchInput').value = '';
-
-        // Fetch report data
-        fetch(`/settings/connectors/api/report/${reportId}`)
+        fetch(REPORT_URL + reportId)
             .then(response => response.json())
-            .then(data => {
-                const parsedData = JSON.parse(data.data);
-                currentReportData = parsedData;
-
-                // Update title
+            .then(payload => {
+                const data = JSON.parse(payload.data);
+                loadReport(reportId, data);
                 document.getElementById('reportModalTitle').textContent = `Report #${reportId}`;
-
-                // Render JSON view
-                document.getElementById('reportData').textContent = JSON.stringify(parsedData, null, 2);
-
-                // Render table view
-                renderTable(parsedData);
-
-                // Show table view by default
+                document.getElementById('reportData').textContent = JSON.stringify(data, null, 2);
+                renderTable();
                 switchView('table');
-
-                // Show modal
                 new bootstrap.Modal(document.getElementById('reportModal')).show();
             })
-            .catch(error => {
-                alert('Error loading report: ' + error);
-            });
+            .catch(error => alert('Error loading report: ' + error));
     }
 
-    function viewDiff(newId, oldId) {
-        // Fetch diff
-        fetch(`/settings/connectors/api/diff/{{ subtask.id }}?report1=${oldId}&report2=${newId}`)
-            .then(response => response.json())
-            .then(data => {
-                const info = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <strong>New Report:</strong> #${data.report_new_id}<br>
-                        <small class="text-muted">${data.report_new_date}</small>
-                    </div>
-                    <div class="col-md-6">
-                        <strong>Previous Report:</strong> #${data.report_old_id}<br>
-                        <small class="text-muted">${data.report_old_date}</small>
-                    </div>
-                </div>
-                ${data.has_changes ? '<div class="alert alert-warning mt-2">⚠️ Changes detected</div>' : '<div class="alert alert-success mt-2">✓ No changes</div>'}
-            `;
-
-                document.getElementById('diffInfo').innerHTML = info;
-
-                // Render semantic diff viewer
-                const diffViewer = document.getElementById('diffViewer');
-                diffViewer.innerHTML = renderSemanticDiff(data.diff);
-
-                new bootstrap.Modal(document.getElementById('diffModal')).show();
-            })
-            .catch(error => {
-                alert('Error loading diff: ' + error);
-            });
+    function openFullscreen() {
+        const view = document.getElementById('btnTableView').classList.contains('active') ? 'table' : 'json';
+        window.open(`${FULLSCREEN_URL}${state.reportId}/fullscreen?view=${view}`, '_blank');
     }
 
+    /** Compare a report with the one fetched just before it. */
     function viewDiffForReport(reportId) {
-        // Fetch diff for a specific report (compares with chronologically previous report)
-        // The API endpoint will automatically find and compare with the previous report
-        fetch(`/settings/connectors/api/diff/{{ subtask.id }}`)
+        fetch(`${DIFF_URL}?report=${reportId}`)
             .then(response => response.json())
             .then(data => {
-                // Check if we have enough reports
                 if (data.error) {
                     alert(data.error);
                     return;
                 }
-
-                const info = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <strong>New Report:</strong> #${data.report_new_id}<br>
-                        <small class="text-muted">${data.report_new_date}</small>
-                    </div>
-                    <div class="col-md-6">
-                        <strong>Previous Report:</strong> #${data.report_old_id}<br>
-                        <small class="text-muted">${data.report_old_date}</small>
-                    </div>
-                </div>
-                ${data.has_changes ? '<div class="alert alert-warning mt-2">⚠️ Changes detected</div>' : '<div class="alert alert-success mt-2">✓ No changes</div>'}
-            `;
-
-                document.getElementById('diffInfo').innerHTML = info;
-
-                // Render semantic diff viewer
-                const diffViewer = document.getElementById('diffViewer');
-                diffViewer.innerHTML = renderSemanticDiff(data.diff);
-
+                document.getElementById('diffInfo').replaceChildren(CR.renderDiffSummary(data));
+                document.getElementById('diffViewer').replaceChildren(CR.renderDiffTable(data.diff));
                 new bootstrap.Modal(document.getElementById('diffModal')).show();
             })
-            .catch(error => {
-                alert('Error loading diff: ' + error);
-            });
+            .catch(error => alert('Error loading diff: ' + error));
     }
 
-    function renderSemanticDiff(diff) {
-        let html = '<div class="diff-viewer"><table class="table table-sm table-bordered">';
-        html += '<thead><tr>';
-        html += '<th style="width: 40%">Field</th>';
-        html += '<th style="width: 30%">Previous Value</th>';
-        html += '<th style="width: 30%">New Value</th>';
-        html += '</tr></thead><tbody>';
+    document.addEventListener('DOMContentLoaded', function () {
+        const toggleButton = document.getElementById('columnToggleButton');
+        const togglePanel = document.getElementById('columnTogglePanel');
 
-        // Added items
-        if (diff.added && diff.added.length > 0) {
-            diff.added.forEach(([path, value]) => {
-                html += '<tr class="table-success">';
-                html += `<td><i class="fas fa-plus-circle text-success me-2"></i><strong>${escapeHtml(path)}</strong></td>`;
-                html += '<td class="text-muted fst-italic">None</td>';
-                html += `<td>${formatValue(value)}</td>`;
-                html += '</tr>';
-            });
-        }
+        toggleButton.addEventListener('click', function (e) {
+            e.stopPropagation();
+            togglePanel.style.display = togglePanel.style.display === 'block' ? 'none' : 'block';
+        });
+        document.addEventListener('click', function (e) {
+            if (!togglePanel.contains(e.target) && e.target !== toggleButton) {
+                togglePanel.style.display = 'none';
+            }
+        });
+        togglePanel.addEventListener('click', e => e.stopPropagation());
 
-        // Removed items
-        if (diff.removed && diff.removed.length > 0) {
-            diff.removed.forEach(([path, value]) => {
-                html += '<tr class="table-danger">';
-                html += `<td><i class="fas fa-minus-circle text-danger me-2"></i><strong>${escapeHtml(path)}</strong></td>`;
-                html += `<td>${formatValue(value)}</td>`;
-                html += '<td class="text-muted fst-italic">Removed</td>';
-                html += '</tr>';
-            });
-        }
-
-        // Changed items
-        if (diff.changed && diff.changed.length > 0) {
-            diff.changed.forEach(([path, oldVal, newVal]) => {
-                html += '<tr class="table-warning">';
-                html += `<td><i class="fas fa-pencil-alt text-warning me-2"></i><strong>${escapeHtml(path)}</strong></td>`;
-                html += `<td>${formatValue(oldVal)}</td>`;
-                html += `<td>${formatValue(newVal)}</td>`;
-                html += '</tr>';
-            });
-        }
-
-        if ((!diff.added || diff.added.length === 0) &&
-            (!diff.removed || diff.removed.length === 0) &&
-            (!diff.changed || diff.changed.length === 0)) {
-            html += '<tr><td colspan="3" class="text-center text-muted">';
-            html += '<i class="fas fa-check-circle me-1"></i> No changes detected.';
-            html += '</td></tr>';
-        }
-
-        html += '</tbody></table></div>';
-        return html;
-    }
-
-    function formatValue(value) {
-        if (typeof value === 'object' && value !== null) {
-            return '<pre class="m-0 bg-transparent p-0">' + JSON.stringify(value, null, 2) + '</pre>';
-        }
-        return escapeHtml(String(value));
-    }
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+        const searchInput = document.getElementById('tableSearchInput');
+        let searchTimeout = null;
+        searchInput.addEventListener('input', function (e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => applySearch(e.target.value), 300);
+        });
+        document.getElementById('clearSearchBtn').addEventListener('click', function () {
+            searchInput.value = '';
+            applySearch('');
+        });
+        document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
+        document.getElementById('fullscreenBtn').addEventListener('click', openFullscreen);
+    });
 </script>
 {% endblock %}

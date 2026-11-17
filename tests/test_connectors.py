@@ -140,12 +140,20 @@ def test_runs_store_reports_and_the_diff_api_compares_them(auth_client, app, fak
     with app.app_context():
         assert ConnectorReport.query.filter_by(subtask_id=subtask_id).count() == 2
         task = db.session.get(ConnectorTask, task_id)
-        assert task.status == 'idle' and task.next_run is not None
+        assert task.status == 'idle'
+        assert task.next_run is not None
 
     diff = auth_client.get(f'/settings/connectors/api/diff/{subtask_id}').get_json()
     assert diff['has_changes'] is True
 
     report_id = diff['report_new_id']
+    first_id = diff['report_old_id']
+
+    # ?report= compares a report with the one before it, not with the latest pair
+    per_report = auth_client.get(f'/settings/connectors/api/diff/{subtask_id}?report={report_id}').get_json()
+    assert (per_report['report_new_id'], per_report['report_old_id']) == (report_id, first_id)
+    first_only = auth_client.get(f'/settings/connectors/api/diff/{subtask_id}?report={first_id}')
+    assert first_only.status_code == 404
     assert auth_client.get(f'/settings/connectors/api/report/{report_id}').get_json()['record_count'] == 2
     assert auth_client.get(f'/settings/connectors/subtask/{subtask_id}/reports').status_code == 200
     assert auth_client.get(f'/settings/connectors/report/{report_id}/fullscreen').status_code == 200

@@ -718,10 +718,12 @@
                             class="nav-link {% if request.endpoint and request.endpoint.startswith('event_rules.') %}active{% endif %}"
                             href="{{ url_for('event_rules.list_rules') }}"><i class="fa-fw fas fa-bolt"></i>
                             Event Rules</a></li>
-                    <li class="nav-item"><a
-                            class="nav-link {% if request.endpoint and request.endpoint.startswith('connectors.') %}active{% endif %}"
-                            href="{{ url_for('connectors.dashboard') }}"><i class="fa-fw fas fa-plug"></i>
-                            API Connectors</a></li>
+                    <ul class="nav flex-column">
+                        <li class="nav-item"><a
+                                class="nav-link {% if request.endpoint and request.endpoint.startswith('connectors.') %}active{% endif %}"
+                                href="{{ url_for('connectors.dashboard') }}"><i class="fa-fw fas fa-plug"></i>
+                                API Connectors</a></li>
+                    </ul>
 
                 </div>
                 {% endif %}
