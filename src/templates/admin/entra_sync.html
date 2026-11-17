@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
 {% block title %}Entra ID Sync - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -82,7 +83,7 @@
     <div class="table-responsive">
         <table class="table table-striped mb-0">
             <thead>
-                <tr><th>Started</th><th>Trigger</th><th>Status</th><th>Created</th><th>Updated</th><th>Archived</th><th>Unarchived</th><th></th></tr>
+                <tr><th>Started</th><th>Trigger</th><th>Status</th><th>Created</th><th>Updated</th><th>Archived</th><th>Unarchived</th><th class="text-end">Actions</th></tr>
             </thead>
             <tbody>
                 {% for run in runs %}
@@ -97,7 +98,11 @@
                     <td>{{ run.updated_count }}</td>
                     <td>{{ run.archived_count }}</td>
                     <td>{{ run.unarchived_count }}</td>
-                    <td><a href="{{ url_for('admin.entra_sync_run', id=run.id) }}" class="btn btn-sm btn-outline-secondary">Details</a></td>
+                    <td class="text-end">
+                        {% call L.actions() %}
+                            {{ L.action_view(url_for('admin.entra_sync_run', id=run.id)) }}
+                        {% endcall %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr><td colspan="8" class="text-muted text-center">No runs yet.</td></tr>

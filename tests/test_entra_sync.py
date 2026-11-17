@@ -392,7 +392,7 @@ def test_preview_and_apply_screens(auth_client, entra):
     assert run.trigger == 'manual' and run.triggered_by == 'admin@test.com'
     detail = auth_client.get(f'/admin/entra/runs/{run.id}').get_data(as_text=True)
     assert 'ana@corp.com' in detail
-    assert 'Details' in auth_client.get('/admin/entra').get_data(as_text=True)
+    assert f'/admin/entra/runs/{run.id}' in auth_client.get('/admin/entra').get_data(as_text=True)
 
 
 def test_preview_screen_reports_errors(auth_client, entra):

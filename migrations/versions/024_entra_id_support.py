@@ -8,8 +8,8 @@ Microsoft Entra ID support:
 * entra_sync_settings: singleton configuration of the user sync (disabled by default).
 * entra_sync_run: history of sync runs and dry runs.
 
-Revision ID: 023
-Revises: 022
+Revision ID: 024
+Revises: 023
 Create Date: 2026-11-17
 
 """
@@ -18,8 +18,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '023'
-down_revision = '022'
+revision = '024'
+down_revision = '023'
 branch_labels = None
 depends_on = None
 
