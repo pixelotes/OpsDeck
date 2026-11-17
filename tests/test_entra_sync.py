@@ -442,3 +442,125 @@ def test_cli_apply_and_brake(app, entra):
         result = app.test_cli_runner().invoke(args=['entra-sync', '--force'])
     assert result.exit_code == 0, result.output
     assert User.query.filter_by(entra_oid='o1').one().is_archived is True
+
+
+# --- Sign-in access ----------------------------------------------------------------
+
+def test_new_users_are_directory_only_by_default(entra):
+    with patch('src.notifications.send_email') as send:
+        run = sync(FakeGraph({GROUP: [member('o1', 'ana@corp.com')]}))
+    assert run.status == 'success'
+    user = User.query.filter_by(entra_oid='o1').one()
+    assert user.login_enabled is False
+    assert user.password_hash is None
+    assert run.changes['changes'][0]['fields']['login_enabled'] == [None, False]
+    send.assert_not_called()
+
+
+def test_new_users_can_sign_in_when_enabled(entra):
+    entra.new_user_login = True
+    db.session.commit()
+    sync(FakeGraph({GROUP: [member('o1', 'ana@corp.com')]}))
+    assert User.query.filter_by(entra_oid='o1').one().login_enabled is True
+
+
+def test_new_user_setting_never_changes_existing_users(entra):
+    can = add_user('can@corp.com', oid='o-can')
+    cannot = add_user('cannot@corp.com', oid='o-cannot', login_enabled=False)
+    linked = add_user('local@corp.com')  # linked by UPN on this run
+    graph = FakeGraph({GROUP: [member('o-can', 'can@corp.com', 'Someone'),
+                               member('o-cannot', 'cannot@corp.com', 'Someone'),
+                               member('o-local', 'local@corp.com', 'Someone')]})
+    plan = svc.build_plan(svc.fetch_scope(graph, [GROUP]), 'user', new_user_login=False)
+    assert all('login_enabled' not in c['fields'] for c in plan['changes'])
+    assert plan['login_changes'] == 0
+    sync(graph)
+    assert [db.session.get(User, u.id).login_enabled for u in (can, cannot, linked)] == \
+        [True, False, True]
+
+
+def test_access_groups_decide_sign_in_and_show_in_plan(entra):
+    entra.new_user_login = True   # ignored once access groups are set
+    entra.access_group_ids = 'access-1'
+    db.session.commit()
+    keeps = add_user('keeps@corp.com', name='Keeps', oid='o-keeps')
+    loses = add_user('loses@corp.com', name='Loses', oid='o-loses')
+    gains = add_user('gains@corp.com', name='Gains', oid='o-gains', login_enabled=False)
+    graph = FakeGraph({
+        GROUP: [member('o-keeps', 'keeps@corp.com', 'Keeps'), member('o-loses', 'loses@corp.com', 'Loses'),
+                member('o-new', 'new@corp.com'), member('o-gains', 'gains@corp.com', 'Gains')],
+        # Access-group members are in scope even if not in the main groups.
+        'access-1': [member('o-keeps', 'keeps@corp.com', 'Keeps'), member('o-gains', 'gains@corp.com', 'Gains'),
+                     member('o-admin', 'it.admin@corp.com')],
+    })
+
+    plan = svc.run_sync('manual', graph=graph, dry_run=True)
+    fields = {c['upn']: c['fields'] for c in plan.changes['changes']}
+    assert fields['loses@corp.com'] == {'login_enabled': [True, False]}
+    assert fields['gains@corp.com'] == {'login_enabled': [False, True]}
+    assert 'keeps@corp.com' not in fields
+    assert fields['new@corp.com']['login_enabled'] == [None, False]
+    assert fields['it.admin@corp.com']['login_enabled'] == [None, True]
+    assert db.session.get(User, loses.id).login_enabled is True  # dry run wrote nothing
+
+    run = sync(graph)
+    assert run.status == 'success'
+    assert [db.session.get(User, u.id).login_enabled for u in (keeps, loses, gains)] == [True, False, True]
+    assert User.query.filter_by(entra_oid='o-new').one().login_enabled is False
+    assert User.query.filter_by(entra_oid='o-admin').one().login_enabled is True
+
+
+def test_access_group_read_failure_changes_nothing(entra):
+    entra.access_group_ids = 'access-1'
+    db.session.commit()
+    user = add_user('ana@corp.com', oid='o1')
+    run = sync(FakeGraph({GROUP: [member('o1', 'ana@corp.com')]}, fail_group='access-1'))
+    assert run.status == 'error'
+    assert db.session.get(User, user.id).login_enabled is True
+
+
+def test_preview_screen_flags_sign_in_changes(auth_client, entra):
+    entra.access_group_ids = 'access-1'
+    db.session.commit()
+    add_user('loses@corp.com', name='Loses', oid='o-loses')
+    graph = FakeGraph({GROUP: [member('o-loses', 'loses@corp.com', 'Loses'), member('o-new', 'new@corp.com')]})
+    with patch.object(svc.GraphClient, 'from_config', return_value=graph):
+        html = auth_client.post('/admin/entra/preview').get_data(as_text=True)
+    assert 'sign-in access of 1 existing user(s)' in html
+    assert '<del>can sign in</del> → directory only' in html
+    assert 'directory only' in html
+
+
+def test_settings_save_sign_in_options(auth_client, app):
+    auth_client.post('/admin/entra/settings', data={
+        'schedule_mode': 'off', 'default_role': 'user', 'daily_time': '03:00', 'interval_hours': '24',
+        'archive_threshold_percent': '10', 'new_user_login': 'on', 'access_group_ids': 'a1, a2',
+    })
+    s = EntraSyncSettings.get()
+    assert (s.new_user_login, s.access_group_id_list) == (True, ['a1', 'a2'])
+
+    auth_client.post('/admin/entra/settings', data={
+        'schedule_mode': 'off', 'default_role': 'user', 'daily_time': '03:00', 'interval_hours': '24',
+        'archive_threshold_percent': '10',
+    })
+    s = EntraSyncSettings.get()
+    assert (s.new_user_login, s.access_group_id_list) == (False, [])
+    assert 'New users can sign in' in auth_client.get('/admin/entra').get_data(as_text=True)
+
+
+def test_brake_covers_mass_sign_in_removal(entra):
+    """An access group read fine but emptied by mistake must not lock everyone out."""
+    entra.access_group_ids = 'access-1'
+    db.session.commit()
+    users = [add_user(f'u{i}@corp.com', name=f'U{i}', oid=f'o{i}') for i in range(5)]
+    graph = FakeGraph({GROUP: [member(f'o{i}', f'u{i}@corp.com', f'U{i}') for i in range(5)],
+                       'access-1': []})
+    with patch('src.notifications.send_email'):
+        run = sync(graph, trigger='scheduled')
+    assert run.status == 'aborted'
+    assert 'remove sign-in access from 5 of 5' in run.error
+    assert all(db.session.get(User, u.id).login_enabled for u in users)
+
+    run = sync(graph)  # a confirmed manual run is the admin's call
+    assert run.status == 'success'
+    assert not any(db.session.get(User, u.id).login_enabled for u in users)
