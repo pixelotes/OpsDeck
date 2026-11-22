@@ -76,13 +76,15 @@ def test_invalid_dedicated_key_is_reported(app, monkeypatch):
 
 def test_only_secret_fields_are_encrypted_and_roundtrip(app):
     with app.app_context():
-        cfg = {'tenant_id': 't', 'client_secret': 'cs',
-               'service_account_json': {'type': 'service_account', 'private_key': 'pk'}}
+        # Secrets long and non-base64 enough that random ciphertext can never contain them.
+        cfg = {'tenant_id': 't', 'client_secret': 'client-secret-sentinel',
+               'service_account_json': {'type': 'service_account', 'private_key': 'private-key-sentinel'}}
         enc = encrypt_auth_config(cfg)
         assert enc['tenant_id'] == 't'
         assert set(enc['client_secret']) == {ENC_MARKER}
         assert enc['service_account_json']['$json'] is True
-        assert 'pk' not in str(enc) and 'cs' not in str(enc.values())
+        assert 'private-key-sentinel' not in str(enc)
+        assert 'client-secret-sentinel' not in str(enc)
         assert decrypt_auth_config(enc) == cfg
         assert encrypt_auth_config(enc) == enc  # idempotent: no double encryption
 

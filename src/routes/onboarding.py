@@ -1048,13 +1048,14 @@ def transfer_credential(id):
     new_owner_id = request.form.get('new_owner_id')
     redirect_url = request.form.get('redirect_url')
     
-    # Update owner
-    if new_owner_id:
-        credential.owner_id = int(new_owner_id)
-        credential.owner_type = 'User'  # Ensure it's set to User
-    else:
-        credential.owner_id = None
-    
+    # owner_id is NOT NULL: a credential cannot be left without an owner.
+    new_owner = db.session.get(User, int(new_owner_id)) if (new_owner_id or '').isdigit() else None
+    if new_owner is None:
+        flash('Choose the user who should take over this credential.', 'warning')
+        return redirect(safe_redirect_target(redirect_url or request.referrer))
+    credential.owner_id = new_owner.id
+    credential.owner_type = 'User'
+
     # Auto-complete related offboarding item if exists
     offboarding_item = ProcessItem.query.filter_by(
         item_type='Credential', 
@@ -1066,11 +1067,8 @@ def transfer_credential(id):
         
     db.session.commit()
     
-    if credential.owner:
-        flash(f'Credential "{credential.name}" transferred to {credential.owner.name}.', 'success')
-    else:
-        flash(f'Credential "{credential.name}" is now unassigned.', 'info')
-        
+    flash(f'Credential "{credential.name}" transferred to {new_owner.name}.', 'success')
+
     return redirect(safe_redirect_target(redirect_url or request.referrer))
 
 

@@ -5,13 +5,13 @@
 <hr>
 <div class="card">
     <div class="card-body">
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label for="disposal_date" class="form-label">Date of Disposal *</label>
                     <input type="date" class="form-control" id="disposal_date" name="disposal_date"
-                        value="{{ 'now'|string|replace(' 00:00:00', '') }}" required {% if not can_write('operations')
+                        value="{{ today.strftime('%Y-%m-%d') }}" required {% if not can_write('operations')
                         %}disabled{% endif %}>
                 </div>
                 <div class="col-md-6">
@@ -39,6 +39,11 @@
                 <label for="notes" class="form-label">Notes</label>
                 <textarea class="form-control" id="notes" name="notes" rows="4" {% if not can_write('operations')
                     %}disabled{% endif %}></textarea>
+            </div>
+            <div class="mb-3">
+                <label for="certificate" class="form-label">Disposal Certificate (Optional)</label>
+                <input class="form-control" type="file" id="certificate" name="certificate" {% if not
+                    can_write('operations') %}disabled{% endif %}>
             </div>
             <hr>
             {% if can_write('operations') %}

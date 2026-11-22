@@ -31,6 +31,8 @@ DETAIL_CREDENTIAL = 'credentials.detail_credential'
 DETAIL_REQUEST = 'requests.detail_request'
 INCIDENT_DETAIL = 'compliance.incident_detail'
 LOGIN = 'main.login'
+LOGIN_DISABLED_REASON = 'Login disabled (directory-only user)'
+LOGIN_DISABLED_MESSAGE = 'This account is not allowed to sign in to OpsDeck.'
 USERS = 'users.users'
 
 def login_required(f):
@@ -61,6 +63,16 @@ def login():
         user = User.query.filter_by(email=email).first()
 
         if user and user.check_password(password):
+            if not user.login_enabled:
+                log_audit(
+                    event_type='security.login',
+                    action='login',
+                    outcome='failure',
+                    target_object=f"User:{user.id}",
+                    error_message=LOGIN_DISABLED_REASON
+                )
+                flash(LOGIN_DISABLED_MESSAGE, 'danger')
+                return redirect(url_for(LOGIN))
             # Credentials valid - check if MFA is needed
             return verify_ip_and_login(user)
         else:
@@ -191,6 +203,19 @@ def mfa_verify():
         if code == stored_otp:
             # SUCCESS - Get user and complete login
             user = db.session.get(User,user_id)
+            if user and not user.login_enabled:
+                # Sign-in was revoked while the code was in flight.
+                for key in ('mfa_user_id', 'mfa_otp', 'mfa_expiry'):
+                    session.pop(key, None)
+                log_audit(
+                    event_type='security.mfa',
+                    action='verify',
+                    outcome='failure',
+                    target_object=f"User:{user.id}",
+                    error_message=LOGIN_DISABLED_REASON
+                )
+                flash(LOGIN_DISABLED_MESSAGE, 'danger')
+                return redirect(url_for(LOGIN))
             if user:
                 # Save the new IP to whitelist
                 new_ip = UserKnownIP(
@@ -364,6 +389,14 @@ def complete_oauth_login(user, identifier, provider, provider_label, reject_arch
         return _oauth_failure(
             "User is archived",
             'This account is archived and cannot sign in.',
+            target_object=f"User:{user.id}",
+            provider=provider,
+        )
+
+    if not user.login_enabled:
+        return _oauth_failure(
+            LOGIN_DISABLED_REASON,
+            LOGIN_DISABLED_MESSAGE,
             target_object=f"User:{user.id}",
             provider=provider,
         )
@@ -544,9 +577,10 @@ def organizational_health():
     health_score = max(0, 100 - (critical_risks * 15) - (high_risks * 5))
     
     # ----- GLOBAL STATUS -----
-    active_incidents = SecurityIncident.query.filter(
-        SecurityIncident.status.in_(['Open', 'Investigating', 'Escalated'])
-    ).count()
+    # Incidents run Investigating -> Contained -> Resolved -> Closed; anything not yet
+    # resolved is still active.
+    active_incident_filter = SecurityIncident.status.notin_(['Resolved', 'Closed'])
+    active_incidents = SecurityIncident.query.filter(active_incident_filter).count()
     
     if critical_risks > 0 or active_incidents > 0:
         global_status = 'critical'
@@ -560,9 +594,9 @@ def organizational_health():
     
     # Active high-severity incidents
     incidents = SecurityIncident.query.filter(
-        SecurityIncident.status.in_(['Open', 'Investigating', 'Escalated']),
-        SecurityIncident.severity.in_(['SEV-1', 'SEV-2', 'P1', 'P2'])
-    ).limit(5).all()
+        active_incident_filter,
+        SecurityIncident.severity.in_(['SEV-0', 'SEV-1', 'SEV-2', 'P1', 'P2'])
+    ).order_by(SecurityIncident.severity).limit(5).all()
     for inc in incidents:
         critical_items.append({
             'type': 'security',
@@ -1141,27 +1175,21 @@ def my_dashboard():
         PolicyVersion.status == 'Active'
     ).all()
 
-    # ----- PENDING CREDENTIALS (those expiring soon shared with me) -----
-    from ..models.credentials import CredentialSecret
-    expiring_credentials = []
-    try:
-        # Get credentials where user has access
-        thirty_days_ahead = current_datetime + timedelta(days=30)
-        secrets = CredentialSecret.query.filter(
-            CredentialSecret.is_active == True,
-            CredentialSecret.expires_at.isnot(None),
-            CredentialSecret.expires_at <= thirty_days_ahead
-        ).all()
-
-        # Filter those where user has access (simplified - can be enhanced)
-        for secret in secrets:
-            expiring_credentials.append({
-                'credential': secret.credential,
-                'expires_at': secret.expires_at,
-                'days_left': (secret.expires_at.date() - current_date).days
-            })
-    except Exception:
-        pass  # Credentials module might not be available
+    # ----- MY CREDENTIALS EXPIRING SOON -----
+    from ..models.credentials import Credential
+    thirty_days_ahead = current_datetime + timedelta(days=30)
+    secrets = CredentialSecret.query.join(Credential).filter(
+        Credential.owner_type == 'User',
+        Credential.owner_id == user_id,
+        CredentialSecret.is_active.is_(True),
+        CredentialSecret.expires_at.isnot(None),
+        CredentialSecret.expires_at <= thirty_days_ahead
+    ).order_by(CredentialSecret.expires_at).all()
+    expiring_credentials = [{
+        'credential': secret.credential,
+        'expires_at': secret.expires_at,
+        'days_left': (secret.expires_at.date() - current_date).days
+    } for secret in secrets]
 
     # ----- PERSONAL HEALTH SCORE -----
     personal_health_score = 100
@@ -1276,6 +1304,15 @@ def my_dashboard():
             f'Request: {req.title}', f'{req.request_type} · status {req.status}',
             url_for(DETAIL_REQUEST, id=req.id), 'View request', due, current_date))
 
+    # 5. Supplier reviews assigned to me (as owner or through an owner group)
+    from ..services.supplier_review_service import open_reviews_for
+    for review in open_reviews_for(user):
+        prioritized_tasks.append(_ticket_task(
+            f'Supplier review: {review.supplier.name}',
+            'Critical supplier' if review.supplier.is_critical else 'Periodic supplier review',
+            url_for('supplier_reviews.fill_review', id=review.id), 'Fill in review',
+            review.due_date, current_date))
+
     # Sort by priority
     prioritized_tasks.sort(key=lambda x: (x['priority'], x['due_text']))
 
@@ -1295,7 +1332,7 @@ def my_dashboard():
         timedelta=timedelta,
         greeting_time=greeting_time,
         current_date=current_date,
-        current_date_pretty=current_date.strftime('%d de %B, %Y'),
+        current_date_pretty=f"{current_date.day} {current_date.strftime('%B %Y')}",
 
         # Stats
         my_equipment_count=my_equipment_count,

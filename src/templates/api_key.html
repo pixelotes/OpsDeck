@@ -25,7 +25,7 @@
                 </div>
                 <div class="input-group mb-3">
                     <input type="text" class="form-control font-monospace" value="{{ new_token }}"
-                        readonly id="apiTokenField">
+                        readonly id="apiTokenField" aria-label="Your new API token">
                     <button class="btn btn-outline-secondary" type="button"
                         onclick="navigator.clipboard.writeText(document.getElementById('apiTokenField').value)">
                         <i class="fas fa-copy"></i>

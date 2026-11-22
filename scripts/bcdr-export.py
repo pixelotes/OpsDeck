@@ -32,7 +32,7 @@ Environment variables (all optional; CLI flags take precedence):
     OUTPUT_DIR         Output directory (default: bcdr_opsdeck_YYYYMMDD_HHMM/)
 
 Requirements:
-    pip install sqlalchemy psycopg2-binary openpyxl
+    pip install sqlalchemy "psycopg[binary]" openpyxl
 """
 
 import argparse
@@ -1334,6 +1334,10 @@ def connect_db(database_url):
     """Create a SQLAlchemy connection to the database engine."""
     # render_as_string masks the password. The previous version split the string on '@'
     # to hide it, which showed the wrong thing whenever the password itself held an '@'.
+    # Pin the psycopg (v3) driver, which is what OpsDeck ships. A bare postgresql:// URL
+    # means psycopg2 on SQLAlchemy 2.0, which is not installed alongside OpsDeck.
+    if database_url.drivername in ("postgresql", "postgres"):
+        database_url = database_url.set(drivername="postgresql+psycopg")
     print(f"Connecting to: {database_url.render_as_string(hide_password=True)}")
     try:
         engine = create_engine(database_url)

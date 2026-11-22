@@ -22,8 +22,15 @@
     {% if over_brake %}
     <div class="alert alert-danger">
         <i class="fas fa-exclamation-triangle"></i>
-        This would archive {{ plan.counts.archive }} of {{ plan.linked_count }} synced users, above the
-        {{ settings.archive_threshold_percent }}% threshold. A scheduled run would abort. Check the group ids before confirming.
+        {% for reason in over_brake %}{{ reason }} {% endfor %}
+        A scheduled run would abort. Check the group ids before confirming.
+    </div>
+    {% endif %}
+    {% if plan.login_changes %}
+    <div class="alert alert-warning">
+        <i class="fas fa-user-lock"></i>
+        This changes the sign-in access of {{ plan.login_changes }} existing user(s) to match the access groups.
+        Look for the <strong>sign-in</strong> lines below before confirming.
     </div>
     {% endif %}
     {% if plan.changes %}
@@ -62,7 +69,13 @@
                     <td class="small">
                         {% for field, values in c.fields.items() %}
                         {% if field == 'manager' and c.manager_display %}{% set values = c.manager_display %}{% endif %}
+                        {% if field == 'login_enabled' %}
+                        {% set label = {True: 'can sign in', False: 'directory only'} %}
+                        <div class="{{ 'text-warning-emphasis' if values[0] is not none else '' }}"><strong>sign-in</strong>:
+                            {% if values[0] is not none %}<del>{{ label[values[0]] }}</del> → {% endif %}{{ label[values[1]] }}</div>
+                        {% else %}
                         <div><strong>{{ field }}</strong>: {% if values[0] is not none %}<del>{{ values[0] }}</del> → {% endif %}{{ values[1] if values[1] is not none else '—' }}</div>
+                        {% endif %}
                         {% endfor %}
                     </td>
                 </tr>

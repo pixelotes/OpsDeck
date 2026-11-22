@@ -5,7 +5,7 @@ Standalone script that extracts **all data** from the OpsDeck database and gener
 ## Requirements
 
 ```bash
-pip install sqlalchemy psycopg2-binary openpyxl
+pip install sqlalchemy "psycopg[binary]" openpyxl
 ```
 
 ## Configuration
@@ -62,7 +62,7 @@ The DB port is usually not exposed to the host, so it is easier to run from insi
 # Copy the script into the container and run it
 docker cp scripts/bcdr-export.py opsdeck-web-1:/tmp/bcdr-export.py
 
-# Install openpyxl if missing (sqlalchemy and psycopg2 are already in the image)
+# Install openpyxl if missing (sqlalchemy and psycopg 3 are already in the image)
 docker exec opsdeck-web-1 pip install openpyxl
 
 # Run

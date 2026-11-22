@@ -207,7 +207,7 @@ class TestMigrations:
         import hashlib
         import json
 
-        self._upgrade('026')
+        self._upgrade('029')
         leaked = json.dumps({
             'api_token': {'old': 'old-token', 'new': 'live-token'},
             'name': {'old': 'A', 'new': 'B'},
@@ -236,6 +236,7 @@ class TestMigrations:
             from src.models import User
             assert User.find_by_api_token('live-token').email == 'svc@test.com'
 
-        self._downgrade('026')
+        self._downgrade('029')
         columns = {c['name'] for c in inspect(self.engine).get_columns('user')}
-        assert 'api_token' in columns and 'api_token_hash' not in columns
+        assert 'api_token' in columns
+        assert 'api_token_hash' not in columns

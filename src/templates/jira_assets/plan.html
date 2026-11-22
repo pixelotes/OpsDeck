@@ -1,0 +1,81 @@
+{% extends "layout.html" %}
+{% from "components/back_button.html" import back_to_list %}
+{% block title %}{{ 'Jira Assets run' if run else 'Preview Jira Assets sync' }} - {{ super() }}{% endblock %}
+{% block content %}
+{{ back_to_list('jira_assets.index', label='Back to Jira Assets Sync') }}
+<h2>
+    <i class="fab fa-jira"></i> {{ profile.name }} —
+    {% if run %}run #{{ run.id }} <small class="text-muted">({{ run.trigger }}{% if run.dry_run %}, dry run{% endif %}, {{ run.status }})</small>{% else %}Preview{% endif %}
+</h2>
+
+{% if run and run.error %}<div class="alert alert-warning">{{ run.error }}</div>{% endif %}
+
+{% set badge = {'create': 'success', 'link': 'secondary', 'update': 'primary', 'archive': 'danger', 'unarchive': 'info text-dark'} %}
+<div class="my-3 d-flex flex-wrap gap-1">
+    <span class="badge bg-light text-dark border fs-6">{{ plan.fetched }} fetched from Jira</span>
+    {% for action in ['create', 'link', 'update', 'archive', 'unarchive'] %}
+    <span class="badge bg-{{ badge[action] }} fs-6">{{ plan.counts[action] }} {{ ('to ' if not run else '') ~ action }}</span>
+    {% endfor %}
+    {% if plan.warnings %}<span class="badge bg-warning text-dark fs-6">{{ plan.warnings|length }} warning(s)</span>{% endif %}
+</div>
+
+{% if not run %}
+    {% if over_brake %}
+    <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle"></i>
+        This would archive {{ plan.counts.archive }} of {{ plan.linked_total }} linked records, above the
+        {{ profile.archive_threshold_percent }}% threshold. A scheduled run would abort. Check the profile before confirming.
+    </div>
+    {% endif %}
+    {% if plan.changes %}
+    <form action="{{ url_for('jira_assets.apply', id=profile.id) }}" method="POST" class="mb-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="fingerprint" value="{{ plan.fingerprint }}">
+        <button type="submit" class="btn btn-{{ 'danger' if over_brake else 'success' }}">
+            <i class="fas fa-check"></i> Apply {{ plan.changes|length }} change(s)
+        </button>
+        <a href="{{ url_for('jira_assets.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+    {% else %}
+    <div class="alert alert-success">OpsDeck is already in sync with Jira for this profile. Nothing to do.</div>
+    {% endif %}
+{% endif %}
+
+{% if plan.warnings %}
+<div class="card mb-4 border-warning">
+    <div class="card-header"><i class="fas fa-exclamation-triangle text-warning me-1"></i> Warnings</div>
+    <ul class="list-group list-group-flush small">
+        {% for w in plan.warnings %}<li class="list-group-item">{{ w }}</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if plan.changes %}
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-striped mb-0 align-middle">
+            <thead><tr><th>Action</th><th>Jira object</th><th>OpsDeck record</th><th>Changes</th></tr></thead>
+            <tbody>
+                {% for c in plan.changes %}
+                <tr>
+                    <td><span class="badge bg-{{ badge[c.action] }}">{{ c.action }}</span></td>
+                    <td>{{ c.label }}<br><small class="text-muted">{{ c.jira_key or c.jira_id }}</small></td>
+                    <td>
+                        {% if c.record_id %}
+                            <a href="{{ url_for('assets.asset_detail', id=c.record_id) if profile.target == 'asset' else url_for('suppliers.supplier_detail', id=c.record_id) }}">{{ c.record_name }}</a>
+                        {% else %}<span class="text-muted">new</span>{% endif %}
+                    </td>
+                    <td class="small">
+                        {% for field, values in c.fields.items() if field != 'jira_object_id' %}
+                        <div><strong>{{ field|replace('_', ' ') }}</strong>: {% if values[0] is not none %}<del>{{ values[0] }}</del> → {% endif %}{{ values[1] if values[1] is not none else '—' }}</div>
+                        {% else %}<span class="text-muted">link only</span>
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

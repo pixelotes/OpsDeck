@@ -2,6 +2,11 @@
 """
 OpsDeck → Google Workspace Sync Script
 
+UNSUPPORTED: this script calls OpsDeck API endpoints that do not exist
+(/api/v1/onboardings/pending-provisioning, /api/v1/offboardings/pending-suspension
+and the mark-provisioned / mark-suspended actions). It exits with an error
+instead of running. Kept for reference until those endpoints are built.
+
 Reads pending onboardings/offboardings from OpsDeck API and provisions
 or suspends users in Google Workspace via the Admin Directory API.
 
@@ -293,6 +298,14 @@ def main():
         help="Actually create/suspend users in Google",
     )
     args = parser.parse_args()
+
+    print(
+        "Error: google-provision.py is unsupported. It needs OpsDeck API endpoints "
+        "(onboardings/pending-provisioning, offboardings/pending-suspension, "
+        "mark-provisioned, mark-suspended) that OpsDeck does not provide.",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
     dry_run = args.dry_run
     need_google = not dry_run  # Google credentials only needed in execute mode

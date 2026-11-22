@@ -1,0 +1,14 @@
+{# Supplier review helpers. Import with: {% import 'components/review_macros.html' as R %} #}
+
+{% macro status_badge(status) -%}
+{%- set colors = {
+    'Approved': 'success', 'Compliant': 'success',
+    'Rejected': 'danger', 'Non-Compliant': 'danger', 'Issues Found': 'danger',
+    'Scheduled': 'info', 'Supplier Inactive': 'secondary'} -%}
+<span class="badge bg-{{ colors.get(status, 'warning') }}">{{ status }}</span>
+{%- endmacro %}
+
+{% macro answer_badge(answer, label) -%}
+{%- set colors = {'ok': 'success', 'yes': 'primary', 'not_ok': 'danger', 'no': 'secondary', 'na': 'light text-dark'} -%}
+<span class="badge bg-{{ colors.get(answer, 'light text-dark') }}">{{ label }}</span>
+{%- endmacro %}

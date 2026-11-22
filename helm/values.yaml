@@ -44,10 +44,10 @@ persistence:
     existingClaim: ""
 
 # --- Configuración PostgreSQL Interna (Bitnami Subchart) ---
-# Se activa automáticamente si database.type es "internal" (ver lógica abajo no, se controla manual)
-# Para usar externa, pon enabled: false
+# Required when database.type is "internal" (the chart fails to render otherwise).
+# With database.type "external", set enabled: false.
 postgresql:
-  enabled: false
+  enabled: true
   auth:
     username: opsdeck
     password: opsdeck_password
@@ -78,6 +78,8 @@ gatewayApi:
 # Variables de entorno extra
 env: 
   FLASK_ENV: "production"
+  # Needed by the entrypoint's `flask db upgrade` and other CLI commands.
+  FLASK_APP: "run:app"
 
 # Si tienes un secreto creado manualmente (ej: sealed-secrets o external-secrets)
 # pon el nombre aquí. La chart cargará todo el contenido como variables de entorno.

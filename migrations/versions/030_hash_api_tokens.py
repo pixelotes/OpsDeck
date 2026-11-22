@@ -14,7 +14,7 @@ Downgrade restores the api_token column empty: a hash cannot be turned back into
 token, so users have to generate new ones. Redacted audit values are not restored.
 
 Revision ID: 030
-Revises: 026
+Revises: 029
 Create Date: 2026-11-18
 
 """
@@ -27,7 +27,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '030'
-down_revision = '026'
+down_revision = '029'
 branch_labels = None
 depends_on = None
 

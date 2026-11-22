@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
+{% import 'components/review_macros.html' as R %}
+
+{% block title %}My supplier reviews - {{ super() }}{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-clipboard-check"></i> My supplier reviews</h2>
+<p class="text-muted">Reviews of the suppliers you own, directly or through one of your groups.</p>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover datatable" id="my-reviews-table">
+            <thead>
+                <tr><th>Supplier</th><th>Owner</th><th>Due</th><th>Status</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for review in reviews %}
+                <tr>
+                    <td>{{ review.supplier.name }}
+                        {% if review.supplier.is_critical %}<span class="badge bg-danger ms-1">Critical</span>{% endif %}</td>
+                    <td>{{ L.person(review.supplier.owner, link=false) }}</td>
+                    <td>{% if review.due_date %}{{ review.due_date.strftime('%Y-%m-%d') }}
+                        {% if review.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
+                        {% else %}{{ L.empty() }}{% endif %}</td>
+                    <td>{{ R.status_badge(review.status) }}</td>
+                    <td>{% call L.actions() %}
+                        {{ L.action_button(url_for('supplier_reviews.fill_review', id=review.id), 'pen', 'Fill in the review', variant='primary') }}
+                        {% endcall %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if not reviews %}<p class="text-muted mb-0">You have no supplier reviews pending.</p>{% endif %}
+    </div>
+</div>
+{% endblock %}

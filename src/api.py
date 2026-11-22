@@ -22,6 +22,9 @@ from .schemas import (
     OnboardingApiSchema, OnboardingInputSchema,
 )
 
+# Structured log field naming why an API request was refused.
+FAILURE_REASON = 'failure.reason'
+
 # Define Blueprints for each resource
 api_bp = Blueprint('api', 'api', url_prefix='/api/v1', description='OpsDeck API')
 
@@ -46,7 +49,7 @@ def check_token():
             "API Access Failed: Missing Token",
             extra={
                 "event.action": "api.request.failure",
-                "failure.reason": "missing_token",
+                FAILURE_REASON: "missing_token",
                 "source.ip": request.remote_addr,
                 "http.request.method": request.method,
                 "url.path": request.path
@@ -61,7 +64,22 @@ def check_token():
             "API Access Failed: Invalid Token",
             extra={
                 "event.action": "api.request.failure",
-                "failure.reason": "invalid_token",
+                FAILURE_REASON: "invalid_token",
+                "source.ip": request.remote_addr,
+                "http.request.method": request.method,
+                "url.path": request.path
+            }
+        )
+        return jsonify({"error": "Token is invalid"}), 401
+
+    if not current_api_user.login_enabled:
+        # Directory-only users keep their row (and maybe an old token) but no access.
+        current_app.logger.warning(
+            "API Access Failed: Login Disabled",
+            extra={
+                "event.action": "api.request.failure",
+                FAILURE_REASON: "login_disabled",
+                "user.id": current_api_user.id,
                 "source.ip": request.remote_addr,
                 "http.request.method": request.method,
                 "url.path": request.path
@@ -106,7 +124,7 @@ def _forbidden(reason, message):
         "API Access Denied",
         extra={
             "event.action": "api.request.denied",
-            "failure.reason": reason,
+            FAILURE_REASON: reason,
             "user.id": g.api_user.id,
             "user.email": g.api_user.email,
             "source.ip": request.remote_addr,
