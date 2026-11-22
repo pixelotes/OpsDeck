@@ -21,6 +21,7 @@
                     <th>Name</th>
                     <th>Email (Login)</th>
                     <th>Role</th>
+                    <th>Sign-in</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -30,10 +31,19 @@
                     <td>{{ user.name }}</td>
                     <td>{{ user.email }}</td>
                     <td><span class="badge bg-secondary">{{ user.role }}</span></td>
+                    <td>
+                        {% if user.login_enabled %}<span class="badge bg-success">Can sign in</span>
+                        {% else %}<span class="badge bg-light text-dark border" title="Kept for asset links; cannot sign in">Directory only</span>{% endif %}
+                    </td>
                     <td class="text-end">
                         {% call L.actions() %}
                         {% if user.name != 'admin' %}
                         {{ L.action_edit(url_for('admin.edit_user', id=user.id)) }}
+                        {% if user.login_enabled %}
+                        {{ L.action_button(url_for('admin.toggle_user_login', id=user.id), 'user-lock', 'Make directory only (remove sign-in)', variant='warning', method='post', confirm='Remove sign-in access for ' ~ user.name ~ '? Their open sessions and API token stop working.') }}
+                        {% else %}
+                        {{ L.action_button(url_for('admin.toggle_user_login', id=user.id), 'user-check', 'Allow sign-in', variant='success', method='post', confirm='Allow ' ~ user.name ~ ' to sign in to OpsDeck?') }}
+                        {% endif %}
                         {{ L.action_delete(url_for('admin.delete_user', id=user.id), 'Are you sure you want to delete this user? This cannot be undone.') }}
                         {% endif %}
                         {% endcall %}

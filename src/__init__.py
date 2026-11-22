@@ -716,8 +716,18 @@ def create_app(test_config=None):
         public_endpoints = PUBLIC_ENDPOINTS
 
         # Permitir acceso si:
-        # 1. The user is already authenticated (user_id is in the session)
+        # 1. The user is already authenticated (user_id is in the session), unless
+        # their sign-in access was revoked since: end that session now. Skipped while
+        # the break-glass admin impersonates someone (the session is the admin's).
         if 'user_id' in session:
+            if 'original_user_id' not in session:
+                user = db.session.get(User, session['user_id'])
+                if user is not None and not user.login_enabled:
+                    session.clear()
+                    if request_wants_json():
+                        return jsonify({'error': 'Authentication required.'}), 401
+                    flash('This account is not allowed to sign in to OpsDeck.', 'danger')
+                    return redirect(url_for('main.login'))
             return None
 
         # 2. The request is for a static file, or has no endpoint at all (404)
