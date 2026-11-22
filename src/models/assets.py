@@ -104,6 +104,8 @@ class Asset(db.Model, CustomPropertiesMixin):
     # --- NEW FIELDS: Critical and Virtual indicators ---
     is_critical = db.Column(db.Boolean, default=False, nullable=False)
     is_virtual = db.Column(db.Boolean, default=False, nullable=False)
+    # Jira Assets object id when the asset is synced from Jira (see models/jira_assets.py).
+    jira_object_id = db.Column(db.String(64), unique=True, index=True)
 
     # Relationships
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)

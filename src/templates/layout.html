@@ -727,6 +727,10 @@
                                 class="nav-link {% if request.endpoint and request.endpoint.startswith('connectors.') %}active{% endif %}"
                                 href="{{ url_for('connectors.dashboard') }}"><i class="fa-fw fas fa-plug"></i>
                                 API Connectors</a></li>
+                        <li class="nav-item"><a
+                                class="nav-link {% if request.endpoint and request.endpoint.startswith('jira_assets.') %}active{% endif %}"
+                                href="{{ url_for('jira_assets.index') }}"><i class="fa-fw fab fa-jira"></i>
+                                Jira Assets Sync</a></li>
                     </ul>
 
                 </div>
