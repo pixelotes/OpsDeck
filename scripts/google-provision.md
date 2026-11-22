@@ -1,5 +1,10 @@
 # google-provision.py — OpsDeck to Google Workspace Sync
 
+> **Unsupported.** The script depends on OpsDeck API endpoints that do not exist
+> (`/api/v1/onboardings/pending-provisioning`, `/api/v1/offboardings/pending-suspension`,
+> `.../mark-provisioned`, `.../mark-suspended`), so it exits with an error instead of
+> running. The rest of this page describes the intended design and is kept for reference.
+
 Script that reads pending onboardings/offboardings from OpsDeck and provisions or suspends users in Google Workspace via the Admin Directory API.
 
 ## Requirements

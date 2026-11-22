@@ -7,7 +7,7 @@ Helper and integration scripts for OpsDeck. Each script has its own `.md` with f
   python scripts/bcdr-export.py --database-url $DATABASE_URL --output /backups/opsdeck
   ```
 
-- **google-provision.py** — Provisions or suspends users in Google Workspace from pending OpsDeck onboardings/offboardings (OpsDeck → Google). See [google-provision.md](google-provision.md).
+- **google-provision.py** — *Unsupported: needs OpsDeck API endpoints that do not exist yet; exits with an error.* Meant to provision or suspends users in Google Workspace from pending OpsDeck onboardings/offboardings (OpsDeck → Google). See [google-provision.md](google-provision.md).
   ```bash
   python scripts/google-provision.py provision --dry-run
   ```

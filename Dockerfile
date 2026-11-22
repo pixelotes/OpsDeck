@@ -53,6 +53,10 @@ COPY --from=asset-builder /build/src/static/vendor /app/src/static/vendor
 # Make the entrypoint script executable
 RUN chmod +x ./entrypoint.sh
 
+# The entrypoint runs `flask db upgrade` and other CLI commands; they need to know
+# where the app lives, since there is no app.py/wsgi.py for Flask to discover.
+ENV FLASK_APP=run:app
+
 # Set the entrypoint for the container
 ENTRYPOINT ["./entrypoint.sh"]
 
@@ -85,5 +89,7 @@ RUN if [ -d /app/opsdeck-enterprise ]; then \
         pip install --no-cache-dir -e /app/opsdeck-enterprise; \
     fi \
     && chmod +x ./entrypoint.sh
+
+ENV FLASK_APP=run:app
 
 ENTRYPOINT ["./entrypoint.sh"]

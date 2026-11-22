@@ -14,7 +14,7 @@
         </a>
     </div>
     <div>
-        {% if can_write('compliance') %}
+        {% if can_write('operations') %}
         {% if review.is_locked %}
         <span class="badge bg-secondary fs-6 me-2">
             <i class="fas fa-lock"></i> Finalized / Read-Only
@@ -95,7 +95,7 @@
             </div>
         </div>
         <div class="card-footer text-end">
-            {% if can_write('compliance') %}
+            {% if can_write('operations') %}
             {% if not review.is_locked %}
             <button type="submit" class="btn btn-primary">Save Review</button>
             {% else %}
@@ -135,7 +135,7 @@
             {% endif %}
         </ul>
     </div>
-    {% if not review.is_locked and can_write('compliance') %}
+    {% if not review.is_locked and can_write('operations') %}
     <div class="card-footer">
         <div class="input-group">
             <input type="datetime-local" id="timeline-time" class="form-control" style="max-width: 250px;">
