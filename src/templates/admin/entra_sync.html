@@ -41,6 +41,25 @@
                 <textarea class="form-control font-monospace" id="group_ids" name="group_ids" rows="3">{{ settings.group_ids or '' }}</textarea>
                 <div class="form-text">Transitive members (nested groups included) of these groups are in scope.</div>
             </div>
+            <fieldset class="border rounded p-3 mb-3">
+                <legend class="fs-6 w-auto px-1 mb-0">Sign-in access</legend>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="new_user_login" name="new_user_login" {% if settings.new_user_login %}checked{% endif %}>
+                    <label class="form-check-label" for="new_user_login">New users can sign in</label>
+                    <div class="form-text">
+                        Off (recommended): users the sync creates are <strong>directory only</strong>. They can own
+                        and be assigned assets, but password, SSO and API token sign-in are refused.
+                        This setting never changes existing users.
+                    </div>
+                </div>
+                <label for="access_group_ids" class="form-label">Access groups (optional, one per line)</label>
+                <textarea class="form-control font-monospace" id="access_group_ids" name="access_group_ids" rows="2">{{ settings.access_group_ids or '' }}</textarea>
+                <div class="form-text">
+                    When set, members of these groups can sign in and every other synced user is directory only,
+                    replacing the switch above. Their members are synced too. Each sign-in change (including
+                    for existing users, and overriding manual changes) is listed in the preview before it applies.
+                </div>
+            </fieldset>
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label for="default_role" class="form-label">Role for new users</label>

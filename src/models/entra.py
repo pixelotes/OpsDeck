@@ -28,12 +28,26 @@ class EntraSyncSettings(db.Model):
     interval_hours = db.Column(db.Integer, default=24)
     # Scheduled runs abort when they would archive more than this share of synced users.
     archive_threshold_percent = db.Column(db.Integer, default=10, nullable=False)
+    # Whether users the sync creates may sign in. Off: they are "directory only"
+    # (linkable to assets, refused at login). Ignored when access groups are set.
+    new_user_login = db.Column(db.Boolean, default=False, server_default=db.false(), nullable=False)
+    # Optional Entra group ids whose members may sign in. When set, sign-in access of
+    # every synced user follows membership, and these members are synced too.
+    access_group_ids = db.Column(db.Text, default='')
     updated_at = db.Column(db.DateTime, default=lambda: now(), onupdate=lambda: now())
+
+    @staticmethod
+    def _split_ids(raw):
+        raw = (raw or '').replace(',', '\n')
+        return [g.strip() for g in raw.splitlines() if g.strip()]
 
     @property
     def group_id_list(self):
-        raw = (self.group_ids or '').replace(',', '\n')
-        return [g.strip() for g in raw.splitlines() if g.strip()]
+        return self._split_ids(self.group_ids)
+
+    @property
+    def access_group_id_list(self):
+        return self._split_ids(self.access_group_ids)
 
     @classmethod
     def get(cls):
