@@ -589,12 +589,18 @@ def create_app(test_config=None):
     from .routes.connectors import connectors_bp
     app.register_blueprint(connectors_bp, url_prefix='/settings/connectors')
 
+    from .routes.jira_assets import jira_assets_bp
+    app.register_blueprint(jira_assets_bp, url_prefix='/settings/jira-assets')
+
     from .routes.finance import finance_bp
     app.register_blueprint(finance_bp, url_prefix='/finance')
 
 
     from .routes.contracts import contracts_bp
     app.register_blueprint(contracts_bp, url_prefix='/contracts')
+
+    from .routes.supplier_reviews import supplier_reviews_bp
+    app.register_blueprint(supplier_reviews_bp, url_prefix='/supplier-reviews')
 
     # --- Google OAuth Blueprint ---
     if app.config.get('GOOGLE_OAUTH_CLIENT_ID'):
@@ -710,8 +716,18 @@ def create_app(test_config=None):
         public_endpoints = PUBLIC_ENDPOINTS
 
         # Permitir acceso si:
-        # 1. The user is already authenticated (user_id is in the session)
+        # 1. The user is already authenticated (user_id is in the session), unless
+        # their sign-in access was revoked since: end that session now. Skipped while
+        # the break-glass admin impersonates someone (the session is the admin's).
         if 'user_id' in session:
+            if 'original_user_id' not in session:
+                user = db.session.get(User, session['user_id'])
+                if user is not None and not user.login_enabled:
+                    session.clear()
+                    if request_wants_json():
+                        return jsonify({'error': 'Authentication required.'}), 401
+                    flash('This account is not allowed to sign in to OpsDeck.', 'danger')
+                    return redirect(url_for('main.login'))
             return None
 
         # 2. The request is for a static file, or has no endpoint at all (404)
@@ -904,6 +920,29 @@ def create_app(test_config=None):
             trigger="interval",
             minutes=POLL_INTERVAL_MINUTES,
             id="connector_polling",
+            replace_existing=True
+        )
+        # Jira Assets sync - every 15 minutes, run the enabled profiles that are due
+        from .services.jira_assets_service import (run_due_profiles, SCHEDULER_JOB_ID as JIRA_ASSETS_JOB_ID,
+                                                   SCHEDULER_INTERVAL_MINUTES as JIRA_ASSETS_INTERVAL)
+        scheduler.add_job(
+            func=run_due_profiles,
+            args=[app],
+            trigger="interval",
+            minutes=JIRA_ASSETS_INTERVAL,
+            id=JIRA_ASSETS_JOB_ID,
+            replace_existing=True
+        )
+        # Supplier reviews - open the due ones and remind overdue owners, daily at 8:30
+        from .services.supplier_review_service import run_daily as run_supplier_reviews
+        scheduler.add_job(
+            func=run_supplier_reviews,
+            args=[app],
+            trigger="cron",
+            hour=8,
+            minute=30,
+            timezone=app_timezone,
+            id="supplier_reviews",
             replace_existing=True
         )
         app.extensions['opsdeck_scheduler'] = scheduler

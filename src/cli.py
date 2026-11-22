@@ -95,6 +95,65 @@ def register_commands(app):
             print(f"❌ {prefix} {run.status}: {run.error}")
             raise SystemExit(1)
 
+    @app.cli.command('jira-assets-sync')
+    @click.option('--profile', 'profile_ref', help='Profile id or name. Default: every enabled profile.')
+    @click.option('--dry-run', is_flag=True, help='Show what would change without writing anything.')
+    @click.option('--force', is_flag=True,
+                  help='Apply even if the run would archive more records than the safety threshold.')
+    def jira_assets_sync(profile_ref, dry_run, force):
+        """Sync assets and suppliers from Jira Service Management Assets."""
+        from .models.jira_assets import JiraAssetsProfile
+        from .services.jira_assets_service import run_sync, JiraAssetsSyncError
+
+        if profile_ref:
+            query = JiraAssetsProfile.query
+            profile = (query.filter_by(id=int(profile_ref)).first() if profile_ref.isdigit()
+                       else query.filter_by(name=profile_ref).first())
+            if profile is None:
+                print(f"❌ No profile '{profile_ref}'.")
+                raise SystemExit(1)
+            profiles = [profile]
+        else:
+            profiles = JiraAssetsProfile.query.filter_by(enabled=True).order_by(JiraAssetsProfile.id).all()
+            if not profiles:
+                print("Nothing to do: no enabled profile (use --profile to run a disabled one).")
+                return
+
+        failed = False
+        for profile in profiles:
+            try:
+                run = run_sync(profile, 'cli', dry_run=dry_run, enforce_brake=not force)
+            except JiraAssetsSyncError as exc:
+                print(f"❌ {profile.name}: {exc}")
+                failed = True
+                continue
+            for change in run.changes['changes']:
+                fields = ', '.join(sorted(k for k in change['fields'] if k != 'jira_object_id'))
+                print(f"  [{change['action']}] {change['jira_key'] or change['jira_id']} {change['label']} {fields}")
+            for warning in run.changes['warnings']:
+                print(f"  [warning] {warning}")
+            summary = (f"{run.fetched_count} fetched, {run.created_count} created, {run.linked_count} linked, "
+                       f"{run.updated_count} updated, {run.archived_count} archived, "
+                       f"{run.unarchived_count} unarchived")
+            if run.status == 'success':
+                print(f"✅ {profile.name} ({'dry run' if dry_run else 'applied'}): {summary}.")
+            else:
+                print(f"❌ {profile.name} {run.status}: {run.error}")
+                failed = True
+        if failed:
+            raise SystemExit(1)
+
+    @app.cli.command('schedule-supplier-reviews')
+    def schedule_supplier_reviews():
+        """Open the supplier reviews that are due and remind owners of overdue ones.
+
+        The scheduler does this every morning; run it by hand to test the setup.
+        """
+        from .services.supplier_review_service import schedule_due_reviews, send_overdue_reminders
+        created = schedule_due_reviews()
+        reminded = send_overdue_reminders()
+        print(f"✅ {len(created)} review(s) opened, {len(reminded)} reminder(s) sent.")
+
     @app.cli.command('rotate-data-encryption-key')
     def rotate_data_encryption_key():
         """Re-encrypt stored secrets under the first DATA_ENCRYPTION_KEY.

@@ -2,6 +2,7 @@
 {% from "components/back_button.html" import back_to_list %}
 {% from "components/compliance_link_macro.html" import compliance_links %}
 {% import 'components/list_macros.html' as L with context %}
+{% import 'components/review_macros.html' as R %}
 
 {% block title %}{{ supplier.name }} - {{ super() }}{% endblock %}
 
@@ -64,31 +65,61 @@
     </div>
 </div>
 
-<div class="card mb-4">
+<div class="card mb-4" id="reviews">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="fas fa-user-shield"></i> Security Assessments</span>
-        {% if can_write('procurement') %}
-        <a href="{{ url_for('compliance.new_assessment', supplier_id=supplier.id) }}" class="btn btn-sm btn-primary">
-            <i class="fas fa-plus"></i> Add Assessment
-        </a>
+        <span><i class="fas fa-clipboard-check"></i> Reviews &amp; Assessments</span>
+        <span class="d-flex gap-2">
+            {% if can_start_review and not supplier.open_review and not supplier.is_archived %}
+            <form method="POST" action="{{ url_for('supplier_reviews.start_review', supplier_id=supplier.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-clipboard-check"></i> Start review</button>
+            </form>
+            {% endif %}
+            {% if can_write('procurement') %}
+            <a href="{{ url_for('compliance.new_assessment', supplier_id=supplier.id) }}" class="btn btn-sm btn-outline-primary"
+                title="Log an external assessment or report without the questionnaire">
+                <i class="fas fa-plus"></i> Log Assessment
+            </a>
+            {% endif %}
+        </span>
+    </div>
+    <div class="card-body border-bottom small">
+        <span class="me-4"><strong>Review every:</strong>
+            {{ (supplier.review_interval_months ~ ' months') if supplier.review_interval_months else 'No periodic reviews' }}</span>
+        {% if supplier.next_review_date %}
+        <span class="me-4"><strong>Next review:</strong> {{ supplier.next_review_date.strftime('%Y-%m-%d') }}</span>
+        {% endif %}
+        {% set last = supplier.last_completed_review %}
+        <span><strong>Last review:</strong> {{ last.assessment_date.strftime('%Y-%m-%d') if last else 'Never' }}</span>
+        {% if supplier.review_interval_months and not supplier.owner %}
+        <div class="text-warning mt-2"><i class="fas fa-exclamation-triangle"></i> Set an owner: periodic reviews are assigned to them.</div>
         {% endif %}
     </div>
+    {% set open = supplier.open_review %}
+    {% if open %}
+    <div class="card-body border-bottom d-flex justify-content-between align-items-center">
+        <span><span class="badge bg-info">Scheduled</span> Review
+            {%- if open.due_date %} due {{ open.due_date.strftime('%Y-%m-%d') }}{% endif %}
+            {%- if open.is_overdue %} <span class="badge bg-danger">Overdue</span>{% endif %},
+            assigned to {{ L.person(supplier.owner) }}</span>
+        {% if can_fill_open %}
+        <a href="{{ url_for('supplier_reviews.fill_review', id=open.id) }}" class="btn btn-sm btn-primary"><i class="fas fa-pen"></i> Fill in</a>
+        {% endif %}
+    </div>
+    {% endif %}
     <ul class="list-group list-group-flush">
-        {% for assessment in supplier.security_assessments|sort(attribute='assessment_date', reverse=True) %}
+        {% for assessment in supplier.security_assessments|sort(attribute='assessment_date', reverse=True) if not assessment.is_open %}
         <li class="list-group-item">
             <div class="d-flex justify-content-between align-items-center">
-                <a href="{{ url_for('compliance.assessment_detail', id=assessment.id) }}">
+                <a href="{{ url_for('supplier_reviews.view_review', id=assessment.id) }}">
                     <strong>{{ assessment.assessment_date.strftime('%Y-%m-%d') }}</strong>
+                    <span class="text-muted small ms-1">{{ 'Review' if assessment.is_questionnaire else 'Assessment' }}</span>
                 </a>
                 <span>
-                    {% if assessment.status == 'Approved' %}<span class="badge bg-success">{{ assessment.status
-                        }}</span>
-                    {% elif assessment.status == 'Rejected' %}<span class="badge bg-danger">{{ assessment.status
-                        }}</span>
-                    {% else %}<span class="badge bg-warning">{{ assessment.status }}</span>{% endif %}
-                    {% if can_write('procurement') %}
+                    {{ R.status_badge(assessment.status) }}
+                    {% if can_write('procurement') and not assessment.is_questionnaire %}
                     <a href="{{ url_for('compliance.edit_assessment', id=assessment.id) }}"
-                        class="btn btn-sm btn-outline-secondary ms-2">
+                        class="btn btn-sm btn-outline-secondary ms-2" title="Edit" aria-label="Edit">
                         <i class="fas fa-edit"></i>
                     </a>
                     {% endif %}
@@ -99,7 +130,7 @@
             {% endif %}
         </li>
         {% else %}
-        <li class="list-group-item text-muted">No security assessments logged for this supplier.</li>
+        <li class="list-group-item text-muted">No reviews or assessments yet.</li>
         {% endfor %}
     </ul>
 </div>

@@ -1,34 +1,73 @@
 {% extends "layout.html" %}
 {% from "components/back_button.html" import back_to_list %}
 {% from "components/compliance_link_macro.html" import compliance_links %}
-{% block title %}Security Assessment - {{ super() }}{% endblock %}
+{% import 'components/list_macros.html' as L with context %}
+{% import 'components/review_macros.html' as R %}
+{% block title %}{{ 'Supplier Review' if assessment.is_questionnaire else 'Security Assessment' }} - {{ super() }}{% endblock %}
 
 {% block content %}
 {{ back_to_list('suppliers.supplier_detail', label='Back to Supplier', id=assessment.supplier.id) }}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h2><i class="fas fa-user-shield"></i> Security Assessment</h2>
+        <h2><i class="fas fa-user-shield"></i> {{ 'Supplier Review' if assessment.is_questionnaire else 'Security Assessment' }}</h2>
         <h5 class="text-muted">For: <a href="{{ url_for('suppliers.supplier_detail', id=assessment.supplier.id) }}">{{
                 assessment.supplier.name }}</a></h5>
     </div>
+    {% if can_fill is defined and can_fill %}
+    <a href="{{ url_for('supplier_reviews.fill_review', id=assessment.id) }}" class="btn btn-primary">
+        <i class="fas fa-pen"></i> Fill in the review
+    </a>
+    {% endif %}
 </div>
 
 <div class="card mb-4">
-    <div class="card-header">Assessment Details</div>
+    <div class="card-header">{{ 'Review' if assessment.is_questionnaire else 'Assessment' }} Details</div>
     <div class="card-body">
-        <p><strong>Assessment Date:</strong> {{ assessment.assessment_date.strftime('%Y-%m-%d') }}</p>
-        <p><strong>Status:</strong>
-            {% if assessment.status == 'Approved' %}<span class="badge bg-success">{{ assessment.status }}</span>
-            {% elif assessment.status == 'Rejected' %}<span class="badge bg-danger">{{ assessment.status }}</span>
-            {% else %}<span class="badge bg-warning">{{ assessment.status }}</span>{% endif %}
-        </p>
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Status:</strong> {{ R.status_badge(assessment.status) }}</p>
+                <p><strong>{{ 'Completed' if assessment.completed_at else 'Assessment Date' }}:</strong>
+                    {{ assessment.assessment_date.strftime('%Y-%m-%d') if not assessment.is_open else '—' }}
+                    {% if assessment.completed_by %} by {{ L.person(assessment.completed_by) }}{% endif %}</p>
+            </div>
+            <div class="col-md-6">
+                {% if assessment.due_date %}
+                <p><strong>Due:</strong> {{ assessment.due_date.strftime('%Y-%m-%d') }}
+                    {% if assessment.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}</p>
+                {% endif %}
+                {% if assessment.template %}
+                <p><strong>Template:</strong> {{ assessment.template.name }}</p>
+                {% endif %}
+                <p><strong>Owner:</strong> {{ L.person(assessment.supplier.owner) }}</p>
+            </div>
+        </div>
         {% if assessment.notes %}
         <hr>
-        <p class="mb-1"><strong>Notes:</strong></p>
+        <p class="mb-1"><strong>{{ 'Summary' if assessment.is_questionnaire else 'Notes' }}:</strong></p>
         <p class="mb-0 text-muted">{{ assessment.notes|nl2br }}</p>
         {% endif %}
     </div>
 </div>
+
+{% if assessment.answers %}
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-clipboard-check"></i> Answers</div>
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+            <thead><tr><th>Question</th><th style="width: 8rem">Answer</th><th>Comment</th></tr></thead>
+            <tbody>
+                {% for a in assessment.check_answers + assessment.review_answers %}
+                <tr>
+                    <td{% if a.answer == 'not_ok' %} class="fw-semibold"{% endif %}>{% if a.answer == 'not_ok' %}<i class="fas fa-exclamation-circle text-danger me-1" aria-hidden="true"></i>{% endif %}{{ a.question_text }}{% if a.kind == 'check' %} <span class="badge bg-light text-dark">Check</span>{% endif %}</td>
+                    <td>{{ R.answer_badge(a.answer, a.answer_label) }}</td>
+                    <td>{{ a.comment or '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 <div class="card">
     <div class="card-header"><i class="fas fa-paperclip"></i> Attachments</div>

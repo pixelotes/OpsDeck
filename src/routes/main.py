@@ -31,6 +31,8 @@ DETAIL_CREDENTIAL = 'credentials.detail_credential'
 DETAIL_REQUEST = 'requests.detail_request'
 INCIDENT_DETAIL = 'compliance.incident_detail'
 LOGIN = 'main.login'
+LOGIN_DISABLED_REASON = 'Login disabled (directory-only user)'
+LOGIN_DISABLED_MESSAGE = 'This account is not allowed to sign in to OpsDeck.'
 USERS = 'users.users'
 
 def login_required(f):
@@ -61,6 +63,16 @@ def login():
         user = User.query.filter_by(email=email).first()
 
         if user and user.check_password(password):
+            if not user.login_enabled:
+                log_audit(
+                    event_type='security.login',
+                    action='login',
+                    outcome='failure',
+                    target_object=f"User:{user.id}",
+                    error_message=LOGIN_DISABLED_REASON
+                )
+                flash(LOGIN_DISABLED_MESSAGE, 'danger')
+                return redirect(url_for(LOGIN))
             # Credentials valid - check if MFA is needed
             return verify_ip_and_login(user)
         else:
@@ -191,6 +203,19 @@ def mfa_verify():
         if code == stored_otp:
             # SUCCESS - Get user and complete login
             user = db.session.get(User,user_id)
+            if user and not user.login_enabled:
+                # Sign-in was revoked while the code was in flight.
+                for key in ('mfa_user_id', 'mfa_otp', 'mfa_expiry'):
+                    session.pop(key, None)
+                log_audit(
+                    event_type='security.mfa',
+                    action='verify',
+                    outcome='failure',
+                    target_object=f"User:{user.id}",
+                    error_message=LOGIN_DISABLED_REASON
+                )
+                flash(LOGIN_DISABLED_MESSAGE, 'danger')
+                return redirect(url_for(LOGIN))
             if user:
                 # Save the new IP to whitelist
                 new_ip = UserKnownIP(
@@ -364,6 +389,14 @@ def complete_oauth_login(user, identifier, provider, provider_label, reject_arch
         return _oauth_failure(
             "User is archived",
             'This account is archived and cannot sign in.',
+            target_object=f"User:{user.id}",
+            provider=provider,
+        )
+
+    if not user.login_enabled:
+        return _oauth_failure(
+            LOGIN_DISABLED_REASON,
+            LOGIN_DISABLED_MESSAGE,
             target_object=f"User:{user.id}",
             provider=provider,
         )
@@ -1270,6 +1303,15 @@ def my_dashboard():
         prioritized_tasks.append(_ticket_task(
             f'Request: {req.title}', f'{req.request_type} · status {req.status}',
             url_for(DETAIL_REQUEST, id=req.id), 'View request', due, current_date))
+
+    # 5. Supplier reviews assigned to me (as owner or through an owner group)
+    from ..services.supplier_review_service import open_reviews_for
+    for review in open_reviews_for(user):
+        prioritized_tasks.append(_ticket_task(
+            f'Supplier review: {review.supplier.name}',
+            'Critical supplier' if review.supplier.is_critical else 'Periodic supplier review',
+            url_for('supplier_reviews.fill_review', id=review.id), 'Fill in review',
+            review.due_date, current_date))
 
     # Sort by priority
     prioritized_tasks.sort(key=lambda x: (x['priority'], x['due_text']))

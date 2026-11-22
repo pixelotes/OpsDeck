@@ -38,7 +38,8 @@
                 <tbody>
                     {% for user in users %}
                     <tr>
-                        <td><a href="{{ url_for('users.user_detail', id=user.id) }}">{{ user.name }}</a></td>
+                        <td><a href="{{ url_for('users.user_detail', id=user.id) }}">{{ user.name }}</a>
+                            {% if not user.login_enabled %}<span class="badge bg-light text-dark border ms-1" title="Cannot sign in">Directory only</span>{% endif %}</td>
                         <td>{{ user.email or L.empty() }}</td>
                         <td>{{ user.department or L.empty() }}</td>
                         <td>{{ user.job_title or L.empty() }}</td>

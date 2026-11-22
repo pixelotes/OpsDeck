@@ -79,6 +79,32 @@
                 </div>
             </div>
 
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="review_interval_months" class="form-label">Review every</label>
+                    <select class="form-select" id="review_interval_months" name="review_interval_months"
+                        {% if not can_write('procurement') %}disabled{% endif %}>
+                        {% set interval = supplier.review_interval_months if supplier else none %}
+                        <option value="" {% if not interval %}selected{% endif %}>No periodic reviews</option>
+                        {% for months, label in [(3, '3 months'), (6, '6 months'), (12, '12 months'), (24, '24 months')] %}
+                        <option value="{{ months }}" {% if interval == months %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                        {% if interval and interval not in [3, 6, 12, 24] %}
+                        <option value="{{ interval }}" selected>{{ interval }} months</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="next_review_date" class="form-label">Next review</label>
+                    <input type="date" class="form-control" id="next_review_date" name="next_review_date"
+                        value="{{ supplier.next_review_date.strftime('%Y-%m-%d') if supplier and supplier.next_review_date else '' }}"
+                        {% if not can_write('procurement') %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-text">The owner gets the review questionnaire two weeks before this date. Left empty, it is set from the last review.</div>
+                </div>
+            </div>
+
             <hr class="my-4">
             <h4 class="mb-3">Compliance Details</h4>
 

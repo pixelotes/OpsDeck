@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 {% import 'components/list_macros.html' as L with context %}
+{% import 'components/review_macros.html' as R %}
 {% block title %}Assessments History - {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -13,6 +14,9 @@
         <button class="btn btn-outline-success" onclick="exportTableToCSV('assessments-table', 'security-assessments.csv')">
             <i class="fas fa-file-csv"></i> Export to CSV
         </button>
+        <a href="{{ url_for('supplier_reviews.list_templates') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-clipboard-list"></i> Review templates
+        </a>
         {# Note: New assessments are typically created from the Supplier detail page #}
         {% if can_write('compliance') %}
         <a href="{{ url_for('suppliers.suppliers') }}" class="btn btn-primary">
@@ -29,6 +33,7 @@
                 <tr>
                     <th>Supplier</th>
                     <th>Assessment Date</th>
+                    <th>Owner</th>
                     <th>Status</th>
                     <th>Notes</th>
                     <th class="text-end">Actions</th>
@@ -39,28 +44,22 @@
                 <tr>
                     <td><a href="{{ url_for('suppliers.supplier_detail', id=assessment.supplier.id) }}">{{
                             assessment.supplier.name }}</a></td>
-                    <td>{{ assessment.assessment_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ assessment.assessment_date.strftime('%Y-%m-%d') if not assessment.is_open else ('due ' ~ assessment.due_date.strftime('%Y-%m-%d') if assessment.due_date else '—') }}</td>
+                    <td>{{ L.person(assessment.supplier.owner) }}</td>
                     <td>
-                        {% if assessment.status == 'Compliant' %}
-                        <span class="badge bg-success">Compliant</span>
-                        {% elif assessment.status == 'Non-Compliant' %}
-                        <span class="badge bg-danger">Non-Compliant</span>
-                        {% elif assessment.status == 'Pending Review' %}
-                        <span class="badge bg-warning">Pending Review</span>
-                        {% else %}
-                        <span class="badge bg-secondary">{{ assessment.status }}</span>
-                        {% endif %}
+                        {{ R.status_badge(assessment.status) }}
+                        {% if assessment.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
                     </td>
                     <td>{{ assessment.notes or '' }}</td>
                     <td class="text-end">
                         {% call L.actions() %}
-                        {{ L.action_view(url_for('compliance.assessment_detail', id=assessment.id)) }}
+                        {{ L.action_view(url_for('supplier_reviews.view_review', id=assessment.id)) }}
                         {% endcall %}
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="text-center">No assessments found.</td>
+                    <td colspan="6" class="text-center">No assessments found.</td>
                 </tr>
                 {% endfor %}
             </tbody>

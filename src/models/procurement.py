@@ -59,6 +59,8 @@ class Supplier(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: now())
     is_archived = db.Column(db.Boolean, default=False, nullable=False, index=True)
     is_critical = db.Column(db.Boolean, default=False)
+    # Jira Assets object id when the supplier is synced from Jira (see models/jira_assets.py).
+    jira_object_id = db.Column(db.String(64), unique=True, index=True)
     compliance_status = db.Column(db.String(50), default='Pending')
     gdpr_dpa_signed = db.Column(db.Date, nullable=True)
     security_assessment_completed = db.Column(db.Date, nullable=True)
@@ -69,6 +71,11 @@ class Supplier(db.Model):
     # Polymorphic, same pattern as Link / SecurityActivity.
     owner_id = db.Column(db.Integer)
     owner_type = db.Column(db.String(50))  # 'User' or 'Group'
+
+    # Periodic reviews: every N months the owner gets a review questionnaire, due on
+    # next_review_date. No interval means no automatic reviews.
+    review_interval_months = db.Column(db.Integer)
+    next_review_date = db.Column(db.Date)
 
     attachments = db.relationship('Attachment',
         primaryjoin="and_(Supplier.id==foreign(Attachment.linkable_id), "
@@ -106,6 +113,27 @@ class Supplier(db.Model):
         if self.owner_type == 'Group' and self.owner_id:
             return db.session.get(Group, self.owner_id)
         return None
+
+    @property
+    def owner_users(self):
+        """Active users accountable for the supplier: the owner, or the owner group's members."""
+        owner = self.owner
+        if owner is None:
+            return []
+        members = owner.users if self.owner_type == 'Group' else [owner]
+        return [u for u in members if not u.is_archived]
+
+    @property
+    def open_review(self):
+        """The scheduled review waiting to be filled in, if any."""
+        from .supplier_review import STATUS_SCHEDULED
+        return next((a for a in self.security_assessments if a.status == STATUS_SCHEDULED), None)
+
+    @property
+    def last_completed_review(self):
+        from .supplier_review import STATUS_SCHEDULED
+        done = [a for a in self.security_assessments if a.status != STATUS_SCHEDULED]
+        return max(done, key=lambda a: a.assessment_date, default=None)
 
 
 class PurchaseCostHistory(db.Model):

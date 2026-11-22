@@ -8,6 +8,7 @@ from src.utils.logger import log_audit
 from ..services.permissions_service import requires_permission, has_write_permission
 from ..services import import_service
 from ..utils.json_api import json_endpoint
+from ..utils.redirects import safe_redirect_target
 
 # Admin bp
 admin_bp = Blueprint('admin', __name__)
@@ -105,6 +106,39 @@ def edit_user(id):
         return redirect(url_for(LIST_USERS))
 
     return render_template('admin/edit_user.html', user=user)
+
+
+@admin_bp.route('/users/<int:id>/toggle-login', methods=['POST'])
+@login_required
+@requires_permission(MODULE, access_level='WRITE')
+def toggle_user_login(id):
+    """Switch a user between "can sign in" and "directory only"."""
+    from flask import current_app, session
+
+    user = db.get_or_404(User, id)
+    target = safe_redirect_target(request.referrer, url_for(LIST_USERS))
+    if user.login_enabled:
+        if user.id == session.get('user_id'):
+            flash('You cannot remove your own sign-in access.', 'danger')
+            return redirect(target)
+        if user.email == current_app.config.get('DEFAULT_ADMIN_EMAIL', 'admin@example.com'):
+            flash('The break-glass admin account must keep its sign-in access.', 'danger')
+            return redirect(target)
+
+    user.login_enabled = not user.login_enabled
+    db.session.commit()
+    log_audit(
+        event_type='user.login_access',
+        action='update',
+        target_object=f"User:{user.id}",
+        target_info=f"{user.name} ({user.email})",
+        login_enabled=user.login_enabled,
+    )
+    if user.login_enabled:
+        flash(f'"{user.name}" can now sign in.', 'success')
+    else:
+        flash(f'"{user.name}" is now directory only and cannot sign in.', 'success')
+    return redirect(target)
 
 
 @admin_bp.route('/users/<int:id>/delete', methods=['POST'])
@@ -543,6 +577,9 @@ def entra_sync_settings():
     settings.group_ids = '\n'.join(
         g.strip() for g in form.get('group_ids', '').replace(',', '\n').splitlines() if g.strip())
     settings.default_role = default_role
+    settings.new_user_login = form.get('new_user_login') == 'on'
+    settings.access_group_ids = '\n'.join(
+        g.strip() for g in form.get('access_group_ids', '').replace(',', '\n').splitlines() if g.strip())
     settings.schedule_mode = schedule_mode
     settings.daily_time = daily_time
     settings.interval_hours = interval_hours
@@ -556,7 +593,8 @@ def entra_sync_settings():
         target_object='EntraSyncSettings:1',
         target_info=(f"enabled={settings.enabled}, schedule={schedule_mode}, "
                      f"groups={len(settings.group_id_list)}, role={default_role}, "
-                     f"threshold={threshold}%"),
+                     f"new_user_login={settings.new_user_login}, "
+                     f"access_groups={len(settings.access_group_id_list)}, threshold={threshold}%"),
     )
     flash('Entra ID sync settings saved.', 'success')
     return redirect(url_for(ENTRA_HOME))
@@ -574,11 +612,7 @@ def entra_sync_preview():
         flash(f'Could not build the preview: {exc}', 'danger')
         return redirect(url_for(ENTRA_HOME))
     settings = EntraSyncSettings.get()
-    over_brake = False
-    try:
-        svc.check_archive_brake(plan, settings.archive_threshold_percent)
-    except svc.SyncAborted:
-        over_brake = True
+    over_brake = svc.brake_reasons(plan, settings.archive_threshold_percent)
     return render_template('admin/entra_sync_preview.html', plan=plan, run=None,
                            over_brake=over_brake, settings=settings)
 

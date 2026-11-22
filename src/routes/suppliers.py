@@ -1,10 +1,29 @@
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash
+    Blueprint, render_template, request, redirect, url_for, flash, session
 )
-from ..models import db, Supplier
+from datetime import datetime
+
+from ..models import db, Supplier, User
 from .main import login_required
 from ..services.permissions_service import requires_permission, has_write_permission
 from ..utils.owner import parse_owner, owner_choices, InvalidOwner
+from ..services import supplier_review_service as reviews
+
+
+def _apply_review_schedule(supplier, form):
+    """Review interval and next review date from the supplier form."""
+    interval = form.get('review_interval_months', type=int)
+    supplier.review_interval_months = interval if interval and interval > 0 else None
+    raw_date = (form.get('next_review_date') or '').strip()
+    if not supplier.review_interval_months:
+        supplier.next_review_date = None
+    elif raw_date:
+        try:
+            supplier.next_review_date = datetime.strptime(raw_date, '%Y-%m-%d').date()
+        except ValueError:
+            flash('Ignored an invalid next review date.', 'warning')
+    if supplier.review_interval_months and not supplier.next_review_date:
+        supplier.next_review_date = reviews.initial_next_review_date(supplier)
 
 suppliers_bp = Blueprint('suppliers', __name__)
 
@@ -73,6 +92,7 @@ def new_supplier():
             compliance_notes=request.form.get('compliance_notes'),
             is_critical=request.form.get('is_critical') == 'on'
         )
+        _apply_review_schedule(supplier, request.form)
         db.session.add(supplier)
         db.session.commit()
         flash('Supplier created successfully!', 'success')
@@ -86,7 +106,12 @@ def new_supplier():
 @requires_permission(MODULE, access_level='READ_ONLY')
 def supplier_detail(id):
     supplier = db.get_or_404(Supplier, id)
-    return render_template('suppliers/detail.html', supplier=supplier)
+    user = db.session.get(User, session.get('user_id'))
+    is_owner = reviews.is_reviewer(user, supplier)
+    can_edit_reviews = has_write_permission('compliance')
+    return render_template('suppliers/detail.html', supplier=supplier,
+                           can_start_review=is_owner or can_edit_reviews or has_write_permission(MODULE),
+                           can_fill_open=is_owner or can_edit_reviews)
 
 @suppliers_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -116,6 +141,7 @@ def edit_supplier(id):
         supplier.compliance_notes = request.form.get('compliance_notes')
         supplier.data_storage_region = request.form.get('data_storage_region')
         supplier.is_critical = request.form.get('is_critical') == 'on'
+        _apply_review_schedule(supplier, request.form)
         db.session.commit()
         flash('Supplier updated successfully!', 'success')
         return redirect(url_for('suppliers.supplier_detail', id=supplier.id)) # Redirect to detail view
