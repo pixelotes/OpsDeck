@@ -100,7 +100,7 @@ def test_open_session_ends_when_access_removed(client, app):
 
 def test_api_token_refused(client, app):
     user = _user('dir@corp.com', login_enabled=False, password=None)
-    user.api_token = 'dir-token'
+    user.set_api_token('dir-token')
     db.session.commit()
     resp = client.get('/api/v1/users', headers={'Authorization': 'Bearer dir-token'})
     assert resp.status_code == 401

@@ -1,6 +1,6 @@
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, session, jsonify,
-    current_app, abort
+    current_app, abort, make_response
 )
 import os
 from sqlalchemy import or_, func
@@ -1663,7 +1663,7 @@ def my_api_key():
 def generate_my_token():
     """Generate a new API token for the current user."""
     user = db.session.get(User,session['user_id'])
-    user.generate_token()
+    new_token = user.generate_token()
     db.session.commit()
     
     log_audit(
@@ -1674,8 +1674,11 @@ def generate_my_token():
         description="User generated their own API token"
     )
     
-    flash('New API Token generated successfully.', 'success')
-    return redirect(url_for('main.my_api_key'))
+    # Rendered, not redirected: only the hash is stored, so this response is the one
+    # chance to see the token. Not cached, so Back does not show it again.
+    response = make_response(render_template('api_key.html', new_token=new_token))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 # --- INTERNAL ROUTES (Localhost Only) ---

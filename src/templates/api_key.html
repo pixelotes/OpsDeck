@@ -18,14 +18,31 @@
                     <code>Authorization: Bearer &lt;token&gt;</code>
                 </p>
 
+                {% if new_token %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Copy this token now. It is stored hashed and will not be shown again.
+                </div>
                 <div class="input-group mb-3">
-                    <input type="text" class="form-control" value="{{ current_user.api_token or 'No token generated' }}"
-                        readonly id="apiTokenField">
+                    <input type="text" class="form-control font-monospace" value="{{ new_token }}"
+                        readonly id="apiTokenField" aria-label="Your new API token">
                     <button class="btn btn-outline-secondary" type="button"
                         onclick="navigator.clipboard.writeText(document.getElementById('apiTokenField').value)">
                         <i class="fas fa-copy"></i>
                     </button>
                 </div>
+                {% elif current_user.has_api_token %}
+                <p><span class="badge bg-success">Token active</span>
+                    <span class="text-muted small">The token is shown only when it is generated. Lost it? Generate a new one.</span></p>
+                {% else %}
+                <p><span class="badge bg-secondary">No token generated</span></p>
+                {% endif %}
+
+                <p class="text-muted small">
+                    Read endpoints (<code>GET</code>) are open to any valid token. Write endpoints
+                    (<code>POST</code>) require write access to the module that owns the data, the same
+                    as in the web interface; creating or updating users with a role requires an admin.
+                </p>
 
                 <form action="{{ url_for('main.generate_my_token') }}" method="POST"
                     data-confirm='Are you sure? This will invalidate any existing token.'>

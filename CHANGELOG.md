@@ -44,7 +44,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security updates: PyJWT 2.14.0 (CVE-2026-102268, critical) and WeasyPrint 70.0 (CVE-2026-106443)
 - Updated Python dependencies: APScheduler, pytz, Markdown, slack_sdk, cryptography, boto3 (patch/minor bumps)
 
+### Security
+- **Any API token could create an admin, or promote its own user.** `POST /api/v1/users` accepted any `role` and the API checked only that the token was valid. A token now acts with its user's permissions: `GET` endpoints remain open to any valid token, so read integrations are unaffected, while `POST` endpoints need WRITE access to the module that owns the data, as in the web interface (`administration` for users, `operations` for changes, requests and incidents, `hr_people` for onboardings; admins have every module). Setting a user's `role`, or changing a user who is an admin, needs an admin token, and `role` must be `user`, `editor` or `admin`. A denial is a `403`. Integrations that write with a non-admin service account need the matching module permission
+- **API tokens were written to the audit log in clear.** The audit listener skipped sensitive columns by exact name and `api_token` was not on the list, so every token generation stored the old and new token in `audit_log.changes`. Sensitive columns (API tokens, password hashes, secrets, connector `auth_config`, license keys) are now matched by name and substring and recorded with their values replaced by `[REDACTED]`, so the log still shows that they changed. Migration 030 redacts the rows already written
+- **API tokens are stored hashed.** `user.api_token` is replaced by `user.api_token_hash` (SHA-256), and the token is shown only once, on the page that generates it; the user detail page no longer displays another user's token to anyone who can open it. Migration 030 hashes existing tokens in place, so integrations keep working with the tokens they have; a lost token has to be regenerated. Downgrading drops the hashes, and every user then needs a new token
+- **Stored XSS in the audit log detail window.** The record name and the old and new values were inserted as HTML; they are now set as text
+- The API now refuses the token of an archived user
+
 ### Fixed
+- **Audit Log "Export to CSV" did nothing**: the button reloaded the page, because the route ignored `export=csv`. It now downloads every entry matching the current filters (not only the visible page) as CSV, with spreadsheet formulas neutralised
 - **Disposal records**: editing a disposal cleared its disposal partner (the edit form was rendered without the supplier list); attaching a certificate on create or edit failed (it redirected a GET to the POST-only upload route), and the create form had no certificate field; the create form's date started empty instead of today
 - **Credentials**: choosing a Service as the target did nothing, since services became many-to-many; the form now links and unlinks the service it shows and leaves other service links alone
 - **Offboarding**: transferring a credential with no new owner selected tried to store a NULL owner and failed; it now asks for the new owner

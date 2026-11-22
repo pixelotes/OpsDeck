@@ -59,14 +59,11 @@
             <code>Authorization: Bearer &lt;token&gt;</code>
         </p>
 
-        <div class="input-group mb-3">
-            <input type="text" class="form-control" value="{{ user.api_token or 'No token generated' }}" readonly
-                id="apiTokenField">
-            <button class="btn btn-outline-secondary" type="button"
-                onclick="navigator.clipboard.writeText(document.getElementById('apiTokenField').value)">
-                <i class="fas fa-copy"></i>
-            </button>
-        </div>
+        <p>
+            {% if user.has_api_token %}<span class="badge bg-success">Token active</span>
+            {% else %}<span class="badge bg-secondary">No token generated</span>{% endif %}
+            <span class="text-muted small">Tokens are stored hashed and shown only when generated.</span>
+        </p>
 
         {% if can_write('administration') %}
         <form action="{{ url_for('users.generate_token', id=user.id) }}" method="POST"

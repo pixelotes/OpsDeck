@@ -201,3 +201,42 @@ class TestMigrations:
                     f"Models and migrations are out of sync.\n"
                     f"Detected {len(meaningful)} difference(s):\n{changes}"
                 )
+
+    def test_030_hashes_api_tokens_and_scrubs_audit_log(self):
+        """Existing tokens keep working (hashed in place); audit rows lose secrets."""
+        import hashlib
+        import json
+
+        self._upgrade('029')
+        leaked = json.dumps({
+            'api_token': {'old': 'old-token', 'new': 'live-token'},
+            'name': {'old': 'A', 'new': 'B'},
+        })
+        with self.engine.begin() as conn:
+            conn.execute(text(
+                'INSERT INTO "user" (name, email, api_token, is_archived, hide_from_org_chart) '
+                "VALUES ('Svc', 'svc@test.com', 'live-token', false, false)"))
+            conn.execute(text(
+                "INSERT INTO audit_log (timestamp, action, entity_type, changes) "
+                "VALUES (now(), 'update', 'User', :changes)"), {'changes': leaked})
+
+        self._upgrade('030')
+
+        with self.engine.connect() as conn:
+            stored = conn.execute(text(
+                "SELECT api_token_hash FROM \"user\" WHERE email = 'svc@test.com'")).scalar()
+            changes = json.loads(conn.execute(text('SELECT changes FROM audit_log')).scalar())
+        assert stored == hashlib.sha256(b'live-token').hexdigest()
+        assert changes == {
+            'api_token': {'old': '[REDACTED]', 'new': '[REDACTED]'},
+            'name': {'old': 'A', 'new': 'B'},
+        }
+
+        with self.app.app_context():
+            from src.models import User
+            assert User.find_by_api_token('live-token').email == 'svc@test.com'
+
+        self._downgrade('029')
+        columns = {c['name'] for c in inspect(self.engine).get_columns('user')}
+        assert 'api_token' in columns
+        assert 'api_token_hash' not in columns
