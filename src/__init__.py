@@ -599,6 +599,9 @@ def create_app(test_config=None):
     from .routes.contracts import contracts_bp
     app.register_blueprint(contracts_bp, url_prefix='/contracts')
 
+    from .routes.supplier_reviews import supplier_reviews_bp
+    app.register_blueprint(supplier_reviews_bp, url_prefix='/supplier-reviews')
+
     # --- Google OAuth Blueprint ---
     if app.config.get('GOOGLE_OAUTH_CLIENT_ID'):
         google_bp = make_google_blueprint(
@@ -918,6 +921,18 @@ def create_app(test_config=None):
             trigger="interval",
             minutes=JIRA_ASSETS_INTERVAL,
             id=JIRA_ASSETS_JOB_ID,
+            replace_existing=True
+        )
+        # Supplier reviews - open the due ones and remind overdue owners, daily at 8:30
+        from .services.supplier_review_service import run_daily as run_supplier_reviews
+        scheduler.add_job(
+            func=run_supplier_reviews,
+            args=[app],
+            trigger="cron",
+            hour=8,
+            minute=30,
+            timezone=app_timezone,
+            id="supplier_reviews",
             replace_existing=True
         )
         app.extensions['opsdeck_scheduler'] = scheduler

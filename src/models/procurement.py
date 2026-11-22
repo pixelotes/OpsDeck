@@ -72,6 +72,11 @@ class Supplier(db.Model):
     owner_id = db.Column(db.Integer)
     owner_type = db.Column(db.String(50))  # 'User' or 'Group'
 
+    # Periodic reviews: every N months the owner gets a review questionnaire, due on
+    # next_review_date. No interval means no automatic reviews.
+    review_interval_months = db.Column(db.Integer)
+    next_review_date = db.Column(db.Date)
+
     attachments = db.relationship('Attachment',
         primaryjoin="and_(Supplier.id==foreign(Attachment.linkable_id), "
         "Attachment.linkable_type=='Supplier')",
@@ -108,6 +113,27 @@ class Supplier(db.Model):
         if self.owner_type == 'Group' and self.owner_id:
             return db.session.get(Group, self.owner_id)
         return None
+
+    @property
+    def owner_users(self):
+        """Active users accountable for the supplier: the owner, or the owner group's members."""
+        owner = self.owner
+        if owner is None:
+            return []
+        members = owner.users if self.owner_type == 'Group' else [owner]
+        return [u for u in members if not u.is_archived]
+
+    @property
+    def open_review(self):
+        """The scheduled review waiting to be filled in, if any."""
+        from .supplier_review import STATUS_SCHEDULED
+        return next((a for a in self.security_assessments if a.status == STATUS_SCHEDULED), None)
+
+    @property
+    def last_completed_review(self):
+        from .supplier_review import STATUS_SCHEDULED
+        done = [a for a in self.security_assessments if a.status != STATUS_SCHEDULED]
+        return max(done, key=lambda a: a.assessment_date, default=None)
 
 
 class PurchaseCostHistory(db.Model):

@@ -9,7 +9,7 @@ One-way sync from Jira Service Management Assets:
   linked to.
 
 Revision ID: 029
-Revises: 026
+Revises: 027
 Create Date: 2026-11-17
 
 """
@@ -19,7 +19,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '029'
-down_revision = '026'
+down_revision = '027'
 branch_labels = None
 depends_on = None
 
