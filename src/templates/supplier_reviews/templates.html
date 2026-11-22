@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% import 'components/list_macros.html' as L with context %}
+
+{% block title %}Supplier review templates - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2><i class="fas fa-clipboard-list"></i> Supplier review templates</h2>
+        <p class="text-muted mb-0">The questionnaire supplier owners fill in. New reviews use the default template.</p>
+    </div>
+    {% if can_write('compliance') %}
+    <a href="{{ url_for('supplier_reviews.new_template') }}" class="btn btn-primary"><i class="fas fa-plus"></i> New template</a>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover" id="review-templates-table">
+            <thead>
+                <tr><th>Name</th><th>Questions</th><th>Status</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for t in templates %}
+                <tr class="{{ 'text-muted' if t.is_archived }}">
+                    <td>{{ t.name }}{% if t.description %}<div class="small text-muted">{{ t.description }}</div>{% endif %}</td>
+                    <td>{{ t.check_questions|length }} check · {{ t.review_questions|length }} review</td>
+                    <td>{% if t.is_default %}<span class="badge bg-primary">Default</span>
+                        {% elif t.is_archived %}<span class="badge bg-secondary">Archived</span>
+                        {% else %}<span class="badge bg-light text-dark">Available</span>{% endif %}</td>
+                    <td>{% if can_write('compliance') %}{% call L.actions() %}
+                        {{ L.action_edit(url_for('supplier_reviews.edit_template', id=t.id)) }}
+                        {% if not t.is_default %}
+                        {{ L.action_button(url_for('supplier_reviews.make_default_template', id=t.id), 'star', 'Make default', method='post') }}
+                        {{ L.action_button(url_for('supplier_reviews.archive_template', id=t.id), 'archive' if not t.is_archived else 'box-open', 'Archive' if not t.is_archived else 'Restore', method='post') }}
+                        {% endif %}
+                        {% endcall %}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1608,8 +1608,11 @@ def create_rule():
     elif target_model == 'SecurityAssessment':
         # Optional: Filter by specific supplier
         supplier_id = request.form.get('supplier_id', type=int)
+        scope = request.form.get('supplier_scope')
         if supplier_id:
             criteria = {"supplier_id": supplier_id}
+        elif scope in ('critical', 'all'):
+            criteria = {"scope": scope}  # every (critical) supplier must be reviewed
         else:
             criteria = {}  # Any supplier assessment counts
     
