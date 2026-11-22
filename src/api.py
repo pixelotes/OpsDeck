@@ -67,6 +67,21 @@ def check_token():
         )
         return jsonify({"error": "Token is invalid"}), 401
 
+    if not current_api_user.login_enabled:
+        # Directory-only users keep their row (and maybe an old token) but no access.
+        current_app.logger.warning(
+            "API Access Failed: Login Disabled",
+            extra={
+                "event.action": "api.request.failure",
+                "failure.reason": "login_disabled",
+                "user.id": current_api_user.id,
+                "source.ip": request.remote_addr,
+                "http.request.method": request.method,
+                "url.path": request.path
+            }
+        )
+        return jsonify({"error": "Token is invalid"}), 401
+
     g.api_user = current_api_user
 
     current_app.logger.info(

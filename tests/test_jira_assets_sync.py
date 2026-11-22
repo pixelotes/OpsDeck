@@ -80,11 +80,15 @@ def sync(profile, objects, **kw):
 # --- Client ------------------------------------------------------------------------
 
 @pytest.mark.parametrize('url', ['http://acme.atlassian.net', 'https://evil.com', 'https://acme.atlassian.net/x',
-                                 'https://user:pw@acme.atlassian.net', 'https://acme.atlassian.net.evil.com',
-                                 'https://acme.atlassian.net:8443', ''])
+                                 'https://user:pw@acme.atlassian.net', 'https://acme.atlassian.net.evil.com', ''])
 def test_site_url_must_be_an_atlassian_site(url):
     with pytest.raises(JiraAssetsError):
         validate_site_url(url)
+
+
+def test_site_url_honours_allowed_hosts(monkeypatch):
+    monkeypatch.setenv('ATLASSIAN_ALLOWED_HOSTS', 'jira.corp.example')
+    assert validate_site_url('https://jira.corp.example') == 'https://jira.corp.example'
 
 
 def test_site_url_is_normalised():

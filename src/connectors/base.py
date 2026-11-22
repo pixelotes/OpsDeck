@@ -34,6 +34,7 @@ class BaseConnector(ABC):
         self.max_retries = 3
         self.retry_delay = 2  # seconds
         self.rate_limit_delay = 60  # seconds
+        self.max_pages = 1000
         
     @property
     def auth(self):
@@ -170,6 +171,7 @@ class BaseConnector(ABC):
         all_items = []
         page_token = None
         page_count = 0
+        seen_urls = set()
         start_time = time.time()
         
         try:
@@ -177,6 +179,12 @@ class BaseConnector(ABC):
                 page_count += 1
                 logger.debug(f"[{self.task.service}] Fetching page {page_count} (token: {page_token})")
                 url = self.build_request_url(page_token)
+                # A repeated URL means the pagination is not advancing: fail loudly
+                # rather than save the same page over and over.
+                if url in seen_urls:
+                    raise RuntimeError(
+                        f"[{self.task.service}] Pagination repeated {url} after {page_count - 1} pages")
+                seen_urls.add(url)
                 
                 response = self.fetch_page(url)
                 response_data = response.json()
@@ -192,10 +200,11 @@ class BaseConnector(ABC):
                     logger.debug(f"[{self.task.service}] No more pages to fetch")
                     break
                     
-                # Safety check: don't fetch more than 100 pages
-                if page_count >= 100:
-                    logger.warning(f"[{self.task.service}] Reached maximum page limit (100)")
-                    break
+                # Safety net: a report silently cut short would hide accounts from
+                # access reviews, so hitting the limit fails the run instead.
+                if page_count >= self.max_pages:
+                    raise RuntimeError(
+                        f"[{self.task.service}] More than {self.max_pages} pages; refusing to save a partial report")
             
             duration_ms = int((time.time() - start_time) * 1000)
             logger.info(f"[{self.task.service}] Completed: {len(all_items)} total items from {page_count} pages in {duration_ms}ms")

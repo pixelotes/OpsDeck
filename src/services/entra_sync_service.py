@@ -6,7 +6,11 @@ own users against them:
 * users are matched by Entra object id (``User.entra_oid``) and, the first time, by
   ``userPrincipalName`` against ``User.email`` (``mail`` is never used, for the same
   reason as in the SSO callback: it is admin-editable and unverified);
-* missing users are created with the configured default role and no password;
+* missing users are created with the configured default role and no password,
+  "directory only" (``login_enabled`` False) unless the settings say otherwise;
+* optionally, the members of "access" groups may sign in and the rest may not: the
+  sync then keeps every synced user's ``login_enabled`` in line with membership. Each
+  such change is a plan entry, so it shows in the preview and the run history;
 * name, department, job title and manager are kept up to date;
 * Entra-linked users that left the scope (or were disabled) are archived, never
   deleted, and unarchived if they come back. Users that were never linked to Entra
@@ -92,20 +96,31 @@ class GraphClient(msgraph.GraphClient):
         return data.get('id') if data else None
 
 
-def fetch_scope(graph, group_ids):
+def _enabled_members(graph, group_id):
+    for member in graph.group_users(group_id):
+        if member.get('accountEnabled') is False or not member.get('id'):
+            continue
+        yield member
+
+
+def fetch_scope(graph, group_ids, access_group_ids=()):
     """Return {oid: entra_user} for every enabled user in the configured groups.
 
+    Members of ``access_group_ids`` are in scope too and carry ``loginAccess: True``.
+
     Raises EntraSyncError if any group cannot be read: a partial view of the scope
-    would otherwise archive everyone in the missing group.
+    would otherwise archive everyone in the missing group (or, for an access group,
+    take sign-in away from everyone in it).
     """
     if not group_ids:
         raise EntraSyncError('No Entra group ids are configured.')
     scope = {}
     for group_id in group_ids:
-        for member in graph.group_users(group_id):
-            if member.get('accountEnabled') is False or not member.get('id'):
-                continue
+        for member in _enabled_members(graph, group_id):
             scope[member['id']] = member
+    for group_id in access_group_ids:
+        for member in _enabled_members(graph, group_id):
+            scope.setdefault(member['id'], member)['loginAccess'] = True
     for oid, member in scope.items():
         member['managerId'] = graph.manager_id(oid)
     return scope
@@ -133,9 +148,11 @@ SYNCED_FIELDS = (('name', 'displayName'), ('department', 'department'), ('job_ti
 class _PlanContext:
     """State shared by the planning helpers while one plan is built."""
 
-    def __init__(self, scope, default_role):
+    def __init__(self, scope, default_role, new_user_login, access_managed):
         self.scope = scope
         self.default_role = default_role
+        self.new_user_login = new_user_login
+        self.access_managed = access_managed
         self.by_oid = {u.entra_oid: u for u in
                        User.query.filter(User.entra_oid.isnot(None)).order_by(User.id).all()}
         # oid -> OpsDeck user (existing) or None (to be created), for manager resolution.
@@ -145,14 +162,18 @@ class _PlanContext:
         self.errors = []
 
 
-def build_plan(scope, default_role='user'):
+def build_plan(scope, default_role='user', new_user_login=False, access_managed=False):
     """Compute the changes needed to reconcile OpsDeck users with ``scope``.
+
+    New users get sign-in access when ``new_user_login`` is set. With
+    ``access_managed`` (access groups configured), sign-in access follows the
+    members' ``loginAccess`` flag instead, for new and existing synced users alike.
 
     Returns a dict with ``changes`` (create/update/unarchive/archive entries),
     ``errors`` (conflicts that were skipped) and ``linked_count`` (Entra-linked,
     non-archived users today, the base of the archive brake). Nothing is written.
     """
-    ctx = _PlanContext(scope, default_role)
+    ctx = _PlanContext(scope, default_role, new_user_login, access_managed)
     for oid, member in sorted(scope.items(), key=lambda kv: (kv[1].get('userPrincipalName') or '').lower()):
         _plan_member(ctx, oid, member)
     for change in ctx.changes:
@@ -161,8 +182,12 @@ def build_plan(scope, default_role='user'):
 
     changes = [c for c in ctx.changes if c['action'] != 'unchanged']
     linked_count = sum(1 for u in ctx.by_oid.values() if not u.is_archived)
+    # Existing users whose sign-in access would change: flagged in the preview.
+    login_changes = [c['fields']['login_enabled'][1] for c in changes
+                     if c['action'] != 'create' and 'login_enabled' in c['fields']]
     return {'changes': changes, 'errors': ctx.errors, 'linked_count': linked_count,
-            'counts': _counts(changes)}
+            'counts': _counts(changes), 'login_changes': len(login_changes),
+            'login_revocations': login_changes.count(False)}
 
 
 def _match_user(ctx, oid, upn):
@@ -194,6 +219,10 @@ def _plan_member(ctx, oid, member):
     ctx.resolved[oid] = user
     fields = {'entra_oid': [user.entra_oid, oid]} if linked_by_upn else {}
     fields.update(_field_diff(user, member))
+    if ctx.access_managed:
+        wanted = _login_access(ctx, member)
+        if user.login_enabled != wanted:
+            fields['login_enabled'] = [user.login_enabled, wanted]
     if user.is_archived:
         action = 'unarchive'
     else:
@@ -213,7 +242,15 @@ def _plan_create(ctx, oid, member, upn):
         'department': [None, member.get('department')],
         'job_title': [None, member.get('jobTitle')],
         'role': [None, ctx.default_role],
+        'login_enabled': [None, _login_access(ctx, member)],
     }))
+
+
+def _login_access(ctx, member):
+    """Whether this Entra member should be able to sign in to OpsDeck."""
+    if ctx.access_managed:
+        return bool(member.get('loginAccess'))
+    return bool(ctx.new_user_login)
 
 
 def _field_diff(user, member):
@@ -278,15 +315,27 @@ def plan_fingerprint(plan):
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def check_archive_brake(plan, threshold_percent):
-    """Raise SyncAborted if the plan would archive too many synced users."""
-    to_archive = plan['counts']['archive']
+def brake_reasons(plan, threshold_percent):
+    """What in ``plan`` exceeds the safety threshold, as sentences (empty if nothing).
+
+    Archiving and removing sign-in access are both checked: an access group that is
+    read correctly but emptied by mistake would otherwise lock every synced user out.
+    """
     base = plan['linked_count']
-    if to_archive and base and to_archive * 100 > base * threshold_percent:
-        raise SyncAborted(
-            f'Run would archive {to_archive} of {base} synced users, above the '
-            f'{threshold_percent}% safety threshold. Nothing was changed.'
-        )
+    reasons = []
+    for count, verb in ((plan['counts']['archive'], 'archive'),
+                        (plan.get('login_revocations', 0), 'remove sign-in access from')):
+        if count and base and count * 100 > base * threshold_percent:
+            reasons.append(f'Run would {verb} {count} of {base} synced users, above the '
+                           f'{threshold_percent}% safety threshold.')
+    return reasons
+
+
+def check_archive_brake(plan, threshold_percent):
+    """Raise SyncAborted if the plan would archive (or lock out) too many synced users."""
+    reasons = brake_reasons(plan, threshold_percent)
+    if reasons:
+        raise SyncAborted(' '.join(reasons) + ' Nothing was changed.')
 
 
 ARCHIVE_STATE = {'archive': True, 'unarchive': False}
@@ -305,11 +354,12 @@ def _apply_user_change(change):
     if change['action'] == 'create':
         f = change['fields']
         user = User(email=f['email'][1], name=f['name'][1], department=f['department'][1],
-                    job_title=f['job_title'][1], role=f['role'][1], entra_oid=change['oid'])
+                    job_title=f['job_title'][1], role=f['role'][1], entra_oid=change['oid'],
+                    login_enabled=bool(f.get('login_enabled', [None, False])[1]))
         db.session.add(user)
         return user
     user = db.session.get(User, change['user_id'])
-    for attr in ('entra_oid', 'name', 'department', 'job_title'):
+    for attr in ('entra_oid', 'name', 'department', 'job_title', 'login_enabled'):
         if attr in change['fields']:
             setattr(user, attr, change['fields'][attr][1])
     if change['action'] in ARCHIVE_STATE:
@@ -372,10 +422,16 @@ def preview(graph=None):
     if not settings.enabled:
         raise EntraSyncError('Entra ID sync is disabled.')
     graph = graph or GraphClient.from_config()
-    scope = fetch_scope(graph, settings.group_id_list)
-    plan = build_plan(scope, settings.default_role)
+    plan = _plan_from_settings(graph, settings)
     plan['fingerprint'] = plan_fingerprint(plan)
     return plan
+
+
+def _plan_from_settings(graph, settings):
+    access_groups = settings.access_group_id_list
+    scope = fetch_scope(graph, settings.group_id_list, access_groups)
+    return build_plan(scope, settings.default_role, new_user_login=settings.new_user_login,
+                      access_managed=bool(access_groups))
 
 
 def run_sync(trigger, triggered_by=None, dry_run=False, graph=None, enforce_brake=None,
@@ -424,8 +480,7 @@ def _execute(run, settings, graph, dry_run, enforce_brake, expected_fingerprint)
     try:
         if not settings.enabled:
             raise EntraSyncError('Entra ID sync is disabled.')
-        scope = fetch_scope(graph or GraphClient.from_config(), settings.group_id_list)
-        plan = build_plan(scope, settings.default_role)
+        plan = _plan_from_settings(graph or GraphClient.from_config(), settings)
         if expected_fingerprint and plan_fingerprint(plan) != expected_fingerprint:
             raise SyncAborted('Entra ID changed since the preview. Review the new preview and confirm again.')
         if not dry_run:

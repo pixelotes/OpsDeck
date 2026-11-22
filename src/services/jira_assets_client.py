@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 
 import requests
 
+from ..connectors.atlassian import validate_site_url as atlassian_site_url
+
 logger = logging.getLogger(__name__)
 
 ASSETS_API = 'https://api.atlassian.com/jsm/assets/workspace/{workspace}/v1'
@@ -28,15 +30,13 @@ class JiraAssetsError(Exception):
 def validate_site_url(site_url):
     """Return the normalised site URL, or raise JiraAssetsError.
 
-    Only ``https://<name>.atlassian.net`` is accepted, so the stored API token can
-    never be sent to another host.
+    Same rule as the Atlassian API connector: https on *.atlassian.net or on a host
+    listed in ATLASSIAN_ALLOWED_HOSTS, so the stored API token never goes elsewhere.
     """
-    parsed = urlparse((site_url or '').strip())
-    host = (parsed.hostname or '').lower()
-    if (parsed.scheme != 'https' or not host.endswith('.atlassian.net') or parsed.username
-            or parsed.password or parsed.port or parsed.path.strip('/')):
-        raise JiraAssetsError('The Atlassian site URL must be https://<your-site>.atlassian.net.')
-    return f'https://{host}'
+    try:
+        return atlassian_site_url(site_url)
+    except ValueError as exc:
+        raise JiraAssetsError(f'Invalid Atlassian site URL: {exc}.') from None
 
 
 class JiraAssetsClient:
